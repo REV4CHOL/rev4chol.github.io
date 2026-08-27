@@ -10,9 +10,13 @@ const FRAMES = 4;
  *  void, instead of crawling across it as a stretched grey mosaic. */
 function noiseTile(spread: number): string {
   const c = document.createElement('canvas');
-  c.width = c.height = TILE;
+  // bake at device resolution: CSS pins background-size to TILE px, so a
+  // TILE×dpr source maps 1:1 to device pixels on any panel — at DPR 2 the
+  // texels stay single device pixels instead of upscaling into 2×2 blocks
+  const px = Math.round(TILE * (window.devicePixelRatio || 1));
+  c.width = c.height = px;
   const ctx = c.getContext('2d')!;
-  const img = ctx.createImageData(TILE, TILE);
+  const img = ctx.createImageData(px, px);
   const d = img.data;
   for (let i = 0; i < d.length; i += 4) {
     const v = (128 + (Math.random() * 2 - 1) * spread) | 0;
