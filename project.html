@@ -10,21 +10,70 @@
 </head>
 <body class="page-project">
   <main id="app" class="project-main">
+
     <section class="p-hero" id="p-hero">
       <video id="p-hero-video" muted loop playsinline autoplay></video>
       <canvas id="p-hero-veil" aria-hidden="true"></canvas>
-      <h1 class="p-title" id="p-title"></h1>
+      <svg class="p-ring" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="48" />
+        <circle cx="50" cy="50" r="39" />
+      </svg>
+      <div class="p-scanframe" aria-hidden="true"></div>
+      <p class="p-status micro"><span id="p-status-line"></span><span class="p-caret" aria-hidden="true">▮</span></p>
+      <div class="p-index micro" id="p-index"></div>
+      <div class="p-callouts micro" id="p-callouts"></div>
+      <h1 class="p-title-stack">
+        <span class="p-title-ghost" id="p-title-ghost" aria-hidden="true"></span>
+        <span class="p-title" id="p-title"></span>
+      </h1>
     </section>
-    <section class="p-meta micro" id="p-meta"></section>
-    <section class="p-synopsis" id="p-synopsis"></section>
-    <section class="p-watch">
-      <button class="btn" id="p-watch-btn" hidden>WATCH FILM ▸</button>
-      <div class="p-player" id="p-player" hidden></div>
+
+    <section class="p-sec p-spec-sec">
+      <div class="p-rail"><span class="p-rail-tag" aria-hidden="true">I:</span></div>
+      <div class="p-sec-body">
+        <h2 class="visually-hidden">Intake</h2>
+        <dl class="p-spec" id="p-spec" data-stamp></dl>
+      </div>
+      <div class="p-checks-v" aria-hidden="true"></div>
     </section>
-    <section class="p-stills" id="p-stills"></section>
-    <section class="p-credits" id="p-credits"></section>
-    <nav class="p-pager" id="p-pager" aria-label="More projects"></nav>
+
+    <section class="p-sec p-syn-sec">
+      <div class="p-rail"><span class="p-rail-tag" aria-hidden="true">SYN:</span></div>
+      <div class="p-sec-body">
+        <h2 class="visually-hidden">Synopsis</h2>
+        <div class="p-arc-clip" aria-hidden="true"><div class="p-arc"></div></div>
+        <p class="p-synopsis" id="p-synopsis" data-stamp></p>
+        <div class="p-watch">
+          <button class="p-run" id="p-watch-btn" hidden data-stamp>RUN FULL FILM ▸</button>
+          <div class="p-player" id="p-player" hidden></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="p-ticker" aria-hidden="true"><div class="p-ticker-track" id="p-ticker-track"></div></div>
+
+    <section class="p-sec p-rec-sec" id="p-rec-sec">
+      <div class="p-rail"><span class="p-rail-tag" aria-hidden="true">REC:</span></div>
+      <div class="p-sec-body">
+        <h2 class="visually-hidden">Record — stills</h2>
+        <div class="p-wall" id="p-stills"></div>
+      </div>
+    </section>
+
+    <section class="p-sec p-cr-sec" id="p-credits-sec" hidden>
+      <div class="p-rail"><span class="p-rail-tag" aria-hidden="true">CR:</span></div>
+      <div class="p-sec-body">
+        <h2 class="visually-hidden">Credits</h2>
+        <div class="p-credits" id="p-credits"></div>
+        <p class="p-prodbar micro" data-stamp>PRODUCTION ▸ REVACHOL</p>
+      </div>
+    </section>
+
+    <nav class="p-confirm" id="p-confirm" aria-label="More projects"></nav>
+
+    <footer class="p-eof micro" id="p-eof"></footer>
   </main>
+
   <dialog class="lightbox" id="lightbox">
     <img id="lightbox-img" alt="" />
     <button id="lightbox-close" class="btn">CLOSE ✕</button>

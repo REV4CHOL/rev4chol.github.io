@@ -52,7 +52,23 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 - `{ "type": "vimeo", "src": "https://vimeo.com/123456789" }`
 - `{ "type": "youtube", "src": "https://youtu.be/XXXXXXXXXXX" }`
 - `{ "type": "local", "src": "film.mp4" }` — put `film.mp4` in the folder
-- `null` — no WATCH button (trailer-only project)
+- `null` — no RUN FULL FILM button (trailer-only project)
+
+## The project page (the dossier)
+
+Clicking a tile opens the film's **procedure dossier**. Everything on it comes
+from the fields above — nothing extra to maintain:
+
+- The page chrome always uses the site's fixed acid palette (green/pink/
+  blue/lavender). Your `accent` is the *specimen's* color: it drives the
+  pixel-dither reveals and is printed as the HUE chip in the spec sheet.
+- The machine codes (CODE, SIG, the barcodes) are generated from the slug —
+  stable per film, no field to edit.
+- `stills` order drives the footage wall's rhythm: two side-by-side, two
+  side-by-side, one full-bleed, repeat. A lone leftover still goes full-bleed.
+  3 stills read fine; 5+ give the wall its full breathing pattern.
+- The YES / NO block at the bottom is navigation: YES = next film in
+  `projects.json` order, NO = back to the works floor.
 
 ## Export recipes (if you don't use the script)
 
