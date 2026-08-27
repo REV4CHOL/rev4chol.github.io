@@ -1,9 +1,14 @@
-import { Application, Container } from 'pixi.js';
+import { Application, ColorMatrixFilter, Container } from 'pixi.js';
+import gsap from 'gsap';
 import type { Project } from '../lib/content';
 import { projectAssetUrl } from '../lib/content';
 import { ditherImageToCanvas } from '../lib/dither';
-import { dprCap, reducedMotion } from '../lib/env';
+import { dprCap, finePointer, reducedMotion } from '../lib/env';
 import { mulberry32 } from '../lib/rng';
+import { scrambleEl } from '../lib/scramble';
+import { sound } from '../lib/sound';
+import { leaveTo } from '../lib/transitions';
+import { setCursorLabel } from '../shell/cursor';
 import { WORLD_PAD } from './constants';
 import { buildDebris } from './debris';
 import { PanController } from './input';
@@ -24,6 +29,8 @@ export class WorksWorld {
   protected hooks!: WorldHooks;
   hoveredSlug: string | null = null;
   playback!: PlaybackManager;
+  private desat = new ColorMatrixFilter();
+  private labelEl = document.getElementById('tile-label');
 
   static async create(host: HTMLElement, projects: Project[], hooks: WorldHooks): Promise<WorksWorld> {
     const w = new WorksWorld();
@@ -53,6 +60,29 @@ export class WorksWorld {
       w.tilesLayer.addChild(tile);
     });
     w.playback = new PlaybackManager(w.tiles);
+
+    w.desat.saturate(-0.55, false);
+    for (const tile of w.tiles.values()) {
+      const slug = tile.project.slug;
+      tile.on('pointerover', () => {
+        if (finePointer() && !w.pan.dragging) w.hover(slug);
+      });
+      tile.on('pointerout', () => {
+        if (finePointer() && w.hoveredSlug === slug) w.unhover();
+      });
+      tile.on('pointertap', () => {
+        if (w.pan.lastGestureDist > 8) return; // that was a drag, not a tap
+        if (finePointer()) { w.enter(slug); return; }
+        if (w.hoveredSlug === slug) w.enter(slug);
+        else w.hover(slug);
+      });
+    }
+    app.stage.eventMode = 'static';
+    app.stage.hitArea = app.screen;
+    app.renderer.on('resize', () => { app.stage.hitArea = app.screen; });
+    app.stage.on('pointertap', (e) => {
+      if (e.target === app.stage && w.pan.lastGestureDist <= 8) w.unhover();
+    });
 
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     for (const t of w.tiles.values()) {
@@ -120,6 +150,64 @@ export class WorksWorld {
 
   panBy(dx: number, dy: number): void {
     this.pan.panBy(dx, dy);
+  }
+
+  hover(slug: string): void {
+    if (this.hoveredSlug === slug) return;
+    this.unhover();
+    const tile = this.tiles.get(slug);
+    if (!tile) return;
+    this.hoveredSlug = slug;
+    sound.hover();
+    this.fxLayer.addChild(tile); // lift out of the dimmed/desaturated layer
+    this.tilesLayer.filters = [this.desat];
+    gsap.to(this.tilesLayer, { alpha: 0.55, duration: 0.35 });
+    tile.wake();
+    tile.swapToMontage();
+    tile.enterHover();
+    setCursorLabel('ENTER ▸');
+    this.showLabel(tile);
+    this.playback.update(this.viewRect(), this.hoveredSlug);
+  }
+
+  unhover(): void {
+    const slug = this.hoveredSlug;
+    if (!slug) return;
+    this.hoveredSlug = null;
+    const tile = this.tiles.get(slug);
+    setCursorLabel(null);
+    this.hideLabel();
+    this.tilesLayer.filters = [];
+    gsap.to(this.tilesLayer, { alpha: 1, duration: 0.3 });
+    if (tile) {
+      tile.restorePreview();
+      tile.exitHover();
+      this.tilesLayer.addChild(tile);
+    }
+    this.playback.update(this.viewRect(), null);
+  }
+
+  enter(slug: string): void {
+    // Task 15 replaces this with the datamosh burst.
+    leaveTo(`/project.html?p=${slug}`);
+  }
+
+  private showLabel(tile: ProjectTile): void {
+    if (!this.labelEl) return;
+    const p = tile.project;
+    const global = this.worldC.toGlobal({ x: tile.x, y: tile.y });
+    this.labelEl.hidden = false;
+    this.labelEl.style.left = `${Math.min(window.innerWidth - 360, Math.max(16, global.x + tile.extentX() * 0.7))}px`;
+    this.labelEl.style.top = `${Math.max(70, global.y - 40)}px`;
+    const title = this.labelEl.querySelector('.tl-title') as HTMLElement;
+    const meta = this.labelEl.querySelector('.tl-meta') as HTMLElement;
+    meta.textContent = [p.year, p.role, p.runtime].filter(Boolean).join(' · ').toUpperCase();
+    meta.style.color = p.accent;
+    void scrambleEl(title, p.title.toUpperCase(), 420);
+  }
+
+  private hideLabel(): void {
+    if (this.labelEl) this.labelEl.hidden = true;
   }
 }
 

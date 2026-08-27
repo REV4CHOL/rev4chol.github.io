@@ -1,7 +1,9 @@
-import { Container, Matrix, Sprite, Text, Texture } from 'pixi.js';
+import { BlurFilter, Container, Matrix, Sprite, Text, Texture } from 'pixi.js';
+import gsap from 'gsap';
 import type { Project } from '../lib/content';
 import { projectAssetUrl } from '../lib/content';
-import { CARD_H, CARD_W, ISO, SIZE_MUL_LARGE, cellToWorld } from './constants';
+import { reducedMotion } from '../lib/env';
+import { CARD_H, CARD_W, HOVER_M, ISO, SIZE_MUL_LARGE, cellToWorld } from './constants';
 import type { Placed } from './layout';
 
 export type TileMode = 'sleep' | 'live' | 'hover';
@@ -18,6 +20,7 @@ export class ProjectTile extends Container {
   video?: HTMLVideoElement;
   videoSprite?: Sprite;
   private mediaFailed = false;
+  private glow?: Sprite;
 
   private previewUrl(): string { return projectAssetUrl(this.project.slug, 'preview.mp4'); }
   private hoverUrl(): string { return projectAssetUrl(this.project.slug, 'hover.mp4'); }
@@ -131,6 +134,41 @@ export class ProjectTile extends Container {
     this.videoSprite = s;
     this.card.addChildAt(s, this.card.getChildIndex(this.posterSprite) + 1); // above poster, below labels
     s.visible = this.mode !== 'sleep';
+  }
+
+  private ensureGlow(): Sprite {
+    if (!this.glow) {
+      const g = new Sprite(Texture.WHITE);
+      g.anchor.set(0.5);
+      g.width = CARD_W * 1.18;
+      g.height = CARD_H * 1.3;
+      g.tint = parseInt(this.project.accent.slice(1), 16);
+      g.alpha = 0;
+      g.filters = [new BlurFilter({ strength: 18 })];
+      this.card.addChildAt(g, 0); // behind the poster
+      this.glow = g;
+    }
+    return this.glow;
+  }
+
+  enterHover(): void {
+    gsap.killTweensOf(this.m);
+    gsap.killTweensOf(this.card);
+    const d = reducedMotion() ? 0.05 : 0.5;
+    gsap.to(this.m, { ...HOVER_M, duration: d, ease: 'expo.out', onUpdate: () => this.applyMatrix() });
+    gsap.to(this.card, { y: -26, duration: d, ease: 'expo.out' });
+    gsap.to(this.ensureGlow(), { alpha: 0.4, duration: d });
+    this.zIndex = 10000;
+  }
+
+  exitHover(): void {
+    gsap.killTweensOf(this.m);
+    gsap.killTweensOf(this.card);
+    const d = reducedMotion() ? 0.05 : 0.4;
+    gsap.to(this.m, { ...ISO, duration: d, ease: 'expo.out', onUpdate: () => this.applyMatrix() });
+    gsap.to(this.card, { y: 0, duration: d, ease: 'expo.out' });
+    if (this.glow) gsap.to(this.glow, { alpha: 0, duration: d });
+    this.zIndex = this.placed.col + this.placed.row;
   }
 
   constructor(project: Project, placed: Placed, posterCanvas: HTMLCanvasElement) {
