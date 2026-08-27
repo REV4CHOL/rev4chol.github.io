@@ -1,4 +1,3 @@
-import '../styles/tokens.css';
-import '../styles/base.css';
+import { startPage } from '../shell/page';
 
-console.log('[revachol] project entry ok');
+startPage('project', () => {});

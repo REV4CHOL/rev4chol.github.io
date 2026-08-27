@@ -1,4 +1,7 @@
-import '../styles/tokens.css';
-import '../styles/base.css';
+import { scrambleEl } from '../lib/scramble';
+import { startPage } from '../shell/page';
 
-console.log('[revachol] about entry ok');
+startPage('about', () => {
+  const st = document.getElementById('statement');
+  if (st) void scrambleEl(st);
+});

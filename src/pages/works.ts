@@ -1,4 +1,11 @@
-import '../styles/tokens.css';
-import '../styles/base.css';
+import { loadProjects } from '../lib/content';
+import { startPage } from '../shell/page';
 
-console.log('[revachol] works entry ok');
+startPage(
+  'work',
+  async ({ hud }) => {
+    const projects = await loadProjects();
+    hud.setCount(projects.length);
+  },
+  [{ label: 'LOAD PROJECT INDEX', run: () => loadProjects() }],
+);

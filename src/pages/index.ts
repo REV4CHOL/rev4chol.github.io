@@ -1,12 +1,9 @@
-import '../styles/tokens.css';
-import '../styles/base.css';
 import { scrambleEl } from '../lib/scramble';
-import { initTransitions } from '../lib/transitions';
-import { initCursor } from '../shell/cursor';
-import { mountAtmosphere } from '../shell/grain';
+import { startPage } from '../shell/page';
 
-mountAtmosphere();
-initCursor();
-initTransitions();
-const st = document.getElementById('statement');
-if (st) void scrambleEl(st);
+startPage('home', ({ site }) => {
+  const tagline = document.getElementById('tagline');
+  if (tagline) tagline.textContent = `${site.tagline} // SECTION UNDER CONSTRUCTION`.toUpperCase();
+  const st = document.getElementById('statement');
+  if (st) void scrambleEl(st);
+});
