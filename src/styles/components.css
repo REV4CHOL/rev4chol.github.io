@@ -68,59 +68,152 @@
 }
 .stub-cta { margin-top: 14px; }
 
-/* ---- home: the dreaming machine ----
-   The hero image is the material: it fills the frame behind everything and gets
-   datamoshed live (src/home/hero.ts). The type is a poster laid over it —
-   Clash shouts, Bodoni italic answers a tier below, per the type law. */
+/* ---- home: the terminal poster ----
+   The hero image is the material — near full strength, datamoshed live
+   (src/home/hero.ts). The type is machine chrome laid over it: indexed Clash
+   layers, an inverted mono plate, a giant Bodoni ampersand ghost, corner
+   furniture, and one human line of Old English against all of it. */
 #hero-host { position: fixed; inset: 0; z-index: 1; }
 #hero-host canvas { width: 100%; height: 100%; display: block; }
 .hero-veil {
   position: absolute; inset: 0; width: 100%; height: 100%;
   image-rendering: pixelated; opacity: 1;
 }
-.home-scrim {
+.home-vignette {
+  /* light: the photo carries the page; plates carry the legibility */
   position: fixed; inset: 0; z-index: 2; pointer-events: none;
   background:
-    linear-gradient(90deg, rgba(6, 6, 6, 0.82) 0%, rgba(6, 6, 6, 0.34) 42%, transparent 68%),
-    linear-gradient(0deg, rgba(6, 6, 6, 0.85) 0%, transparent 38%);
+    linear-gradient(90deg, rgba(6, 6, 6, 0.42) 0%, transparent 44%),
+    radial-gradient(120% 120% at 50% 45%, transparent 52%, rgba(6, 6, 6, 0.5) 100%);
 }
-.home-main { position: relative; z-index: 3; }
+.home-main {
+  position: relative; z-index: 3; min-height: 100vh;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  align-items: flex-start; padding: 0 28px clamp(64px, 10vh, 120px);
+}
 
-.home-statement { display: grid; gap: 0; }
-.st-line { display: block; }
+.hk-kicker {
+  position: absolute; top: 96px; left: 28px;
+  font-family: var(--f-micro); font-size: 11px; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--accent);
+}
+.caret { display: inline-block; margin-left: 6px; animation: caret-blink 1.1s steps(1) infinite; }
+@keyframes caret-blink { 50% { opacity: 0; } }
+
+.home-statement { position: relative; display: grid; gap: 0; }
+.amp-bg {
+  position: absolute; right: clamp(-140px, -8vw, -40px); bottom: -0.1em; z-index: 0;
+  font-family: var(--f-serif); font-style: italic; font-weight: 400;
+  font-size: clamp(16rem, 38vw, 30rem); line-height: 0.8;
+  color: var(--accent); opacity: 0.14; pointer-events: none; user-select: none;
+}
+.st-row { position: relative; z-index: 1; display: flex; align-items: baseline; gap: 16px; }
+.st-idx {
+  font-family: var(--f-micro); font-size: 10px; letter-spacing: 0.16em;
+  color: var(--accent); opacity: 0.8; transform: translateY(-1.2em);
+}
 .st-clash {
   font-family: var(--f-display); font-weight: 700;
-  font-size: clamp(3.6rem, 11vw, 9rem); line-height: 0.86;
+  font-size: clamp(4rem, 12.5vw, 10.5rem); line-height: 0.84;
   letter-spacing: -0.02em; text-transform: uppercase; color: var(--bone);
-  text-shadow: 3px 0 var(--alert), -3px 0 var(--field);
+  text-shadow: 4px 0 var(--alert), -4px 0 var(--field), 0 3px 26px rgba(6, 6, 6, 0.7);
   position: relative;
 }
-.st-stagger { margin-left: clamp(28px, 7vw, 140px); }
 .is-revealed .st-clash::after {
-  content: attr(data-text); position: absolute; left: 0; top: 0;
-  color: var(--accent); clip-path: inset(34% 0 48% 0);
-  transform: translateX(6px); mix-blend-mode: screen;
+  content: attr(data-text); position: absolute; left: 0; top: 0; width: 100%;
+  color: var(--accent); mix-blend-mode: screen; pointer-events: none;
+  animation: ghost-clip 4.6s steps(2) infinite;
 }
-.st-serif {
-  font-family: var(--f-serif); font-style: italic; font-weight: 600;
-  font-size: clamp(1.6rem, 4.2vw, 3.4rem); /* a tier below the Clash — the law */
-  text-transform: uppercase; letter-spacing: 0.02em; color: var(--accent);
-  margin-top: clamp(8px, 1.5vw, 18px);
-  opacity: 0; transform: translateY(10px); transition: opacity 0.9s, transform 0.9s;
+@keyframes ghost-clip {
+  0%, 100% { clip-path: inset(34% 0 48% 0); transform: translateX(6px); }
+  22% { clip-path: inset(12% 0 74% 0); transform: translateX(-8px); }
+  54% { clip-path: inset(62% 0 18% 0); transform: translateX(10px); }
+  78% { clip-path: inset(44% 0 40% -2%); transform: translateX(-5px); }
 }
-.amp { font-size: 1.45em; font-weight: 400; font-style: italic; vertical-align: -0.08em; margin-right: 4px; }
-.is-revealed .st-serif { opacity: 1; transform: none; }
+.st-row-2 { margin-top: -0.16em; margin-left: clamp(56px, 11vw, 210px); }
+.st-outline {
+  color: transparent; -webkit-text-stroke: 2px var(--bone);
+  text-shadow: none;
+}
+.is-revealed .st-outline::after { -webkit-text-stroke: 0; }
+.st-row-3 { margin-top: clamp(14px, 2.2vw, 26px); }
+.st-plate {
+  display: inline-block; background: var(--accent); color: var(--void);
+  font-family: var(--f-mono); font-weight: 500;
+  font-size: clamp(1.1rem, 2.6vw, 2rem); letter-spacing: 0.08em;
+  padding: 10px 20px 11px 16px;
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 100%, 10px 100%);
+}
+.caret-plate { animation-duration: 0.8s; margin-left: 10px; }
 
-.home-cta-row { margin-top: 22px; }
+.home-data {
+  margin-top: clamp(18px, 3vh, 30px);
+  font-family: var(--f-micro); font-size: 10px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: color-mix(in srgb, var(--bone) 62%, transparent);
+  background: color-mix(in srgb, var(--void) 72%, transparent);
+  padding: 5px 10px; border-left: 2px solid var(--accent);
+}
+
+.home-cta-row { margin-top: 18px; display: flex; align-items: baseline; gap: 10px; }
+.cta-prompt { font-family: var(--f-mono); font-size: var(--t-md); color: var(--accent); }
 .home-cta {
   font-family: var(--f-serif); font-style: italic; font-size: var(--t-lg);
   color: var(--bone); text-decoration: none;
   border-bottom: 1px solid var(--accent); padding-bottom: 3px;
+  text-shadow: 0 2px 14px rgba(6, 6, 6, 0.8);
 }
 .home-cta:hover { color: var(--accent); animation: rgb-flick 0.32s steps(2) 1; }
 
+/* ---- home corner furniture: the frame is part of the poster ---- */
+.hk-spine {
+  position: fixed; right: 14px; top: 50%; transform: translateY(-50%); z-index: 3;
+  writing-mode: vertical-rl; white-space: nowrap; pointer-events: none;
+  font-family: var(--f-micro); font-size: 10px; letter-spacing: 0.32em;
+  text-transform: uppercase; color: var(--accent); opacity: 0.6;
+}
+.hk-ticks {
+  position: fixed; right: 92px; top: 96px; z-index: 3; pointer-events: none;
+  width: 150px; height: 10px; opacity: 0.8;
+  background: repeating-linear-gradient(90deg, var(--accent) 0 2px, transparent 2px 10px);
+}
+.hk-checker {
+  position: fixed; right: 92px; bottom: 52px; z-index: 3; pointer-events: none;
+  width: 144px; height: 16px; opacity: 0.75;
+  background: repeating-conic-gradient(var(--bone) 0 25%, transparent 0 50%) 0 0 / 16px 16px;
+}
+.scan-sweep {
+  position: fixed; left: 0; right: 0; top: -2%; height: 2px; z-index: 4;
+  pointer-events: none; background: var(--accent); opacity: 0.16;
+  box-shadow: 0 0 14px var(--accent); mix-blend-mode: screen;
+  animation: sweep 9s linear infinite;
+}
+@keyframes sweep { 0% { top: -2%; } 100% { top: 102%; } }
+
+/* hover/ambient jolt on any [data-glitch] target */
+.jolt { animation: jolt 0.18s steps(2) 1; }
+@keyframes jolt {
+  0% { transform: translate(2px, -1px) skewX(5deg); }
+  50% { transform: translate(-3px, 1px) skewX(-4deg); }
+  100% { transform: none; }
+}
+.st-clash.rip::after { animation: rip 0.24s steps(3) 1, ghost-clip 4.6s steps(2) infinite; }
+@keyframes rip {
+  0% { transform: translateX(-12px); clip-path: inset(8% 0 70% 0); }
+  50% { transform: translateX(14px); clip-path: inset(58% 0 12% 0); }
+  100% { transform: translateX(6px); }
+}
+
+@media (max-width: 640px) {
+  .hk-ticks, .hk-checker { display: none; }
+  .hk-spine { opacity: 0.35; }
+  .amp-bg { right: -30px; }
+  .home-main { padding-bottom: 84px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .st-serif { opacity: 1; transform: none; transition: none; }
+  .scan-sweep { display: none; }
+  .caret { animation: none; }
+  .is-revealed .st-clash::after { animation: none; clip-path: inset(34% 0 48% 0); transform: translateX(6px); }
 }
 .page-work .works-main { position: fixed; inset: 0; }
 #floor { position: absolute; inset: 0; touch-action: none; }

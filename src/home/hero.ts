@@ -3,12 +3,21 @@ import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
 import { ditherImageToCanvas } from '../lib/dither';
 import { dprCap, reducedMotion } from '../lib/env';
 
-/** The homepage hero: whatever image lives at /content/home/hero.jpg, cover-fit
- *  and datamoshed live. Everything is derived from the image at runtime — the
- *  cover fit, the accent color, the effect drive — so swapping the file always
- *  adapts, no code or JSON edit. Missing image degrades to the plain void. */
+/** The homepage hero: whatever image lives at /content/home/hero.(jpg|jpeg|png|webp),
+ *  cover-fit and datamoshed live. Everything derives from the image at runtime —
+ *  the cover fit, the accent color, the effect drive — so swapping the file
+ *  always adapts, no code or JSON edit. Missing image degrades to the void. */
 
-const HERO_URL = '/content/home/hero.jpg';
+const CANDIDATES = ['hero.jpg', 'hero.jpeg', 'hero.png', 'hero.webp'];
+
+export interface HeroInfo { accent: string; src: string }
+
+let burstNow: () => void = () => {};
+/** Fire one datamosh burst on demand (page binds this to background clicks).
+ *  No-op until the full-motion hero is mounted; no-op forever in calm mode. */
+export function triggerBurst(): void {
+  burstNow();
+}
 
 /** Average the image and push it toward a usable accent: the page literally
  *  takes its color from whatever picture the owner drops in. */
@@ -23,7 +32,6 @@ function accentFromImage(img: HTMLImageElement): string {
   for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
   const n = d.length / 4;
   r /= n; g /= n; b /= n;
-  // to HSL, then saturate + lift so the accent reads against the void
   const mx = Math.max(r, g, b) / 255, mn = Math.min(r, g, b) / 255;
   const l = (mx + mn) / 2;
   const dlt = mx - mn;
@@ -40,20 +48,30 @@ function accentFromImage(img: HTMLImageElement): string {
   return `hsl(${Math.round(h)} ${Math.round(S * 100)}% ${Math.round(L * 100)}%)`;
 }
 
-export async function mountHero(host: HTMLElement): Promise<void> {
-  // sample the accent from a plain <img> first — cheap, and it also tells us
-  // early whether the file exists at all
-  let img: HTMLImageElement;
-  try {
-    img = await new Promise<HTMLImageElement>((res, rej) => {
-      const im = new Image();
-      im.onload = () => res(im);
-      im.onerror = rej;
-      im.src = HERO_URL;
-    });
-  } catch {
-    console.warn(`[revachol] missing media: ${HERO_URL} — homepage stays on the void`);
-    return;
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = rej;
+    im.src = url;
+  });
+}
+
+export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
+  // probe the candidate names in order — owners drop files, they shouldn't
+  // have to remember an exact extension
+  let img: HTMLImageElement | null = null;
+  let src = '';
+  for (const name of CANDIDATES) {
+    try {
+      img = await loadImage(`/content/home/${name}`);
+      src = `/content/home/${name}`;
+      break;
+    } catch { /* try the next candidate */ }
+  }
+  if (!img) {
+    console.warn('[revachol] missing media: /content/home/hero.(jpg|jpeg|png|webp) — homepage stays on the void');
+    return null;
   }
   const accent = accentFromImage(img);
   document.documentElement.style.setProperty('--accent', accent);
@@ -69,7 +87,7 @@ export async function mountHero(host: HTMLElement): Promise<void> {
   host.append(app.canvas);
   (window as unknown as { rvlHero: Application }).rvlHero = app; // debug handle for verification
 
-  const tex = await Assets.load<Texture>(HERO_URL);
+  const tex = await Assets.load<Texture>(src);
   const sprite = new Sprite(tex);
   sprite.anchor.set(0.5);
   const fit = () => {
@@ -87,46 +105,48 @@ export async function mountHero(host: HTMLElement): Promise<void> {
     // calm mode: one quiet, static chromatic fringe — no bursts, no drive
     sprite.filters = [rgb];
     revealVeil(host, img, accent);
-    return;
+    return { accent, src };
   }
 
   const glitch = new GlitchFilter({ slices: 10, offset: 0 });
   sprite.filters = [rgb, glitch];
 
-  // the drive: slow chromatic breathing, pointer influence, and datamosh bursts
+  // the drive: chromatic breathing, pointer influence, and datamosh bursts
   const split = { x: 1.5, y: 0 };
   const target = { x: 1.5, y: 0 };
   let t = 0;
   let burstLeft = 0;
-  let nextBurst = 1800 + Math.random() * 2600;
+  let nextBurst = 1400 + Math.random() * 2800;
+  burstNow = () => { burstLeft = Math.max(burstLeft, 150 + Math.random() * 160); };
   window.addEventListener('pointermove', (e) => {
-    target.x = ((e.clientX - innerWidth / 2) / innerWidth) * 10;
-    target.y = ((e.clientY - innerHeight / 2) / innerHeight) * 5;
+    target.x = ((e.clientX - innerWidth / 2) / innerWidth) * 12;
+    target.y = ((e.clientY - innerHeight / 2) / innerHeight) * 6;
   });
   app.ticker.add((tk) => {
     t += tk.deltaMS;
     split.x += (target.x - split.x) * 0.05;
     split.y += (target.y - split.y) * 0.05;
-    const breathe = Math.sin(t / 1400) * 1.4;
+    const breathe = Math.sin(t / 1400) * 1.6;
     rgb.red = { x: split.x + breathe + 1.2, y: split.y };
     rgb.blue = { x: -(split.x + breathe + 1.2), y: -split.y };
 
     if (burstLeft > 0) {
       burstLeft -= tk.deltaMS;
       glitch.seed = Math.random();
-      glitch.offset = 26 + Math.random() * 60;
+      glitch.offset = 26 + Math.random() * 64;
       glitch.slices = 8 + ((Math.random() * 8) | 0);
-      if (burstLeft <= 0) glitch.offset = 0; // settle instantly — the tear, then calm
+      if (burstLeft <= 0) glitch.offset = 0; // the tear, then calm
     } else {
       nextBurst -= tk.deltaMS;
       if (nextBurst <= 0) {
-        burstLeft = 120 + Math.random() * 180;
-        nextBurst = 1800 + Math.random() * 3200;
+        burstLeft = 130 + Math.random() * 190;
+        nextBurst = 1400 + Math.random() * 3000;
       }
     }
   });
 
   revealVeil(host, img, accent);
+  return { accent, src };
 }
 
 /** Same dither-resolve language as the project heroes: the image arrives as
