@@ -74,6 +74,8 @@ export class PanController {
   panBy(dx: number, dy: number): void {
     this.pos.x += dx;
     this.pos.y += dy;
+    this.raw.x += dx;
+    this.raw.y += dy;
     this.vel = { x: 0, y: 0 };
   }
 

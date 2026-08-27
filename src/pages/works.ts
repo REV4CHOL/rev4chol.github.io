@@ -1,4 +1,4 @@
-import { loadProjects, projectAssetUrl } from '../lib/content';
+import { loadProjects, projectAssetUrl, type Project } from '../lib/content';
 import { sound } from '../lib/sound';
 import { startPage } from '../shell/page';
 import { WorksWorld } from '../works/world';
@@ -14,6 +14,16 @@ startPage(
     });
     sound.onUnlock(() => sound.startHum());
     (window as unknown as { rvlWorld: WorksWorld }).rvlWorld = world; // debug handle for verification
+
+    buildSemanticList(projects, world);
+    window.addEventListener('keydown', (e) => {
+      const step = 140;
+      if (e.key === 'ArrowLeft') world.panBy(step, 0);
+      else if (e.key === 'ArrowRight') world.panBy(-step, 0);
+      else if (e.key === 'ArrowUp') world.panBy(0, step);
+      else if (e.key === 'ArrowDown') world.panBy(0, -step);
+      else if (e.key === 'Enter') world.enterHovered();
+    });
   },
   [
     { label: 'LOAD PROJECT INDEX', run: () => loadProjects() },
@@ -35,3 +45,17 @@ startPage(
     },
   ],
 );
+
+function buildSemanticList(projects: Project[], world: WorksWorld): void {
+  const ul = document.getElementById('sr-projects');
+  if (!ul) return;
+  for (const p of projects) {
+    const li = document.createElement('li');
+    const a = document.createElement('a');
+    a.href = `/project.html?p=${p.slug}`;
+    a.textContent = `${p.title} (${p.year})`;
+    a.addEventListener('focus', () => world.focusProject(p.slug));
+    li.append(a);
+    ul.append(li);
+  }
+}

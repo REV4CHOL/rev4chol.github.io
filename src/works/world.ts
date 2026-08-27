@@ -1,5 +1,6 @@
 import { Application, ColorMatrixFilter, Container } from 'pixi.js';
 import gsap from 'gsap';
+import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
 import type { Project } from '../lib/content';
 import { projectAssetUrl } from '../lib/content';
 import { ditherImageToCanvas } from '../lib/dither';
@@ -9,12 +10,13 @@ import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { leaveTo } from '../lib/transitions';
 import { setCursorLabel } from '../shell/cursor';
-import { WORLD_PAD } from './constants';
+import { CARD_H, CARD_W, WORLD_PAD } from './constants';
 import { buildDebris } from './debris';
 import { PanController } from './input';
 import { layoutProjects } from './layout';
 import { PlaybackManager } from './playback';
 import type { ViewRect } from './priority';
+import { AsciiRain } from './rain';
 import { ProjectTile } from './tile';
 
 export interface WorldHooks { onCoords(x: number, y: number): void }
@@ -31,6 +33,8 @@ export class WorksWorld {
   playback!: PlaybackManager;
   private desat = new ColorMatrixFilter();
   private labelEl = document.getElementById('tile-label');
+  private rain?: AsciiRain;
+  private entering = false;
 
   static async create(host: HTMLElement, projects: Project[], hooks: WorldHooks): Promise<WorksWorld> {
     const w = new WorksWorld();
@@ -93,7 +97,11 @@ export class WorksWorld {
     }
     minX -= WORLD_PAD; maxX += WORLD_PAD; minY -= WORLD_PAD; maxY += WORLD_PAD;
 
+    if (!reducedMotion()) {
+      w.rain = new AsciiRain({ minX, maxX, minY, maxY });
+    }
     w.worldC.addChild(buildDebris(placed), w.tilesLayer, w.fxLayer);
+    if (w.rain) w.worldC.addChildAt(w.rain, 0);
     app.stage.addChild(w.worldC);
 
     w.pan = new PanController(
@@ -137,6 +145,7 @@ export class WorksWorld {
         sleeping[Math.floor(Math.random() * sleeping.length)].shimmer();
       }
     }
+    this.rain?.tick(dtMs);
   }
 
   viewRect(): ViewRect {
@@ -190,8 +199,51 @@ export class WorksWorld {
   }
 
   enter(slug: string): void {
-    // Task 15 replaces this with the datamosh burst.
-    leaveTo(`/project.html?p=${slug}`);
+    if (this.entering) return;
+    const tile = this.tiles.get(slug);
+    if (!tile) return;
+    this.entering = true;
+    sound.click();
+    const dest = `/project.html?p=${encodeURIComponent(slug)}`;
+    if (reducedMotion()) {
+      leaveTo(dest);
+      return;
+    }
+    setCursorLabel(null);
+    this.hideLabel();
+    const glitch = new GlitchFilter({ slices: 12, offset: 60 });
+    const rgb = new RGBSplitFilter({ red: { x: 4, y: 0 }, green: { x: 0, y: 0 }, blue: { x: -4, y: 0 } });
+    this.worldC.filters = [glitch, rgb];
+    this.fxLayer.addChild(tile);
+    const cover =
+      (Math.max(this.app.screen.width / CARD_W, this.app.screen.height / CARD_H) * 1.12) / tile.sizeMul;
+    gsap.killTweensOf(tile.m);
+    gsap.to(this.pan.pos, { x: -tile.x, y: -tile.y, duration: 0.42, ease: 'power2.in' });
+    gsap.to(tile.m, {
+      a: cover, b: 0, c: 0, d: cover,
+      duration: 0.46, ease: 'power3.in',
+      onUpdate: () => tile.applyMatrix(),
+    });
+    gsap.to(this.tilesLayer, { alpha: 0, duration: 0.3 });
+    this.app.ticker.add(() => {
+      glitch.seed = Math.random();
+      glitch.offset = 30 + Math.random() * 90;
+    });
+    window.setTimeout(() => leaveTo(dest), 500);
+  }
+
+  focusProject(slug: string): void {
+    const tile = this.tiles.get(slug);
+    if (!tile) return;
+    gsap.to(this.pan.pos, {
+      x: -tile.x, y: -tile.y,
+      duration: reducedMotion() ? 0 : 0.5, ease: 'power2.out',
+      onComplete: () => this.hover(slug),
+    });
+  }
+
+  enterHovered(): void {
+    if (this.hoveredSlug) this.enter(this.hoveredSlug);
   }
 
   private showLabel(tile: ProjectTile): void {
