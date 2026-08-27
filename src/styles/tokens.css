@@ -1,4 +1,13 @@
+@font-face { font-family: 'Clash Display'; src: url('/fonts/ClashDisplay-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Clash Display'; src: url('/fonts/ClashDisplay-Medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Clash Display'; src: url('/fonts/ClashDisplay-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Bodoni Moda'; src: url('/fonts/BodoniModa-Var.woff2') format('woff2'); font-weight: 400 900; font-display: swap; }
+@font-face { font-family: 'Bodoni Moda'; src: url('/fonts/BodoniModa-Italic-Var.woff2') format('woff2'); font-weight: 400 900; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Geist Mono'; src: url('/fonts/GeistMono-Var.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: 'Martian Mono'; src: url('/fonts/MartianMono-Var.woff2') format('woff2'); font-weight: 100 800; font-display: swap; }
+
 :root {
+  /* palette — spec §3.1 */
   --void: #060606;
   --surface: #0A0A12;
   --signal: #C8FF00;
@@ -6,5 +15,24 @@
   --alert: #FF2E63;
   --flourish: #B79CFF;
   --bone: #EDEDE6;
-  --accent: var(--signal);
+  --accent: var(--signal); /* per-view dominant accent; project pages override */
+
+  /* voices — spec §3.2 */
+  --f-display: 'Clash Display', system-ui, sans-serif;
+  --f-serif: 'Bodoni Moda', 'Didot', serif;
+  --f-mono: 'Geist Mono', ui-monospace, 'Cascadia Mono', monospace;
+  --f-micro: 'Martian Mono', ui-monospace, monospace;
+
+  /* type scale. RULE: Clash Display owns >= --t-xl. Bodoni next to Clash
+     must sit at <= --t-lg. Never the same step side by side. */
+  --t-2xs: 0.625rem;  /* micro labels — Martian Mono ceiling is 11px */
+  --t-xs: 0.75rem;
+  --t-sm: 0.875rem;
+  --t-md: 1rem;
+  --t-lg: clamp(1.4rem, 2.5vw, 2rem);
+  --t-xl: clamp(2.2rem, 5vw, 3.6rem);
+  --t-2xl: clamp(3rem, 8vw, 6rem);
+  --t-3xl: clamp(4rem, 11vw, 8.5rem);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
