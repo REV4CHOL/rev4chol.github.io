@@ -62,13 +62,35 @@ function initHomeEffects(): void {
 
   if (reducedMotion()) return;
 
-  const glitchables = [...document.querySelectorAll<HTMLElement>('[data-glitch]')];
+  // the pointer steers the whole poster in 3D
+  let tiltQueued = false;
+  window.addEventListener('pointermove', (e) => {
+    if (tiltQueued) return;
+    tiltQueued = true;
+    const { clientX, clientY } = e;
+    requestAnimationFrame(() => {
+      tiltQueued = false;
+      const nx = clientX / innerWidth - 0.5;
+      const ny = clientY / innerHeight - 0.5;
+      const s = document.body.style;
+      s.setProperty('--rx', `${(nx * 7).toFixed(2)}deg`);
+      s.setProperty('--ry', `${(-ny * 5).toFixed(2)}deg`);
+    });
+  });
+
+  // ambient jolts hit EVERYTHING — statement, chrome, nav, hud
+  const glitchables = [
+    ...document.querySelectorAll<HTMLElement>(
+      '[data-glitch], .nav-links a, .brand, .hud-bl, .hud-br, .hud-tr, .home-data, .hk-spine, .hk-ticks, .cta-prompt',
+    ),
+  ];
   setInterval(() => {
     if (document.hidden || glitchables.length === 0) return;
     const el = glitchables[(Math.random() * glitchables.length) | 0];
     el.classList.add('jolt');
-    setTimeout(() => el.classList.remove('jolt'), 220);
-  }, 2600);
+    if (el.classList.contains('st-clash')) el.classList.add('rip');
+    setTimeout(() => { el.classList.remove('jolt'); el.classList.remove('rip'); }, 240);
+  }, 1600);
 
   document.addEventListener('pointerdown', (e) => {
     if ((e.target as Element).closest?.('a, button')) return;

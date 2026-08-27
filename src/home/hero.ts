@@ -1,4 +1,4 @@
-import { Application, Assets, Sprite, Texture } from 'pixi.js';
+import { Application, Assets, DisplacementFilter, Sprite, Texture } from 'pixi.js';
 import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
 import { ditherImageToCanvas } from '../lib/dither';
 import { dprCap, reducedMotion } from '../lib/env';
@@ -109,18 +109,49 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
   }
 
   const glitch = new GlitchFilter({ slices: 10, offset: 0 });
-  sprite.filters = [rgb, glitch];
 
-  // the drive: chromatic breathing, pointer influence, and datamosh bursts
+  // the shredder: a noise-driven displacement field that FOLLOWS the pointer —
+  // the image warps wherever the cursor is, harder the faster it moves
+  const noise = document.createElement('canvas');
+  noise.width = noise.height = 256;
+  const nctx = noise.getContext('2d')!;
+  const nimg = nctx.createImageData(256, 256);
+  for (let i = 0; i < nimg.data.length; i += 4) {
+    nimg.data[i] = (Math.random() * 255) | 0;
+    nimg.data[i + 1] = (Math.random() * 255) | 0;
+    nimg.data[i + 2] = 128;
+    nimg.data[i + 3] = 255;
+  }
+  nctx.putImageData(nimg, 0, 0);
+  const dispSprite = new Sprite(Texture.from(noise));
+  dispSprite.anchor.set(0.5);
+  dispSprite.scale.set(3);
+  dispSprite.renderable = false; // sampled by the filter, never drawn
+  dispSprite.position.set(app.screen.width / 2, app.screen.height / 2);
+  app.stage.addChild(dispSprite);
+  const disp = new DisplacementFilter({ sprite: dispSprite, scale: 4 });
+
+  sprite.filters = [rgb, disp, glitch];
+
+  // the drive: chromatic breathing, pointer influence + velocity, datamosh bursts
   const split = { x: 1.5, y: 0 };
   const target = { x: 1.5, y: 0 };
   let t = 0;
   let burstLeft = 0;
   let nextBurst = 1400 + Math.random() * 2800;
+  let shred = 0; // pointer-velocity energy, decays every tick
+  let lastPX = innerWidth / 2, lastPY = innerHeight / 2;
   burstNow = () => { burstLeft = Math.max(burstLeft, 150 + Math.random() * 160); };
   window.addEventListener('pointermove', (e) => {
     target.x = ((e.clientX - innerWidth / 2) / innerWidth) * 12;
     target.y = ((e.clientY - innerHeight / 2) / innerHeight) * 6;
+    const speed = Math.hypot(e.clientX - lastPX, e.clientY - lastPY);
+    lastPX = e.clientX; lastPY = e.clientY;
+    shred = Math.min(150, shred + speed * 0.9);
+    dispSprite.position.set(e.clientX, e.clientY);
+    if (shred > 100 && burstLeft <= 0 && Math.random() < 0.2) {
+      burstLeft = 80 + Math.random() * 90; // violent motion tears the image
+    }
   });
   app.ticker.add((tk) => {
     t += tk.deltaMS;
@@ -129,6 +160,13 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     const breathe = Math.sin(t / 1400) * 1.6;
     rgb.red = { x: split.x + breathe + 1.2, y: split.y };
     rgb.blue = { x: -(split.x + breathe + 1.2), y: -split.y };
+
+    // the shred field churns and cools
+    shred *= Math.pow(0.88, tk.deltaMS / 16.667);
+    const k = 4 + shred;
+    disp.scale.x = k;
+    disp.scale.y = k;
+    dispSprite.rotation += 0.0008 * tk.deltaMS;
 
     if (burstLeft > 0) {
       burstLeft -= tk.deltaMS;

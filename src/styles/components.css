@@ -176,11 +176,6 @@
   width: 150px; height: 10px; opacity: 0.8;
   background: repeating-linear-gradient(90deg, var(--accent) 0 2px, transparent 2px 10px);
 }
-.hk-checker {
-  position: fixed; right: 92px; bottom: 52px; z-index: 3; pointer-events: none;
-  width: 144px; height: 16px; opacity: 0.75;
-  background: repeating-conic-gradient(var(--bone) 0 25%, transparent 0 50%) 0 0 / 16px 16px;
-}
 .scan-sweep {
   position: fixed; left: 0; right: 0; top: -2%; height: 2px; z-index: 4;
   pointer-events: none; background: var(--accent); opacity: 0.16;
@@ -189,8 +184,8 @@
 }
 @keyframes sweep { 0% { top: -2%; } 100% { top: 102%; } }
 
-/* hover/ambient jolt on any [data-glitch] target */
-.jolt { animation: jolt 0.18s steps(2) 1; }
+/* hover/ambient jolt on any target — !important so it interrupts idle drifts */
+.jolt { animation: jolt 0.18s steps(2) 1 !important; }
 @keyframes jolt {
   0% { transform: translate(2px, -1px) skewX(5deg); }
   50% { transform: translate(-3px, 1px) skewX(-4deg); }
@@ -203,8 +198,68 @@
   100% { transform: translateX(6px); }
 }
 
+/* ---- home 3D scene + perpetual life ----
+   The whole poster floats in perspective, layered by depth and steered by the
+   pointer (index.ts writes --rx/--ry). Every element carries its own idle
+   drift; flicker and jolt ride on top. Depth lives on the .st-row wrappers so
+   the drift/jolt animations on inner elements never fight the Z transform. */
+.page-home { --rx: 0deg; --ry: 0deg; }
+.home-main {
+  transform-style: preserve-3d;
+  transform: perspective(1100px) rotateY(var(--rx)) rotateX(var(--ry));
+  will-change: transform;
+}
+.home-statement { transform-style: preserve-3d; }
+.st-row { transform: translateZ(45px); }
+.st-row-2 { transform: translateZ(70px); }
+.st-row-3 { transform: translateZ(95px); }
+.hk-kicker { transform: translateZ(60px); }
+.home-data { transform: translateZ(35px); }
+.home-cta-row { transform: translateZ(60px); }
+
+.st-clash { animation: drift-a 7s ease-in-out infinite alternate; }
+.st-outline { animation-duration: 8.5s; animation-delay: -3s; }
+.st-plate { animation: drift-b 5.5s ease-in-out infinite alternate, flick 7s steps(1) infinite; }
+.hk-kicker .gl { display: inline-block; animation: drift-b 6.5s ease-in-out infinite alternate; }
+.home-cta { display: inline-block; animation: drift-a 9s ease-in-out infinite alternate; animation-delay: -4s; }
+.home-data { animation: flick 11s steps(1) infinite; animation-delay: -5s; }
+.amp-bg { animation: amp-float 12s ease-in-out infinite alternate; }
+.hk-spine { animation: drift-c 10s ease-in-out infinite alternate; }
+.hk-ticks { animation: drift-b 7.5s ease-in-out infinite alternate; }
+.home-vignette { animation: breathe 9s ease-in-out infinite alternate; }
+.page-home .hud-bl, .page-home .hud-br, .page-home .hud-tr { animation: drift-b 8s ease-in-out infinite alternate; }
+.page-home .hud-br { animation-delay: -2.6s; }
+.page-home .hud-tr { animation-delay: -5.2s; }
+
+@keyframes drift-a {
+  from { transform: translate(0, 0) rotate(0deg); }
+  to { transform: translate(3px, -4px) rotate(-0.5deg); }
+}
+@keyframes drift-b {
+  from { transform: translate(0, 0) skewX(0deg); }
+  to { transform: translate(-3px, 2px) skewX(-1.2deg); }
+}
+@keyframes drift-c {
+  from { transform: translateY(-50%) translateX(0); }
+  to { transform: translateY(-50%) translateX(-4px); }
+}
+@keyframes amp-float {
+  from { transform: translateZ(-90px) translateY(0) rotate(0deg); }
+  to { transform: translateZ(-90px) translateY(-14px) rotate(1.6deg); }
+}
+@keyframes breathe { from { opacity: 1; } to { opacity: 0.82; } }
+@keyframes flick {
+  0%, 100% { opacity: 1; filter: none; }
+  61% { opacity: 1; }
+  61.6% { opacity: 0.35; filter: invert(0.9); }
+  62.2% { opacity: 1; filter: none; }
+  87% { opacity: 1; }
+  87.4% { opacity: 0.6; }
+  87.8% { opacity: 1; }
+}
+
 @media (max-width: 640px) {
-  .hk-ticks, .hk-checker { display: none; }
+  .hk-ticks { display: none; }
   .hk-spine { opacity: 0.35; }
   .amp-bg { right: -30px; }
   .home-main { padding-bottom: 84px; }
@@ -214,6 +269,10 @@
   .scan-sweep { display: none; }
   .caret { animation: none; }
   .is-revealed .st-clash::after { animation: none; clip-path: inset(34% 0 48% 0); transform: translateX(6px); }
+  .home-main { transform: none; }
+  .st-clash, .st-outline, .st-plate, .hk-kicker .gl, .home-cta, .home-data, .amp-bg,
+  .hk-spine, .hk-ticks, .home-vignette,
+  .page-home .hud-bl, .page-home .hud-br, .page-home .hud-tr { animation: none; }
 }
 .page-work .works-main { position: fixed; inset: 0; }
 #floor { position: absolute; inset: 0; touch-action: none; }
