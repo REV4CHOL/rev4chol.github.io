@@ -71,7 +71,7 @@ export class WorksWorld {
 
     let coordsClock = 0;
     app.ticker.add((tk) => {
-      w.pan.tick();
+      w.pan.tick(tk.deltaMS);
       w.worldC.position.set(app.screen.width / 2 + w.pan.pos.x, app.screen.height / 2 + w.pan.pos.y);
       coordsClock += tk.deltaMS;
       if (coordsClock > 100) {

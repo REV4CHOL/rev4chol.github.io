@@ -8,6 +8,8 @@ export class PanController {
   dragging = false;
   lastGestureDist = 0;
   private vel = { x: 0, y: 0 };
+  /** Unclamped drag position — the rubber band is a fixed 35% of (raw - clamp), not a per-frame decay. */
+  private raw = { x: 0, y: 0 };
   private last = { x: 0, y: 0, t: 0 };
 
   constructor(
@@ -25,6 +27,7 @@ export class PanController {
     this.dragging = true;
     this.lastGestureDist = 0;
     this.vel = { x: 0, y: 0 };
+    this.raw = { ...this.pos };
     this.last = { x: e.clientX, y: e.clientY, t: performance.now() };
     this.el.setPointerCapture(e.pointerId);
   };
@@ -35,20 +38,33 @@ export class PanController {
     const dx = e.clientX - this.last.x;
     const dy = e.clientY - this.last.y;
     const dt = Math.max(1, now - this.last.t);
-    this.pos.x += dx;
-    this.pos.y += dy;
+    this.raw.x += dx;
+    this.raw.y += dy;
     this.lastGestureDist += Math.hypot(dx, dy);
     if (this.inertia) this.vel = { x: (dx / dt) * 16, y: (dy / dt) * 16 };
+    // Rubber band is distance-proportional: overshoot shown is always 35% of the actual
+    // overshoot distance, so it's constant regardless of how fast or in how many steps
+    // the drag covered that distance. pos === raw exactly while inside bounds.
+    const clampX = clamp(this.raw.x, this.bounds.minX, this.bounds.maxX);
+    const clampY = clamp(this.raw.y, this.bounds.minY, this.bounds.maxY);
+    this.pos.x = clampX + (this.raw.x - clampX) * 0.35;
+    this.pos.y = clampY + (this.raw.y - clampY) * 0.35;
     this.last = { x: e.clientX, y: e.clientY, t: now };
   };
 
   private onUp = () => {
     this.dragging = false;
+    // A pointer that sat still before release leaves a stale, possibly-seconds-old
+    // velocity in this.vel (it's only ever written on move) — don't fling from it.
+    if (performance.now() - this.last.t > 80) {
+      this.vel = { x: 0, y: 0 };
+    }
   };
 
   panBy(dx: number, dy: number): void {
     this.pos.x += dx;
     this.pos.y += dy;
+    this.vel = { x: 0, y: 0 };
   }
 
   panTo(x: number, y: number): void {
@@ -57,25 +73,25 @@ export class PanController {
     this.vel = { x: 0, y: 0 };
   }
 
-  tick(): void {
+  /**
+   * Advance physics by dtMs of real time (default: one 60Hz frame). Friction, spring-home
+   * and the resulting coast distance are all expressed relative to that 60Hz reference frame
+   * and scaled by dtMs/16.667, so behavior no longer depends on the ticker's actual rate.
+   */
+  tick(dtMs = 16.667): void {
     if (!this.dragging) {
-      this.pos.x += this.vel.x;
-      this.pos.y += this.vel.y;
-      this.vel.x *= 0.92;
-      this.vel.y *= 0.92;
+      const steps = dtMs / 16.667;
+      this.pos.x += this.vel.x * steps;
+      this.pos.y += this.vel.y * steps;
+      this.vel.x *= Math.pow(0.92, steps);
+      this.vel.y *= Math.pow(0.92, steps);
       if (Math.abs(this.vel.x) < 0.01) this.vel.x = 0;
       if (Math.abs(this.vel.y) < 0.01) this.vel.y = 0;
-    }
-    const cx = clamp(this.pos.x, this.bounds.minX, this.bounds.maxX);
-    const cy = clamp(this.pos.y, this.bounds.minY, this.bounds.maxY);
-    if (this.dragging) {
-      // resist while dragging past the edge
-      this.pos.x = cx + (this.pos.x - cx) * 0.35;
-      this.pos.y = cy + (this.pos.y - cy) * 0.35;
-    } else {
-      // spring home
-      this.pos.x += (cx - this.pos.x) * 0.14;
-      this.pos.y += (cy - this.pos.y) * 0.14;
+      const cx = clamp(this.pos.x, this.bounds.minX, this.bounds.maxX);
+      const cy = clamp(this.pos.y, this.bounds.minY, this.bounds.maxY);
+      const spring = 1 - Math.pow(1 - 0.14, steps);
+      this.pos.x += (cx - this.pos.x) * spring;
+      this.pos.y += (cy - this.pos.y) * spring;
     }
   }
 }
