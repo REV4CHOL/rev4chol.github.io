@@ -161,6 +161,7 @@ export class WorksWorld {
     sound.hover();
     this.fxLayer.addChild(tile); // lift out of the dimmed/desaturated layer
     this.tilesLayer.filters = [this.desat];
+    gsap.killTweensOf(this.tilesLayer);
     gsap.to(this.tilesLayer, { alpha: 0.55, duration: 0.35 });
     tile.wake();
     tile.swapToMontage();
@@ -178,6 +179,7 @@ export class WorksWorld {
     setCursorLabel(null);
     this.hideLabel();
     this.tilesLayer.filters = [];
+    gsap.killTweensOf(this.tilesLayer);
     gsap.to(this.tilesLayer, { alpha: 1, duration: 0.3 });
     if (tile) {
       tile.restorePreview();
@@ -197,8 +199,8 @@ export class WorksWorld {
     const p = tile.project;
     const global = this.worldC.toGlobal({ x: tile.x, y: tile.y });
     this.labelEl.hidden = false;
-    this.labelEl.style.left = `${Math.min(window.innerWidth - 360, Math.max(16, global.x + tile.extentX() * 0.7))}px`;
-    this.labelEl.style.top = `${Math.max(70, global.y - 40)}px`;
+    this.labelEl.style.left = `${Math.max(16, Math.min(window.innerWidth - 360, global.x + tile.extentX() * 0.7))}px`;
+    this.labelEl.style.top = `${Math.min(window.innerHeight - 120, Math.max(70, global.y - 40))}px`;
     const title = this.labelEl.querySelector('.tl-title') as HTMLElement;
     const meta = this.labelEl.querySelector('.tl-meta') as HTMLElement;
     meta.textContent = [p.year, p.role, p.runtime].filter(Boolean).join(' · ').toUpperCase();

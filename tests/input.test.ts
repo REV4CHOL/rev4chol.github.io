@@ -240,4 +240,34 @@ describe('PanController pointer capture', () => {
     expect(pan.pos.x).toBeCloseTo(50, 5);
     expect(pan.pos.y).toBeCloseTo(30, 5);
   });
+
+  it('captures on the down-target when it is a real Element, not on el', () => {
+    // The test above can only prove the el-fallback path, because Node's `node` test
+    // environment has no global `Element` — a plain-object target can never satisfy
+    // `e.target instanceof Element`, so that test would stay green even if the primary
+    // target-based capture branch in onDown silently regressed to always using el. Here we
+    // stub a minimal global `Element` so the target-based branch actually runs, and assert
+    // capture lands on the target, not on el.
+    class FakeElement {
+      calls = 0;
+      setPointerCapture() {
+        this.calls++;
+      }
+    }
+    const prevElement = (globalThis as Record<string, unknown>).Element;
+    (globalThis as Record<string, unknown>).Element = FakeElement;
+    try {
+      const elSetPointerCapture = vi.fn();
+      const { pan, listeners } = makeController(WIDE, true, elSetPointerCapture);
+      const target = new FakeElement();
+
+      fireDown(listeners, 0, 0, 7, target);
+
+      expect(target.calls).toBe(1);
+      expect(elSetPointerCapture).not.toHaveBeenCalled();
+      expect(pan.dragging).toBe(true);
+    } finally {
+      (globalThis as Record<string, unknown>).Element = prevElement;
+    }
+  });
 });

@@ -160,7 +160,9 @@ export class ProjectTile extends Container {
     const d = reducedMotion() ? 0.05 : 0.5;
     gsap.to(this.m, { ...HOVER_M, duration: d, ease: 'expo.out', onUpdate: () => this.applyMatrix() });
     gsap.to(this.card, { y: -26, duration: d, ease: 'expo.out' });
-    gsap.to(this.ensureGlow(), { alpha: 0.4, duration: d });
+    const glow = this.ensureGlow();
+    gsap.killTweensOf(glow);
+    gsap.to(glow, { alpha: 0.4, duration: d });
     this.zIndex = 10000;
   }
 
@@ -170,7 +172,7 @@ export class ProjectTile extends Container {
     const d = reducedMotion() ? 0.05 : 0.4;
     gsap.to(this.m, { ...ISO, duration: d, ease: 'expo.out', onUpdate: () => this.applyMatrix() });
     gsap.to(this.card, { y: 0, duration: d, ease: 'expo.out' });
-    if (this.glow) gsap.to(this.glow, { alpha: 0, duration: d });
+    if (this.glow) { gsap.killTweensOf(this.glow); gsap.to(this.glow, { alpha: 0, duration: d }); }
     this.zIndex = this.placed.col + this.placed.row;
   }
 
