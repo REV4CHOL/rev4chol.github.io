@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PROJECT — REVACHOL</title>
+  <meta name="description" content="A film by REVACHOL." />
+</head>
+<body class="page-project">
+  <main id="app" class="project-main">
+    <section class="p-hero" id="p-hero">
+      <video id="p-hero-video" muted loop playsinline autoplay></video>
+      <canvas id="p-hero-veil" aria-hidden="true"></canvas>
+      <h1 class="p-title" id="p-title"></h1>
+    </section>
+    <section class="p-meta micro" id="p-meta"></section>
+    <section class="p-synopsis" id="p-synopsis"></section>
+    <section class="p-watch">
+      <button class="btn" id="p-watch-btn" hidden>WATCH FILM ▸</button>
+      <div class="p-player" id="p-player" hidden></div>
+    </section>
+    <section class="p-stills" id="p-stills"></section>
+    <section class="p-credits" id="p-credits"></section>
+    <nav class="p-pager" id="p-pager" aria-label="More projects"></nav>
+  </main>
+  <dialog class="lightbox" id="lightbox">
+    <img id="lightbox-img" alt="" />
+    <button id="lightbox-close" class="btn">CLOSE ✕</button>
+  </dialog>
+  <script type="module" src="/src/pages/project.ts"></script>
+</body>
+</html>

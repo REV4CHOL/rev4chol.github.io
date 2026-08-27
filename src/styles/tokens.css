@@ -1,0 +1,10 @@
+:root {
+  --void: #060606;
+  --surface: #0A0A12;
+  --signal: #C8FF00;
+  --field: #2418FF;
+  --alert: #FF2E63;
+  --flourish: #B79CFF;
+  --bone: #EDEDE6;
+  --accent: var(--signal);
+}

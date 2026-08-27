@@ -1,0 +1,4 @@
+node_modules/
+dist/
+.fonttool-venv/
+*.local
