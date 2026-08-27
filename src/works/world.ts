@@ -200,6 +200,17 @@ export class WorksWorld {
     this.playback.update(this.viewRect(), null);
   }
 
+  /** Arm a one-shot bfcache-restore listener. Fires only for a `persisted` pageshow (a Back
+   *  restore of this exact tab) and self-removes before running `restore`, so a restore that
+   *  itself triggers navigation can never leave a stale listener behind. */
+  private armRestore(restore: () => void): void {
+    const onShow = (e: PageTransitionEvent) => {
+      window.removeEventListener('pageshow', onShow);
+      if (e.persisted) restore();
+    };
+    window.addEventListener('pageshow', onShow);
+  }
+
   enter(slug: string): void {
     if (this.entering) return;
     const tile = this.tiles.get(slug);
@@ -208,6 +219,9 @@ export class WorksWorld {
     sound.click();
     const dest = `/project.html?p=${encodeURIComponent(slug)}`;
     if (reducedMotion()) {
+      // no burst runs on this path, but `entering` still must not survive a bfcache
+      // Back-restore — otherwise hover/unhover/focusProject stay guarded off forever.
+      this.armRestore(() => { this.entering = false; this.unhover(); });
       leaveTo(dest);
       return;
     }
@@ -235,31 +249,31 @@ export class WorksWorld {
     this.app.ticker.add(jitter);
     // bfcache restore (Back from the project page) resumes this exact tab with `entering`
     // still true and the burst never torn down — undo it so the floor comes back sane.
-    const onShow = (e: PageTransitionEvent) => {
-      if (e.persisted) this.resetBurst(tile, jitter);
-      window.removeEventListener('pageshow', onShow);
-    };
-    window.addEventListener('pageshow', onShow);
+    this.armRestore(() => this.resetBurst(tile, jitter));
     window.setTimeout(() => leaveTo(dest), 500);
   }
 
-  /** Undo enter()'s burst (filters, jitter ticker, camera/tile/layer tweens, reparent) —
-   *  only reachable via bfcache restore, since a fresh load never has a burst in flight. */
+  /** Undo enter()'s burst (filters, jitter ticker, camera/tile/layer tweens, reparent) and
+   *  any pre-burst hover residue (desat filter, hovered slug, glow, montage src) — only
+   *  reachable via bfcache restore, since a fresh load never has a burst in flight. */
   private resetBurst(tile: ProjectTile, jitter: () => void): void {
     this.app.ticker.remove(jitter);
     this.worldC.filters = [];
     gsap.killTweensOf(this.pan.pos);
     gsap.killTweensOf(tile.m);
     gsap.killTweensOf(this.tilesLayer);
-    this.tilesLayer.alpha = 1;
-    Object.assign(tile.m, { ...ISO });
+    // force the erupted tile home even if it was entered without a preceding hover
+    Object.assign(tile.m, ISO);
     tile.applyMatrix();
     this.tilesLayer.addChild(tile);
     tile.zIndex = tile.placed.col + tile.placed.row;
+    this.tilesLayer.alpha = 1;
     this.entering = false;
+    this.unhover(); // clears desat filter, hoveredSlug, label, cursor, glow, montage src
   }
 
   focusProject(slug: string): void {
+    if (this.entering) return;
     const tile = this.tiles.get(slug);
     if (!tile) return;
     const mySlug = slug;
