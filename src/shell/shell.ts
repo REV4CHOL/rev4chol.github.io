@@ -1,4 +1,5 @@
 import type { SiteContent } from '../lib/content';
+import { isMobile } from '../lib/env';
 import { escapeHtml } from '../lib/escape';
 import { sound } from '../lib/sound';
 import { initTransitions } from '../lib/transitions';
@@ -50,6 +51,12 @@ export function mountShell(site: SiteContent, active: PageKey): ShellRefs {
   // counter-scales to hold its apparent size (--uiz feeds the CSS calcs).
   // outerWidth is in OS pixels and zoom-invariant; innerWidth is CSS pixels.
   const applyUiScale = () => {
+    if (isMobile()) {
+      // phones pinch the visual viewport, never the CSS pixel — and their
+      // outer/innerWidth ratio is unreliable; the chrome stays 1:1
+      document.documentElement.style.setProperty('--uiz', '1');
+      return;
+    }
     const z = window.outerWidth > 0 && window.innerWidth > 0
       ? window.outerWidth / window.innerWidth
       : 1;

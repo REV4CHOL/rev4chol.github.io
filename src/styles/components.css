@@ -291,8 +291,18 @@
 @media (max-width: 640px) {
   .hk-ticks { display: none; }
   .hk-spine { opacity: 0.35; }
-  .amp-bg { right: -30px; }
   .home-main { padding-bottom: 84px; }
+  /* the poster must FIT the phone: any horizontal overflow expands the mobile
+     layout viewport, the browser fit-zooms, and the whole page ghost-doubles
+     under that zoom (fixed elements + composited layers paint twice) */
+  .amp-bg { right: 0; font-size: 10rem; }
+  .st-clash { font-size: clamp(2.8rem, 16.5vw, 4rem); }
+  .st-row { gap: 10px; }
+  .st-row-2 { margin-left: 20px; }
+  /* no parallax on touch — strip the layer promotion that feeds the ghosting */
+  .st-row, .hk-kicker, .home-data, .home-cta-row {
+    transform: none; transition: none; will-change: auto;
+  }
 }
 
 /* calm mode (html.rvl-calm, set by the MTN toggle / pre-paint snippet):

@@ -1,5 +1,5 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { color-scheme: dark; background: var(--void); }
+html { color-scheme: dark; background: var(--void); overflow-x: clip; }
 /* --uiz: counter-scale for the shell chrome under browser zoom (shell.ts) */
 :root { --uiz: 1; }
 /* registered so the hero reel's per-clip accent re-sample TWEENS the page
