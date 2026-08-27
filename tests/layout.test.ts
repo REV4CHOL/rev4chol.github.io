@@ -1,60 +1,85 @@
 import { describe, expect, it } from 'vitest';
-import { isStreet, layoutProjects } from '../src/works/layout';
+import { layoutProjects, Placed } from '../src/works/layout';
 
 const item = (slug: string, tileSize: 'normal' | 'large' = 'normal', position: { col: number; row: number } | null = null) =>
   ({ slug, tileSize, position });
 
-describe('isStreet', () => {
-  it('marks every third column and row, including negatives', () => {
-    expect(isStreet(2, 0)).toBe(true);
-    expect(isStreet(0, 2)).toBe(true);
-    expect(isStreet(-1, 0)).toBe(true); // -1 mod 3 === 2
-    expect(isStreet(0, 0)).toBe(false);
-    expect(isStreet(1, 1)).toBe(false);
-    expect(isStreet(3, 4)).toBe(false);
-  });
-});
+const cellsOf = (p: Placed): string[] => {
+  const out: string[] = [];
+  for (let dc = 0; dc < p.span; dc++)
+    for (let dr = 0; dr < p.span; dr++) out.push(`${p.col + dc},${p.row + dr}`);
+  return out;
+};
 
-describe('layoutProjects', () => {
-  it('is deterministic and starts at the origin', () => {
-    const a = layoutProjects([item('a'), item('b'), item('c')]);
-    const b = layoutProjects([item('a'), item('b'), item('c')]);
-    expect(a).toEqual(b);
-    expect(a[0]).toEqual({ slug: 'a', col: 0, row: 0, span: 1 });
-  });
-
-  it('skips street cells', () => {
-    const placed = layoutProjects(Array.from({ length: 12 }, (_, i) => item(`p${i}`)));
-    for (const p of placed) {
-      expect(isStreet(p.col, p.row), `${p.slug} at ${p.col},${p.row}`).toBe(false);
-    }
+describe('layoutProjects (contiguous carpet)', () => {
+  it('is deterministic', () => {
+    const items = Array.from({ length: 9 }, (_, i) => item(`p${i}`));
+    expect(layoutProjects(items)).toEqual(layoutProjects(items));
   });
 
   it('never overlaps tiles, including large spans', () => {
-    const placed = layoutProjects([item('big', 'large'), ...Array.from({ length: 11 }, (_, i) => item(`p${i}`))]);
+    const placed = layoutProjects([
+      item('big-a', 'large'),
+      ...Array.from({ length: 20 }, (_, i) => item(`p${i}`)),
+      item('big-b', 'large'),
+    ]);
     const cells = new Set<string>();
     for (const p of placed) {
-      for (let dc = 0; dc < p.span; dc++) {
-        for (let dr = 0; dr < p.span; dr++) {
-          const k = `${p.col + dc},${p.row + dr}`;
-          expect(cells.has(k), `overlap at ${k}`).toBe(false);
-          cells.add(k);
-        }
+      for (const k of cellsOf(p)) {
+        expect(cells.has(k), `overlap at ${k}`).toBe(false);
+        cells.add(k);
       }
     }
   });
 
-  it('large tiles occupy a full 2x2 non-street block', () => {
-    const [big] = layoutProjects([item('big', 'large')]);
-    expect(big.span).toBe(2);
-    for (let dc = 0; dc < 2; dc++)
-      for (let dr = 0; dr < 2; dr++)
-        expect(isStreet(big.col + dc, big.row + dr)).toBe(false);
+  it('packs a contiguous carpet — every tile shares an edge with another', () => {
+    const placed = layoutProjects([
+      item('big', 'large'),
+      ...Array.from({ length: 25 }, (_, i) => item(`p${i}`)),
+    ]);
+    const all = new Set(placed.flatMap(cellsOf));
+    for (const p of placed) {
+      const own = new Set(cellsOf(p));
+      const touches = cellsOf(p).some((k) => {
+        const [c, r] = k.split(',').map(Number);
+        return [`${c + 1},${r}`, `${c - 1},${r}`, `${c},${r + 1}`, `${c},${r - 1}`].some(
+          (n) => all.has(n) && !own.has(n),
+        );
+      });
+      expect(touches, `${p.slug} is disconnected from the carpet`).toBe(true);
+    }
+  });
+
+  it('leaves no interior gaps in any row (first-fit refills holes)', () => {
+    // a large at a row end forces a temporary skip; later 1×1s must fill back in
+    const placed = layoutProjects([
+      ...Array.from({ length: 5 }, (_, i) => item(`a${i}`)),
+      item('big', 'large'),
+      ...Array.from({ length: 8 }, (_, i) => item(`b${i}`)),
+    ]);
+    const rows = new Map<number, number[]>();
+    for (const k of placed.flatMap(cellsOf)) {
+      const [c, r] = k.split(',').map(Number);
+      if (!rows.has(r)) rows.set(r, []);
+      rows.get(r)!.push(c);
+    }
+    let gaps = 0;
+    for (const cols of rows.values()) {
+      cols.sort((a, b) => a - b);
+      for (let i = 1; i < cols.length; i++) if (cols[i] - cols[i - 1] > 1) gaps++;
+    }
+    expect(gaps).toBe(0);
+  });
+
+  it('large tiles occupy a full 2×2 block', () => {
+    const placed = layoutProjects([item('big', 'large'), item('a'), item('b')]);
+    expect(placed[0].span).toBe(2);
+    expect(cellsOf(placed[0])).toHaveLength(4);
   });
 
   it('honors explicit position overrides and keeps others clear of them', () => {
-    const placed = layoutProjects([item('pinned', 'normal', { col: 4, row: 4 }), item('auto')]);
-    expect(placed[0]).toEqual({ slug: 'pinned', col: 4, row: 4, span: 1 });
-    expect(placed[1].col === 4 && placed[1].row === 4).toBe(false);
+    const placed = layoutProjects([item('pinned', 'normal', { col: 0, row: 0 }), item('auto')]);
+    expect(placed[0]).toEqual({ slug: 'pinned', col: 0, row: 0, span: 1 });
+    expect(cellsOf(placed[1])).not.toContain('0,0');
   });
 });

@@ -13,9 +13,9 @@ describe('shipped content files', () => {
     expect(site.nav.length).toBe(4);
   });
 
-  it('projects.json is valid and has 12 projects', () => {
+  it('projects.json is valid and has 26 projects', () => {
     const projects = parseProjects(parseJson(read('projects.json'), 'projects.json'));
-    expect(projects).toHaveLength(12);
+    expect(projects).toHaveLength(26);
   });
 
   it('every project folder has its required media', () => {

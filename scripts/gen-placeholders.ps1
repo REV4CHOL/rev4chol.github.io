@@ -1,5 +1,6 @@
-﻿# Generates 12 placeholder projects (poster/preview/hover/stills) with ffmpeg.
-# Usage: powershell -File scripts/gen-placeholders.ps1
+﻿# Generates 26 placeholder projects (poster/preview/hover/stills) with ffmpeg.
+# Skips any slug whose poster.jpg already exists, so re-runs only fill gaps.
+# Usage: powershell -ExecutionPolicy Bypass -File scripts/gen-placeholders.ps1
 param([string]$OutDir = (Join-Path $PSScriptRoot "..\public\content\projects"))
 
 $ErrorActionPreference = "Stop"
@@ -8,8 +9,8 @@ try { ffmpeg -version | Out-Null } catch {
   exit 1
 }
 
-$slugs = @("neon-dream","static-hymn","chrome-orchard","red-telemetry","void-cartography","tender-machines","glass-harvest","midnight-protocol","saline-throne","copper-lullaby","signal-decay","last-transmission")
-$accents = @("C8FF00","FF2E63","B79CFF","FF2E63","C8FF00","EDEDE6","B79CFF","C8FF00","EDEDE6","FF2E63","B79CFF","C8FF00")
+$slugs = @("neon-dream","static-hymn","chrome-orchard","red-telemetry","void-cartography","tender-machines","glass-harvest","midnight-protocol","saline-throne","copper-lullaby","signal-decay","last-transmission","vhs-eden","night-cartel","pale-circuitry","orpheus-static","rust-choir","hollow-signal","neon-liturgy","ghost-freight","acid-pastoral","terminal-bloom","dead-channel","iron-lullaby","sodium-haze","last-arcade")
+$accents = @("C8FF00","FF2E63","B79CFF","FF2E63","C8FF00","EDEDE6","B79CFF","C8FF00","EDEDE6","FF2E63","B79CFF","C8FF00","FF2E63","B79CFF","EDEDE6","C8FF00","FF2E63","B79CFF","C8FF00","EDEDE6","FF2E63","B79CFF","C8FF00","FF2E63","B79CFF","EDEDE6")
 
 function Src([int]$i, [string]$size, [string]$acc) {
   switch ($i % 4) {
@@ -23,6 +24,7 @@ function Src([int]$i, [string]$size, [string]$acc) {
 for ($i = 0; $i -lt $slugs.Count; $i++) {
   $slug = $slugs[$i]; $acc = $accents[$i]
   $dir = Join-Path $OutDir $slug
+  if (Test-Path (Join-Path $dir "poster.jpg")) { Write-Host "-- $slug (exists, skipped)"; continue }
   New-Item -ItemType Directory -Force (Join-Path $dir "stills") | Out-Null
   $vf = "hue=h=$($i * 33),noise=alls=10:allf=t,format=yuv420p"
   Write-Host ">> $slug"

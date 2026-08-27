@@ -181,7 +181,9 @@ export class ProjectTile extends Container {
     this.project = project;
     this.placed = placed;
     this.sizeMul = placed.span === 2 ? SIZE_MUL_LARGE : 1;
-    const { x, y } = cellToWorld(placed.col, placed.row);
+    // a span-2 tile is centered over its 2×2 cell block so the carpet stays seamless
+    const off = (placed.span - 1) / 2;
+    const { x, y } = cellToWorld(placed.col + off, placed.row + off);
     this.position.set(x, y);
     this.zIndex = placed.col + placed.row;
 
@@ -196,7 +198,9 @@ export class ProjectTile extends Container {
       style: { fontFamily: 'Martian Mono', fontSize: 9, fill: project.accent, letterSpacing: 2 },
     });
     id.alpha = 0.55;
-    id.position.set(-CARD_W / 2, CARD_H / 2 + 10);
+    // inside the card's bottom edge — on a contiguous carpet there is no floor
+    // between tiles for a label to sit on
+    id.position.set(-CARD_W / 2 + 8, CARD_H / 2 - 18);
     this.card.addChild(id);
 
     this.addChild(this.card);

@@ -343,3 +343,14 @@ public/content/
 | Shader effects overwhelm low-end GPUs | Effect intensity tiers + capability sniff (fallback: fewer filters, DPR 1) |
 | JSON hand-editing breaks site | Schema validation with human-readable, in-universe error surfaces |
 | Browser autoplay policies block previews | All previews muted + `playsinline`; sound gated behind interaction |
+
+---
+
+## Revision R1 (2026-08-27) — owner redirection after phase-1 review
+
+The owner reviewed the built Works floor against the floor796 reference and redirected two decisions:
+
+1. **Contiguous carpet, not city blocks.** The floor is now 24-30 tiles (26 placeholders) packed edge-to-edge on a lattice derived from the card's own projected edges (8px seam, `SEAM` in constants). The street/ring layout, `GX`/`GY` pitch, and `isStreet` are removed. Large tiles are exactly 2x2 cells (`SIZE_MUL_LARGE = 2`) so the carpet stays seamless. Tile ID labels moved inside the card edge.
+2. **ASCII rain removed.** It read as background noise against the references; the carpet itself is the texture. Floor debris reduced to the faint sheared cell grid (no scattered labels).
+
+Spec sections 4.1 (layout) and the 9-20 project count are superseded accordingly; everything else stands.

@@ -16,7 +16,6 @@ import { PanController } from './input';
 import { layoutProjects } from './layout';
 import { PlaybackManager } from './playback';
 import type { ViewRect } from './priority';
-import { AsciiRain } from './rain';
 import { ProjectTile } from './tile';
 
 export interface WorldHooks { onCoords(x: number, y: number): void }
@@ -33,7 +32,6 @@ export class WorksWorld {
   playback!: PlaybackManager;
   private desat = new ColorMatrixFilter();
   private labelEl = document.getElementById('tile-label');
-  private rain?: AsciiRain;
   private entering = false;
 
   static async create(host: HTMLElement, projects: Project[], hooks: WorldHooks): Promise<WorksWorld> {
@@ -97,11 +95,7 @@ export class WorksWorld {
     }
     minX -= WORLD_PAD; maxX += WORLD_PAD; minY -= WORLD_PAD; maxY += WORLD_PAD;
 
-    if (!reducedMotion()) {
-      w.rain = new AsciiRain({ minX, maxX, minY, maxY });
-    }
     w.worldC.addChild(buildDebris(placed), w.tilesLayer, w.fxLayer);
-    if (w.rain) w.worldC.addChildAt(w.rain, 0);
     app.stage.addChild(w.worldC);
 
     w.pan = new PanController(
@@ -145,7 +139,6 @@ export class WorksWorld {
         sleeping[Math.floor(Math.random() * sleeping.length)].shimmer();
       }
     }
-    this.rain?.tick(dtMs);
   }
 
   viewRect(): ViewRect {
