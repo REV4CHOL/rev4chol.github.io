@@ -20,7 +20,8 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 
 1. Pick a slug: lowercase letters, digits, hyphens. Example: `midnight-run`.
 2. Make the media. Easiest way — one command from any master file:
-   `powershell -File scripts/make-preview.ps1 -In "D:\path\master.mov" -Slug midnight-run`
+   You need ffmpeg installed once (winget install Gyan.FFmpeg).
+   `powershell -ExecutionPolicy Bypass -File scripts/make-preview.ps1 -In "D:\path\master.mov" -Slug midnight-run`
    (Or export by hand using the recipes below.) Drop gallery stills into
    `projects/midnight-run/stills/` as `01.jpg`, `02.jpg`, …
 3. Open `projects.json` and copy an existing entry. Change every field.
@@ -80,3 +81,4 @@ Build once per CODE change (not content): `npm run build` → upload the `dist/`
 folder to any static host (Netlify Drop: drag the folder into the browser).
 To update content on an already-published site, replace files inside the
 host's `content/` folder (or re-upload `dist/`) — no rebuild needed.
+Host the site at the domain root (site.com), not in a subfolder (site.com/portfolio/) — the site's paths assume the root.

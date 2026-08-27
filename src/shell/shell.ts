@@ -1,4 +1,5 @@
 import type { SiteContent } from '../lib/content';
+import { escapeHtml } from '../lib/escape';
 import { sound } from '../lib/sound';
 import { initTransitions } from '../lib/transitions';
 import { initCursor } from './cursor';
@@ -24,7 +25,7 @@ export function mountShell(site: SiteContent, active: PageKey): ShellRefs {
   brand.className = 'brand';
   brand.href = '/index.html';
   brand.dataset.internal = '';
-  brand.innerHTML = `${site.name}<em>.</em>`;
+  brand.innerHTML = `${escapeHtml(site.name)}<em>.</em>`;
 
   const links = document.createElement('nav');
   links.className = 'nav-links';

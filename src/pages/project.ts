@@ -1,6 +1,7 @@
 import { getSlugFromSearch, loadProjects, Project, projectAssetUrl } from '../lib/content';
 import { ditherImageToCanvas } from '../lib/dither';
 import { embedSrc } from '../lib/embeds';
+import { escapeHtml } from '../lib/escape';
 import { scrambleEl } from '../lib/scramble';
 import { startPage } from '../shell/page';
 import '../styles/project.css';
@@ -35,11 +36,30 @@ function render(p: Project, all: Project[], idx: number): void {
   document.documentElement.style.setProperty('--accent', p.accent);
 
   const hero = document.getElementById('p-hero-video') as HTMLVideoElement;
+  const veil = document.getElementById('p-hero-veil') as HTMLCanvasElement;
+
+  // The dither veil only lifts once BOTH the poster has loaded (with its
+  // 350ms minimum dwell) AND the hero video can actually play. If the hero
+  // video errors out, the veil must never lift — the dithered poster is the
+  // correct degraded hero, not a blank element underneath a hidden canvas.
+  let posterReady = false;
+  let videoReady = false;
+  let heroDead = false;
+  const maybeReveal = () => {
+    if (heroDead || !posterReady || !videoReady) return;
+    veil.style.transition = 'opacity 1.1s';
+    veil.style.opacity = '0';
+  };
+
   hero.src = projectAssetUrl(p.slug, 'preview.mp4');
-  hero.addEventListener('error', () => hero.remove());
+  hero.addEventListener('canplay', () => { videoReady = true; maybeReveal(); }, { once: true });
+  hero.addEventListener('error', () => {
+    heroDead = true;
+    console.warn(`[revachol] missing media: ${hero.src} — hero stays on the dithered poster`);
+    hero.remove();
+  });
   void hero.play().catch(() => {});
 
-  const veil = document.getElementById('p-hero-veil') as HTMLCanvasElement;
   const posterImg = new Image();
   posterImg.onload = () => {
     const d = ditherImageToCanvas(posterImg, posterImg.naturalWidth, posterImg.naturalHeight, 320, '#060606', p.accent);
@@ -47,8 +67,8 @@ function render(p: Project, all: Project[], idx: number): void {
     veil.height = d.height;
     veil.getContext('2d')?.drawImage(d, 0, 0);
     setTimeout(() => {
-      veil.style.transition = 'opacity 1.1s';
-      veil.style.opacity = '0';
+      posterReady = true;
+      maybeReveal();
     }, 350);
   };
   posterImg.onerror = () => veil.remove();
@@ -58,7 +78,7 @@ function render(p: Project, all: Project[], idx: number): void {
 
   document.getElementById('p-meta')!.innerHTML = [String(p.year), p.role, p.runtime, ...p.tags]
     .filter(Boolean)
-    .map((t) => `<span>${t.toUpperCase()}</span>`)
+    .map((t) => `<span>${escapeHtml(t.toUpperCase())}</span>`)
     .join('');
 
   document.getElementById('p-synopsis')!.textContent = p.synopsis;
@@ -120,7 +140,10 @@ function render(p: Project, all: Project[], idx: number): void {
       veilC.height = d.height;
       veilC.getContext('2d')?.drawImage(d, 0, 0);
     });
-    im.addEventListener('error', () => wrap.remove());
+    im.addEventListener('error', () => {
+      console.warn(`[revachol] missing media: ${im.src} — still removed from the gallery`);
+      wrap.remove();
+    });
     wrap.append(im, veilC);
     wrap.addEventListener('click', () => {
       lightboxImg.src = im.src;
@@ -132,12 +155,12 @@ function render(p: Project, all: Project[], idx: number): void {
 
   if (p.credits.length) {
     document.getElementById('p-credits')!.innerHTML =
-      `<table>${p.credits.map((c) => `<tr><td>${c.role}</td><td>${c.name}</td></tr>`).join('')}</table>`;
+      `<table>${p.credits.map((c) => `<tr><td>${escapeHtml(c.role)}</td><td>${escapeHtml(c.name)}</td></tr>`).join('')}</table>`;
   }
 
   const prev = all[(idx - 1 + all.length) % all.length];
   const next = all[(idx + 1) % all.length];
   document.getElementById('p-pager')!.innerHTML = `
-    <a class="btn" href="/project.html?p=${prev.slug}" data-internal>◂ ${prev.title.toUpperCase()}</a>
-    <a class="btn" href="/project.html?p=${next.slug}" data-internal>${next.title.toUpperCase()} ▸</a>`;
+    <a class="btn" href="/project.html?p=${prev.slug}" data-internal>◂ ${escapeHtml(prev.title.toUpperCase())}</a>
+    <a class="btn" href="/project.html?p=${next.slug}" data-internal>${escapeHtml(next.title.toUpperCase())} ▸</a>`;
 }

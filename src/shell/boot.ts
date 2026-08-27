@@ -1,5 +1,6 @@
 import { ContentError } from '../lib/content';
 import { reducedMotion } from '../lib/env';
+import { escapeHtml } from '../lib/escape';
 
 export interface BootTask { label: string; run: () => Promise<unknown> }
 
@@ -15,10 +16,6 @@ const L = {
 };
 const ORDER = [L.R, L.E, L.V, L.A, L.C, L.H, L.O, L.L2];
 const LOGO = Array.from({ length: 6 }, (_, row) => ORDER.map((l) => l[row]).join(' ')).join('\n');
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-}
 
 export function runBoot(tasks: BootTask[]): Promise<void> {
   let booted = false;
