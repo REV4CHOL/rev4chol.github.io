@@ -46,7 +46,9 @@ body { font-size: var(--t-md); line-height: 1.6; }
   opacity: 0.42;
 }
 .scan-layer {
-  position: fixed; inset: 0; z-index: 9000; pointer-events: none; opacity: 0.22;
+  /* 0.12: present on imagery and fields, but no longer banding the display
+     type — refs 4/5 carry no scanlines over flat vector/type at all */
+  position: fixed; inset: 0; z-index: 9000; pointer-events: none; opacity: 0.12;
   background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.5) 0 1px, transparent 1px 4px);
 }
 @media (prefers-reduced-motion: reduce) { #grain { opacity: 0.22; } }
