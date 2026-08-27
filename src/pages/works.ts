@@ -9,7 +9,7 @@ startPage(
   async ({ hud }) => {
     const projects = await loadProjects();
     hud.setCount(projects.length);
-    mountWorksOverlay(projects.length);
+    mountWorksOverlay();
     const host = document.getElementById('floor')!;
     const world = await WorksWorld.create(host, projects, {
       onCoords: (x, y) => hud.setCoords(x, y),
