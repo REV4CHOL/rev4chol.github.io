@@ -32,3 +32,47 @@ body { font-size: var(--t-md); line-height: 1.6; }
   letter-spacing: -0.01em;
   max-width: 12ch;
 }
+
+/* ---- atmosphere ---- */
+#grain {
+  position: fixed; inset: 0; width: 100vw; height: 100vh;
+  z-index: 8999; pointer-events: none; opacity: 0.07; image-rendering: pixelated;
+}
+.scan-layer {
+  position: fixed; inset: 0; z-index: 9000; pointer-events: none; opacity: 0.5;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px);
+}
+.vignette-layer {
+  position: fixed; inset: 0; z-index: 9001; pointer-events: none;
+  background: radial-gradient(120% 100% at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+/* ---- glitch wipe ---- */
+#wipe { position: fixed; inset: 0; z-index: 9500; pointer-events: none; }
+.wipe-slice {
+  position: absolute; left: 0; width: 100%;
+  background: var(--void);
+  border-top: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  will-change: transform;
+}
+
+/* ---- custom cursor ---- */
+@media (pointer: fine) {
+  body.cursor-live, body.cursor-live * { cursor: none !important; }
+}
+#cursor { position: fixed; left: 0; top: 0; z-index: 9999; pointer-events: none; will-change: transform; }
+#cursor .x { position: relative; width: 22px; height: 22px; transform: translate(-50%, -50%); }
+#cursor .x::before, #cursor .x::after { content: ''; position: absolute; background: var(--accent); }
+#cursor .x::before { left: 50%; top: 0; width: 1px; height: 100%; }
+#cursor .x::after { top: 50%; left: 0; width: 100%; height: 1px; }
+#cursor .cursor-label {
+  position: absolute; left: 18px; top: -4px; white-space: nowrap;
+  font-family: var(--f-micro); font-size: 10px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--accent);
+}
+#cursor .cursor-coords {
+  position: absolute; left: 18px; top: 10px; white-space: nowrap;
+  font-family: var(--f-micro); font-size: 9px; letter-spacing: 0.1em;
+  color: color-mix(in srgb, var(--bone) 40%, transparent);
+}
+#cursor.has-label .x { outline: 1px solid var(--accent); outline-offset: 4px; }
