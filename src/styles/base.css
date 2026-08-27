@@ -1,5 +1,9 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { color-scheme: dark; }
+/* registered so the hero reel's per-clip accent re-sample TWEENS the page
+   chrome instead of snapping it (no-ops where @property is unsupported) */
+@property --accent { syntax: '<color>'; inherits: true; initial-value: #c8ff00; }
+html { transition: --accent 0.6s linear; }
 body {
   background: var(--void);
   color: var(--bone);
@@ -51,7 +55,7 @@ body { font-size: var(--t-md); line-height: 1.6; }
   position: fixed; inset: 0; z-index: 9000; pointer-events: none; opacity: 0.12;
   background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.5) 0 1px, transparent 1px 4px);
 }
-@media (prefers-reduced-motion: reduce) { #grain { opacity: 0.22; } }
+.rvl-calm #grain { opacity: 0.22; }
 
 /* ---- glitch wipe ---- */
 #wipe { position: fixed; inset: 0; z-index: 9500; pointer-events: none; }

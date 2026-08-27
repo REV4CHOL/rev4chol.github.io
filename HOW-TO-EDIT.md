@@ -70,12 +70,40 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 - **Feature a film:** set its `tileSize` to `"large"`.
 - **Remove a film:** delete its entry from `projects.json` (the folder can stay).
 
-## Homepage picture
+## Homepage reel (the 5 loops)
 
-The homepage hero is whatever image lives at `content/home/hero.jpg`.
+Drop short clips named `loop-1`, `loop-2`, … up to `loop-8` into
+`content/home/` and the homepage becomes an endless full-bleed reel: each clip
+plays ~3 seconds, then a datamosh cut jumps to the next, forever. The page's
+accent color re-samples from every clip as it lands. Any number of loops works
+(5 recommended); numbering order = play order; refresh, done.
+
+Formats, checked in this order per slot: `.mp4`, `.webm`, `.gif`.
+**Use mp4** — a 3s mp4 is ~10× smaller and cleaner than the same clip as GIF
+(GIFs work, but they're capped at 256 colors and huge).
+
+Cut a 3-second loop from one of your films with ffmpeg (change the start time
+`-ss` to pick the moment):
+
+```
+ffmpeg -ss 00:01:12 -t 3 -i "MYFILM.mp4" -an -vf "scale=1280:-2" -c:v libx264 -crf 22 -pix_fmt yuv420p -movflags +faststart loop-1.mp4
+```
+
+## Homepage picture (fallback / first paint)
+
+`content/home/hero.jpg` (also `.jpeg`/`.png`/`.webp`) is the poster the page
+shows instantly while the loops load — and the whole hero, if no loops exist.
 Overwrite that one file (any aspect ratio, ~1920px wide JPEG recommended),
-refresh, done — the site re-fits it, re-samples the page's accent color from
-it, and runs the glitch treatment on it automatically. No other edit needed.
+refresh, done — the site re-fits it, re-samples the accent from it, and runs
+the glitch treatment automatically.
+
+## Motion: full by default, CALM one click away
+
+The site plays full motion for everyone — it does NOT follow the operating
+system's "reduce animations" flag (many Windows machines have it off without
+the owner knowing, which would show visitors a frozen site). The `MTN` button
+in the top-right HUD switches any visitor to a fully still, calm version, and
+the choice is remembered on their browser.
 
 ## Site text and menu
 

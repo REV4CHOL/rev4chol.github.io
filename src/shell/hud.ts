@@ -1,3 +1,4 @@
+import { calmActive, toggleCalm } from '../lib/motion';
 import { sound } from '../lib/sound';
 
 export interface Hud {
@@ -24,7 +25,7 @@ export function mountHud(): Hud {
 
   const tr = document.createElement('div');
   tr.className = 'hud hud-tr micro';
-  tr.innerHTML = `<span id="hud-count"></span> <button id="hud-snd" aria-pressed="${sound.enabled}">SND ${sound.enabled ? '●' : '○'}</button>`;
+  tr.innerHTML = `<span id="hud-count"></span> <button id="hud-snd" aria-pressed="${sound.enabled}">SND ${sound.enabled ? '●' : '○'}</button> <button id="hud-mtn" aria-pressed="${!calmActive()}" title="Motion: full / calm">MTN ${calmActive() ? '○' : '●'}</button>`;
 
   document.body.append(bl, br, tr);
 
@@ -43,6 +44,13 @@ export function mountHud(): Hud {
     snd.textContent = `SND ${on ? '●' : '○'}`;
     snd.setAttribute('aria-pressed', String(on));
     if (on && document.body.classList.contains('page-work')) sound.startHum();
+  });
+
+  const mtn = tr.querySelector('#hud-mtn') as HTMLButtonElement;
+  mtn.addEventListener('click', () => {
+    toggleCalm();
+    // every page wires its motion at mount — a reload is the honest re-wire
+    location.reload();
   });
 
   const coords = bl.querySelector('#hud-coords') as HTMLElement;
