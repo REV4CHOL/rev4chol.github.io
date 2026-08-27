@@ -29,7 +29,17 @@ export class PanController {
     this.vel = { x: 0, y: 0 };
     this.raw = { ...this.pos };
     this.last = { x: e.clientX, y: e.clientY, t: performance.now() };
-    this.el.setPointerCapture(e.pointerId);
+    // capture on the actual down-target (the Pixi canvas), not this.el: capturing on the
+    // parent retargets pointerup away from the canvas, which makes Pixi treat every up as
+    // "outside" and kills pointertap on tiles. Captured events still bubble through this.el.
+    // (Element is guarded the same way src/lib/env.ts guards `window` — this file's tests
+    // run under vitest's plain `node` environment, which has no DOM globals at all.)
+    const target = typeof Element !== 'undefined' && e.target instanceof Element ? e.target : this.el;
+    try {
+      target.setPointerCapture(e.pointerId);
+    } catch {
+      /* synthetic or already-released pointers can't be captured — dragging still works */
+    }
   };
 
   private onMove = (e: PointerEvent) => {

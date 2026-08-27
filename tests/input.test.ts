@@ -4,23 +4,33 @@ import { Bounds, PanController } from '../src/works/input';
 // PanController only touches the DOM via el.addEventListener/setPointerCapture, so we
 // build a minimal fake element that records the listeners it's given, then invoke those
 // listeners directly with plain pointer-event-shaped objects to drive gestures.
-type FakeEvent = { clientX?: number; clientY?: number; pointerId?: number };
+type FakeEvent = { clientX?: number; clientY?: number; pointerId?: number; target?: unknown };
 type Listener = (e: FakeEvent) => void;
 
-function makeController(bounds: Bounds, inertia = true) {
+function makeController(
+  bounds: Bounds,
+  inertia = true,
+  setPointerCapture: (pointerId: number) => void = () => {},
+) {
   const listeners: Record<string, Listener> = {};
   const el = {
     addEventListener: (type: string, fn: Listener) => {
       listeners[type] = fn;
     },
-    setPointerCapture: () => {},
+    setPointerCapture,
   } as unknown as HTMLElement;
   const pan = new PanController(el, bounds, inertia);
   return { pan, listeners };
 }
 
-function fireDown(listeners: Record<string, Listener>, x: number, y: number, pointerId = 1) {
-  listeners.pointerdown({ clientX: x, clientY: y, pointerId });
+function fireDown(
+  listeners: Record<string, Listener>,
+  x: number,
+  y: number,
+  pointerId = 1,
+  target?: unknown,
+) {
+  listeners.pointerdown({ clientX: x, clientY: y, pointerId, target });
 }
 function fireMove(listeners: Record<string, Listener>, x: number, y: number) {
   listeners.pointermove({ clientX: x, clientY: y });
@@ -192,5 +202,42 @@ describe('PanController inertia disabled', () => {
     for (let i = 0; i < 10; i++) pan.tick(16.667);
 
     expect(Math.abs(pan.pos.x - posAfterRelease)).toBeLessThan(0.01);
+  });
+});
+
+describe('PanController pointer capture', () => {
+  it('pointer capture falls back safely and never breaks the drag', () => {
+    // el.setPointerCapture is wired to record every call and then throw, so this test can
+    // assert two things at once: (1) capture is attempted on el rather than the down-target,
+    // and (2) a throwing setPointerCapture doesn't break the drag. Node has no real DOM, so a
+    // plain-object stand-in for the canvas can never satisfy `instanceof Element` the way a
+    // real <canvas> would in the browser — asserting the fallback-to-el path is therefore the
+    // honest thing to test here, rather than pretending we can simulate capture landing on the
+    // canvas from a Node test.
+    const elCalls: number[] = [];
+    const elSetPointerCapture = vi.fn((pointerId: number) => {
+      elCalls.push(pointerId);
+      throw new Error('setPointerCapture is not supported on this fake element');
+    });
+    const { pan, listeners } = makeController(WIDE, true, elSetPointerCapture);
+
+    const fakeCanvasTarget = {
+      setPointerCapture: vi.fn(),
+    };
+
+    expect(() => fireDown(listeners, 0, 0, 7, fakeCanvasTarget)).not.toThrow();
+
+    // fakeCanvasTarget is a plain object, not `instanceof Element`, so onDown must fall back
+    // to capturing on el instead of the (fake) down-target.
+    expect(elSetPointerCapture).toHaveBeenCalledTimes(1);
+    expect(elCalls).toEqual([7]);
+    expect(fakeCanvasTarget.setPointerCapture).not.toHaveBeenCalled();
+
+    // The throw from el.setPointerCapture must be swallowed: drag state still initializes,
+    // and subsequent moves still accumulate normally.
+    expect(pan.dragging).toBe(true);
+    fireMove(listeners, 50, 30);
+    expect(pan.pos.x).toBeCloseTo(50, 5);
+    expect(pan.pos.y).toBeCloseTo(30, 5);
   });
 });
