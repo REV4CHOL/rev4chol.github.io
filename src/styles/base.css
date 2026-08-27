@@ -76,3 +76,29 @@ body { font-size: var(--t-md); line-height: 1.6; }
   color: color-mix(in srgb, var(--bone) 40%, transparent);
 }
 #cursor.has-label .x { outline: 1px solid var(--accent); outline-offset: 4px; }
+
+/* ---- boot ---- */
+#boot {
+  position: fixed; inset: 0; z-index: 9900; background: var(--void);
+  display: grid; place-content: center; justify-items: start; gap: 22px;
+  transition: opacity 0.4s;
+}
+#boot.hidden { opacity: 0; pointer-events: none; }
+.boot-logo {
+  font-family: var(--f-mono); font-size: clamp(5px, 1.05vw, 9px);
+  line-height: 1.15; color: var(--accent); white-space: pre;
+}
+.boot-log {
+  font-family: var(--f-micro); font-size: var(--t-2xs); letter-spacing: 0.14em;
+  text-transform: uppercase; color: color-mix(in srgb, var(--bone) 70%, transparent);
+  min-height: calc(6 * 1.8em); width: min(80vw, 540px);
+}
+.boot-line { display: block; line-height: 1.8; }
+.boot-line .ok { color: var(--signal); }
+.boot-line .err { color: var(--alert); }
+.boot-skip { opacity: 0.5; }
+#boot.error .boot-logo { color: var(--alert); }
+.boot-error {
+  color: var(--alert); border: 1px solid var(--alert); padding: 12px 16px;
+  font-family: var(--f-mono); font-size: var(--t-sm); max-width: 60ch; margin-top: 8px;
+}
