@@ -1,6 +1,7 @@
 import { loadProjects, projectAssetUrl, type Project } from '../lib/content';
 import { sound } from '../lib/sound';
 import { startPage } from '../shell/page';
+import { mountWorksOverlay } from '../works/overlay';
 import { WorksWorld } from '../works/world';
 
 startPage(
@@ -8,6 +9,7 @@ startPage(
   async ({ hud }) => {
     const projects = await loadProjects();
     hud.setCount(projects.length);
+    mountWorksOverlay(projects.length);
     const host = document.getElementById('floor')!;
     const world = await WorksWorld.create(host, projects, {
       onCoords: (x, y) => hud.setCoords(x, y),

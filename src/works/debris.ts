@@ -26,7 +26,7 @@ export function buildDebris(placed: Placed[]): Container {
       g.moveTo(a.x, a.y).lineTo(b.x, b.y).lineTo(d.x, d.y).lineTo(e.x, e.y).closePath();
     }
   }
-  g.stroke({ color: 0xc8ff00, alpha: 0.045, width: 1 });
+  g.stroke({ color: 0xc8ff00, alpha: 0.11, width: 1 });
   c.addChild(g);
   return c;
 }

@@ -32,7 +32,10 @@ export function bayerDither(
   }
 }
 
-/** Draw source scaled to outW wide, dither it into a duotone canvas. Browser only. */
+/** Draw source scaled to outW wide, dither it into a duotone canvas. Browser only.
+ *  `mix` composites the original back over the dither in `overlay`, so a tile can
+ *  sit anywhere between hard 1-bit graphic (0) and crushed colour (1). A floor
+ *  where every tile is 1-bit reads as noise fabric, not as a set of screens. */
 export function ditherImageToCanvas(
   source: CanvasImageSource,
   srcW: number,
@@ -40,15 +43,27 @@ export function ditherImageToCanvas(
   outW: number,
   dark: string,
   light: string,
+  mix = 0,
 ): HTMLCanvasElement {
   const outH = Math.max(1, Math.round((outW * srcH) / srcW));
   const canvas = document.createElement('canvas');
   canvas.width = outW;
   canvas.height = outH;
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  // crush before thresholding — flat footage dithers to mud otherwise
+  ctx.filter = 'contrast(1.3) saturate(1.15)';
   ctx.drawImage(source, 0, 0, outW, outH);
+  ctx.filter = 'none';
   const img = ctx.getImageData(0, 0, outW, outH);
   bayerDither(img.data, outW, outH, hexToRgb(dark), hexToRgb(light));
   ctx.putImageData(img, 0, 0);
+  if (mix > 0) {
+    ctx.save();
+    ctx.globalAlpha = mix;
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.filter = 'contrast(1.15) saturate(1.25)';
+    ctx.drawImage(source, 0, 0, outW, outH);
+    ctx.restore();
+  }
   return canvas;
 }

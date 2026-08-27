@@ -1,4 +1,4 @@
-import { BlurFilter, Container, Matrix, Sprite, Text, Texture } from 'pixi.js';
+import { BlurFilter, Container, Graphics, Matrix, Sprite, Text, Texture } from 'pixi.js';
 import gsap from 'gsap';
 import type { Project } from '../lib/content';
 import { projectAssetUrl } from '../lib/content';
@@ -193,15 +193,41 @@ export class ProjectTile extends Container {
     this.posterSprite.height = CARD_H;
     this.card.addChild(this.posterSprite);
 
+    // --- panel furniture. without a hard edge a tile is a swatch, not a screen.
+    const hw = CARD_W / 2;
+    const hh = CARD_H / 2;
+    const acc = parseInt(project.accent.slice(1), 16);
+    const frame = new Graphics();
+    frame.rect(-hw, -hh, CARD_W, CARD_H).stroke({ color: acc, alpha: 0.42, width: 1 });
+    const L = 26;
+    for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
+      frame.moveTo(sx * hw, sy * hh).lineTo(sx * hw - sx * L, sy * hh);
+      frame.moveTo(sx * hw, sy * hh).lineTo(sx * hw, sy * hh - sy * L);
+    }
+    frame.stroke({ color: acc, alpha: 0.95, width: 2 });
+    // slug plate + index tab, so the mono type has something to sit on
+    frame.rect(-hw, hh - 20, CARD_W, 20).fill({ color: 0x060606, alpha: 0.6 });
+    frame.rect(-hw, hh - 20, 4, 20).fill({ color: acc, alpha: 1 });
+    frame.rect(-hw + 8, -hh + 8, 30, 8).fill({ color: acc, alpha: 0.9 });
+    this.card.addChild(frame);
+
     const id = new Text({
       text: `${project.year} · ${project.slug}`.toUpperCase(),
-      style: { fontFamily: 'Martian Mono', fontSize: 9, fill: project.accent, letterSpacing: 2 },
+      style: { fontFamily: 'Martian Mono', fontSize: 10, fill: project.accent, letterSpacing: 2 },
     });
-    id.alpha = 0.55;
+    id.alpha = 0.92;
     // inside the card's bottom edge — on a contiguous carpet there is no floor
     // between tiles for a label to sit on
-    id.position.set(-CARD_W / 2 + 8, CARD_H / 2 - 18);
+    id.position.set(-CARD_W / 2 + 12, CARD_H / 2 - 18);
     this.card.addChild(id);
+
+    const code = new Text({
+      text: `RVL/${String(Math.abs(placed.col * 7 + placed.row * 13) % 9000 + 1000)}`,
+      style: { fontFamily: 'Martian Mono', fontSize: 8, fill: 0xedede6, letterSpacing: 1.5 },
+    });
+    code.alpha = 0.5;
+    code.position.set(-CARD_W / 2 + 44, -CARD_H / 2 + 6);
+    this.card.addChild(code);
 
     this.addChild(this.card);
     this.applyMatrix();

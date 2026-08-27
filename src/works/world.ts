@@ -64,7 +64,7 @@ export class WorksWorld {
     });
     w.playback = new PlaybackManager(w.tiles);
 
-    w.desat.saturate(-0.55, false);
+    w.desat.saturate(-0.35, false);
     for (const tile of w.tiles.values()) {
       const slug = tile.project.slug;
       tile.on('pointerover', () => {
@@ -94,10 +94,14 @@ export class WorksWorld {
       minY = Math.min(minY, t.y - t.extentY());
       maxY = Math.max(maxY, t.y + t.extentY());
     }
-    minX -= WORLD_PAD; maxX += WORLD_PAD; minY -= WORLD_PAD; maxY += WORLD_PAD;
+    const carpet = { minX, maxX, minY, maxY };
+    // the graphic furniture rings the carpet, so the pannable region has to reach
+    // past it — but only far enough to frame it, never far enough to get lost in
+    // black
+    const halo = Math.max(WORLD_PAD, (maxX - minX) * 0.3, (maxY - minY) * 0.45);
+    minX -= halo; maxX += halo; minY -= halo; maxY += halo;
 
-    const carpetCenter = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
-    w.worldC.addChild(buildFields(carpetCenter), buildDebris(placed), w.tilesLayer, w.fxLayer);
+    w.worldC.addChild(buildFields(carpet), buildDebris(placed), w.tilesLayer, w.fxLayer);
     app.stage.addChild(w.worldC);
 
     w.pan = new PanController(
@@ -167,7 +171,7 @@ export class WorksWorld {
     this.fxLayer.addChild(tile); // lift out of the dimmed/desaturated layer
     this.tilesLayer.filters = [this.desat];
     gsap.killTweensOf(this.tilesLayer);
-    gsap.to(this.tilesLayer, { alpha: 0.55, duration: 0.35 });
+    gsap.to(this.tilesLayer, { alpha: 0.62, duration: 0.35 });
     tile.wake();
     tile.swapToMontage();
     tile.enterHover();
@@ -303,11 +307,22 @@ export class WorksWorld {
   }
 }
 
+/** Deterministic per-slug treatment. A third of the floor stays hard 1-bit
+ *  duotone; the rest keeps progressively more of the original image, so the
+ *  carpet has rhythm instead of one uniform texture. */
+function posterMix(slug: string): number {
+  let h = 0;
+  for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) >>> 0;
+  return [0, 0, 0.5, 0.72][h % 4];
+}
+
 async function loadPosterCanvas(p: Project): Promise<HTMLCanvasElement> {
   const url = projectAssetUrl(p.slug, 'poster.jpg');
   try {
     const img = await loadImage(url);
-    return ditherImageToCanvas(img, img.naturalWidth, img.naturalHeight, 240, '#060606', p.accent);
+    // 512 wide: a 320pt card at 2x DPR, so the Bayer pattern stays a fine screen
+    // instead of upscaling into a visible mosaic
+    return ditherImageToCanvas(img, img.naturalWidth, img.naturalHeight, 512, '#060606', p.accent, posterMix(p.slug));
   } catch {
     console.warn(`[revachol] missing media: ${url} — using generated fallback poster`);
     return fallbackPoster(p);

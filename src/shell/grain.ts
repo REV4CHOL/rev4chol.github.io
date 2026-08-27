@@ -1,31 +1,51 @@
 import { reducedMotion } from '../lib/env';
 
+const TILE = 96;
+const FRAMES = 4;
+
+/** One 1:1 noise tile. Values centre on 128 so that under `mix-blend-mode:
+ *  overlay` a mid-grey texel is a no-op — and, more importantly, overlay over a
+ *  black base stays black whatever the blend value. The grain therefore lives
+ *  only on the posters and the colour fields and disappears completely on the
+ *  void, instead of crawling across it as a stretched grey mosaic. */
+function noiseTile(spread: number): string {
+  const c = document.createElement('canvas');
+  c.width = c.height = TILE;
+  const ctx = c.getContext('2d')!;
+  const img = ctx.createImageData(TILE, TILE);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const v = (128 + (Math.random() * 2 - 1) * spread) | 0;
+    d[i] = d[i + 1] = d[i + 2] = v;
+    d[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return c.toDataURL('image/png');
+}
+
 export function mountAtmosphere(): void {
-  const grain = document.createElement('canvas');
+  const grain = document.createElement('div');
   grain.id = 'grain';
-  // fine enough to read as film grain when scaled — coarse buffers turn into a
-  // blocky mosaic over color fields
-  grain.width = 640;
-  grain.height = 360;
+
+  // Pre-bake a short loop instead of regenerating ImageData every tick: the
+  // texture never scales, so a frame costs one background swap.
+  const frames = Array.from({ length: FRAMES }, () => noiseTile(60));
+  let f = 0;
+  const apply = () => {
+    grain.style.backgroundImage = `url(${frames[f]})`;
+    grain.style.backgroundPosition = `${(Math.random() * TILE) | 0}px ${(Math.random() * TILE) | 0}px`;
+  };
+  apply();
+
   const scan = document.createElement('div');
   scan.className = 'scan-layer';
-  const vig = document.createElement('div');
-  vig.className = 'vignette-layer';
-  document.body.append(grain, scan, vig);
-  const ctx = grain.getContext('2d');
-  if (!ctx) return;
-  const draw = () => {
-    const img = ctx.createImageData(640, 360);
-    const d = img.data;
-    for (let i = 0; i < d.length; i += 4) {
-      const v = (Math.random() * 255) | 0;
-      d[i] = d[i + 1] = d[i + 2] = v;
-      d[i + 3] = 255;
-    }
-    ctx.putImageData(img, 0, 0);
-  };
-  draw();
+  document.body.append(grain, scan);
+
   if (!reducedMotion()) {
-    setInterval(() => { if (!document.hidden) draw(); }, 120);
+    setInterval(() => {
+      if (document.hidden) return;
+      f = (f + 1) % FRAMES;
+      apply();
+    }, 90);
   }
 }
