@@ -46,14 +46,10 @@ export function mountShell(site: SiteContent, active: PageKey): ShellRefs {
   initCursor();
   const hud = mountHud();
 
-  // First-gesture unlock for WebAudio; hover blips on interactives.
-  const unlock = () => {
-    sound.unlock();
-    window.removeEventListener('pointerdown', unlock);
-    window.removeEventListener('keydown', unlock);
-  };
-  window.addEventListener('pointerdown', unlock);
-  window.addEventListener('keydown', unlock);
+  // WebAudio: the engine handles activation itself (same-origin navigations
+  // propagate the gesture, so sound flows page to page); hover blips on
+  // interactives.
+  sound.init();
   document.addEventListener('pointerover', (e) => {
     if ((e.target as Element).closest?.('a, button')) sound.hover();
   });

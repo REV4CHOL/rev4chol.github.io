@@ -1,5 +1,6 @@
 import { reducedMotion } from '../lib/env';
 import { scrambleEl } from '../lib/scramble';
+import { sound } from '../lib/sound';
 import { startPage } from '../shell/page';
 
 let heroBurst: () => void = () => {};
@@ -56,6 +57,7 @@ function initHomeEffects(): void {
     const leaf = t.querySelector<HTMLElement>('.gl') ?? t;
     if (!leaf.textContent) return;
     t.dataset.busy = '1';
+    sound.hover();
     const clash = t.classList.contains('st-clash') ? t : null;
     clash?.classList.add('rip');
     void scrambleEl(leaf, leaf.textContent, 260).then(() => {
@@ -105,5 +107,6 @@ function initHomeEffects(): void {
   document.addEventListener('pointerdown', (e) => {
     if ((e.target as Element).closest?.('a, button')) return;
     heroBurst();
+    sound.zap();
   });
 }
