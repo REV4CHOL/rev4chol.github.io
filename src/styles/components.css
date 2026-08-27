@@ -66,7 +66,9 @@
 .page-work .works-main { position: fixed; inset: 0; }
 #floor { position: absolute; inset: 0; touch-action: none; }
 .page-work {
-  background: radial-gradient(120vmax 90vmax at 72% 18%, #0a0930 0%, var(--void) 55%);
+  /* flat void — the flooded color lives IN the world (fields.ts), as committed
+     graphic shapes that pan with the floor, not as CSS mush behind it */
+  background: var(--void);
 }
 #tile-label { position: fixed; z-index: 930; pointer-events: none; max-width: 340px; }
 #tile-label .tl-title {

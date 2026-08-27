@@ -12,6 +12,7 @@ import { leaveTo } from '../lib/transitions';
 import { setCursorLabel } from '../shell/cursor';
 import { CARD_H, CARD_W, ISO, WORLD_PAD } from './constants';
 import { buildDebris } from './debris';
+import { buildFields } from './fields';
 import { PanController } from './input';
 import { layoutProjects } from './layout';
 import { PlaybackManager } from './playback';
@@ -95,7 +96,8 @@ export class WorksWorld {
     }
     minX -= WORLD_PAD; maxX += WORLD_PAD; minY -= WORLD_PAD; maxY += WORLD_PAD;
 
-    w.worldC.addChild(buildDebris(placed), w.tilesLayer, w.fxLayer);
+    const carpetCenter = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+    w.worldC.addChild(buildFields(carpetCenter), buildDebris(placed), w.tilesLayer, w.fxLayer);
     app.stage.addChild(w.worldC);
 
     w.pan = new PanController(
