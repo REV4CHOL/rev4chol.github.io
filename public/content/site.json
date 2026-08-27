@@ -1,0 +1,15 @@
+{
+  "name": "REVACHOL",
+  "tagline": "cinematic filmmaker",
+  "email": "mnguyen4403@gmail.com",
+  "nav": [
+    { "label": "HOMEPAGE", "href": "/index.html" },
+    { "label": "WORK", "href": "/works.html" },
+    { "label": "ABOUT", "href": "/about.html" },
+    { "label": "CONTACT", "href": "/contact.html" }
+  ],
+  "socials": [
+    { "label": "INSTAGRAM", "href": "https://instagram.com/" },
+    { "label": "VIMEO", "href": "https://vimeo.com/" }
+  ]
+}
