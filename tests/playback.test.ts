@@ -154,8 +154,11 @@ describe('PlaybackManager', () => {
       flaky.failAsync(); // the "404 arrives" moment, between this tick and the next
     }
 
+    // Deterministic: 'flaky' is the sole tile and always sits inside VIEW, so it is the
+    // sole play-set member every round. Each round either pushes it (first time) or
+    // touch()es the existing entry — never a second push — so exactly one entry survives.
     const occurrences = getLru(manager).filter((s) => s === 'flaky').length;
-    expect(occurrences).toBeLessThanOrEqual(1);
+    expect(occurrences).toBe(1);
   });
 
   it('adopts an externally-woken tile into the lru and evicts once tracked elements overflow (I2 regression)', () => {
@@ -168,12 +171,17 @@ describe('PlaybackManager', () => {
       f.wake(); // external wake (e.g. hover), bypassing the manager entirely
       expect(f.hasVideo()).toBe(true);
       manager.update(VIEW, f.project.slug); // hovered guarantees this slug is the sole member of `set`
+      // the just-adopted slug is always the sole `set` member this round, so eviction
+      // (which only ever removes a victim outside `set`) can never pick it as a target
+      expect(getLru(manager)).toContain(f.project.slug);
     }
 
     const totalReleases = fakes.reduce((n, f) => n + f.releaseCalls, 0);
     expect(totalReleases).toBeGreaterThan(0);
     // the tile that is still hovered as of the last call must never itself be evicted
     expect(fakes[rounds - 1].releaseCalls).toBe(0);
+    // eviction settles the lru back at or under the cap, never left to grow past it
+    expect(getLru(manager).length).toBeLessThanOrEqual(manager.maxElements);
   });
 
   it('never adopts a tile whose media permanently fails, and re-checks it cheaply (C1 behavioral)', () => {
@@ -185,7 +193,10 @@ describe('PlaybackManager', () => {
     expect(broken.hasVideo()).toBe(false);
     expect(broken.mode).toBe('sleep');
     expect(getLru(manager)).not.toContain('broken');
-    expect(broken.wakeCalls).toBeLessThanOrEqual(50); // bounded — at most one attempt per cycle
+    // Deterministic: 'broken' never leaves mode 'sleep' (the broken-media branch returns
+    // before setting mode = 'live'), so update()'s `if (tile.mode === 'sleep') tile.wake()`
+    // fires on every single cycle — exactly one attempt per cycle, 50 cycles.
+    expect(broken.wakeCalls).toBe(50);
     expect(broken.releaseCalls).toBe(0); // never held anything to release
   });
 

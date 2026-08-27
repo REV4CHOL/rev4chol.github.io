@@ -46,7 +46,9 @@ export class ProjectTile extends Container {
     this.sleep();
     if (this.videoSprite) {
       // element is being discarded — safe to also tear down the TextureSource here;
-      // VideoSource.destroy() will itself pause/src=''/load() the same element.
+      // VideoSource.destroy() will itself pause/src=''/load() the same element, and
+      // TextureSource.destroy() calls removeAllListeners(), so the 'resize' subscription
+      // from attachVideoSprite() is dropped with it — no explicit off() needed.
       this.videoSprite.destroy({ texture: true, textureSource: true });
       this.videoSprite = undefined;
     }
@@ -115,22 +117,19 @@ export class ProjectTile extends Container {
   private attachVideoSprite(): void {
     if (!this.video) return;
     if (this.videoSprite) {
-      const s = this.videoSprite;
-      // defer past this event dispatch so Pixi's VideoSource has resized first
-      setTimeout(() => {
-        if (this.videoSprite !== s) return;
-        s.width = CARD_W;
-        s.height = CARD_H;
-        s.visible = this.mode !== 'sleep';
-      }, 0);
+      this.videoSprite.visible = this.mode !== 'sleep';
       return;
     }
     const s = new Sprite(Texture.from(this.video));
     s.anchor.set(0.5);
-    s.width = CARD_W;
-    s.height = CARD_H;
+    const fit = () => {
+      s.width = CARD_W;
+      s.height = CARD_H;
+    };
+    fit();
+    s.texture.source.on('resize', fit); // montage swaps change resolution; re-fit when it lands
     this.videoSprite = s;
-    this.card.addChildAt(s, this.card.getChildIndex(this.posterSprite) + 1); // above poster, below labels — stays correct when a glow sprite lands at index 0 later
+    this.card.addChildAt(s, this.card.getChildIndex(this.posterSprite) + 1); // above poster, below labels
     s.visible = this.mode !== 'sleep';
   }
 
