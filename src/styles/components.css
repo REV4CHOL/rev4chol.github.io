@@ -81,6 +81,17 @@
 #cursor .x { transform: translate(-50%, -50%) scale(var(--uiz)); }
 #cursor .cursor-label { font-size: calc(10px * var(--uiz)); }
 #cursor .cursor-coords { font-size: calc(9px * var(--uiz)); }
+/* the homepage poster is pinned like the chrome: the whole composition
+   counter-scales as ONE rigid unit from its bottom-left anchor, so browser
+   zoom changes nothing about it — only the hero media behind it zooms.
+   (Inner vw sizes are --zw, i.e. zoom-natural, which this scale then pins;
+   px/rem inside pin the same way.) */
+.home-main { transform: scale(var(--uiz)); transform-origin: left bottom; }
+.hk-spine { font-size: calc(10px * var(--uiz)); right: calc(14px * var(--uiz)); }
+.hk-ticks {
+  right: calc(92px * var(--uiz)); top: calc(96px * var(--uiz));
+  width: calc(150px * var(--uiz)); height: calc(10px * var(--uiz));
+}
 @media (max-width: 640px) {
   .nav { padding: calc(14px * var(--uiz)) calc(16px * var(--uiz)); }
   .nav-links { gap: calc(16px * var(--uiz)); }
