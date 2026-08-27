@@ -10,7 +10,7 @@ import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { leaveTo } from '../lib/transitions';
 import { setCursorLabel } from '../shell/cursor';
-import { CARD_H, CARD_W, WORLD_PAD } from './constants';
+import { CARD_H, CARD_W, ISO, WORLD_PAD } from './constants';
 import { buildDebris } from './debris';
 import { PanController } from './input';
 import { layoutProjects } from './layout';
@@ -162,6 +162,7 @@ export class WorksWorld {
   }
 
   hover(slug: string): void {
+    if (this.entering) return;
     if (this.hoveredSlug === slug) return;
     this.unhover();
     const tile = this.tiles.get(slug);
@@ -181,6 +182,7 @@ export class WorksWorld {
   }
 
   unhover(): void {
+    if (this.entering) return;
     const slug = this.hoveredSlug;
     if (!slug) return;
     this.hoveredSlug = null;
@@ -218,6 +220,7 @@ export class WorksWorld {
     const cover =
       (Math.max(this.app.screen.width / CARD_W, this.app.screen.height / CARD_H) * 1.12) / tile.sizeMul;
     gsap.killTweensOf(tile.m);
+    gsap.killTweensOf(this.pan.pos);
     gsap.to(this.pan.pos, { x: -tile.x, y: -tile.y, duration: 0.42, ease: 'power2.in' });
     gsap.to(tile.m, {
       a: cover, b: 0, c: 0, d: cover,
@@ -225,20 +228,46 @@ export class WorksWorld {
       onUpdate: () => tile.applyMatrix(),
     });
     gsap.to(this.tilesLayer, { alpha: 0, duration: 0.3 });
-    this.app.ticker.add(() => {
+    const jitter = () => {
       glitch.seed = Math.random();
       glitch.offset = 30 + Math.random() * 90;
-    });
+    };
+    this.app.ticker.add(jitter);
+    // bfcache restore (Back from the project page) resumes this exact tab with `entering`
+    // still true and the burst never torn down — undo it so the floor comes back sane.
+    const onShow = (e: PageTransitionEvent) => {
+      if (e.persisted) this.resetBurst(tile, jitter);
+      window.removeEventListener('pageshow', onShow);
+    };
+    window.addEventListener('pageshow', onShow);
     window.setTimeout(() => leaveTo(dest), 500);
+  }
+
+  /** Undo enter()'s burst (filters, jitter ticker, camera/tile/layer tweens, reparent) —
+   *  only reachable via bfcache restore, since a fresh load never has a burst in flight. */
+  private resetBurst(tile: ProjectTile, jitter: () => void): void {
+    this.app.ticker.remove(jitter);
+    this.worldC.filters = [];
+    gsap.killTweensOf(this.pan.pos);
+    gsap.killTweensOf(tile.m);
+    gsap.killTweensOf(this.tilesLayer);
+    this.tilesLayer.alpha = 1;
+    Object.assign(tile.m, { ...ISO });
+    tile.applyMatrix();
+    this.tilesLayer.addChild(tile);
+    tile.zIndex = tile.placed.col + tile.placed.row;
+    this.entering = false;
   }
 
   focusProject(slug: string): void {
     const tile = this.tiles.get(slug);
     if (!tile) return;
+    const mySlug = slug;
+    gsap.killTweensOf(this.pan.pos);
     gsap.to(this.pan.pos, {
       x: -tile.x, y: -tile.y,
       duration: reducedMotion() ? 0 : 0.5, ease: 'power2.out',
-      onComplete: () => this.hover(slug),
+      onComplete: () => { if (!this.entering) this.hover(mySlug); },
     });
   }
 

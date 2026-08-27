@@ -18,11 +18,12 @@ startPage(
     buildSemanticList(projects, world);
     window.addEventListener('keydown', (e) => {
       const step = 140;
-      if (e.key === 'ArrowLeft') world.panBy(step, 0);
-      else if (e.key === 'ArrowRight') world.panBy(-step, 0);
-      else if (e.key === 'ArrowUp') world.panBy(0, step);
-      else if (e.key === 'ArrowDown') world.panBy(0, -step);
-      else if (e.key === 'Enter') world.enterHovered();
+      const onInteractive = (e.target as Element | null)?.closest?.('a, button') != null;
+      if (e.key === 'ArrowLeft') { e.preventDefault(); world.panBy(step, 0); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); world.panBy(-step, 0); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); world.panBy(0, step); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); world.panBy(0, -step); }
+      else if (e.key === 'Enter' && !onInteractive) world.enterHovered();
     });
   },
   [
