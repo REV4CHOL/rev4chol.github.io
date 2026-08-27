@@ -105,6 +105,7 @@ function initHomeEffects(): void {
   scheduleJolt();
 
   document.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return; // middle/right clicks (autoscroll, menus) stay silent
     if ((e.target as Element).closest?.('a, button')) return;
     heroBurst();
     sound.zap();

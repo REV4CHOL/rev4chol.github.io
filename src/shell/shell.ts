@@ -46,6 +46,21 @@ export function mountShell(site: SiteContent, active: PageKey): ShellRefs {
   initCursor();
   const hud = mountHud();
 
+  // zoom-fixed chrome: browser zoom shrinks/grows CSS pixels, so the shell UI
+  // counter-scales to hold its apparent size (--uiz feeds the CSS calcs).
+  // outerWidth is in OS pixels and zoom-invariant; innerWidth is CSS pixels.
+  const applyUiScale = () => {
+    const z = window.outerWidth > 0 && window.innerWidth > 0
+      ? window.outerWidth / window.innerWidth
+      : 1;
+    let m = 1 / z;
+    if (Math.abs(m - 1) < 0.08) m = 1; // window borders jitter the ratio at 100%
+    m = Math.min(3, Math.max(0.4, m));
+    document.documentElement.style.setProperty('--uiz', String(+m.toFixed(3)));
+  };
+  applyUiScale();
+  window.addEventListener('resize', applyUiScale);
+
   // WebAudio: the engine handles activation itself (same-origin navigations
   // propagate the gesture, so sound flows page to page); hover blips on
   // interactives.

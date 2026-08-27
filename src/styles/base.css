@@ -1,5 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { color-scheme: dark; }
+html { color-scheme: dark; background: var(--void); }
+/* --uiz: counter-scale for the shell chrome under browser zoom (shell.ts) */
+:root { --uiz: 1; }
 /* registered so the hero reel's per-clip accent re-sample TWEENS the page
    chrome instead of snapping it (no-ops where @property is unsupported) */
 @property --accent { syntax: '<color>'; inherits: true; initial-value: #c8ff00; }

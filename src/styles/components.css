@@ -61,6 +61,22 @@
   .hud-tr { right: 16px; top: 96px; }
 }
 
+/* ---- zoom-fixed chrome ----
+   Browser zoom scales CSS pixels; the shell chrome (nav, HUD, cursor, tile
+   label) counter-scales by --uiz (shell.ts derives it from outer/innerWidth)
+   so the UI holds its apparent size while content and background zoom. */
+.brand { font-size: calc(var(--t-lg) * var(--uiz)); }
+.nav-links a { font-size: calc(var(--t-xs) * var(--uiz)); }
+.hud { font-size: calc(var(--t-2xs) * var(--uiz)); }
+#tile-label .tl-title { font-size: calc(var(--t-lg) * var(--uiz)); }
+#tile-label .tl-meta { font-size: calc(var(--t-2xs) * var(--uiz)); }
+#cursor .x { transform: translate(-50%, -50%) scale(var(--uiz)); }
+#cursor .cursor-label { font-size: calc(10px * var(--uiz)); }
+#cursor .cursor-coords { font-size: calc(9px * var(--uiz)); }
+@media (max-width: 640px) {
+  .nav-links a { font-size: calc(0.65rem * var(--uiz)); }
+}
+
 /* ---- page scaffolds ---- */
 .stub-main {
   min-height: 100vh; display: grid; place-content: center; justify-items: start;
