@@ -1,7 +1,11 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { color-scheme: dark; background: var(--void); overflow-x: clip; }
-/* --uiz: counter-scale for the shell chrome under browser zoom (shell.ts) */
-:root { --uiz: 1; }
+/* --uiz: counter-scale for the shell chrome under browser zoom (shell.ts).
+   --zw: a zoom-CORRECTED vw — raw vw units cancel browser zoom exactly
+   (viewport shrinks as pixels grow), so vw-sized poster type would hold
+   constant physical size while the rest of the page magnifies. Content
+   sized in --zw responds to window WIDTH and to zoom, like normal text. */
+:root { --uiz: 1; --zw: calc(1vw / var(--uiz)); }
 /* registered so the hero reel's per-clip accent re-sample TWEENS the page
    chrome instead of snapping it (no-ops where @property is unsupported) */
 @property --accent { syntax: '<color>'; inherits: true; initial-value: #c8ff00; }

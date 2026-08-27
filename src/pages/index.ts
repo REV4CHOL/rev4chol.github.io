@@ -22,8 +22,14 @@ startPage('home', async ({ site }) => {
   const data = document.getElementById('tagline');
   const renderData = (accent: string | null) => {
     if (!data) return;
+    // tagline is comma-separated roles; each role underscores internally
+    const roles = site.tagline
+      .toUpperCase()
+      .split(/,\s*/)
+      .map((r) => r.trim().replace(/ /g, '_'))
+      .filter(Boolean);
     data.textContent = [
-      site.tagline.toUpperCase().replace(/ /g, '_'),
+      ...roles,
       `IMG//${heroSrc ? heroSrc.split('/').pop() : 'NONE'}`,
       `ACC//${accent ?? 'DEFAULT'}`,
     ].join(' · ');
