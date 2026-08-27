@@ -126,6 +126,9 @@ export class ProjectTile extends Container {
     const s = new Sprite(Texture.from(this.video));
     s.anchor.set(0.5);
     const fit = () => {
+      const tex = s.texture;
+      s.texture = Texture.EMPTY; // force the texture setter to re-run —
+      s.texture = tex;           // a source resize alone never rebuilds the sprite's quad
       s.width = CARD_W;
       s.height = CARD_H;
     };
