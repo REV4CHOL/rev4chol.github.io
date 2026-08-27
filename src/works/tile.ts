@@ -1,5 +1,6 @@
 import { Container, Matrix, Sprite, Text, Texture } from 'pixi.js';
 import type { Project } from '../lib/content';
+import { projectAssetUrl } from '../lib/content';
 import { CARD_H, CARD_W, ISO, SIZE_MUL_LARGE, cellToWorld } from './constants';
 import type { Placed } from './layout';
 
@@ -13,6 +14,106 @@ export class ProjectTile extends Container {
   readonly sizeMul: number;
   mode: TileMode = 'sleep';
   posterSprite: Sprite;
+
+  video?: HTMLVideoElement;
+  videoSprite?: Sprite;
+
+  private previewUrl(): string { return projectAssetUrl(this.project.slug, 'preview.mp4'); }
+  private hoverUrl(): string { return projectAssetUrl(this.project.slug, 'hover.mp4'); }
+
+  wake(): void {
+    if (this.mode !== 'sleep') return;
+    if (!this.video) this.createVideo();
+    if (!this.video) return; // creation failed
+    this.mode = 'live';
+    if (this.videoSprite) this.videoSprite.visible = true;
+    void this.video.play().catch(() => { /* poster remains visible underneath */ });
+  }
+
+  sleep(): void {
+    if (this.mode === 'sleep') return;
+    this.mode = 'sleep';
+    this.video?.pause();
+    if (this.videoSprite) this.videoSprite.visible = false;
+  }
+
+  hasVideo(): boolean {
+    return !!this.video;
+  }
+
+  releaseVideo(): void {
+    this.sleep();
+    if (this.videoSprite) {
+      this.videoSprite.destroy({ texture: true });
+      this.videoSprite = undefined;
+    }
+    if (this.video) {
+      this.video.src = '';
+      this.video.load();
+      this.video = undefined;
+    }
+  }
+
+  swapToMontage(): void {
+    if (!this.video) this.createVideo();
+    const v = this.video;
+    if (!v) return;
+    if (!v.src.endsWith('hover.mp4')) {
+      v.src = this.hoverUrl(); // the error handler falls back to preview.mp4
+      void v.play().catch(() => {});
+    }
+  }
+
+  restorePreview(): void {
+    const v = this.video;
+    if (!v || v.src.endsWith('preview.mp4')) return;
+    v.src = this.previewUrl();
+    if (this.mode !== 'sleep') void v.play().catch(() => {});
+  }
+
+  /** One brief glitch tick on the dithered poster — sleeping tiles stay alive. */
+  shimmer(): void {
+    const s = this.posterSprite;
+    const ox = (Math.random() - 0.5) * 10;
+    s.position.x += ox;
+    s.alpha = 0.72;
+    setTimeout(() => {
+      s.position.x -= ox;
+      s.alpha = 1;
+    }, 70);
+  }
+
+  private createVideo(): void {
+    const v = document.createElement('video');
+    v.muted = true;
+    v.loop = true;
+    v.playsInline = true;
+    v.preload = 'auto';
+    v.src = this.previewUrl();
+    v.addEventListener('error', () => {
+      if (v.src.endsWith('hover.mp4')) {
+        v.src = this.previewUrl();
+        if (this.mode !== 'sleep') void v.play().catch(() => {});
+      } else {
+        console.warn(`[revachol] missing media for "${this.project.slug}" (${v.src}) — tile stays on its poster`);
+        this.releaseVideo();
+      }
+    });
+    this.video = v;
+    v.addEventListener('loadedmetadata', () => this.attachVideoSprite());
+  }
+
+  private attachVideoSprite(): void {
+    if (!this.video) return;
+    if (this.videoSprite) this.videoSprite.destroy({ texture: true });
+    const s = new Sprite(Texture.from(this.video));
+    s.anchor.set(0.5);
+    s.width = CARD_W;
+    s.height = CARD_H;
+    this.videoSprite = s;
+    this.card.addChildAt(s, 1); // above poster, below the id label
+    s.visible = this.mode !== 'sleep';
+  }
 
   constructor(project: Project, placed: Placed, posterCanvas: HTMLCanvasElement) {
     super();

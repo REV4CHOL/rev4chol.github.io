@@ -8,6 +8,7 @@ import { WORLD_PAD } from './constants';
 import { buildDebris } from './debris';
 import { PanController } from './input';
 import { layoutProjects } from './layout';
+import { PlaybackManager } from './playback';
 import type { ViewRect } from './priority';
 import { ProjectTile } from './tile';
 
@@ -22,6 +23,7 @@ export class WorksWorld {
   protected pan!: PanController;
   protected hooks!: WorldHooks;
   hoveredSlug: string | null = null;
+  playback!: PlaybackManager;
 
   static async create(host: HTMLElement, projects: Project[], hooks: WorldHooks): Promise<WorksWorld> {
     const w = new WorksWorld();
@@ -50,6 +52,7 @@ export class WorksWorld {
       w.tiles.set(p.slug, tile);
       w.tilesLayer.addChild(tile);
     });
+    w.playback = new PlaybackManager(w.tiles);
 
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     for (const t of w.tiles.values()) {
@@ -83,8 +86,28 @@ export class WorksWorld {
     return w;
   }
 
-  /** Extension point — playback (Task 13), rain (Task 15) hook in here. */
-  protected afterTick(_dtMs: number): void {}
+  private playClock = 0;
+  private shimmerClock = 0;
+  private lastPlayPos = { x: NaN, y: NaN };
+
+  protected afterTick(dtMs: number): void {
+    this.playClock += dtMs;
+    const moved = Math.hypot(this.pan.pos.x - this.lastPlayPos.x, this.pan.pos.y - this.lastPlayPos.y);
+    if (this.playClock > 300 || moved > 60 || Number.isNaN(moved)) {
+      this.playClock = 0;
+      this.lastPlayPos = { x: this.pan.pos.x, y: this.pan.pos.y };
+      this.playback.update(this.viewRect(), this.hoveredSlug);
+    }
+    // sleeping posters get occasional glitch ticks — the floor never looks frozen
+    this.shimmerClock += dtMs;
+    if (this.shimmerClock > 380 && !reducedMotion()) {
+      this.shimmerClock = 0;
+      const sleeping = [...this.tiles.values()].filter((t) => t.mode === 'sleep');
+      if (sleeping.length) {
+        sleeping[Math.floor(Math.random() * sleeping.length)].shimmer();
+      }
+    }
+  }
 
   viewRect(): ViewRect {
     return {
