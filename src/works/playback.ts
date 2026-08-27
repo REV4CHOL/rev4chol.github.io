@@ -23,11 +23,12 @@ export class PlaybackManager {
     }
     for (const slug of set) {
       const tile = this.tiles.get(slug);
-      if (!tile || tile.mode !== 'sleep') { this.touch(slug); continue; }
-      const hadVideo = tile.hasVideo();
-      tile.wake();
-      if (!hadVideo && tile.hasVideo()) this.lru.push(slug);
-      else this.touch(slug);
+      if (!tile) continue;
+      if (tile.mode === 'sleep') tile.wake();
+      if (tile.hasVideo()) {
+        if (this.lru.includes(slug)) this.touch(slug);
+        else this.lru.push(slug);
+      }
     }
     while (this.lru.length > this.maxElements) {
       const victim = this.lru.find((s) => !set.has(s));

@@ -17,6 +17,7 @@ export class ProjectTile extends Container {
 
   video?: HTMLVideoElement;
   videoSprite?: Sprite;
+  private mediaFailed = false;
 
   private previewUrl(): string { return projectAssetUrl(this.project.slug, 'preview.mp4'); }
   private hoverUrl(): string { return projectAssetUrl(this.project.slug, 'hover.mp4'); }
@@ -44,7 +45,9 @@ export class ProjectTile extends Container {
   releaseVideo(): void {
     this.sleep();
     if (this.videoSprite) {
-      this.videoSprite.destroy({ texture: true });
+      // element is being discarded — safe to also tear down the TextureSource here;
+      // VideoSource.destroy() will itself pause/src=''/load() the same element.
+      this.videoSprite.destroy({ texture: true, textureSource: true });
       this.videoSprite = undefined;
     }
     if (this.video) {
@@ -84,6 +87,7 @@ export class ProjectTile extends Container {
   }
 
   private createVideo(): void {
+    if (this.mediaFailed) return;
     const v = document.createElement('video');
     v.muted = true;
     v.loop = true;
@@ -91,27 +95,42 @@ export class ProjectTile extends Container {
     v.preload = 'auto';
     v.src = this.previewUrl();
     v.addEventListener('error', () => {
+      if (this.video !== v) return; // stale element — releaseVideo() already moved on
       if (v.src.endsWith('hover.mp4')) {
         v.src = this.previewUrl();
         if (this.mode !== 'sleep') void v.play().catch(() => {});
       } else {
+        this.mediaFailed = true;
         console.warn(`[revachol] missing media for "${this.project.slug}" (${v.src}) — tile stays on its poster`);
         this.releaseVideo();
       }
     });
     this.video = v;
-    v.addEventListener('loadedmetadata', () => this.attachVideoSprite());
+    v.addEventListener('loadedmetadata', () => {
+      if (this.video !== v) return; // stale element — releaseVideo() already moved on
+      this.attachVideoSprite();
+    });
   }
 
   private attachVideoSprite(): void {
     if (!this.video) return;
-    if (this.videoSprite) this.videoSprite.destroy({ texture: true });
+    if (this.videoSprite) {
+      const s = this.videoSprite;
+      // defer past this event dispatch so Pixi's VideoSource has resized first
+      setTimeout(() => {
+        if (this.videoSprite !== s) return;
+        s.width = CARD_W;
+        s.height = CARD_H;
+        s.visible = this.mode !== 'sleep';
+      }, 0);
+      return;
+    }
     const s = new Sprite(Texture.from(this.video));
     s.anchor.set(0.5);
     s.width = CARD_W;
     s.height = CARD_H;
     this.videoSprite = s;
-    this.card.addChildAt(s, 1); // above poster, below the id label
+    this.card.addChildAt(s, this.card.getChildIndex(this.posterSprite) + 1); // above poster, below labels — stays correct when a glow sprite lands at index 0 later
     s.visible = this.mode !== 'sleep';
   }
 
