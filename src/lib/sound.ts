@@ -10,7 +10,11 @@ class SoundEngine {
   private armed = false;
 
   constructor() {
-    try { this.enabled = localStorage.getItem('rvl-sound') !== 'off'; } catch { /* private mode */ }
+    // v2 key: the pre-rewrite engine was near-inaudible, so a stored 'off'
+    // from that era usually captured frustration, not intent. The new engine
+    // starts from its own key — everyone defaults to sound ON once; anyone
+    // who truly wants silence flips SND again and v2 remembers it.
+    try { this.enabled = localStorage.getItem('rvl-sound-v2') !== 'off'; } catch { /* private mode */ }
   }
 
   /** Called once by the shell. Optimistic: Chrome propagates user activation
@@ -225,7 +229,7 @@ class SoundEngine {
 
   toggle(): boolean {
     this.enabled = !this.enabled;
-    try { localStorage.setItem('rvl-sound', this.enabled ? 'on' : 'off'); } catch { /* ok */ }
+    try { localStorage.setItem('rvl-sound-v2', this.enabled ? 'on' : 'off'); } catch { /* ok */ }
     if (!this.enabled) this.stopHum();
     return this.enabled;
   }
