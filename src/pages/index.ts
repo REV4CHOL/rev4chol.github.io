@@ -8,34 +8,22 @@ let heroBurst: () => void = () => {};
 startPage('home', async ({ site }) => {
   // hero first: the accent it samples from the image must land before the type reveals
   const host = document.getElementById('hero-host');
-  let heroSrc: string | null = null;
-  let heroAccent: string | null = null;
   if (host) {
     const m = await import('../home/hero');
     heroBurst = m.triggerBurst;
-    const info = await m.mountHero(host);
-    if (info) { heroSrc = info.src; heroAccent = info.accent; }
+    await m.mountHero(host);
   }
 
-  // live data readout: the adaptive contract, printed on the page — and LIVE:
-  // every reel cut re-samples the accent and the readout follows
+  // the roles bar: tagline is comma-separated roles, underscored internally
   const data = document.getElementById('tagline');
-  const renderData = (accent: string | null) => {
-    if (!data) return;
-    // tagline is comma-separated roles; each role underscores internally
-    const roles = site.tagline
+  if (data) {
+    data.textContent = site.tagline
       .toUpperCase()
       .split(/,\s*/)
       .map((r) => r.trim().replace(/ /g, '_'))
-      .filter(Boolean);
-    data.textContent = [
-      ...roles,
-      `IMG//${heroSrc ? heroSrc.split('/').pop() : 'NONE'}`,
-      `ACC//${accent ?? 'DEFAULT'}`,
-    ].join(' · ');
-  };
-  renderData(heroAccent);
-  window.addEventListener('rvl:accent', (e) => renderData((e as CustomEvent<string>).detail));
+      .filter(Boolean)
+      .join(' · ');
+  }
 
   // the Clash layers scramble in; each ghost (::after reads data-text) arms
   // only once its line has resolved
