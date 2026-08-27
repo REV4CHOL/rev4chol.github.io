@@ -342,6 +342,10 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     };
   };
 
+  // veil the poster BEFORE the loop-discovery round-trips — the raw photo
+  // must never sit unveiled while probes run (it read as a bright flash)
+  if (img) revealVeil(host, img, accent);
+
   const foundLoops = await discoverLoops();
   if (!img && foundLoops.length === 0) {
     console.warn('[revachol] missing media: /content/home/{loop-N.*|hero.*} — homepage stays on the void');
@@ -419,7 +423,6 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     }
   });
 
-  if (img) revealVeil(host, img, accent);
   return { accent, src: img ? imgSrc : foundLoops[0].url };
 }
 

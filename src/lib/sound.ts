@@ -77,6 +77,18 @@ class SoundEngine {
       ctxRef.addEventListener('statechange', () => {
         if (this.ready()) this.flushUnlockCbs();
       });
+      // lifecycle hardening: a context can come back suspended from a hidden
+      // tab, and an output-device swap sometimes leaves it bound to a dead
+      // stream — a suspend/resume cycle re-acquires the current default.
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && ctxRef?.state === 'suspended') {
+          void ctxRef.resume().catch(() => { /* next gesture retries */ });
+        }
+      });
+      navigator.mediaDevices?.addEventListener?.('devicechange', () => {
+        if (ctxRef?.state !== 'running') return;
+        void ctxRef.suspend().then(() => ctxRef?.resume()).catch(() => { /* keep whatever we have */ });
+      });
     }
     return ctxRef;
   }

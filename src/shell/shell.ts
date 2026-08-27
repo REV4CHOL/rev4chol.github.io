@@ -55,7 +55,7 @@ export function mountShell(site: SiteContent, active: PageKey): ShellRefs {
       : 1;
     let m = 1 / z;
     if (Math.abs(m - 1) < 0.08) m = 1; // window borders jitter the ratio at 100%
-    m = Math.min(3, Math.max(0.4, m));
+    m = Math.min(4, Math.max(0.25, m)); // covers Chrome's full 25%–400% zoom range
     document.documentElement.style.setProperty('--uiz', String(+m.toFixed(3)));
   };
   applyUiScale();

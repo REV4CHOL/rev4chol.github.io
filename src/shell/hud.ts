@@ -43,6 +43,7 @@ export function mountHud(): Hud {
     const on = sound.toggle();
     snd.textContent = `SND ${on ? '●' : '○'}`;
     snd.setAttribute('aria-pressed', String(on));
+    if (on) sound.click(); // audible confirmation — re-enabling must be heard
     if (on && document.body.classList.contains('page-work')) sound.startHum();
   });
 
