@@ -3334,9 +3334,9 @@ Replace the empty `afterTick` with:
 
 `npm run check` + `npm test` clean, then on `/works.html`:
 1. Tiles near the viewport center come alive with moving video moments after load; distant tiles stay dithered posters.
-2. Pan to a far corner: tiles there wake, the old ones freeze back to posters. Count playing videos in console:
-   `document.querySelectorAll('video').length` ≤ 20 and
-   `[...document.querySelectorAll('video')].filter(v => !v.paused).length` ≤ 10.
+2. Pan to a far corner: tiles there wake, the old ones freeze back to posters. Count playing videos in console (the video elements are Pixi texture sources, never in the DOM — count via the debug handle):
+   `[...rvlWorld.tiles.values()].filter(t => t.hasVideo()).length` ≤ 20 and
+   `[...rvlWorld.tiles.values()].filter(t => t.video && !t.video.paused).length` ≤ 10.
 3. DevTools device emulation (mobile viewport, touch): reload — at most 4 playing.
 4. Delete one project's `preview.mp4` from `public/content/projects/<slug>/`, reload: its tile stays a poster, console warns `missing media for "<slug>"`. Re-run `scripts/gen-placeholders.ps1` (or restore the file from git) afterward.
 
