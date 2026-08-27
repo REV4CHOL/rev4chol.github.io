@@ -217,10 +217,17 @@ export class WorksWorld {
     this.entering = true;
     sound.click();
     const dest = `/project.html?p=${encodeURIComponent(slug)}`;
+    // failsafe: if navigation stalls (dev-server hiccup, network), a latched
+    // `entering` would deaden every hover until a manual reload — self-heal
+    const armFailsafe = (reset: () => void) => {
+      const t = window.setTimeout(() => { if (!document.hidden) reset(); }, 4000);
+      window.addEventListener('pagehide', () => clearTimeout(t), { once: true });
+    };
     if (reducedMotion()) {
       // no burst runs on this path, but `entering` still must not survive a bfcache
       // Back-restore — otherwise hover/unhover/focusProject stay guarded off forever.
       this.armRestore(() => { this.entering = false; this.unhover(); });
+      armFailsafe(() => { this.entering = false; this.unhover(); });
       leaveTo(dest);
       return;
     }
@@ -249,6 +256,7 @@ export class WorksWorld {
     // bfcache restore (Back from the project page) resumes this exact tab with `entering`
     // still true and the burst never torn down — undo it so the floor comes back sane.
     this.armRestore(() => this.resetBurst(tile, jitter));
+    armFailsafe(() => this.resetBurst(tile, jitter));
     window.setTimeout(() => leaveTo(dest), 500);
   }
 

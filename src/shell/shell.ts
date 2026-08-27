@@ -72,6 +72,10 @@ export function mountShell(site: SiteContent, active: PageKey): ShellRefs {
   // propagate the gesture, so sound flows page to page); hover blips on
   // interactives.
   sound.init();
+  // the room tone runs site-wide: the site is audible from the earliest
+  // moment the browser permits (first gesture, or activation carried over
+  // from a same-origin navigation)
+  sound.onUnlock(() => sound.startHum());
   document.addEventListener('pointerover', (e) => {
     if ((e.target as Element).closest?.('a, button')) sound.hover();
   });

@@ -28,6 +28,17 @@ export function leaveTo(href: string): void {
   const wipe = ensureWipe();
   const slices = wipe.querySelectorAll('.wipe-slice');
   sound.whoosh();
+  // failsafe: a stalled navigation must not leave the page latched behind a
+  // covered wipe with `leaving` stuck true — self-heal after 4s
+  const t = window.setTimeout(() => {
+    if (document.hidden) return;
+    leaving = false;
+    gsap.killTweensOf(wipe);
+    gsap.killTweensOf(slices);
+    wipe.style.opacity = '';
+    gsap.set(slices, { xPercent: -101 });
+  }, 4000);
+  window.addEventListener('pagehide', () => clearTimeout(t), { once: true });
   if (reducedMotion()) {
     gsap.set(slices, { xPercent: 0 });
     gsap.fromTo(wipe, { opacity: 0 }, { opacity: 1, duration: 0.2, onComplete: () => { location.href = href; } });
