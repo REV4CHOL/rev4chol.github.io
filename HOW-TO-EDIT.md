@@ -70,6 +70,13 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 - **Feature a film:** set its `tileSize` to `"large"`.
 - **Remove a film:** delete its entry from `projects.json` (the folder can stay).
 
+## Homepage picture
+
+The homepage hero is whatever image lives at `content/home/hero.jpg`.
+Overwrite that one file (any aspect ratio, ~1920px wide JPEG recommended),
+refresh, done — the site re-fits it, re-samples the page's accent color from
+it, and runs the glitch treatment on it automatically. No other edit needed.
+
 ## Site text and menu
 
 `site.json`: `name` (the wordmark), `tagline`, `email` (contact page),

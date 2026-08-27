@@ -67,6 +67,61 @@
   gap: 18px; padding: 96px 28px;
 }
 .stub-cta { margin-top: 14px; }
+
+/* ---- home: the dreaming machine ----
+   The hero image is the material: it fills the frame behind everything and gets
+   datamoshed live (src/home/hero.ts). The type is a poster laid over it —
+   Clash shouts, Bodoni italic answers a tier below, per the type law. */
+#hero-host { position: fixed; inset: 0; z-index: 1; }
+#hero-host canvas { width: 100%; height: 100%; display: block; }
+.hero-veil {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  image-rendering: pixelated; opacity: 1;
+}
+.home-scrim {
+  position: fixed; inset: 0; z-index: 2; pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(6, 6, 6, 0.82) 0%, rgba(6, 6, 6, 0.34) 42%, transparent 68%),
+    linear-gradient(0deg, rgba(6, 6, 6, 0.85) 0%, transparent 38%);
+}
+.home-main { position: relative; z-index: 3; }
+
+.home-statement { display: grid; gap: 0; }
+.st-line { display: block; }
+.st-clash {
+  font-family: var(--f-display); font-weight: 700;
+  font-size: clamp(3.6rem, 11vw, 9rem); line-height: 0.86;
+  letter-spacing: -0.02em; text-transform: uppercase; color: var(--bone);
+  text-shadow: 3px 0 var(--alert), -3px 0 var(--field);
+  position: relative;
+}
+.st-stagger { margin-left: clamp(28px, 7vw, 140px); }
+.is-revealed .st-clash::after {
+  content: attr(data-text); position: absolute; left: 0; top: 0;
+  color: var(--accent); clip-path: inset(34% 0 48% 0);
+  transform: translateX(6px); mix-blend-mode: screen;
+}
+.st-serif {
+  font-family: var(--f-serif); font-style: italic; font-weight: 600;
+  font-size: clamp(1.6rem, 4.2vw, 3.4rem); /* a tier below the Clash — the law */
+  text-transform: uppercase; letter-spacing: 0.02em; color: var(--accent);
+  margin-top: clamp(8px, 1.5vw, 18px);
+  opacity: 0; transform: translateY(10px); transition: opacity 0.9s, transform 0.9s;
+}
+.amp { font-size: 1.45em; font-weight: 400; font-style: italic; vertical-align: -0.08em; margin-right: 4px; }
+.is-revealed .st-serif { opacity: 1; transform: none; }
+
+.home-cta-row { margin-top: 22px; }
+.home-cta {
+  font-family: var(--f-serif); font-style: italic; font-size: var(--t-lg);
+  color: var(--bone); text-decoration: none;
+  border-bottom: 1px solid var(--accent); padding-bottom: 3px;
+}
+.home-cta:hover { color: var(--accent); animation: rgb-flick 0.32s steps(2) 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .st-serif { opacity: 1; transform: none; transition: none; }
+}
 .page-work .works-main { position: fixed; inset: 0; }
 #floor { position: absolute; inset: 0; touch-action: none; }
 .page-work {

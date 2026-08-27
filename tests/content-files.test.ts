@@ -18,6 +18,10 @@ describe('shipped content files', () => {
     expect(projects).toHaveLength(26);
   });
 
+  it('the homepage hero image exists at its contract path', () => {
+    expect(existsSync(`${root}home/hero.jpg`), 'home/hero.jpg').toBe(true);
+  });
+
   it('every project folder has its required media', () => {
     const projects = parseProjects(parseJson(read('projects.json'), 'projects.json'));
     for (const p of projects) {
