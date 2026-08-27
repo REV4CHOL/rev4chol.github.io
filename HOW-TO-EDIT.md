@@ -67,7 +67,10 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 
 - **Swap media:** overwrite the file with the same name. Refresh. Done.
 - **Reorder the floor:** reorder the entries in `projects.json`.
-- **Feature a film:** set its `tileSize` to `"large"`.
+- **Feature a film:** set its `tileSize` to `"large"`. Featured films render
+  at double size, gather as one cluster at the centre of the floor, and wear
+  the featured dress (double frame, FEATURED tag, resting glow, photographic
+  poster). Six featured films make the best centre block.
 - **Remove a film:** delete its entry from `projects.json` (the folder can stay).
 
 ## Homepage reel (the 5 loops)

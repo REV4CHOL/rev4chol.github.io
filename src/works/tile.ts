@@ -21,6 +21,8 @@ export class ProjectTile extends Container {
   videoSprite?: Sprite;
   private mediaFailed = false;
   private glow?: Sprite;
+  /** Featured tiles keep a faint resting underglow; hover raises it, exit returns here. */
+  private baseGlowAlpha = 0;
 
   private previewUrl(): string { return projectAssetUrl(this.project.slug, 'preview.mp4'); }
   private hoverUrl(): string { return projectAssetUrl(this.project.slug, 'hover.mp4'); }
@@ -172,7 +174,7 @@ export class ProjectTile extends Container {
     const d = reducedMotion() ? 0.05 : 0.4;
     gsap.to(this.m, { ...ISO, duration: d, ease: 'expo.out', onUpdate: () => this.applyMatrix() });
     gsap.to(this.card, { y: 0, duration: d, ease: 'expo.out' });
-    if (this.glow) { gsap.killTweensOf(this.glow); gsap.to(this.glow, { alpha: 0, duration: d }); }
+    if (this.glow) { gsap.killTweensOf(this.glow); gsap.to(this.glow, { alpha: this.baseGlowAlpha, duration: d }); }
     this.zIndex = this.placed.col + this.placed.row;
   }
 
@@ -194,22 +196,42 @@ export class ProjectTile extends Container {
     this.card.addChild(this.posterSprite);
 
     // --- panel furniture. without a hard edge a tile is a swatch, not a screen.
+    const featured = project.tileSize === 'large';
     const hw = CARD_W / 2;
     const hh = CARD_H / 2;
     const acc = parseInt(project.accent.slice(1), 16);
     const frame = new Graphics();
     frame.rect(-hw, -hh, CARD_W, CARD_H).stroke({ color: acc, alpha: 0.42, width: 1 });
-    const L = 26;
+    const L = featured ? 38 : 30;
     for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
       frame.moveTo(sx * hw, sy * hh).lineTo(sx * hw - sx * L, sy * hh);
       frame.moveTo(sx * hw, sy * hh).lineTo(sx * hw, sy * hh - sy * L);
     }
     frame.stroke({ color: acc, alpha: 0.95, width: 2 });
+    if (featured) {
+      // the featured dress: a second inset rule — print-language "selected",
+      // not a badge shout
+      frame
+        .rect(-hw + 7, -hh + 7, CARD_W - 14, CARD_H - 14)
+        .stroke({ color: acc, alpha: 0.5, width: 1 });
+    }
     // slug plate + index tab, so the mono type has something to sit on
     frame.rect(-hw, hh - 20, CARD_W, 20).fill({ color: 0x060606, alpha: 0.6 });
     frame.rect(-hw, hh - 20, 4, 20).fill({ color: acc, alpha: 1 });
     frame.rect(-hw + 8, -hh + 8, 30, 8).fill({ color: acc, alpha: 0.9 });
     this.card.addChild(frame);
+
+    if (featured) {
+      // micro tag riding the top-right edge, inverted on the accent
+      const tag = new Text({
+        text: 'FEATURED',
+        style: { fontFamily: 'Martian Mono', fontSize: 7, fill: 0x060606, letterSpacing: 2 },
+      });
+      const tagW = tag.width + 12;
+      frame.rect(hw - tagW - 8, -hh + 8, tagW, 12).fill({ color: acc, alpha: 0.95 });
+      tag.position.set(hw - tagW - 2, -hh + 10.5);
+      this.card.addChild(tag);
+    }
 
     const id = new Text({
       text: `${project.year} · ${project.slug}`.toUpperCase(),
@@ -230,6 +252,10 @@ export class ProjectTile extends Container {
     this.card.addChild(code);
 
     this.addChild(this.card);
+    if (featured) {
+      this.baseGlowAlpha = 0.14;
+      this.ensureGlow().alpha = this.baseGlowAlpha;
+    }
     this.applyMatrix();
     this.eventMode = 'static';
     this.cursor = 'pointer';

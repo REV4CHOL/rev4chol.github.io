@@ -309,10 +309,12 @@ export class WorksWorld {
 
 /** Deterministic per-slug treatment. A third of the floor stays hard 1-bit
  *  duotone; the rest keeps progressively more of the original image, so the
- *  carpet has rhythm instead of one uniform texture. */
-function posterMix(slug: string): number {
+ *  carpet has rhythm instead of one uniform texture. Featured larges always
+ *  read photographic — the richest material sits at the centre. */
+function posterMix(p: Project): number {
+  if (p.tileSize === 'large') return 0.72;
   let h = 0;
-  for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) >>> 0;
+  for (let i = 0; i < p.slug.length; i++) h = (h * 31 + p.slug.charCodeAt(i)) >>> 0;
   return [0, 0, 0.5, 0.72][h % 4];
 }
 
@@ -320,9 +322,9 @@ async function loadPosterCanvas(p: Project): Promise<HTMLCanvasElement> {
   const url = projectAssetUrl(p.slug, 'poster.jpg');
   try {
     const img = await loadImage(url);
-    // 512 wide: a 320pt card at 2x DPR, so the Bayer pattern stays a fine screen
+    // 640 wide: a 400pt card at ~1.6x, so the Bayer pattern stays a fine screen
     // instead of upscaling into a visible mosaic
-    return ditherImageToCanvas(img, img.naturalWidth, img.naturalHeight, 512, '#060606', p.accent, posterMix(p.slug));
+    return ditherImageToCanvas(img, img.naturalWidth, img.naturalHeight, 640, '#060606', p.accent, posterMix(p));
   } catch {
     console.warn(`[revachol] missing media: ${url} — using generated fallback poster`);
     return fallbackPoster(p);

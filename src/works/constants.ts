@@ -1,7 +1,7 @@
 /* World geometry. Values marked TUNE may be adjusted during visual passes —
    the exported names and shapes are the contract and must not change. */
-export const CARD_W = 320;
-export const CARD_H = 180;
+export const CARD_W = 400;
+export const CARD_H = 225;
 export const ISO = { a: 0.8, b: 0.4, c: -0.8, d: 0.4 }; // TUNE — resting 2:1 shear
 export const HOVER_M = { a: 1.18, b: 0, c: 0, d: 1.18 }; // upright, magnified
 export const SIZE_MUL_LARGE = 2; // large = exactly 2×2 cells so the carpet stays seamless

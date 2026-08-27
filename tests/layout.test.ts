@@ -77,6 +77,31 @@ describe('layoutProjects (contiguous carpet)', () => {
     expect(cellsOf(placed[0])).toHaveLength(4);
   });
 
+  it('concentrates featured larges into one solid centered cluster', () => {
+    // stream order must not matter: smalls arriving first cannot squat the centre
+    const placed = layoutProjects([
+      ...Array.from({ length: 10 }, (_, i) => item(`s${i}`)),
+      ...Array.from({ length: 6 }, (_, i) => item(`big${i}`, 'large')),
+      ...Array.from({ length: 10 }, (_, i) => item(`t${i}`)),
+    ]);
+    const bigs = placed.filter((p) => p.span === 2);
+    expect(bigs).toHaveLength(6);
+    const cells = bigs.flatMap(cellsOf).map((k) => k.split(',').map(Number));
+    const minC = Math.min(...cells.map(([c]) => c));
+    const maxC = Math.max(...cells.map(([c]) => c));
+    const minR = Math.min(...cells.map(([, r]) => r));
+    const maxR = Math.max(...cells.map(([, r]) => r));
+    // one solid block: the bounding box is exactly filled by the six larges
+    expect((maxC - minC + 1) * (maxR - minR + 1)).toBe(24);
+    expect(cells).toHaveLength(24);
+    // and it sits at the heart of the carpet
+    const all = placed.flatMap(cellsOf).map((k) => k.split(',').map(Number));
+    const cAll = all.reduce((s, [c]) => s + c, 0) / all.length;
+    const rAll = all.reduce((s, [, r]) => s + r, 0) / all.length;
+    expect(Math.abs((minC + maxC) / 2 - cAll)).toBeLessThanOrEqual(1);
+    expect(Math.abs((minR + maxR) / 2 - rAll)).toBeLessThanOrEqual(1);
+  });
+
   it('honors explicit position overrides and keeps others clear of them', () => {
     const placed = layoutProjects([item('pinned', 'normal', { col: 0, row: 0 }), item('auto')]);
     expect(placed[0]).toEqual({ slug: 'pinned', col: 0, row: 0, span: 1 });
