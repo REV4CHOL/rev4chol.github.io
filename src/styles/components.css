@@ -198,27 +198,25 @@
   100% { transform: translateX(6px); }
 }
 
-/* ---- home scene: depth parallax + quiet perpetual life ----
-   Marceau-calm register: the reel is the motion. The poster answers the pointer
-   with a small depth-parallax chase (index.ts writes --px/--py; the transition
-   is the ease) — a shift, never a rotation. Idle drifts are slow and small —
-   presence, not squirm — and the glitch language rides on top as punctuation.
-   Depth lives on the .st-row wrappers so drift/jolt on inner elements never
-   fights the Z transform. */
-.page-home { --px: 0px; --py: 0px; }
-.home-main {
-  transform-style: preserve-3d;
-  transform: perspective(1100px) translate3d(var(--px), var(--py), 0);
+/* ---- home scene: layered parallax + quiet perpetual life ----
+   Marceau-calm register: the reel is the motion. The poster answers the
+   pointer with a small parallax chase (index.ts writes --px/--py; the
+   transition is the ease) and each layer carries its own depth multiplier —
+   near layers travel further. FLAT projection on purpose: the previous
+   perspective+translateZ stack scaled layers up around the viewport center
+   and shoved the left-anchored plate/CTA off the frame edge. Parallax lives
+   on the wrapper rows so drift/jolt on inner elements never fights it. */
+.page-home { --px: 0px; --py: 0px; overflow-x: clip; }
+.st-row, .hk-kicker, .home-data, .home-cta-row {
   transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
 }
-.home-statement { transform-style: preserve-3d; }
-.st-row { transform: translateZ(45px); }
-.st-row-2 { transform: translateZ(70px); }
-.st-row-3 { transform: translateZ(95px); }
-.hk-kicker { transform: translateZ(60px); }
-.home-data { transform: translateZ(35px); }
-.home-cta-row { transform: translateZ(60px); }
+.st-row { transform: translate3d(calc(var(--px) * 1.1), calc(var(--py) * 1.1), 0); }
+.st-row-2 { transform: translate3d(calc(var(--px) * 1.3), calc(var(--py) * 1.3), 0); }
+.st-row-3 { transform: translate3d(calc(var(--px) * 1.6), calc(var(--py) * 1.6), 0); }
+.hk-kicker { transform: translate3d(calc(var(--px) * 0.7), calc(var(--py) * 0.7), 0); }
+.home-data { transform: translate3d(calc(var(--px) * 0.9), calc(var(--py) * 0.9), 0); }
+.home-cta-row { transform: translate3d(calc(var(--px) * 1.3), calc(var(--py) * 1.3), 0); }
 
 .st-clash { animation: drift-a 13s ease-in-out infinite alternate; }
 .st-outline { animation-duration: 16s; animation-delay: -6s; }
@@ -247,8 +245,8 @@
   to { transform: translateY(-50%) translateX(-3px); }
 }
 @keyframes amp-float {
-  from { transform: translateZ(-90px) translateY(0) rotate(0deg); }
-  to { transform: translateZ(-90px) translateY(-8px) rotate(0.8deg); }
+  from { transform: translateY(0) rotate(0deg); }
+  to { transform: translateY(-8px) rotate(0.8deg); }
 }
 @keyframes breathe { from { opacity: 1; } to { opacity: 0.86; } }
 @keyframes flick {
@@ -273,7 +271,8 @@
 .rvl-calm .scan-sweep { display: none; }
 .rvl-calm .caret { animation: none; }
 .rvl-calm .is-revealed .st-clash::after { animation: none; clip-path: inset(34% 0 48% 0); transform: translateX(6px); }
-.rvl-calm .home-main { transform: none; transition: none; }
+.rvl-calm .st-row, .rvl-calm .hk-kicker, .rvl-calm .home-data,
+.rvl-calm .home-cta-row { transform: none; transition: none; }
 .rvl-calm .st-clash, .rvl-calm .st-outline, .rvl-calm .st-plate, .rvl-calm .hk-kicker .gl,
 .rvl-calm .home-cta, .rvl-calm .home-data, .rvl-calm .amp-bg,
 .rvl-calm .hk-spine, .rvl-calm .hk-ticks, .rvl-calm .home-vignette,
