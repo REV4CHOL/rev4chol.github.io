@@ -3,6 +3,7 @@ let ctxRef: AudioContext | null = null;
 class SoundEngine {
   enabled = true;
   private hum: { gain: GainNode; stop: () => void } | null = null;
+  private humTeardown: { timer: ReturnType<typeof setTimeout>; stop: () => void } | null = null;
   private unlocked = false;
   private unlockCbs: (() => void)[] = [];
 
@@ -77,6 +78,11 @@ class SoundEngine {
 
   startHum(): void {
     if (!this.enabled || this.hum) return;
+    if (this.humTeardown) {
+      clearTimeout(this.humTeardown.timer);
+      this.humTeardown.stop();
+      this.humTeardown = null;
+    }
     const ctx = this.ctx();
     if (!ctx) return;
     const src = ctx.createBufferSource();
@@ -104,7 +110,11 @@ class SoundEngine {
     if (ctxRef) this.hum.gain.gain.linearRampToValueAtTime(0, ctxRef.currentTime + 0.4);
     const h = this.hum;
     this.hum = null;
-    setTimeout(() => h.stop(), 500);
+    const timer = setTimeout(() => {
+      h.stop();
+      this.humTeardown = null;
+    }, 500);
+    this.humTeardown = { timer, stop: h.stop };
   }
 
   toggle(): boolean {
