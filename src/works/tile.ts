@@ -15,11 +15,15 @@ export class ProjectTile extends Container {
   readonly card = new Container();
   readonly m = { ...ISO }; // live matrix state — tweened for hover/enter
   readonly sizeMul: number;
-  /** this tile's card dimensions — 400×225 for 16:9, 300×225 for a 4:3
-   *  specimen, which sits centered in its lattice cell with air at its
-   *  sides: a different-format monitor racked into the same floor */
+  /** card dimensions — always the full 16:9 cell, so the carpet stays
+   *  close-knit with no air between panes */
   readonly cw: number;
   readonly ch: number;
+  /** picture dimensions inside the card — 300×225 for a 4:3 film, whose
+   *  side strips become the pane's own rack panels (plates, gate hairlines,
+   *  checker + tick rails) instead of blank space */
+  readonly pw: number;
+  readonly ph: number;
   mode: TileMode = 'sleep';
   posterSprite: Sprite;
 
@@ -77,8 +81,8 @@ export class ProjectTile extends Container {
         if (r.degraded || this.destroyed) return;
         const old = this.posterSprite.texture;
         this.posterSprite.texture = Texture.from(r.canvas);
-        this.posterSprite.width = this.cw;
-        this.posterSprite.height = this.ch;
+        this.posterSprite.width = this.pw;
+        this.posterSprite.height = this.ph;
         old.destroy(true);
         this.posterDegraded = false;
       });
@@ -221,8 +225,8 @@ export class ProjectTile extends Container {
       const tex = s.texture;
       s.texture = Texture.EMPTY; // force the texture setter to re-run —
       s.texture = tex;           // a source resize alone never rebuilds the sprite's quad
-      s.width = this.cw;
-      s.height = this.ch;
+      s.width = this.pw;
+      s.height = this.ph;
     };
     fit();
     s.texture.source.on('resize', fit); // montage swaps change resolution; re-fit when it lands
@@ -272,8 +276,10 @@ export class ProjectTile extends Container {
     super();
     this.project = project;
     this.placed = placed;
+    this.cw = CARD_W;
     this.ch = CARD_H;
-    this.cw = project.aspect === '4:3' ? Math.round((CARD_H * 4) / 3) : CARD_W;
+    this.pw = project.aspect === '4:3' ? Math.round((CARD_H * 4) / 3) : CARD_W;
+    this.ph = CARD_H;
     this.srcChain = loopSrcChain(project.slug);
     this.posterDegraded = poster.degraded;
     this.sizeMul = placed.span === 2 ? SIZE_MUL_LARGE : 1;
@@ -285,9 +291,34 @@ export class ProjectTile extends Container {
 
     this.posterSprite = new Sprite(Texture.from(poster.canvas));
     this.posterSprite.anchor.set(0.5);
-    this.posterSprite.width = this.cw;
-    this.posterSprite.height = this.ch;
+    this.posterSprite.width = this.pw;
+    this.posterSprite.height = this.ph;
     this.card.addChild(this.posterSprite);
+
+    if (this.pw < this.cw) {
+      // 4:3 picture in a 16:9 cell: dress the side strips as rack panels —
+      // dark plates, accent gate hairlines at the picture edges, a checker
+      // rail left and a tick rail right (the dossier pillars, tile-scale)
+      const plates = new Graphics();
+      const px = this.pw / 2;
+      const phw = this.cw / 2;
+      const phh = this.ch / 2;
+      const pacc = parseInt(project.accent.slice(1), 16);
+      plates.rect(-phw, -phh, phw - px, this.ch).fill({ color: 0x0a0a12 });
+      plates.rect(px, -phh, phw - px, this.ch).fill({ color: 0x0a0a12 });
+      plates.rect(-px - 1.5, -phh, 1.5, this.ch).fill({ color: pacc, alpha: 0.75 });
+      plates.rect(px, -phh, 1.5, this.ch).fill({ color: pacc, alpha: 0.75 });
+      const cs = 6;
+      for (let r = 0; r * cs < this.ch; r++) {
+        plates.rect(-px - 1.5 - cs - (r % 2 ? cs : 0), -phh + r * cs, cs, cs);
+      }
+      plates.fill({ color: pacc, alpha: 0.4 });
+      for (let y = -phh + 8; y < phh - 4; y += 22) {
+        plates.rect(px + 7, y, 10, 1.5);
+      }
+      plates.fill({ color: 0xedede6, alpha: 0.5 });
+      this.card.addChild(plates);
+    }
 
     // --- panel furniture. without a hard edge a tile is a swatch, not a screen.
     const featured = project.tileSize === 'large';
