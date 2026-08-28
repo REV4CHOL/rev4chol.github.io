@@ -1,15 +1,37 @@
 {
   "name": "REVACHOL",
   "tagline": "colorist, editor, ai generalist",
-  "email": "mnguyen4403@gmail.com",
+  "email": "rev4chol@gmail.com",
   "nav": [
-    { "label": "HOMEPAGE", "href": "/index.html" },
-    { "label": "WORK", "href": "/works.html" },
-    { "label": "ABOUT", "href": "/about.html" },
-    { "label": "CONTACT", "href": "/contact.html" }
+    {
+      "label": "HOMEPAGE",
+      "href": "/index.html"
+    },
+    {
+      "label": "WORK",
+      "href": "/works.html"
+    },
+    {
+      "label": "ABOUT",
+      "href": "/about.html"
+    },
+    {
+      "label": "CONTACT",
+      "href": "/contact.html"
+    }
   ],
   "socials": [
-    { "label": "INSTAGRAM", "href": "https://instagram.com/" },
-    { "label": "VIMEO", "href": "https://vimeo.com/" }
+    {
+      "label": "FACEBOOK",
+      "href": "https://facebook.com/"
+    },
+    {
+      "label": "INSTAGRAM",
+      "href": "https://instagram.com/"
+    },
+    {
+      "label": "YOUTUBE",
+      "href": "https://youtube.com/"
+    }
   ]
 }

@@ -18,26 +18,11 @@
   color: var(--signal); letter-spacing: 0.14em;
 }
 .c-index { position: absolute; right: 44px; top: 96px; color: var(--bone); }
-.c-rail-tag {
-  position: absolute; left: 28px; top: 150px;
-  font-family: var(--f-display); font-weight: 700; font-size: var(--t-xl);
-  line-height: 0.8; color: transparent; -webkit-text-stroke: 1.5px var(--signal);
-  opacity: 0.85;
-}
-@supports not (-webkit-text-stroke: 1px #000) {
-  .c-rail-tag { color: var(--signal); opacity: 0.4; }
-}
-
 .c-plus { position: absolute; font-family: var(--f-display); font-size: 26px; pointer-events: none; }
 .c-plus-sig { color: rgba(200, 255, 0, 0.8); }
 .c-plus-alr { color: rgba(255, 46, 99, 0.8); }
 
 .c-body { max-width: 1200px; margin: 0 auto; padding-top: 56px; }
-
-.c-heading {
-  margin: 0 0 40px; font-family: var(--f-serif); font-style: italic; font-weight: 700;
-  font-size: var(--t-lg); color: var(--bone); letter-spacing: 0.02em;
-}
 
 /* the frequency — the page's one loud thing */
 .c-freq {
@@ -107,7 +92,6 @@
   .c-console { padding: 128px 18px 32px; }
   .c-status { left: 16px; right: 16px; top: 108px; }
   .c-index { display: none; }
-  .c-rail-tag { position: static; display: block; margin-bottom: 22px; }
   .c-body { padding-top: 0; }
   /* the unbroken address must fit the column */
   .c-freq { font-size: clamp(1.05rem, 6.6vw, 2.2rem); }

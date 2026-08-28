@@ -12,7 +12,6 @@ const BARS = 24;
 
 startPage('contact', ({ site }) => {
   void scrambleEl(document.getElementById('c-status-line')!, 'UPLINK :: CHANNEL OPEN // AWAITING SIGNAL', 900);
-  void scrambleEl(document.getElementById('c-heading')!, 'OPEN A CHANNEL', 650);
 
   // -- the frequency: the page's one loud thing --------------------------
   const email = site.email || 'hello@example.com';
