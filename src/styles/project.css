@@ -305,6 +305,23 @@
   outline: 1px solid rgba(200, 255, 0, 0.4);
 }
 
+/* wide screens: the player takes the dark field to the RIGHT of the
+   synopsis — the text keeps its 58ch column, the film gets the rest */
+@media (min-width: 1100px) {
+  .p-syn-sec .p-sec-body {
+    display: grid; grid-template-columns: minmax(0, 58ch) minmax(0, 1fr);
+    gap: 0 64px; align-items: start;
+  }
+  .p-syn-sec .p-synopsis { grid-column: 1; grid-row: 1; }
+  .p-watch { display: contents; }
+  .p-run { grid-column: 1; grid-row: 2; justify-self: start; }
+  .p-player {
+    grid-column: 2; grid-row: 1 / span 2; margin-top: 0;
+    position: relative; z-index: 2;
+  }
+  .p-player iframe, .p-player video { width: 100%; max-width: 1500px; }
+}
+
 /* -------------------------------------------------------------- ticker -- */
 
 .p-ticker {
