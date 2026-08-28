@@ -6,7 +6,7 @@ import { sound } from '../lib/sound';
 import { armStamps } from '../lib/stamps';
 import { capabilitiesFromTagline, portraitCandidates, sheetCandidates } from '../about/operator';
 import { mountSpecimen } from '../about/specimen';
-import { barcodeSvg, hashSlug, specimenCodes } from '../project/dossier';
+import { hashSlug } from '../project/dossier';
 import { startPage } from '../shell/page';
 import '../styles/about.css';
 
@@ -34,11 +34,9 @@ async function probeFirst(urls: string[]): Promise<string | null> {
 }
 
 function render(site: SiteContent, about: AboutContent): void {
-  const codes = specimenCodes(`operator-${site.name.toLowerCase()}`);
-
   // -- hero -------------------------------------------------------------
   void scrambleEl(document.getElementById('a-status-line')!, `PERSONNEL :: ${site.name.toUpperCase()} // CLEARED`, 900);
-  document.getElementById('a-index')!.innerHTML = `<span>P·OP/01</span>${barcodeSvg(codes.bars, 16)}`;
+  document.getElementById('a-index')!.innerHTML = `<span>P·OP/01</span>`;
   void scrambleEl(document.getElementById('a-name')!, site.name.toUpperCase(), 650);
   document.getElementById('a-statement')!.textContent = about.statement;
 
@@ -46,7 +44,6 @@ function render(site: SiteContent, about: AboutContent): void {
   const callouts: [string, string][] = [
     ['ALIAS', site.name.toUpperCase()],
     ['CLASS', caps.join(' / ')],
-    ['FILE', codes.code],
     ['STATUS', 'ACTIVE ▸'],
   ];
   document.getElementById('a-callouts')!.innerHTML = callouts
@@ -97,7 +94,7 @@ function render(site: SiteContent, about: AboutContent): void {
     ${socials ? `<div class="a-socials" data-stamp>${socials}</div>` : ''}`;
 
   document.getElementById('a-eof')!.innerHTML =
-    `<span>EOF ▪ P·OP/01 ▪ ${escapeHtml(site.name.toUpperCase())}</span>${barcodeSvg(codes.bars)}`;
+    `<span>EOF ▪ P·OP/01 ▪ ${escapeHtml(site.name.toUpperCase())}</span>`;
 
   // -- SHT: contact sheet -----------------------------------------------
   void mountSheet(site);

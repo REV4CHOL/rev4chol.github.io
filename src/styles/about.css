@@ -23,8 +23,6 @@
   position: absolute; right: 44px; top: 96px;
   display: grid; gap: 6px; justify-items: end; color: var(--bone);
 }
-.a-index .p-bars { width: 92px; height: 14px; color: rgba(200, 255, 0, 0.75); }
-.p-bars rect { fill: currentColor; }
 
 .a-hero-grid {
   display: grid; grid-template-columns: 1fr minmax(340px, 460px);
@@ -254,7 +252,6 @@
   display: grid; justify-items: center; gap: 14px; padding: 24px 28px 130px;
   color: rgba(237, 237, 230, 0.5); letter-spacing: 0.16em;
 }
-.a-eof .p-bars { width: 240px; height: 18px; color: rgba(200, 255, 0, 0.45); }
 
 /* -------------------------------------------------------------- phone -- */
 
