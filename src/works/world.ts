@@ -2,10 +2,7 @@ import { Application, ColorMatrixFilter, Container } from 'pixi.js';
 import gsap from 'gsap';
 import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
 import type { Project } from '../lib/content';
-import { projectAssetUrl } from '../lib/content';
-import { ditherImageToCanvas } from '../lib/dither';
 import { dprCap, finePointer, reducedMotion } from '../lib/env';
-import { mulberry32 } from '../lib/rng';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { leaveTo } from '../lib/transitions';
@@ -17,6 +14,7 @@ import { GRAIN, joltCamera, misregister, streakBurst, type Burst, type Misreg } 
 import { PanController } from './input';
 import { layoutProjects } from './layout';
 import { PlaybackManager } from './playback';
+import { loadPosterCanvas } from './poster';
 import type { ViewRect } from './priority';
 import { ProjectTile } from './tile';
 
@@ -55,7 +53,7 @@ export class WorksWorld {
     host.append(app.canvas);
     w.app = app;
 
-    const posterCanvases = await Promise.all(projects.map((p) => loadPosterCanvas(p)));
+    const posters = await Promise.all(projects.map((p) => loadPosterCanvas(p)));
     const placed = layoutProjects(
       projects.map((p) => ({ slug: p.slug, tileSize: p.tileSize, position: p.position })),
     );
@@ -63,7 +61,7 @@ export class WorksWorld {
 
     w.tilesLayer.sortableChildren = true;
     projects.forEach((p, i) => {
-      const tile = new ProjectTile(p, placedBySlug.get(p.slug)!, posterCanvases[i]);
+      const tile = new ProjectTile(p, placedBySlug.get(p.slug)!, posters[i]);
       w.tiles.set(p.slug, tile);
       w.tilesLayer.addChild(tile);
     });
@@ -396,50 +394,5 @@ export class WorksWorld {
   }
 }
 
-/** Deterministic per-slug treatment. A third of the floor stays hard 1-bit
- *  duotone; the rest keeps progressively more of the original image, so the
- *  carpet has rhythm instead of one uniform texture. Featured larges always
- *  read photographic — the richest material sits at the centre. */
-function posterMix(p: Project): number {
-  if (p.tileSize === 'large') return 0.72;
-  let h = 0;
-  for (let i = 0; i < p.slug.length; i++) h = (h * 31 + p.slug.charCodeAt(i)) >>> 0;
-  return [0, 0, 0.5, 0.72][h % 4];
-}
-
-async function loadPosterCanvas(p: Project): Promise<HTMLCanvasElement> {
-  const url = projectAssetUrl(p.slug, 'poster.jpg');
-  try {
-    const img = await loadImage(url);
-    // 640 wide: a 400pt card at ~1.6x, so the Bayer pattern stays a fine screen
-    // instead of upscaling into a visible mosaic
-    return ditherImageToCanvas(img, img.naturalWidth, img.naturalHeight, 640, '#060606', p.accent, posterMix(p));
-  } catch {
-    console.warn(`[revachol] missing media: ${url} — using generated fallback poster`);
-    return fallbackPoster(p);
-  }
-}
-
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((res, rej) => {
-    const im = new Image();
-    im.onload = () => res(im);
-    im.onerror = rej;
-    im.src = url;
-  });
-}
-
-function fallbackPoster(p: Project): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = 240;
-  c.height = 135;
-  const ctx = c.getContext('2d')!;
-  ctx.fillStyle = '#0A0A12';
-  ctx.fillRect(0, 0, 240, 135);
-  const rand = mulberry32(p.slug.length * 7919);
-  ctx.fillStyle = p.accent;
-  for (let i = 0; i < 260; i++) {
-    ctx.fillRect(Math.floor(rand() * 240), Math.floor(rand() * 135), 2, 2);
-  }
-  return c;
-}
+// poster loading + fallback live in ./poster — shared with the tile's
+// self-heal path, which retries degraded posters on wake

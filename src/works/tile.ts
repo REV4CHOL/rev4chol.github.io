@@ -5,6 +5,7 @@ import { loopSrcChain, projectAssetUrl } from '../lib/content';
 import { reducedMotion } from '../lib/env';
 import { CARD_H, CARD_W, HOVER_M, ISO, SIZE_MUL_LARGE, cellToWorld } from './constants';
 import type { Placed } from './layout';
+import { loadPosterCanvas, type PosterResult } from './poster';
 
 export type TileMode = 'sleep' | 'live' | 'hover';
 
@@ -20,6 +21,9 @@ export class ProjectTile extends Container {
   video?: HTMLVideoElement;
   videoSprite?: Sprite;
   private mediaFailed = false;
+  private posterDegraded: boolean;
+  private healAt = 0;
+  private healingPoster = false;
   private glow?: Sprite;
   /** Featured tiles keep a faint resting underglow; hover raises it, exit returns here. */
   private baseGlowAlpha = 0;
@@ -32,11 +36,40 @@ export class ProjectTile extends Container {
 
   wake(): void {
     if (this.mode !== 'sleep') return;
+    this.healMedia();
     if (!this.video) this.createVideo();
     if (!this.video) return; // creation failed
     this.mode = 'live';
     if (this.videoSprite) this.videoSprite.visible = true;
     void this.video.play().catch(() => { /* poster remains visible underneath */ });
+  }
+
+  /** Transient failures must not latch for the life of the page: a floor
+   *  session lives long, and one blip (server restart mid-dev, a flaky
+   *  network on the road) used to blacken a tile forever. The playback
+   *  budget wakes tiles again and again, so each wake retries whatever is
+   *  degraded — behind a cooldown, never a storm. */
+  private healMedia(): void {
+    const now = performance.now();
+    if (now < this.healAt || (!this.mediaFailed && !this.posterDegraded)) return;
+    this.healAt = now + 30000;
+    if (this.mediaFailed) {
+      this.mediaFailed = false; // createVideo() walks the loop chain again
+      this.baseSrc = null; // the file may have changed since the failure
+    }
+    if (this.posterDegraded && !this.healingPoster) {
+      this.healingPoster = true;
+      void loadPosterCanvas(this.project).then((r) => {
+        this.healingPoster = false;
+        if (r.degraded || this.destroyed) return;
+        const old = this.posterSprite.texture;
+        this.posterSprite.texture = Texture.from(r.canvas);
+        this.posterSprite.width = CARD_W;
+        this.posterSprite.height = CARD_H;
+        old.destroy(true);
+        this.posterDegraded = false;
+      });
+    }
   }
 
   sleep(): void {
@@ -195,11 +228,12 @@ export class ProjectTile extends Container {
     this.zIndex = this.placed.col + this.placed.row;
   }
 
-  constructor(project: Project, placed: Placed, posterCanvas: HTMLCanvasElement) {
+  constructor(project: Project, placed: Placed, poster: PosterResult) {
     super();
     this.project = project;
     this.placed = placed;
     this.srcChain = loopSrcChain(project.slug);
+    this.posterDegraded = poster.degraded;
     this.sizeMul = placed.span === 2 ? SIZE_MUL_LARGE : 1;
     // a span-2 tile is centered over its 2×2 cell block so the carpet stays seamless
     const off = (placed.span - 1) / 2;
@@ -207,7 +241,7 @@ export class ProjectTile extends Container {
     this.position.set(x, y);
     this.zIndex = placed.col + placed.row;
 
-    this.posterSprite = new Sprite(Texture.from(posterCanvas));
+    this.posterSprite = new Sprite(Texture.from(poster.canvas));
     this.posterSprite.anchor.set(0.5);
     this.posterSprite.width = CARD_W;
     this.posterSprite.height = CARD_H;
