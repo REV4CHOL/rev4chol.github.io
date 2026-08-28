@@ -326,8 +326,11 @@
    synopsis — the text keeps its 58ch column, the film gets the rest */
 @media (min-width: 1100px) {
   .p-syn-sec .p-sec-body {
-    display: grid; grid-template-columns: minmax(0, 58ch) minmax(0, 1fr);
-    gap: 0 64px; align-items: start;
+    /* col 1 = the intake sheet's design width (880px), NOT the narrower
+       synopsis measure — the player reaches up beside the spec section, so
+       its left edge must clear every row of that design */
+    display: grid; grid-template-columns: minmax(0, 880px) minmax(0, 1fr);
+    gap: 0 48px; align-items: start;
   }
   .p-syn-sec .p-synopsis { grid-column: 1; grid-row: 1; }
   .p-watch { display: contents; }
@@ -336,8 +339,10 @@
     grid-column: 2; grid-row: 1 / span 2;
     position: relative; z-index: 2;
     /* reach UP beside the spec sheet — the window spans the whole dark zone
-       from the intake rows down past the synopsis, arc riding behind */
+       from the intake rows down past the synopsis, arc riding behind; the
+       right inset keeps it off the spec section's checker strip */
     margin-top: -220px;
+    margin-right: 28px;
   }
   /* fill the dark field, a breath short of the edge */
   .p-player iframe, .p-player video { width: 100%; max-width: none; }
