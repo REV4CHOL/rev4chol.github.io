@@ -284,7 +284,7 @@ function mountEndNav(all: Project[], idx: number): void {
   const solo = all.length < 2;
   document.getElementById('p-confirm')!.innerHTML = `
     <div class="p-endnav" data-stamp>
-      <a class="p-back" href="/works.html" data-internal data-cursor="FLOOR ◂">◂ RETURN TO FLOOR</a>
+      <a class="p-back" href="/works.html" data-internal data-cursor="FLOOR ◂">◂ RETURN</a>
       ${solo ? '' : `<a class="p-nextlink" href="/project.html?p=${next.slug}" data-internal data-cursor="NEXT ▸">${escapeHtml(next.title.toUpperCase())} ▸</a>`}
     </div>`;
 }
