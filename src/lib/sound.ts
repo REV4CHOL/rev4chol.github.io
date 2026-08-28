@@ -145,6 +145,34 @@ class SoundEngine {
     osc.stop(t + 0.14);
   }
 
+  /** Channel change: a soft two-note chime — sine, slow attack, perfect
+   *  fifth, lowpassed. The soothing counterpart to zap(). */
+  chime(): void {
+    if (!this.enabled) return;
+    const ctx = this.ctx();
+    const out = this.out();
+    if (!ctx || !out) return;
+    const t = ctx.currentTime;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1400;
+    lp.connect(out);
+    const note = (freq: number, at: number, peak: number) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t + at);
+      g.gain.linearRampToValueAtTime(peak, t + at + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.5);
+      osc.connect(g).connect(lp);
+      osc.start(t + at);
+      osc.stop(t + at + 0.55);
+    };
+    note(392, 0, 0.14); // G4
+    note(587.33, 0.09, 0.12); // D5 — a gentle lift
+  }
+
   /** The datamosh tear: a falling shred of noise + a pitch-dropped square. */
   zap(): void {
     if (!this.enabled) return;

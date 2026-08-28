@@ -53,14 +53,17 @@ startPage(
       active = key;
       paint();
       history.replaceState(null, '', `?ch=${key}`);
-      sound.zap();
+      // the channel ident stamps over the static while the floor swaps
+      const ch = CHANNELS.find((c) => c.key === key)!;
+      document.getElementById('ch-ident-idx')!.textContent = `${ch.index} ▸ TUNING`;
+      document.getElementById('ch-ident-name')!.textContent = ch.name;
+      sound.chime();
       staticEl.classList.add('on');
-      // let the static cover the swap: destroy behind it, mount, then lift
-      await new Promise((r) => setTimeout(r, reducedMotion() ? 60 : 160));
+      await new Promise((r) => setTimeout(r, reducedMotion() ? 60 : 240));
       world?.destroy();
       world = null;
       await mount(key);
-      await new Promise((r) => setTimeout(r, reducedMotion() ? 60 : 200));
+      await new Promise((r) => setTimeout(r, reducedMotion() ? 80 : 380));
       staticEl.classList.remove('on');
       flipping = false;
     };

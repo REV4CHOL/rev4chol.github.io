@@ -5,7 +5,16 @@
    meter is a real instrument riding the site's audio engine.
    ========================================================================== */
 
-.contact-main { min-height: 100svh; display: flex; flex-direction: column; }
+/* The console is a designed composition, so like the homepage poster it is
+   PINNED under browser zoom: counter-scaled by --uiz with compensated
+   dimensions, it holds the same apparent size at every zoom level. */
+.contact-main {
+  min-height: calc(100svh / var(--uiz));
+  width: calc(100% / var(--uiz));
+  transform: scale(var(--uiz));
+  transform-origin: top left;
+  display: flex; flex-direction: column;
+}
 
 @keyframes c-caret-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
 .c-caret { display: inline-block; margin-left: 6px; animation: c-caret-blink 1.1s steps(1) infinite; }
@@ -27,7 +36,7 @@
 /* the frequency — the page's one loud thing */
 .c-freq {
   display: block; font-family: var(--f-display); font-weight: 700;
-  font-size: clamp(1.6rem, 4.6vw, 4.4rem); line-height: 1; letter-spacing: 0.01em;
+  font-size: clamp(1.6rem, calc(4.6 * var(--zw)), 4.4rem); line-height: 1; letter-spacing: 0.01em;
   color: var(--signal); text-decoration: none; text-transform: uppercase;
   word-break: keep-all; white-space: nowrap; width: fit-content; max-width: 100%;
 }
@@ -94,7 +103,7 @@
   .c-index { display: none; }
   .c-body { padding-top: 0; }
   /* the unbroken address must fit the column */
-  .c-freq { font-size: clamp(1.05rem, 6.6vw, 2.2rem); }
+  .c-freq { font-size: clamp(1.05rem, calc(6.6 * var(--zw)), 2.2rem); }
   .c-meter { height: 64px; gap: 4px; margin-top: 40px; }
   .c-callouts { margin-top: 36px; }
   .c-callout { flex-direction: row; }
