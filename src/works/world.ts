@@ -30,6 +30,7 @@ export class WorksWorld {
   protected debrisC!: Container;
   private misreg: Misreg | null = null;
   private bursts: Burst[] = [];
+  private exiting = false;
   protected pan!: PanController;
   protected hooks!: WorldHooks;
   hoveredSlug: string | null = null;
@@ -134,6 +135,9 @@ export class WorksWorld {
   private lastPlayPos = { x: NaN, y: NaN };
 
   protected afterTick(dtMs: number): void {
+    // a world on its way out must not churn: no playback wakes (each one can
+    // spin up a fresh video decoder mid-flip), no shimmer ticks
+    if (this.exiting) return;
     this.playClock += dtMs;
     const moved = Math.hypot(this.pan.pos.x - this.lastPlayPos.x, this.pan.pos.y - this.lastPlayPos.y);
     if (this.playClock > 300 || moved > 60 || Number.isNaN(moved)) {
@@ -308,6 +312,7 @@ export class WorksWorld {
    *  all moves. A third of the panes leave on stepped frames. Resolves once
    *  every mover has left the frame. */
   exit(): Promise<void> {
+    this.exiting = true;
     if (reducedMotion()) return Promise.resolve();
     const span = Math.max(this.app.screen.width, this.app.screen.height) * 1.7;
     joltCamera(this.app.stage, 1.3);

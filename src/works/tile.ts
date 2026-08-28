@@ -24,6 +24,10 @@ export class ProjectTile extends Container {
   private posterDegraded: boolean;
   private healAt = 0;
   private healingPoster = false;
+  /** true once the CURRENT source has actually presented a frame — the video
+   *  sprite stays hidden (poster showing) until then, so a stalled decoder
+   *  can never park a black rectangle over a good poster. */
+  private frameSeen = false;
   private glow?: Sprite;
   /** Featured tiles keep a faint resting underglow; hover raises it, exit returns here. */
   private baseGlowAlpha = 0;
@@ -40,7 +44,7 @@ export class ProjectTile extends Container {
     if (!this.video) this.createVideo();
     if (!this.video) return; // creation failed
     this.mode = 'live';
-    if (this.videoSprite) this.videoSprite.visible = true;
+    if (this.videoSprite) this.videoSprite.visible = this.frameSeen;
     void this.video.play().catch(() => { /* poster remains visible underneath */ });
   }
 
@@ -132,6 +136,23 @@ export class ProjectTile extends Container {
     }, 70);
   }
 
+  /** Arm the first-frame gate for the element's CURRENT source: the sprite
+   *  goes visible only once a frame has really been presented. Browsers
+   *  without requestVideoFrameCallback keep the old optimistic behavior. */
+  private armFrameGate(v: HTMLVideoElement): void {
+    this.frameSeen = false;
+    if (this.videoSprite) this.videoSprite.visible = false;
+    if (!('requestVideoFrameCallback' in v)) {
+      this.frameSeen = true;
+      return;
+    }
+    v.requestVideoFrameCallback(() => {
+      if (this.video !== v) return; // stale element
+      this.frameSeen = true;
+      if (this.videoSprite) this.videoSprite.visible = this.mode !== 'sleep';
+    });
+  }
+
   private createVideo(): void {
     if (this.mediaFailed) return;
     const v = document.createElement('video');
@@ -139,7 +160,10 @@ export class ProjectTile extends Container {
     v.loop = true;
     v.playsInline = true;
     v.preload = 'auto';
-    v.src = this.baseSrc ?? this.srcChain[0];
+    // every new resource (initial, chain walk, hover swap) re-arms the gate
+    v.addEventListener('loadstart', () => {
+      if (this.video === v) this.armFrameGate(v);
+    });
     v.addEventListener('error', () => {
       if (this.video !== v) return; // stale element — releaseVideo() already moved on
       if (v.src.endsWith('hover.mp4')) {
@@ -167,12 +191,14 @@ export class ProjectTile extends Container {
       if (!v.src.endsWith('hover.mp4')) this.baseSrc = v.src; // the chain's winner
       this.attachVideoSprite();
     });
+    this.armFrameGate(v);
+    v.src = this.baseSrc ?? this.srcChain[0];
   }
 
   private attachVideoSprite(): void {
     if (!this.video) return;
     if (this.videoSprite) {
-      this.videoSprite.visible = this.mode !== 'sleep';
+      this.videoSprite.visible = this.mode !== 'sleep' && this.frameSeen;
       return;
     }
     const s = new Sprite(Texture.from(this.video));
@@ -188,7 +214,7 @@ export class ProjectTile extends Container {
     s.texture.source.on('resize', fit); // montage swaps change resolution; re-fit when it lands
     this.videoSprite = s;
     this.card.addChildAt(s, this.card.getChildIndex(this.posterSprite) + 1); // above poster, below labels
-    s.visible = this.mode !== 'sleep';
+    s.visible = this.mode !== 'sleep' && this.frameSeen;
   }
 
   private ensureGlow(): Sprite {
