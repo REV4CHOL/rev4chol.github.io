@@ -159,7 +159,8 @@ Drop short clips named `loop-1`, `loop-2`, … up to `loop-8` into
 `content/home/` and the homepage becomes an endless full-bleed reel: each clip
 plays ~3 seconds, then a datamosh cut jumps to the next, forever. The page's
 accent color re-samples from every clip as it lands. Any number of loops works
-(5 recommended); numbering order = play order; refresh, done.
+(5 recommended); numbering order = play order; refresh, done. Underscore
+names (`loop_1.mp4`) are accepted too.
 
 Formats, checked in this order per slot: `.mp4`, `.webm`, `.gif`.
 **Use mp4** — a 3s mp4 is ~10× smaller and cleaner than the same clip as GIF

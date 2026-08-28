@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { CLIP_MS, LOOP_EXTS, LOOP_SLOTS, coverScale, loopCandidates, nextClip } from '../src/home/loops';
 
 describe('homepage reel contract', () => {
-  it('probes every slot with every extension, slot-major, mp4 first', () => {
+  it('probes every slot with every extension in both spellings, mp4 first', () => {
     const slots = loopCandidates();
     expect(slots).toHaveLength(LOOP_SLOTS);
     for (const [i, slot] of slots.entries()) {
-      expect(slot.map((c) => c.ext)).toEqual([...LOOP_EXTS]);
+      expect(slot.map((c) => c.ext)).toEqual(LOOP_EXTS.flatMap((e) => [e, e]));
       expect(slot[0].url).toBe(`/content/home/loop-${i + 1}.mp4`);
+      expect(slot[1].url).toBe(`/content/home/loop_${i + 1}.mp4`);
       for (const c of slot) expect(c.slot).toBe(i + 1);
     }
   });

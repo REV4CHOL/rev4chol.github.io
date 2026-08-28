@@ -11,11 +11,18 @@ export const CLIP_MS = 3000;
 
 export interface LoopCandidate { slot: number; ext: string; url: string }
 
-/** Probe order: per slot, the first extension that exists claims it. */
+/** Probe order: per slot, the first candidate that exists claims it —
+ *  extensions in LOOP_EXTS order, and both spellings of each (loop-N and
+ *  loop_N), so an underscore-named drop still joins the reel. */
 export function loopCandidates(base = '/content/home'): LoopCandidate[][] {
   const slots: LoopCandidate[][] = [];
   for (let slot = 1; slot <= LOOP_SLOTS; slot++) {
-    slots.push(LOOP_EXTS.map((ext) => ({ slot, ext, url: `${base}/loop-${slot}.${ext}` })));
+    slots.push(
+      LOOP_EXTS.flatMap((ext) => [
+        { slot, ext, url: `${base}/loop-${slot}.${ext}` },
+        { slot, ext, url: `${base}/loop_${slot}.${ext}` },
+      ]),
+    );
   }
   return slots;
 }
