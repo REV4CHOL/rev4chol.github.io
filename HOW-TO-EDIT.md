@@ -65,11 +65,15 @@ from the fields above — nothing extra to maintain:
   pixel-dither reveals and is printed as the HUE chip in the spec sheet.
 - The machine codes (CODE, SIG, the barcodes) are generated from the slug —
   stable per film, no field to edit.
-- `stills` order drives the footage wall's rhythm: two side-by-side, two
-  side-by-side, one full-bleed, repeat. A lone leftover still goes full-bleed.
-  3 stills read fine; 5+ give the wall its full breathing pattern.
-- The YES / NO block at the bottom is navigation: YES = next film in
-  `projects.json` order, NO = back to the works floor.
+- `stills` order drives the footage wall's rhythm: two half-width
+  side-by-side, two side-by-side, one full-width, repeat — edge to edge with
+  no gaps, every frame 16:9. A lone leftover still goes full-width. Any
+  count works; 30 stills = six full rhythm cycles (chrome-orchard ships 30
+  placeholder stills as the demo — swap them).
+- The bottom bar is navigation: `◂ RETURN TO FLOOR` on the left,
+  `(NEXT FILM) ▸` on the right (next = the following entry in
+  `projects.json`).
+- `credits` stays in the schema but is not rendered on the page right now.
 
 ## The About page (the operator file)
 

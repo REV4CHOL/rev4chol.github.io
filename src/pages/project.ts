@@ -47,12 +47,11 @@ function render(p: Project, all: Project[], idx: number): void {
   const stamp = `P·${pad2(idx + 1)}/${pad2(all.length)}`;
 
   mountHero(p, codes, stamp);
-  mountSpec(p, codes);
+  mountSpec(p);
   mountSynopsis(p);
   mountTicker(p, codes, stamp);
   mountWall(p);
-  mountCredits(p);
-  mountConfirm(all, idx);
+  mountEndNav(all, idx);
 
   document.getElementById('p-eof')!.innerHTML =
     `<span>EOF ▪ ${stamp} ▪ REVACHOL — ${p.year}</span>${barcodeSvg(codes.bars)}`;
@@ -128,20 +127,13 @@ function mountHero(p: Project, codes: { code: string; sig: string; bars: number[
 
 /* ---------------------------------------------------------- spec sheet -- */
 
-function mountSpec(p: Project, codes: { code: string; sig: string }): void {
+function mountSpec(p: Project): void {
   const rows: [string, string][] = [];
   rows.push(['YEAR', `<span>${p.year}</span>`]);
   if (p.role) rows.push(['ROLE', `<span>${escapeHtml(p.role.toUpperCase())}</span>`]);
   if (p.runtime) rows.push(['RUNTIME', `<span>${escapeHtml(p.runtime)}</span>`]);
   if (p.tags.length)
     rows.push(['TAGS', p.tags.map((t) => `<span class="p-pill">${escapeHtml(t.toUpperCase())}</span>`).join('')]);
-  rows.push([
-    'HUE',
-    `<span class="p-swatch" style="background:${p.accent}"></span><span>${p.accent.toUpperCase()}</span>`,
-  ]);
-  rows.push(['CODE', `<span>${codes.code}</span>`]);
-  rows.push(['SIG', `<span>${codes.sig}</span>`]);
-  rows.push(['STATUS', `<span class="p-ok">ONLINE ▸ VERIFIED<span class="p-caret" aria-hidden="true">▮</span></span>`]);
 
   document.getElementById('p-spec')!.innerHTML = rows
     .map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`)
@@ -285,31 +277,14 @@ function mountWall(p: Project): void {
   }
 }
 
-/* ------------------------------------------------------------- credits -- */
+/* ------------------------------------------------------------ end nav -- */
 
-function mountCredits(p: Project): void {
-  if (!p.credits.length) return;
-  const sec = document.getElementById('p-credits-sec')!;
-  sec.hidden = false;
-  document.getElementById('p-credits')!.innerHTML = p.credits
-    .map(
-      (c) =>
-        `<div class="p-credit" data-stamp><span class="p-credit-role micro">${escapeHtml(c.role.toUpperCase())}</span><span class="p-credit-name">${escapeHtml(c.name)}</span></div>`,
-    )
-    .join('');
-}
-
-/* ------------------------------------------------- confirm? yes / no -- */
-
-function mountConfirm(all: Project[], idx: number): void {
-  const prev = all[(idx - 1 + all.length) % all.length];
+function mountEndNav(all: Project[], idx: number): void {
   const next = all[(idx + 1) % all.length];
   const solo = all.length < 2;
   document.getElementById('p-confirm')!.innerHTML = `
-    ${solo ? '' : `<p class="p-prev micro" data-stamp>◂ PREV :: <a href="/project.html?p=${prev.slug}" data-internal>${escapeHtml(prev.title.toUpperCase())}</a></p>`}
-    <h2 class="p-confirm-q" data-stamp>NEXT PROCEDURE?</h2>
-    <div class="p-yesno" data-stamp>
-      ${solo ? '' : `<a class="p-yes" href="/project.html?p=${next.slug}" data-internal data-cursor="NEXT ▸">YES ▸ ${escapeHtml(next.title.toUpperCase())}</a>`}
-      <a class="p-no" href="/works.html" data-internal data-cursor="FLOOR ◂">NO ▸ RETURN TO FLOOR</a>
+    <div class="p-endnav" data-stamp>
+      <a class="p-back" href="/works.html" data-internal data-cursor="FLOOR ◂">◂ RETURN TO FLOOR</a>
+      ${solo ? '' : `<a class="p-nextlink" href="/project.html?p=${next.slug}" data-internal data-cursor="NEXT ▸">${escapeHtml(next.title.toUpperCase())} ▸</a>`}
     </div>`;
 }
