@@ -131,7 +131,7 @@ function mountSpec(p: Project): void {
   if (p.role) rows.push(['ROLE', `<span>${escapeHtml(p.role.toUpperCase())}</span>`]);
   if (p.runtime) rows.push(['RUNTIME', `<span>${escapeHtml(p.runtime)}</span>`]);
   if (p.tags.length)
-    rows.push(['TAGS', p.tags.map((t) => `<span class="p-pill">${escapeHtml(t.toUpperCase())}</span>`).join('')]);
+    rows.push(['GENRE', p.tags.map((t) => `<span class="p-pill">${escapeHtml(t.toUpperCase())}</span>`).join('')]);
 
   document.getElementById('p-spec')!.innerHTML = rows
     .map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`)
@@ -187,15 +187,31 @@ function mountSynopsis(p: Project): void {
 /* -------------------------------------------------------------- ticker -- */
 
 function mountTicker(p: Project, stamp: string): void {
-  const items = [p.title, ...p.tags, 'REVACHOL', stamp, 'ONLINE'];
-  const half = items
-    .map(
-      (t, i) =>
-        `<span class="tk tk-${(i % 4) + 1}">${escapeHtml(t.toUpperCase())}</span><span class="tk-sep">${i % 2 ? '▪' : '✚'}</span>`,
-    )
-    .join('');
-  document.getElementById('p-ticker-track')!.innerHTML =
-    `<span class="p-ticker-half">${half}</span><span class="p-ticker-half">${half}</span>`;
+  const items = [p.title, ...p.tags, 'REVACHOL', stamp];
+  const spanFor = (t: string, i: number) =>
+    `<span class="tk tk-${(i % 4) + 1}">${escapeHtml(t.toUpperCase())}</span><span class="tk-sep">${i % 2 ? '▪' : '✚'}</span>`;
+  const track = document.getElementById('p-ticker-track')!;
+  const half = (reps: number) => {
+    let out = '';
+    for (let k = 0; k < reps * items.length; k++) out += spanFor(items[k % items.length], k);
+    return out;
+  };
+  const mount = (reps: number) => {
+    const h = half(reps);
+    track.innerHTML = `<span class="p-ticker-half">${h}</span><span class="p-ticker-half">${h}</span>`;
+  };
+  // the pipe must never show blank: repeat the sequence until one half
+  // outspans the widest this screen can get, then pin the scroll speed so a
+  // longer track doesn't play back faster (the keyframe travels -50% of it)
+  mount(1);
+  const w1 = (track.querySelector('.p-ticker-half') as HTMLElement).getBoundingClientRect().width;
+  if (w1 > 0) {
+    const target = Math.max(window.innerWidth, screen.width) * 1.2;
+    const reps = Math.max(1, Math.ceil(target / w1));
+    if (reps > 1) mount(reps);
+    const halfW = (track.querySelector('.p-ticker-half') as HTMLElement).getBoundingClientRect().width;
+    track.style.animationDuration = `${Math.round(halfW / 44)}s`;
+  }
 }
 
 /* -------------------------------------------------------- footage wall -- */
@@ -242,9 +258,6 @@ async function mountWall(p: Project): Promise<void> {
   if (urls.length === 0) return;
   sec.hidden = false;
   const wall = document.getElementById('p-stills')!;
-  const lightbox = document.getElementById('lightbox') as HTMLDialogElement;
-  const lightboxImg = document.getElementById('lightbox-img') as HTMLImageElement;
-  document.getElementById('lightbox-close')!.addEventListener('click', () => lightbox.close());
 
   const io = new IntersectionObserver(
     (entries) => {
@@ -262,7 +275,6 @@ async function mountWall(p: Project): Promise<void> {
   const figureFor = (url: string, n: number): HTMLElement => {
     const wrap = document.createElement('figure');
     wrap.className = 'p-still';
-    wrap.dataset.cursor = 'VIEW +';
     const im = new Image();
     im.loading = 'lazy';
     im.alt = `${p.title} — still ${n}`;
@@ -291,10 +303,6 @@ async function mountWall(p: Project): Promise<void> {
     cap.className = 'micro';
     cap.textContent = `STL·${pad2(n)} // ${p.slug.toUpperCase()}`;
     wrap.append(im, veilC, num, cap);
-    wrap.addEventListener('click', () => {
-      lightboxImg.src = im.src;
-      lightbox.showModal();
-    });
     io.observe(wrap);
     return wrap;
   };

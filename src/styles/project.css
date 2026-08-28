@@ -229,7 +229,7 @@
 .p-row { display: grid; gap: 0; }
 .p-row-pair { grid-template-columns: 1fr 1fr; }
 
-.p-still { position: relative; margin: 0; overflow: hidden; background: #000; cursor: pointer; }
+.p-still { position: relative; margin: 0; overflow: hidden; background: #000; }
 .p-still img {
   width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block;
   transition: transform 0.6s var(--ease-out);
