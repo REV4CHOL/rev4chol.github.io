@@ -296,6 +296,57 @@ export class WorksWorld {
     if (this.hoveredSlug) this.enter(this.hoveredSlug);
   }
 
+  /** Channel flip, phase out: the floor pulls itself apart — alternating
+   *  lattice rows jolt, then slide off along the floor's own iso grain in
+   *  opposite directions. Resolves once every pane has left the frame. */
+  exit(): Promise<void> {
+    if (reducedMotion()) return Promise.resolve();
+    const span = Math.max(this.app.screen.width, this.app.screen.height) * 1.7;
+    const g = Math.hypot(ISO.a, ISO.b);
+    const tweens: Promise<void>[] = [];
+    for (const tile of this.tiles.values()) {
+      const dir = tile.placed.row % 2 === 0 ? 1 : -1;
+      tweens.push(
+        new Promise((res) => {
+          gsap.killTweensOf(tile);
+          gsap
+            .timeline({ onComplete: res, delay: (Math.abs(tile.placed.row) % 3) * 0.035 + Math.random() * 0.04 })
+            .to(tile, { x: tile.x + dir * 16, duration: 0.05, ease: 'steps(1)' })
+            .to(tile, { x: tile.x - dir * 12, duration: 0.05, ease: 'steps(1)' })
+            .to(tile, {
+              x: tile.x + (dir * span * ISO.a) / g,
+              y: tile.y + (dir * span * ISO.b) / g,
+              duration: 0.34,
+              ease: 'power2.in',
+            });
+        }),
+      );
+    }
+    return Promise.all(tweens).then(() => undefined);
+  }
+
+  /** Channel flip, phase in: the new floor's panes slide back in along the
+   *  same grain, mirrored, and settle into the carpet. */
+  arrive(): void {
+    if (reducedMotion()) return;
+    const span = Math.max(this.app.screen.width, this.app.screen.height) * 1.5;
+    const g = Math.hypot(ISO.a, ISO.b);
+    for (const tile of this.tiles.values()) {
+      const dir = tile.placed.row % 2 === 0 ? -1 : 1;
+      const homeX = tile.x;
+      const homeY = tile.y;
+      tile.x = homeX + (dir * span * ISO.a) / g;
+      tile.y = homeY + (dir * span * ISO.b) / g;
+      gsap.to(tile, {
+        x: homeX,
+        y: homeY,
+        duration: 0.44,
+        ease: 'power3.out',
+        delay: (Math.abs(tile.placed.row) % 3) * 0.045 + Math.random() * 0.05,
+      });
+    }
+  }
+
   /** Full teardown so another world can mount on the same host (channel flip):
    *  release every tile's video element, drop the pan listeners, hide the
    *  floating label, then let Pixi destroy the app, canvas and scene graph. */

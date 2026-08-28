@@ -59,11 +59,13 @@ startPage(
       document.getElementById('ch-ident-name')!.textContent = ch.name;
       sound.chime();
       staticEl.classList.add('on');
-      await new Promise((r) => setTimeout(r, reducedMotion() ? 60 : 240));
+      // the panes leave physically — rows sliding off along the floor's grain
+      await world?.exit();
       world?.destroy();
       world = null;
       await mount(key);
-      await new Promise((r) => setTimeout(r, reducedMotion() ? 80 : 380));
+      world!.arrive();
+      await new Promise((r) => setTimeout(r, reducedMotion() ? 80 : 300));
       staticEl.classList.remove('on');
       flipping = false;
     };
