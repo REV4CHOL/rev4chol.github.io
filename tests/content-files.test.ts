@@ -1,8 +1,9 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { loopSrcChain, parseJson, parseProjects, parseSite } from '../src/lib/content';
+import { parseJson, parseProjects, parseSite } from '../src/lib/content';
 import { loopCandidates } from '../src/home/loops';
+import { pickLoopFiles } from '../src/lib/loop-files';
 
 const root = fileURLToPath(new URL('../public/content/', import.meta.url));
 const read = (f: string) => readFileSync(root + f, 'utf8');
@@ -36,10 +37,12 @@ describe('shipped content files', () => {
     const projects = parseProjects(parseJson(read('projects.json'), 'projects.json'));
     for (const p of projects) {
       expect(existsSync(`${root}projects/${p.slug}/poster.jpg`), `${p.slug} poster`).toBe(true);
-      expect(
-        loopSrcChain(p.slug).some(onDisk),
-        `${p.slug} loop clip (preview.mp4 or an accepted loop name)`,
-      ).toBe(true);
+      // the pane loop can live under ANY video filename (the manifest lists it)
+      const folderVideos = pickLoopFiles(
+        readdirSync(`${root}projects/${p.slug}`),
+        p.film?.type === 'local' ? [p.film.src] : [],
+      );
+      expect(folderVideos.length > 0, `${p.slug} loop clip (any video file)`).toBe(true);
       for (const s of p.stills)
         expect(existsSync(`${root}projects/${p.slug}/stills/${s}`), `${p.slug} still ${s}`).toBe(true);
       if (p.film?.type === 'local')

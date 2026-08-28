@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import { loadProjects, projectAssetUrl, type Project } from '../lib/content';
+import { loadLoopManifest, loadProjects, projectAssetUrl, type Project } from '../lib/content';
 import { reducedMotion } from '../lib/env';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
@@ -12,6 +12,7 @@ startPage(
   'work',
   async ({ hud }) => {
     const projects = await loadProjects();
+    await loadLoopManifest(); // tiles build their loop chains synchronously
     mountWorksOverlay();
     const host = document.getElementById('floor')!;
 

@@ -1,4 +1,4 @@
-import { getSlugFromSearch, loadProjects, loopSrcChain, Project, projectAssetUrl } from '../lib/content';
+import { getSlugFromSearch, loadLoopManifest, loadProjects, loopSrcChain, Project, projectAssetUrl } from '../lib/content';
 import { ditherImageToCanvas } from '../lib/dither';
 import { embedSrc } from '../lib/embeds';
 import { mulberry32 } from '../lib/rng';
@@ -16,6 +16,7 @@ startPage(
   // and two counters in the same corner read as clutter
   async () => {
     const projects = await loadProjects();
+    await loadLoopManifest(); // the hero walks the manifest-led chain
     const slug = getSlugFromSearch(location.search);
     const idx = projects.findIndex((p) => p.slug === slug);
     if (idx < 0) {

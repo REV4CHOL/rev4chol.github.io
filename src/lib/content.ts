@@ -186,12 +186,35 @@ export function projectAssetUrl(slug: string, file: string): string {
   return `${CONTENT_BASE}/projects/${slug}/${file}`;
 }
 
-/** Accepted names for a project's loop clip, in probe order. The owner can
- *  drop any of these into the project folder and swap the file at any time —
- *  the floor pane and the dossier hero walk this same chain, so one clip
- *  drives both. */
+let loopManifest: Record<string, string[]> | null | undefined; // undefined = not fetched yet
+
+/** Fetch the per-project loop listing once. The dev server answers it live
+ *  from the folders; builds bake it into dist. Quiet when absent — the
+ *  canonical name chain below still works without it. */
+export async function loadLoopManifest(): Promise<void> {
+  if (loopManifest !== undefined) return;
+  try {
+    const res = await fetch('/content/media-manifest.json', { cache: 'no-store' });
+    if (!res.ok || (res.headers.get('content-type') ?? '').includes('text/html')) {
+      loopManifest = null;
+      return;
+    }
+    const data = (await res.json()) as { projects?: Record<string, string[]> };
+    loopManifest = data.projects ?? null;
+  } catch {
+    loopManifest = null;
+  }
+}
+
+/** Candidate urls for a project's loop clip, in probe order: every video the
+ *  manifest lists in the folder (ANY filename), then the canonical names as
+ *  the no-manifest fallback. The floor pane and the dossier hero walk this
+ *  same chain on error, so one clip drives both and the owner can swap or
+ *  rename the file at any time. */
 export function loopSrcChain(slug: string): string[] {
-  return ['preview.mp4', 'loop.mp4', 'loop_1.mp4', 'loop-1.mp4'].map((f) => projectAssetUrl(slug, f));
+  const listed = (loopManifest?.[slug] ?? []).map((f) => projectAssetUrl(slug, encodeURIComponent(f)));
+  const canon = ['preview.mp4', 'loop.mp4', 'loop_1.mp4', 'loop-1.mp4'].map((f) => projectAssetUrl(slug, f));
+  return [...new Set([...listed, ...canon])];
 }
 
 export function getSlugFromSearch(search: string): string | null {
