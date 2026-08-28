@@ -42,6 +42,7 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | tags | list of words | `["short film","sci-fi"]` |
 | accent | this film's color, hex | `"#C8FF00"` |
 | tileSize | `"normal"` or `"large"` (large = double tile) | `"large"` |
+| category | which works channel: `"human"` or `"machine"` (leave out = human) | `"machine"` |
 | synopsis | one short paragraph | |
 | credits | list of `{ "role": …, "name": … }` | |
 | film | where the full film lives — see below | |
@@ -112,6 +113,11 @@ placeholders — replace them with your real photos.**
   the featured dress (double frame, FEATURED tag, resting glow, photographic
   poster). Six featured films make the best centre block.
 - **Remove a film:** delete its entry from `projects.json` (the folder can stay).
+- **The two channels:** the works floor broadcasts on `CH·01 MORE HUMAN THAN
+  HUMAN` and `CH·02 THINKING MACHINES` — the switcher sits bottom-center.
+  A film's `category` decides its channel. Give each channel a few
+  `"large"` films so both floors get a featured centre cluster. Deep links:
+  `works.html?ch=machine`.
 
 ## Homepage reel (the 5 loops)
 

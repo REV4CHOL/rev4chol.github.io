@@ -361,6 +361,55 @@
 .wk-reg-bl { left: 12px; bottom: 12px; }
 .wk-reg-br { right: 12px; bottom: 12px; }
 
+/* ---- works channel switcher (bottom-center bezel dial, zoom-pinned) ---- */
+.ch-switch {
+  position: fixed; left: 50%; translate: -50% 0; bottom: calc(24px * var(--uiz));
+  z-index: 950; display: flex; gap: calc(38px * var(--uiz)); pointer-events: none;
+  flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 24px);
+}
+.ch-switch button {
+  pointer-events: auto; background: none; border: 0; padding: 0; cursor: pointer;
+  display: grid; justify-items: center; gap: calc(5px * var(--uiz)); font: inherit;
+}
+.ch-idx {
+  font-family: var(--f-micro); font-size: calc(var(--t-2xs) * var(--uiz));
+  letter-spacing: 0.18em; color: rgba(237, 237, 230, 0.45);
+}
+.ch-name {
+  font-family: var(--f-display); font-weight: 700;
+  font-size: calc(var(--t-md) * var(--uiz)); letter-spacing: 0.06em;
+  color: rgba(237, 237, 230, 0.5); text-transform: uppercase; white-space: nowrap;
+}
+.ch-switch button:hover .ch-name { color: var(--bone); }
+.ch-switch button:hover { animation: rgb-flick 0.32s steps(2) 1; }
+.ch-switch button.is-on .ch-name, .ch-switch button.is-on .ch-idx { color: var(--signal); }
+
+/* channel-change static: covers the floor swap for a third of a second */
+.ch-static {
+  position: fixed; inset: 0; z-index: 960; pointer-events: none;
+  opacity: 0; transition: opacity 0.12s;
+  background:
+    repeating-linear-gradient(0deg, rgba(200, 255, 0, 0.09) 0 2px, transparent 2px 5px),
+    repeating-linear-gradient(90deg, rgba(255, 46, 99, 0.06) 0 3px, transparent 3px 9px),
+    rgba(6, 6, 6, 0.82);
+}
+.ch-static.on { opacity: 1; animation: ch-flicker 0.14s steps(2) infinite; }
+@keyframes ch-flicker {
+  0% { background-position: 0 0, 0 0; filter: none; }
+  50% { background-position: 0 3px, 5px 0; filter: hue-rotate(18deg); }
+  100% { background-position: 0 -2px, -4px 0; filter: none; }
+}
+.rvl-calm .ch-static { transition: opacity 0.2s; }
+.rvl-calm .ch-static.on { animation: none; }
+
+/* phone: the two names stack — lift the stack clear of the bottom HUD.
+   (Must sit AFTER the base .ch-* rules above: equal specificity, order wins.) */
+@media (max-width: 640px) {
+  .ch-switch { bottom: calc(84px * var(--uiz)); gap: calc(10px * var(--uiz)) calc(22px * var(--uiz)); }
+  .ch-name { font-size: calc(var(--t-xs) * var(--uiz)); }
+  .ch-switch button { gap: calc(3px * var(--uiz)); }
+}
+
 /* ---- shared page grammar (project + about) ---- */
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; overflow: hidden;

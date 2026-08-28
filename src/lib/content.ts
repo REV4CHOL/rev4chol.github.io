@@ -19,6 +19,8 @@ export interface Project {
   tags: string[];
   accent: string;
   tileSize: 'normal' | 'large';
+  /** which works channel the film broadcasts on (default "human") */
+  category: 'human' | 'machine';
   synopsis: string;
   credits: Credit[];
   film: FilmRef | null;
@@ -106,6 +108,10 @@ export function parseProject(raw: unknown, i: number): Project {
   const tileSize = r.tileSize === undefined ? 'normal' : r.tileSize;
   if (tileSize !== 'normal' && tileSize !== 'large') fail(file, `${where} tileSize must be "normal" or "large"`);
 
+  const category = r.category === undefined ? 'human' : r.category;
+  if (category !== 'human' && category !== 'machine')
+    fail(file, `${where} category must be "human" or "machine"`);
+
   const tags = r.tags ?? [];
   if (!Array.isArray(tags) || tags.some((t) => typeof t !== 'string'))
     fail(file, `${where} tags must be an array of strings`);
@@ -152,6 +158,7 @@ export function parseProject(raw: unknown, i: number): Project {
     tags: tags as string[],
     accent,
     tileSize,
+    category,
     synopsis: str(r.synopsis, file, `${where} synopsis`, ''),
     credits,
     film,

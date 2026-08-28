@@ -296,6 +296,17 @@ export class WorksWorld {
     if (this.hoveredSlug) this.enter(this.hoveredSlug);
   }
 
+  /** Full teardown so another world can mount on the same host (channel flip):
+   *  release every tile's video element, drop the pan listeners, hide the
+   *  floating label, then let Pixi destroy the app, canvas and scene graph. */
+  destroy(): void {
+    gsap.killTweensOf(this.pan.pos);
+    for (const tile of this.tiles.values()) tile.releaseVideo();
+    this.pan.dispose();
+    if (this.labelEl) this.labelEl.hidden = true;
+    this.app.destroy(true, { children: true });
+  }
+
   private showLabel(tile: ProjectTile): void {
     if (!this.labelEl) return;
     const p = tile.project;

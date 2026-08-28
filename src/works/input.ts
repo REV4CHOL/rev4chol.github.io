@@ -71,6 +71,14 @@ export class PanController {
     }
   };
 
+  /** Remove the host listeners — required before mounting a new world on the same host. */
+  dispose(): void {
+    this.el.removeEventListener('pointerdown', this.onDown);
+    this.el.removeEventListener('pointermove', this.onMove);
+    this.el.removeEventListener('pointerup', this.onUp);
+    this.el.removeEventListener('pointercancel', this.onUp);
+  }
+
   panBy(dx: number, dy: number): void {
     this.pos.x += dx;
     this.pos.y += dy;
