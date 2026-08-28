@@ -104,6 +104,23 @@ placeholders — replace them with your real photos.**
   - `capabilities` — list of words for the CAP chips (defaults to your
     `site.json` tagline split on commas)
 
+## The site runs itself
+
+The local site at `http://localhost:5173` is self-hosting: a launcher in
+your Windows Startup folder (`revachol-site-server.vbs`) starts it hidden
+at every login, and `scripts\serve-forever.cmd` restarts it within seconds
+if it ever crashes. Drop content files, refresh the browser, done — no
+build step, no terminal.
+
+- **Stop it for good:** delete `revachol-site-server.vbs` from your Startup
+  folder (Win+R → `shell:startup`), then end the `node` process in Task
+  Manager once.
+- **Start it by hand** (after stopping): double-click
+  `scripts\serve-forever.vbs` in the site folder.
+- **Publishing for the world** is a separate step: `npm run build` produces
+  the `dist/` folder — upload that to any static host (Netlify, Cloudflare
+  Pages, GitHub Pages) when the real films are in.
+
 ## Export recipes (if you don't use the script)
 
 - **poster.jpg** — 1280×720 JPEG, quality ~80.
