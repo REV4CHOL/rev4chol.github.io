@@ -1,7 +1,7 @@
 import { BlurFilter, Container, Graphics, Matrix, Sprite, Text, Texture } from 'pixi.js';
 import gsap from 'gsap';
 import type { Project } from '../lib/content';
-import { projectAssetUrl } from '../lib/content';
+import { loopSrcChain, projectAssetUrl } from '../lib/content';
 import { reducedMotion } from '../lib/env';
 import { CARD_H, CARD_W, HOVER_M, ISO, SIZE_MUL_LARGE, cellToWorld } from './constants';
 import type { Placed } from './layout';
@@ -24,7 +24,10 @@ export class ProjectTile extends Container {
   /** Featured tiles keep a faint resting underglow; hover raises it, exit returns here. */
   private baseGlowAlpha = 0;
 
-  private previewUrl(): string { return projectAssetUrl(this.project.slug, 'preview.mp4'); }
+  /** Accepted loop names in probe order; the resolved winner is remembered
+   *  so hover-restores never re-walk the misses. */
+  private srcChain: string[];
+  private baseSrc: string | null = null;
   private hoverUrl(): string { return projectAssetUrl(this.project.slug, 'hover.mp4'); }
 
   wake(): void {
@@ -76,8 +79,10 @@ export class ProjectTile extends Container {
 
   restorePreview(): void {
     const v = this.video;
-    if (!v || v.src.endsWith('preview.mp4')) return;
-    v.src = this.previewUrl();
+    if (!v) return;
+    const base = this.baseSrc ?? this.srcChain[0];
+    if (v.src === base || v.src.endsWith(base)) return;
+    v.src = base;
     if (this.mode !== 'sleep') void v.play().catch(() => {});
   }
 
@@ -101,21 +106,32 @@ export class ProjectTile extends Container {
     v.loop = true;
     v.playsInline = true;
     v.preload = 'auto';
-    v.src = this.previewUrl();
+    v.src = this.baseSrc ?? this.srcChain[0];
     v.addEventListener('error', () => {
       if (this.video !== v) return; // stale element — releaseVideo() already moved on
       if (v.src.endsWith('hover.mp4')) {
-        v.src = this.previewUrl();
+        // failed montage — back to the tile's resolved loop
+        v.src = this.baseSrc ?? this.srcChain[0];
         if (this.mode !== 'sleep') void v.play().catch(() => {});
-      } else {
-        this.mediaFailed = true;
-        console.warn(`[revachol] missing media for "${this.project.slug}" (${v.src}) — tile stays on its poster`);
-        this.releaseVideo();
+        return;
       }
+      if (this.baseSrc && v.src === this.baseSrc) this.baseSrc = null; // remembered winner vanished
+      // walk the accepted loop names before giving up
+      const cur = this.srcChain.findIndex((u) => v.src.endsWith(u));
+      const next = cur < 0 ? this.srcChain.length : cur + 1;
+      if (next < this.srcChain.length) {
+        v.src = this.srcChain[next];
+        if (this.mode !== 'sleep') void v.play().catch(() => {});
+        return;
+      }
+      this.mediaFailed = true;
+      console.warn(`[revachol] missing media for "${this.project.slug}" (${v.src}) — tile stays on its poster`);
+      this.releaseVideo();
     });
     this.video = v;
     v.addEventListener('loadedmetadata', () => {
       if (this.video !== v) return; // stale element — releaseVideo() already moved on
+      if (!v.src.endsWith('hover.mp4')) this.baseSrc = v.src; // the chain's winner
       this.attachVideoSprite();
     });
   }
@@ -183,6 +199,7 @@ export class ProjectTile extends Container {
     super();
     this.project = project;
     this.placed = placed;
+    this.srcChain = loopSrcChain(project.slug);
     this.sizeMul = placed.span === 2 ? SIZE_MUL_LARGE : 1;
     // a span-2 tile is centered over its 2×2 cell block so the carpet stays seamless
     const off = (placed.span - 1) / 2;

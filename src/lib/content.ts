@@ -186,6 +186,14 @@ export function projectAssetUrl(slug: string, file: string): string {
   return `${CONTENT_BASE}/projects/${slug}/${file}`;
 }
 
+/** Accepted names for a project's loop clip, in probe order. The owner can
+ *  drop any of these into the project folder and swap the file at any time —
+ *  the floor pane and the dossier hero walk this same chain, so one clip
+ *  drives both. */
+export function loopSrcChain(slug: string): string[] {
+  return ['preview.mp4', 'loop.mp4', 'loop_1.mp4', 'loop-1.mp4'].map((f) => projectAssetUrl(slug, f));
+}
+
 export function getSlugFromSearch(search: string): string | null {
   return new URLSearchParams(search).get('p');
 }

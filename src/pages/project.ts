@@ -1,4 +1,4 @@
-import { getSlugFromSearch, loadProjects, Project, projectAssetUrl } from '../lib/content';
+import { getSlugFromSearch, loadProjects, loopSrcChain, Project, projectAssetUrl } from '../lib/content';
 import { ditherImageToCanvas } from '../lib/dither';
 import { embedSrc } from '../lib/embeds';
 import { mulberry32 } from '../lib/rng';
@@ -78,11 +78,28 @@ function mountHero(p: Project, stamp: string): void {
     veil.style.opacity = '0';
   };
 
-  hero.src = projectAssetUrl(p.slug, 'preview.mp4');
-  hero.addEventListener('canplay', () => { videoReady = true; maybeReveal(); }, { once: true });
+  // the hero walks the same accepted loop names as the floor pane, so one
+  // clip drives both — swap the file in the project folder, refresh, done
+  const chain = loopSrcChain(p.slug);
+  let chainIdx = 0;
+  hero.src = chain[0];
+  // the early play() below can fire before data exists and its rejection is
+  // swallowed — canplay is the moment playback is actually possible, so nudge
+  // again here or the hero can sit frozen on its first frame
+  hero.addEventListener('canplay', () => {
+    videoReady = true;
+    void hero.play().catch(() => {});
+    maybeReveal();
+  }, { once: true });
   hero.addEventListener('error', () => {
+    chainIdx += 1;
+    if (chainIdx < chain.length) {
+      hero.src = chain[chainIdx];
+      void hero.play().catch(() => {});
+      return;
+    }
     heroDead = true;
-    console.warn(`[revachol] missing media: ${hero.src} — hero stays on the dithered poster`);
+    console.warn(`[revachol] missing media: ${chain[0]} (or an accepted loop name) — hero stays on the dithered poster`);
     hero.remove();
   });
   void hero.play().catch(() => {});

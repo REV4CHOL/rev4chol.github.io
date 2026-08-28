@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ContentError,
   getSlugFromSearch,
+  loopSrcChain,
   parseJson,
   parseProjects,
   parseSite,
@@ -118,6 +119,15 @@ describe('parseJson', () => {
 describe('helpers', () => {
   it('builds asset urls', () => {
     expect(projectAssetUrl('neon-dream', 'preview.mp4')).toBe('/content/projects/neon-dream/preview.mp4');
+  });
+
+  it('loop chain: preview.mp4 first, then the loop spellings — pane and hero share it', () => {
+    expect(loopSrcChain('x')).toEqual([
+      '/content/projects/x/preview.mp4',
+      '/content/projects/x/loop.mp4',
+      '/content/projects/x/loop_1.mp4',
+      '/content/projects/x/loop-1.mp4',
+    ]);
   });
 
   it('reads slug from search strings', () => {

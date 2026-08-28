@@ -11,7 +11,9 @@ You never need to rebuild the site for content changes — edit, save, refresh.
       projects/
         <slug>/         one folder per film
           poster.jpg    a still frame, 1280px wide (required)
-          preview.mp4   3–5 s loop, 640px wide, silent (required)
+          preview.mp4   3–5 s loop, 640px wide, silent (required) —
+                        plays on the film's pane AND the top of its dossier
+                        (loop.mp4 / loop_1.mp4 / loop-1.mp4 also accepted)
           hover.mp4     8–15 s montage, 960px wide, silent (optional)
           film.mp4      the full film, only if you self-host it (optional)
           stills/       gallery images (each one listed in projects.json)
@@ -137,6 +139,9 @@ build step, no terminal.
 ## Change / reorder / remove
 
 - **Swap media:** overwrite the file with the same name. Refresh. Done.
+- **Change a pane's loop:** replace that film's `preview.mp4` — the same clip
+  is the top of its dossier page, so one file drives both. `loop.mp4`,
+  `loop_1.mp4` and `loop-1.mp4` are accepted names too. Any time; refresh.
 - **Reorder the floor:** reorder the entries in `projects.json`.
 - **Feature a film:** set its `tileSize` to `"large"`. Featured films render
   at double size, gather as one cluster at the centre of the floor, and wear
