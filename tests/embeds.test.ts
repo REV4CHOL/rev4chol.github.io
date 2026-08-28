@@ -23,6 +23,25 @@ describe('vimeoId', () => {
   });
 });
 
+describe('pasted embed codes', () => {
+  // HOW-TO-EDIT promises `src` accepts the platform's full Share ▸ Embed
+  // snippet verbatim — the id must come out of the surrounding iframe markup
+  it('extracts the id from a pasted YouTube embed snippet', () => {
+    expect(
+      youtubeId(
+        '<iframe width="560" height="315" src="https://www.youtube.com/embed/aqz-KE-bpKQ?si=x1Y_z" title="YouTube video player" frameborder="0" allowfullscreen></iframe>',
+      ),
+    ).toBe('aqz-KE-bpKQ');
+  });
+  it('extracts the id from a pasted Vimeo embed snippet', () => {
+    expect(
+      vimeoId(
+        '<iframe src="https://player.vimeo.com/video/76979871?h=8272103f6e&badge=0" width="640" height="360" frameborder="0" allowfullscreen></iframe>',
+      ),
+    ).toBe('76979871');
+  });
+});
+
 describe('embedSrc', () => {
   it('builds privacy-friendly embed urls', () => {
     expect(embedSrc({ type: 'youtube', src: 'https://youtu.be/aqz-KE-bpKQ' })).toBe(

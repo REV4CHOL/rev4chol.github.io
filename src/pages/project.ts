@@ -12,9 +12,10 @@ import '../styles/project.css';
 
 startPage(
   'project',
-  async ({ hud }) => {
+  // no count in the HUD here — the dossier's own P·NN/NN stamp carries it,
+  // and two counters in the same corner read as clutter
+  async () => {
     const projects = await loadProjects();
-    hud.setCount(projects.length);
     const slug = getSlugFromSearch(location.search);
     const idx = projects.findIndex((p) => p.slug === slug);
     if (idx < 0) {

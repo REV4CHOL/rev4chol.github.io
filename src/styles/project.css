@@ -77,12 +77,15 @@
   opacity: 0.85;
 }
 
+/* the status/index row sits under the fixed shell HUD, which is zoom-pinned
+   (its top scales by --uiz) — so this row compensates the same way, or
+   browser zoom walks the two rows into each other */
 .p-status {
-  position: absolute; left: 92px; top: 92px; z-index: 4;
+  position: absolute; left: 92px; top: calc(96px * var(--uiz) + 8px); z-index: 4;
   color: var(--signal); letter-spacing: 0.14em;
 }
 .p-index {
-  position: absolute; right: 44px; top: 92px; z-index: 4;
+  position: absolute; right: 44px; top: calc(96px * var(--uiz) + 8px); z-index: 4;
   display: grid; gap: 6px; justify-items: end; color: var(--bone);
 }
 
@@ -131,11 +134,6 @@
 }
 
 /* ---------------------------------------------------------- I: spec -- */
-
-.p-checks-v {
-  position: absolute; right: 0; top: 96px; bottom: 72px; width: 12px;
-  background: repeating-conic-gradient(rgba(200, 255, 0, 0.5) 0% 25%, transparent 0% 50%) 0 0 / 12px 12px;
-}
 
 .p-spec {
   display: grid; grid-template-columns: max-content 1fr; margin: 0; max-width: 880px;
@@ -319,7 +317,6 @@
     grid-template-columns: 1fr; gap: 0; padding: 64px var(--p-pad-r) 48px var(--p-pad-l);
   }
   .p-rail-tag { position: static; font-size: var(--t-xl); margin-bottom: 20px; }
-  .p-checks-v { display: none; }
   .p-spec dt { padding-right: 20px; }
 
   .p-row-pair { grid-template-columns: 1fr; }

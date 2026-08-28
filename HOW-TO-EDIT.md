@@ -49,11 +49,15 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | stills | gallery file names, in order | `["01.jpg","02.jpg"]` |
 | position | leave out (auto layout) or pin: `{ "col": 4, "row": 0 }` | |
 
-**film** is one of:
+**film** is what the WATCH button plays. It is one of:
 - `{ "type": "vimeo", "src": "https://vimeo.com/123456789" }`
 - `{ "type": "youtube", "src": "https://youtu.be/XXXXXXXXXXX" }`
 - `{ "type": "local", "src": "film.mp4" }` — put `film.mp4` in the folder
-- `null` — no RUN FULL FILM button (trailer-only project)
+- `null` — no WATCH button (trailer-only project)
+
+For vimeo/youtube, `src` accepts any link form — a watch URL, a share
+link, or the **full embed code** pasted straight from the platform's
+Share ▸ Embed box (the video id is extracted from it either way).
 
 ## The project page (the dossier)
 
