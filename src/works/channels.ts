@@ -10,7 +10,7 @@ export interface Channel {
 }
 
 export const CHANNELS: Channel[] = [
-  { key: 'human', index: 'CH·01', name: 'MORE HUMAN THAN HUMAN' },
+  { key: 'human', index: 'CH·01', name: 'FOR NO MANKIND' },
   { key: 'machine', index: 'CH·02', name: 'THINKING MACHINES' },
 ];
 

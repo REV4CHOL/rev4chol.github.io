@@ -113,8 +113,8 @@ placeholders — replace them with your real photos.**
   the featured dress (double frame, FEATURED tag, resting glow, photographic
   poster). Six featured films make the best centre block.
 - **Remove a film:** delete its entry from `projects.json` (the folder can stay).
-- **The two channels:** the works floor broadcasts on `CH·01 MORE HUMAN THAN
-  HUMAN` and `CH·02 THINKING MACHINES` — the switcher sits bottom-center.
+- **The two channels:** the works floor broadcasts on `CH·01 FOR NO MANKIND`
+  and `CH·02 THINKING MACHINES` — the switcher sits bottom-center.
   A film's `category` decides its channel. Give each channel a few
   `"large"` films so both floors get a featured centre cluster. Deep links:
   `works.html?ch=machine`.

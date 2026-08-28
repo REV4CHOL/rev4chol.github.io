@@ -22,7 +22,7 @@ const proj = (slug: string, category: 'human' | 'machine'): Project => ({
 describe('the two channels', () => {
   it('broadcasts exactly CH·01 human and CH·02 machine', () => {
     expect(CHANNELS.map((c) => c.key)).toEqual(['human', 'machine']);
-    expect(CHANNELS[0].name).toBe('MORE HUMAN THAN HUMAN');
+    expect(CHANNELS[0].name).toBe('FOR NO MANKIND');
     expect(CHANNELS[1].name).toBe('THINKING MACHINES');
     expect(CHANNELS.map((c) => c.index)).toEqual(['CH·01', 'CH·02']);
   });
