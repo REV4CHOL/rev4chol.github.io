@@ -88,6 +88,7 @@ export class ProjectTile extends Container {
     s.position.x += ox;
     s.alpha = 0.72;
     setTimeout(() => {
+      if (s.destroyed) return; // the world may have been torn down mid-tick (channel flip)
       s.position.x -= ox;
       s.alpha = 1;
     }, 70);

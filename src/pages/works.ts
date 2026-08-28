@@ -1,3 +1,4 @@
+import gsap from 'gsap';
 import { loadProjects, projectAssetUrl, type Project } from '../lib/content';
 import { reducedMotion } from '../lib/env';
 import { sound } from '../lib/sound';
@@ -16,6 +17,7 @@ startPage(
     let world: WorksWorld | null = null;
     let active: ChannelKey = channelFromSearch(location.search);
     let flipping = false;
+    (window as unknown as { rvlGsap: typeof gsap }).rvlGsap = gsap; // debug handle for verification
 
     const mount = async (key: ChannelKey) => {
       const list = channelProjects(projects, key);
@@ -59,7 +61,9 @@ startPage(
       document.getElementById('ch-ident-name')!.textContent = ch.name;
       sound.chime();
       staticEl.classList.add('on');
-      // the panes leave physically — rows sliding off along the floor's grain
+      // the whole world leaves physically — panes, furniture and lattice
+      // tearing off along the floor's grain under the misregistration rig
+      world?.unhover();
       await world?.exit();
       world?.destroy();
       world = null;

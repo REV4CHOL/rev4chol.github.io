@@ -13,6 +13,7 @@ import { setCursorLabel } from '../shell/cursor';
 import { CARD_H, CARD_W, ISO, WORLD_PAD } from './constants';
 import { buildDebris } from './debris';
 import { buildFields } from './fields';
+import { GRAIN, joltCamera, misregister, streakBurst, type Burst, type Misreg } from './flipfx';
 import { PanController } from './input';
 import { layoutProjects } from './layout';
 import { PlaybackManager } from './playback';
@@ -27,6 +28,10 @@ export class WorksWorld {
   protected worldC = new Container();
   protected tilesLayer = new Container();
   protected fxLayer = new Container();
+  protected fieldsC!: Container;
+  protected debrisC!: Container;
+  private misreg: Misreg | null = null;
+  private bursts: Burst[] = [];
   protected pan!: PanController;
   protected hooks!: WorldHooks;
   hoveredSlug: string | null = null;
@@ -101,7 +106,9 @@ export class WorksWorld {
     const halo = Math.max(WORLD_PAD, (maxX - minX) * 0.3, (maxY - minY) * 0.45);
     minX -= halo; maxX += halo; minY -= halo; maxY += halo;
 
-    w.worldC.addChild(buildFields(carpet), buildDebris(placed), w.tilesLayer, w.fxLayer);
+    w.fieldsC = buildFields(carpet);
+    w.debrisC = buildDebris(placed);
+    w.worldC.addChild(w.fieldsC, w.debrisC, w.tilesLayer, w.fxLayer);
     app.stage.addChild(w.worldC);
 
     w.pan = new PanController(
@@ -296,62 +303,74 @@ export class WorksWorld {
     if (this.hoveredSlug) this.enter(this.hoveredSlug);
   }
 
-  /** Channel flip, phase out: the floor pulls itself apart — alternating
-   *  lattice rows jolt, then slide off along the floor's own iso grain in
-   *  opposite directions. Resolves once every pane has left the frame. */
+  /** Channel flip, phase out: the whole world pulls itself apart — alternating
+   *  lattice rows jolt then slide off along the floor's own iso grain, the
+   *  furniture and the lattice tear away in opposite directions, speed lines
+   *  rip through the void and the signal misregisters harder the faster it
+   *  all moves. A third of the panes leave on stepped frames. Resolves once
+   *  every mover has left the frame. */
   exit(): Promise<void> {
     if (reducedMotion()) return Promise.resolve();
     const span = Math.max(this.app.screen.width, this.app.screen.height) * 1.7;
-    const g = Math.hypot(ISO.a, ISO.b);
+    joltCamera(this.app.stage);
+    this.misreg?.dispose();
+    // ramps for longer than the exit lasts — destroy() disposes it mid-climb
+    this.misreg = misregister(this.app, this.worldC, 1.5, 16, 0.8);
+    this.bursts.push(streakBurst(this.worldC, 2, this.viewRect(), 1));
+    const pull = (o: Container, dir: number, delay: number, ease: string, dist: number) =>
+      new Promise<void>((res) => {
+        gsap.killTweensOf(o);
+        gsap
+          .timeline({ onComplete: res, delay })
+          .to(o, { x: o.x + dir * 16, duration: 0.05, ease: 'steps(1)' })
+          .to(o, { x: o.x - dir * 12, duration: 0.05, ease: 'steps(1)' })
+          .to(o, { x: o.x + dir * dist * GRAIN.x, y: o.y + dir * dist * GRAIN.y, duration: 0.34, ease });
+      });
     const tweens: Promise<void>[] = [];
     for (const tile of this.tiles.values()) {
       const dir = tile.placed.row % 2 === 0 ? 1 : -1;
-      tweens.push(
-        new Promise((res) => {
-          gsap.killTweensOf(tile);
-          gsap
-            .timeline({ onComplete: res, delay: (Math.abs(tile.placed.row) % 3) * 0.035 + Math.random() * 0.04 })
-            .to(tile, { x: tile.x + dir * 16, duration: 0.05, ease: 'steps(1)' })
-            .to(tile, { x: tile.x - dir * 12, duration: 0.05, ease: 'steps(1)' })
-            .to(tile, {
-              x: tile.x + (dir * span * ISO.a) / g,
-              y: tile.y + (dir * span * ISO.b) / g,
-              duration: 0.34,
-              ease: 'power2.in',
-            });
-        }),
-      );
+      const ease = Math.random() < 0.35 ? 'steps(6)' : 'power2.in'; // some panes leave "on 2s"
+      tweens.push(pull(tile, dir, (Math.abs(tile.placed.row) % 3) * 0.035 + Math.random() * 0.04, ease, span));
     }
+    tweens.push(pull(this.fieldsC, 1, 0.02, 'power2.in', span * 1.9));
+    tweens.push(pull(this.debrisC, -1, 0.05, 'power2.in', span * 1.9));
     return Promise.all(tweens).then(() => undefined);
   }
 
-  /** Channel flip, phase in: the new floor's panes slide back in along the
-   *  same grain, mirrored, and settle into the carpet. */
+  /** Channel flip, phase in: the new world flies in along the same grain,
+   *  mirrored — panes, furniture and lattice together — arriving misregistered
+   *  and snapping into register as everything lands. */
   arrive(): void {
     if (reducedMotion()) return;
     const span = Math.max(this.app.screen.width, this.app.screen.height) * 1.5;
-    const g = Math.hypot(ISO.a, ISO.b);
+    this.misreg?.dispose();
+    this.misreg = misregister(this.app, this.worldC, 14, 0, 0.52, () => joltCamera(this.app.stage, 0.5));
+    this.bursts.push(streakBurst(this.worldC, 2, this.viewRect(), -1));
+    const drop = (o: Container, dir: number, delay: number, ease: string, dist: number) => {
+      const hx = o.x;
+      const hy = o.y;
+      o.x = hx + dir * dist * GRAIN.x;
+      o.y = hy + dir * dist * GRAIN.y;
+      gsap.to(o, { x: hx, y: hy, duration: 0.44, ease, delay });
+    };
     for (const tile of this.tiles.values()) {
       const dir = tile.placed.row % 2 === 0 ? -1 : 1;
-      const homeX = tile.x;
-      const homeY = tile.y;
-      tile.x = homeX + (dir * span * ISO.a) / g;
-      tile.y = homeY + (dir * span * ISO.b) / g;
-      gsap.to(tile, {
-        x: homeX,
-        y: homeY,
-        duration: 0.44,
-        ease: 'power3.out',
-        delay: (Math.abs(tile.placed.row) % 3) * 0.045 + Math.random() * 0.05,
-      });
+      const ease = Math.random() < 0.25 ? 'steps(5)' : 'power3.out'; // a few land in chunks
+      drop(tile, dir, (Math.abs(tile.placed.row) % 3) * 0.045 + Math.random() * 0.05, ease, span);
     }
+    drop(this.fieldsC, -1, 0.03, 'power3.out', span * 1.6);
+    drop(this.debrisC, 1, 0.06, 'power3.out', span * 1.6);
   }
 
   /** Full teardown so another world can mount on the same host (channel flip):
    *  release every tile's video element, drop the pan listeners, hide the
    *  floating label, then let Pixi destroy the app, canvas and scene graph. */
   destroy(): void {
+    this.misreg?.dispose();
+    for (const b of this.bursts) b.kill();
+    this.bursts = [];
     gsap.killTweensOf(this.pan.pos);
+    gsap.killTweensOf(this.app.stage.position);
     for (const tile of this.tiles.values()) tile.releaseVideo();
     this.pan.dispose();
     if (this.labelEl) this.labelEl.hidden = true;
