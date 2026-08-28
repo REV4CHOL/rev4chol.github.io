@@ -560,23 +560,27 @@
     "tileSize": "normal"
   },
   {
-    "slug": "last-arcade",
-    "title": "Last Arcade",
-    "year": 2021,
-    "role": "Director",
-    "runtime": "14:03",
+    "slug": "far-east",
+    "title": "FAR EAST",
+    "year": 2025,
+    "role": "Director / Editor / Colorist",
+    "runtime": "1:30",
     "tags": [
-      "documentary"
+      "experimental"
     ],
-    "accent": "#EDEDE6",
-    "synopsis": "The owner opens every day at noon. The machines play demos to an empty room, and he watches them all.",
+    "accent": "#EFC468",
+    "aspect": "2.39:1",
+    "synopsis": "East of memory, the grass holds the sun and a house waits. Two silhouettes learn the horizon — the land keeping a warmth the day has already left.",
     "credits": [
       {
-        "role": "Director",
+        "role": "Director / Editor / Colorist",
         "name": "Revachol"
       }
     ],
-    "film": null,
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/DrezQ5zlHqI"
+    },
     "category": "human",
     "tileSize": "large"
   },

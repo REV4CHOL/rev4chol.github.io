@@ -1,4 +1,4 @@
-import { getSlugFromSearch, loadLoopManifest, loadProjects, loopSrcChain, Project, projectAssetUrl } from '../lib/content';
+import { aspectRatio, getSlugFromSearch, loadLoopManifest, loadProjects, loopSrcChain, Project, projectAssetUrl } from '../lib/content';
 import { ditherImageToCanvas } from '../lib/dither';
 import { embedSrc } from '../lib/embeds';
 import { mulberry32 } from '../lib/rng';
@@ -42,11 +42,16 @@ function renderNotFound(): void {
 
 function render(p: Project, all: Project[], idx: number): void {
   document.title = `${p.title.toUpperCase()} — REVACHOL`;
-  if (p.aspect === '4:3') {
-    // the whole dossier presents in the film's own ratio: pillarboxed hero,
-    // 4:3 wall frames
-    document.getElementById('p-hero')!.classList.add('p-hero--43');
-    document.querySelector('.project-main')!.classList.add('p-aspect-43');
+  if (p.aspect !== '16:9') {
+    // the whole dossier presents in the film's own ratio: the hero fits the
+    // picture as a centered band/column, the stills wall matches. --pratio
+    // is the one number everything derives from.
+    const ratio = aspectRatio(p.aspect);
+    const heroSec = document.getElementById('p-hero')!;
+    heroSec.classList.add('p-hero--fit');
+    heroSec.style.setProperty('--pratio', String(ratio));
+    if (p.aspect === '4:3') heroSec.classList.add('p-hero--43'); // side rack panels + ring
+    (document.querySelector('.project-main') as HTMLElement).style.setProperty('--pratio', String(ratio));
   }
   // The page chrome commits to the fixed acid quartet (--signal/--alert/
   // --field/--flourish). The project's own accent survives as a recorded

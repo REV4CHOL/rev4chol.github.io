@@ -1,7 +1,7 @@
 import { BlurFilter, Container, Graphics, Matrix, Sprite, Text, Texture, VideoSource } from 'pixi.js';
 import gsap from 'gsap';
 import type { Project } from '../lib/content';
-import { loopSrcChain, projectAssetUrl } from '../lib/content';
+import { aspectRatio, loopSrcChain, projectAssetUrl } from '../lib/content';
 import { reducedMotion } from '../lib/env';
 import { CARD_H, CARD_W, HOVER_M, ISO, SIZE_MUL_LARGE, cellToWorld } from './constants';
 import type { Placed } from './layout';
@@ -15,9 +15,9 @@ export class ProjectTile extends Container {
   readonly card = new Container();
   readonly m = { ...ISO }; // live matrix state — tweened for hover/enter
   readonly sizeMul: number;
-  /** card dimensions — 400×225 for 16:9, a true 300×225 for a 4:3 film;
-   *  the packed carpet (layout.packRows) pulls neighbors tight against
-   *  whatever width the card really is */
+  /** card dimensions — height is always 225, width follows the film's true
+   *  ratio (400 for 16:9, 300 for 4:3, 538 for scope); the packed carpet
+   *  (layout.packRows) pulls neighbors tight against whatever the width is */
   readonly cw: number;
   readonly ch: number;
   mode: TileMode = 'sleep';
@@ -273,7 +273,7 @@ export class ProjectTile extends Container {
     this.project = project;
     this.placed = placed;
     this.ch = CARD_H;
-    this.cw = project.aspect === '4:3' ? Math.round((CARD_H * 4) / 3) : CARD_W;
+    this.cw = project.aspect === '16:9' ? CARD_W : Math.round(CARD_H * aspectRatio(project.aspect));
     this.srcChain = loopSrcChain(project.slug);
     this.posterDegraded = poster.degraded;
     this.sizeMul = placed.span === 2 ? SIZE_MUL_LARGE : 1;

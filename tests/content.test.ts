@@ -121,9 +121,10 @@ describe('helpers', () => {
     expect(projectAssetUrl('neon-dream', 'preview.mp4')).toBe('/content/projects/neon-dream/preview.mp4');
   });
 
-  it('aspect: defaults 16:9, accepts 4:3, rejects junk', () => {
+  it('aspect: defaults 16:9, accepts 4:3 and 2.39:1, rejects junk', () => {
     expect(parseProjects([validProject()])[0].aspect).toBe('16:9');
     expect(parseProjects([{ ...validProject(), aspect: '4:3' }])[0].aspect).toBe('4:3');
+    expect(parseProjects([{ ...validProject(), aspect: '2.39:1' }])[0].aspect).toBe('2.39:1');
     expect(() => parseProjects([{ ...validProject(), aspect: 'wide' }])).toThrow(ContentError);
   });
 

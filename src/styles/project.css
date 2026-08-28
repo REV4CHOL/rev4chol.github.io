@@ -24,14 +24,15 @@
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
 }
 #p-hero-veil { image-rendering: pixelated; z-index: 1; }
-/* a 4:3 film presents in its own ratio: a centered column, never cropped —
-   it fills the hero's height on wide screens and the viewport's width on
-   narrow ones (void above and below) */
-.p-hero--43 { --p43w: min(100%, calc(var(--hero-h) * 4 / 3)); }
-.p-hero--43 video, .p-hero--43 #p-hero-veil {
+/* a non-16:9 film presents in its own ratio (--pratio, set from JS): a
+   centered picture, never cropped — it fills the hero's height when the
+   viewport is wide enough (4:3 gets void pillars at its sides) and the
+   viewport's width otherwise (scope gets cinema letterbox above/below) */
+.p-hero--fit { --pfitw: min(100%, calc(var(--hero-h) * var(--pratio, 1.7778))); }
+.p-hero--fit video, .p-hero--fit #p-hero-veil {
   inset: 50% auto auto 50%; translate: -50% -50%;
-  width: var(--p43w);
-  height: auto; aspect-ratio: 4 / 3;
+  width: var(--pfitw);
+  height: auto; aspect-ratio: var(--pratio, 16 / 9);
 }
 
 /* the side fields are RACK PANELS, not blank void: gate hairline, an
@@ -40,7 +41,7 @@
    instrument instead of hanging half off-frame. */
 .p-pillar {
   position: absolute; top: 0; bottom: 0; z-index: 2; pointer-events: none;
-  width: calc((100% - var(--p43w)) / 2);
+  width: calc((100% - var(--pfitw)) / 2);
 }
 .p-pillar-l {
   left: 0; border-right: 1px solid rgba(200, 255, 0, 0.55);
@@ -67,8 +68,8 @@
   font-family: var(--f-display); font-size: 24px; color: rgba(200, 255, 0, 0.8);
 }
 .p-hero--43 .p-ring {
-  width: calc(((100% - var(--p43w)) / 2) * 1.15); height: auto; aspect-ratio: 1 / 1;
-  right: calc(((100% - var(--p43w)) / 2) * -0.08);
+  width: calc(((100% - var(--pfitw)) / 2) * 1.15); height: auto; aspect-ratio: 1 / 1;
+  right: calc(((100% - var(--pfitw)) / 2) * -0.08);
 }
 @media (max-width: 900px) {
   .p-pillar { display: none; } /* narrow screens letterbox instead — no side fields to dress */
@@ -283,11 +284,10 @@
 
 .p-still { position: relative; margin: 0; overflow: hidden; background: #000; }
 .p-still img {
-  width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block;
+  /* the wall's frames follow the film's ratio (--pratio, set on the main) */
+  width: 100%; aspect-ratio: var(--pratio, calc(16 / 9)); object-fit: cover; display: block;
   transition: transform 0.6s var(--ease-out);
 }
-/* a 4:3 dossier keeps its wall in the film's ratio too */
-.p-aspect-43 .p-still img { aspect-ratio: 4 / 3; }
 .p-still canvas {
   position: absolute; inset: 0; width: 100%; height: 100%;
   image-rendering: pixelated; transition: opacity 0.7s; z-index: 3;

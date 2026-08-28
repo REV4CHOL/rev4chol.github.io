@@ -20,7 +20,7 @@ export interface Project {
   accent: string;
   tileSize: 'normal' | 'large';
   /** picture aspect of the pane and all dossier media (default 16:9) */
-  aspect: '16:9' | '4:3';
+  aspect: '16:9' | '4:3' | '2.39:1';
   /** which works channel the film broadcasts on (default "human") */
   category: 'human' | 'machine';
   synopsis: string;
@@ -111,7 +111,8 @@ export function parseProject(raw: unknown, i: number): Project {
   if (tileSize !== 'normal' && tileSize !== 'large') fail(file, `${where} tileSize must be "normal" or "large"`);
 
   const aspect = r.aspect === undefined ? '16:9' : r.aspect;
-  if (aspect !== '16:9' && aspect !== '4:3') fail(file, `${where} aspect must be "16:9" or "4:3"`);
+  if (aspect !== '16:9' && aspect !== '4:3' && aspect !== '2.39:1')
+    fail(file, `${where} aspect must be "16:9", "4:3" or "2.39:1"`);
 
   const category = r.category === undefined ? 'human' : r.category;
   if (category !== 'human' && category !== 'machine')
@@ -190,6 +191,14 @@ const CONTENT_BASE = '/content';
 
 export function projectAssetUrl(slug: string, file: string): string {
   return `${CONTENT_BASE}/projects/${slug}/${file}`;
+}
+
+/** Numeric ratio for an aspect key — the single source the pane width, the
+ *  dossier hero fit and the stills wall all derive from. */
+export function aspectRatio(a: Project['aspect']): number {
+  if (a === '4:3') return 4 / 3;
+  if (a === '2.39:1') return 2.39;
+  return 16 / 9;
 }
 
 let loopManifest: Record<string, string[]> | null | undefined; // undefined = not fetched yet

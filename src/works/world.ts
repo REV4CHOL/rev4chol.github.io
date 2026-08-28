@@ -2,6 +2,7 @@ import { Application, ColorMatrixFilter, Container } from 'pixi.js';
 import gsap from 'gsap';
 import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
 import type { Project } from '../lib/content';
+import { aspectRatio } from '../lib/content';
 import { dprCap, finePointer, reducedMotion } from '../lib/env';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
@@ -62,7 +63,7 @@ export class WorksWorld {
     // the lego pass: pack each row by the panes' REAL widths, so a 4:3 card
     // sits brick-tight against its 16:9 neighbors instead of on fixed columns
     const widthBySlug = new Map(
-      projects.map((p) => [p.slug, p.aspect === '4:3' ? Math.round((CARD_H * 4) / 3) : CARD_W]),
+      projects.map((p) => [p.slug, p.aspect === '16:9' ? CARD_W : Math.round(CARD_H * aspectRatio(p.aspect))]),
     );
     const packedU = packRows(placed, (pl) => widthBySlug.get(pl.slug) ?? CARD_W, SEAM, STEP_W);
 
