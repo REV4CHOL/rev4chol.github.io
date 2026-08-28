@@ -133,7 +133,12 @@
   .p-rail-tag { color: var(--signal); opacity: 0.4; }
 }
 
-/* ---------------------------------------------------------- I: spec -- */
+/* ------------------------------------------------------------- spec -- */
+
+.p-checks-v {
+  position: absolute; right: 0; top: 96px; bottom: 72px; width: 12px;
+  background: repeating-conic-gradient(rgba(200, 255, 0, 0.5) 0% 25%, transparent 0% 50%) 0 0 / 12px 12px;
+}
 
 .p-spec {
   display: grid; grid-template-columns: max-content 1fr; margin: 0; max-width: 880px;
@@ -317,6 +322,7 @@
     grid-template-columns: 1fr; gap: 0; padding: 64px var(--p-pad-r) 48px var(--p-pad-l);
   }
   .p-rail-tag { position: static; font-size: var(--t-xl); margin-bottom: 20px; }
+  .p-checks-v { display: none; }
   .p-spec dt { padding-right: 20px; }
 
   .p-row-pair { grid-template-columns: 1fr; }
