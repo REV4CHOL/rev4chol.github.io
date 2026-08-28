@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { hashSlug, wallRhythm } from '../src/project/dossier';
+import { hashSlug, STILL_EXTS, stillSlotUrls, wallRhythm } from '../src/project/dossier';
+
+describe('stills auto-discovery contract', () => {
+  it('probes every format per slot, jpg first, gif included', () => {
+    expect([...STILL_EXTS]).toEqual(['jpg', 'jpeg', 'png', 'webp', 'gif']);
+    expect(stillSlotUrls('neon-dream', 1)).toEqual([
+      '/content/projects/neon-dream/stills/01.jpg',
+      '/content/projects/neon-dream/stills/01.jpeg',
+      '/content/projects/neon-dream/stills/01.png',
+      '/content/projects/neon-dream/stills/01.webp',
+      '/content/projects/neon-dream/stills/01.gif',
+    ]);
+    expect(stillSlotUrls('x', 12)[0]).toBe('/content/projects/x/stills/12.jpg');
+  });
+});
 
 describe('slug hashing', () => {
   it('is deterministic — the same film always seeds the same dossier', () => {

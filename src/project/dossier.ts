@@ -8,6 +8,15 @@ export function hashSlug(slug: string): number {
   return h >>> 0;
 }
 
+/** Formats a wall frame may arrive in — GIFs animate right in the wall. */
+export const STILL_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'gif'] as const;
+
+/** Probe candidates for one numbered stills slot: stills/01.jpg … 01.gif */
+export function stillSlotUrls(slug: string, slot: number): string[] {
+  const n = String(slot).padStart(2, '0');
+  return STILL_EXTS.map((e) => `/content/projects/${slug}/stills/${n}.${e}`);
+}
+
 /**
  * Footage-wall row plan: pair, pair, full-bleed, repeat — a 2-2-1 breathing
  * rhythm. A single leftover still is always promoted to a full-bleed row.

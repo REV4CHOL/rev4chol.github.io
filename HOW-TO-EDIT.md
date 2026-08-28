@@ -65,11 +65,16 @@ from the fields above — nothing extra to maintain:
   pixel-dither reveals and is printed as the HUE chip in the spec sheet.
 - The machine codes (CODE, SIG, the barcodes) are generated from the slug —
   stable per film, no field to edit.
-- `stills` order drives the footage wall's rhythm: two half-width
-  side-by-side, two side-by-side, one full-width, repeat — edge to edge with
-  no gaps, every frame 16:9. A lone leftover still goes full-width. Any
-  count works; 30 stills = six full rhythm cycles (chrome-orchard ships 30
-  placeholder stills as the demo — swap them).
+- **The footage wall finds your stills by itself** — no field to edit. Drop
+  numbered files into the film's `stills/` folder: `01.jpg`, `02.jpg`, …
+  (also `.png`, `.webp`, and **`.gif` — GIFs animate right in the wall**).
+  Any count, up to 60: 30 files = six full rhythm cycles, 7 files = a
+  shorter wall, the layout adapts automatically. Number them without gaps —
+  discovery stops at the first missing number. Delete files to shorten.
+  The rhythm: two half-width side-by-side, two side-by-side, one
+  full-width, repeat — edge to edge, no gaps, every frame 16:9. A lone
+  leftover goes full-width. (A `stills` list in projects.json still works
+  as a manual override; all placeholder stills are labeled SWAP ME.)
 - The bottom bar is navigation: `◂ RETURN TO FLOOR` on the left,
   `(NEXT FILM) ▸` on the right (next = the following entry in
   `projects.json`).

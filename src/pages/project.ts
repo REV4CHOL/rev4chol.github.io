@@ -5,7 +5,7 @@ import { mulberry32 } from '../lib/rng';
 import { escapeHtml } from '../lib/escape';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
-import { hashSlug, wallRhythm } from '../project/dossier';
+import { hashSlug, stillSlotUrls, wallRhythm } from '../project/dossier';
 import { armStamps } from '../lib/stamps';
 import { startPage } from '../shell/page';
 import '../styles/project.css';
@@ -49,7 +49,7 @@ function render(p: Project, all: Project[], idx: number): void {
   mountSpec(p);
   mountSynopsis(p);
   mountTicker(p, stamp);
-  mountWall(p);
+  void mountWall(p);
   mountEndNav(all, idx);
 
   document.getElementById('p-eof')!.innerHTML =
@@ -199,12 +199,47 @@ function mountTicker(p: Project, stamp: string): void {
 
 /* -------------------------------------------------------- footage wall -- */
 
-function mountWall(p: Project): void {
-  const sec = document.getElementById('p-rec-sec')!;
-  if (p.stills.length === 0) {
-    sec.hidden = true;
-    return;
+/** HEAD-probe a list of urls; first real hit wins. Dev servers answer missing
+ *  files with the SPA's index.html, so a text/html body is a miss. */
+async function probeFirst(urls: string[]): Promise<string | null> {
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { method: 'HEAD' });
+      if (res.ok && !(res.headers.get('content-type') ?? '').includes('text/html')) return url;
+    } catch { /* next */ }
   }
+  return null;
+}
+
+const STILL_CAP = 60;
+
+/** The wall's frames: an explicit `stills` list in projects.json wins;
+ *  otherwise numbered files dropped in stills/ (01.jpg, 02.gif, …) are
+ *  discovered automatically — any count, contiguous from 01, capped at 60.
+ *  The layout adapts to whatever is found. */
+async function resolveStills(p: Project): Promise<string[]> {
+  if (p.stills.length) return p.stills.map((s) => projectAssetUrl(p.slug, `stills/${s}`));
+  const found: string[] = [];
+  for (let base = 1; base <= STILL_CAP; base += 6) {
+    const chunk = await Promise.all(
+      Array.from({ length: Math.min(6, STILL_CAP - base + 1) }, (_, k) =>
+        probeFirst(stillSlotUrls(p.slug, base + k)),
+      ),
+    );
+    for (const url of chunk) {
+      if (!url) return found; // a numbering gap ends the reel
+      found.push(url);
+    }
+  }
+  return found;
+}
+
+async function mountWall(p: Project): Promise<void> {
+  const sec = document.getElementById('p-rec-sec')!;
+  sec.hidden = true; // no empty REC: rail while the reel is still resolving
+  const urls = await resolveStills(p);
+  if (urls.length === 0) return;
+  sec.hidden = false;
   const wall = document.getElementById('p-stills')!;
   const lightbox = document.getElementById('lightbox') as HTMLDialogElement;
   const lightboxImg = document.getElementById('lightbox-img') as HTMLImageElement;
@@ -223,14 +258,14 @@ function mountWall(p: Project): void {
   );
 
   let cursor = 0;
-  const figureFor = (s: string, n: number): HTMLElement => {
+  const figureFor = (url: string, n: number): HTMLElement => {
     const wrap = document.createElement('figure');
     wrap.className = 'p-still';
     wrap.dataset.cursor = 'VIEW +';
     const im = new Image();
     im.loading = 'lazy';
     im.alt = `${p.title} — still ${n}`;
-    im.src = projectAssetUrl(p.slug, `stills/${s}`);
+    im.src = url;
     const veilC = document.createElement('canvas');
     im.addEventListener('load', () => {
       const d = ditherImageToCanvas(im, im.naturalWidth, im.naturalHeight, 200, '#060606', p.accent);
@@ -263,12 +298,12 @@ function mountWall(p: Project): void {
     return wrap;
   };
 
-  for (const kind of wallRhythm(p.stills.length)) {
+  for (const kind of wallRhythm(urls.length)) {
     const row = document.createElement('div');
     row.className = `p-row p-row-${kind}`;
     const take = kind === 'pair' ? 2 : 1;
-    for (let i = 0; i < take && cursor < p.stills.length; i++, cursor++) {
-      row.append(figureFor(p.stills[cursor], cursor + 1));
+    for (let i = 0; i < take && cursor < urls.length; i++, cursor++) {
+      row.append(figureFor(urls[cursor], cursor + 1));
     }
     wall.append(row);
   }
