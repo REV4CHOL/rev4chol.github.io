@@ -19,6 +19,8 @@ export interface Project {
   tags: string[];
   accent: string;
   tileSize: 'normal' | 'large';
+  /** picture aspect of the pane and all dossier media (default 16:9) */
+  aspect: '16:9' | '4:3';
   /** which works channel the film broadcasts on (default "human") */
   category: 'human' | 'machine';
   synopsis: string;
@@ -108,6 +110,9 @@ export function parseProject(raw: unknown, i: number): Project {
   const tileSize = r.tileSize === undefined ? 'normal' : r.tileSize;
   if (tileSize !== 'normal' && tileSize !== 'large') fail(file, `${where} tileSize must be "normal" or "large"`);
 
+  const aspect = r.aspect === undefined ? '16:9' : r.aspect;
+  if (aspect !== '16:9' && aspect !== '4:3') fail(file, `${where} aspect must be "16:9" or "4:3"`);
+
   const category = r.category === undefined ? 'human' : r.category;
   if (category !== 'human' && category !== 'machine')
     fail(file, `${where} category must be "human" or "machine"`);
@@ -158,6 +163,7 @@ export function parseProject(raw: unknown, i: number): Project {
     tags: tags as string[],
     accent,
     tileSize,
+    aspect,
     category,
     synopsis: str(r.synopsis, file, `${where} synopsis`, ''),
     credits,

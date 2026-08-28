@@ -11,6 +11,7 @@ const proj = (slug: string, category: 'human' | 'machine'): Project => ({
   tags: [],
   accent: '#C8FF00',
   tileSize: 'normal',
+  aspect: '16:9',
   category,
   synopsis: '',
   credits: [],

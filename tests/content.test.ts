@@ -121,6 +121,12 @@ describe('helpers', () => {
     expect(projectAssetUrl('neon-dream', 'preview.mp4')).toBe('/content/projects/neon-dream/preview.mp4');
   });
 
+  it('aspect: defaults 16:9, accepts 4:3, rejects junk', () => {
+    expect(parseProjects([validProject()])[0].aspect).toBe('16:9');
+    expect(parseProjects([{ ...validProject(), aspect: '4:3' }])[0].aspect).toBe('4:3');
+    expect(() => parseProjects([{ ...validProject(), aspect: 'wide' }])).toThrow(ContentError);
+  });
+
   it('loop chain: preview.mp4 first, then the loop spellings — pane and hero share it', () => {
     expect(loopSrcChain('x')).toEqual([
       '/content/projects/x/preview.mp4',

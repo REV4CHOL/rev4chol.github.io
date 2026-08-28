@@ -7,7 +7,7 @@ import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { leaveTo } from '../lib/transitions';
 import { setCursorLabel } from '../shell/cursor';
-import { CARD_H, CARD_W, ISO, WORLD_PAD } from './constants';
+import { ISO, WORLD_PAD } from './constants';
 import { buildDebris } from './debris';
 import { buildFields } from './fields';
 import { GRAIN, joltCamera, misregister, streakBurst, type Burst, type Misreg } from './flipfx';
@@ -247,7 +247,7 @@ export class WorksWorld {
     this.worldC.filters = [glitch, rgb];
     this.fxLayer.addChild(tile);
     const cover =
-      (Math.max(this.app.screen.width / CARD_W, this.app.screen.height / CARD_H) * 1.12) / tile.sizeMul;
+      (Math.max(this.app.screen.width / tile.cw, this.app.screen.height / tile.ch) * 1.12) / tile.sizeMul;
     gsap.killTweensOf(tile.m);
     gsap.killTweensOf(this.pan.pos);
     gsap.to(this.pan.pos, { x: -tile.x, y: -tile.y, duration: 0.42, ease: 'power2.in' });

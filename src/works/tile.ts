@@ -15,6 +15,11 @@ export class ProjectTile extends Container {
   readonly card = new Container();
   readonly m = { ...ISO }; // live matrix state — tweened for hover/enter
   readonly sizeMul: number;
+  /** this tile's card dimensions — 400×225 for 16:9, 300×225 for a 4:3
+   *  specimen, which sits centered in its lattice cell with air at its
+   *  sides: a different-format monitor racked into the same floor */
+  readonly cw: number;
+  readonly ch: number;
   mode: TileMode = 'sleep';
   posterSprite: Sprite;
 
@@ -72,8 +77,8 @@ export class ProjectTile extends Container {
         if (r.degraded || this.destroyed) return;
         const old = this.posterSprite.texture;
         this.posterSprite.texture = Texture.from(r.canvas);
-        this.posterSprite.width = CARD_W;
-        this.posterSprite.height = CARD_H;
+        this.posterSprite.width = this.cw;
+        this.posterSprite.height = this.ch;
         old.destroy(true);
         this.posterDegraded = false;
       });
@@ -216,8 +221,8 @@ export class ProjectTile extends Container {
       const tex = s.texture;
       s.texture = Texture.EMPTY; // force the texture setter to re-run —
       s.texture = tex;           // a source resize alone never rebuilds the sprite's quad
-      s.width = CARD_W;
-      s.height = CARD_H;
+      s.width = this.cw;
+      s.height = this.ch;
     };
     fit();
     s.texture.source.on('resize', fit); // montage swaps change resolution; re-fit when it lands
@@ -230,8 +235,8 @@ export class ProjectTile extends Container {
     if (!this.glow) {
       const g = new Sprite(Texture.WHITE);
       g.anchor.set(0.5);
-      g.width = CARD_W * 1.18;
-      g.height = CARD_H * 1.3;
+      g.width = this.cw * 1.18;
+      g.height = this.ch * 1.3;
       g.tint = parseInt(this.project.accent.slice(1), 16);
       g.alpha = 0;
       g.filters = [new BlurFilter({ strength: 18 })];
@@ -267,6 +272,8 @@ export class ProjectTile extends Container {
     super();
     this.project = project;
     this.placed = placed;
+    this.ch = CARD_H;
+    this.cw = project.aspect === '4:3' ? Math.round((CARD_H * 4) / 3) : CARD_W;
     this.srcChain = loopSrcChain(project.slug);
     this.posterDegraded = poster.degraded;
     this.sizeMul = placed.span === 2 ? SIZE_MUL_LARGE : 1;
@@ -278,17 +285,17 @@ export class ProjectTile extends Container {
 
     this.posterSprite = new Sprite(Texture.from(poster.canvas));
     this.posterSprite.anchor.set(0.5);
-    this.posterSprite.width = CARD_W;
-    this.posterSprite.height = CARD_H;
+    this.posterSprite.width = this.cw;
+    this.posterSprite.height = this.ch;
     this.card.addChild(this.posterSprite);
 
     // --- panel furniture. without a hard edge a tile is a swatch, not a screen.
     const featured = project.tileSize === 'large';
-    const hw = CARD_W / 2;
-    const hh = CARD_H / 2;
+    const hw = this.cw / 2;
+    const hh = this.ch / 2;
     const acc = parseInt(project.accent.slice(1), 16);
     const frame = new Graphics();
-    frame.rect(-hw, -hh, CARD_W, CARD_H).stroke({ color: acc, alpha: 0.42, width: 1 });
+    frame.rect(-hw, -hh, this.cw, this.ch).stroke({ color: acc, alpha: 0.42, width: 1 });
     const L = featured ? 38 : 30;
     for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
       frame.moveTo(sx * hw, sy * hh).lineTo(sx * hw - sx * L, sy * hh);
@@ -299,11 +306,11 @@ export class ProjectTile extends Container {
       // the featured dress: a second inset rule — print-language "selected",
       // not a badge shout
       frame
-        .rect(-hw + 7, -hh + 7, CARD_W - 14, CARD_H - 14)
+        .rect(-hw + 7, -hh + 7, this.cw - 14, this.ch - 14)
         .stroke({ color: acc, alpha: 0.5, width: 1 });
     }
     // slug plate + index tab, so the mono type has something to sit on
-    frame.rect(-hw, hh - 20, CARD_W, 20).fill({ color: 0x060606, alpha: 0.6 });
+    frame.rect(-hw, hh - 20, this.cw, 20).fill({ color: 0x060606, alpha: 0.6 });
     frame.rect(-hw, hh - 20, 4, 20).fill({ color: acc, alpha: 1 });
     frame.rect(-hw + 8, -hh + 8, 30, 8).fill({ color: acc, alpha: 0.9 });
     this.card.addChild(frame);
@@ -327,7 +334,7 @@ export class ProjectTile extends Container {
     id.alpha = 0.92;
     // inside the card's bottom edge — on a contiguous carpet there is no floor
     // between tiles for a label to sit on
-    id.position.set(-CARD_W / 2 + 12, CARD_H / 2 - 18);
+    id.position.set(-this.cw / 2 + 12, this.ch / 2 - 18);
     this.card.addChild(id);
 
     const code = new Text({
@@ -335,7 +342,7 @@ export class ProjectTile extends Container {
       style: { fontFamily: 'Martian Mono', fontSize: 8, fill: 0xedede6, letterSpacing: 1.5 },
     });
     code.alpha = 0.5;
-    code.position.set(-CARD_W / 2 + 44, -CARD_H / 2 + 6);
+    code.position.set(-this.cw / 2 + 44, -this.ch / 2 + 6);
     this.card.addChild(code);
 
     this.addChild(this.card);
@@ -354,10 +361,10 @@ export class ProjectTile extends Container {
   }
 
   extentX(): number {
-    return ((Math.abs(this.m.a) * CARD_W + Math.abs(this.m.c) * CARD_H) / 2) * this.sizeMul;
+    return ((Math.abs(this.m.a) * this.cw + Math.abs(this.m.c) * this.ch) / 2) * this.sizeMul;
   }
 
   extentY(): number {
-    return ((Math.abs(this.m.b) * CARD_W + Math.abs(this.m.d) * CARD_H) / 2) * this.sizeMul;
+    return ((Math.abs(this.m.b) * this.cw + Math.abs(this.m.d) * this.ch) / 2) * this.sizeMul;
   }
 }

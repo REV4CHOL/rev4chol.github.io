@@ -42,6 +42,12 @@ function renderNotFound(): void {
 
 function render(p: Project, all: Project[], idx: number): void {
   document.title = `${p.title.toUpperCase()} — REVACHOL`;
+  if (p.aspect === '4:3') {
+    // the whole dossier presents in the film's own ratio: pillarboxed hero,
+    // 4:3 wall frames
+    document.getElementById('p-hero')!.classList.add('p-hero--43');
+    document.querySelector('.project-main')!.classList.add('p-aspect-43');
+  }
   // The page chrome commits to the fixed acid quartet (--signal/--alert/
   // --field/--flourish). The project's own accent survives as a recorded
   // property of the specimen: the dither veils.
@@ -65,6 +71,23 @@ function render(p: Project, all: Project[], idx: number): void {
 function mountHero(p: Project, stamp: string): void {
   const hero = document.getElementById('p-hero-video') as HTMLVideoElement;
   const veil = document.getElementById('p-hero-veil') as HTMLCanvasElement;
+
+  if (p.aspect === '4:3') {
+    // the side fields flanking a 4:3 picture are rack panels, not dead void —
+    // each carries a gate hairline, an inner-edge rail, a vertical format
+    // stamp and a hazard strip (styles: .p-pillar in project.css)
+    const heroSec = document.getElementById('p-hero')!;
+    for (const [side, label] of [
+      ['l', `FMT :: 4:3 ▪ ${p.slug.toUpperCase()}`],
+      ['r', `MONITOR ▸ ${stamp} ▪ REVACHOL`],
+    ] as const) {
+      const d = document.createElement('div');
+      d.className = `p-pillar p-pillar-${side}`;
+      d.setAttribute('aria-hidden', 'true');
+      d.innerHTML = `<span class="p-pillar-tag micro">${escapeHtml(label)}</span>`;
+      heroSec.append(d);
+    }
+  }
 
   // The dither veil only lifts once BOTH the poster has loaded (with its
   // 350ms minimum dwell) AND the hero video can actually play. If the hero
@@ -137,6 +160,10 @@ function mountHero(p: Project, stamp: string): void {
     .join('');
 
   const title = p.title.toUpperCase();
+  if (title.length > 18) {
+    // one unbroken stylized name at display scale needs a smaller cut
+    document.querySelector('.p-title-stack')!.classList.add('p-title--long');
+  }
   document.getElementById('p-title-ghost')!.textContent = title;
   void scrambleEl(document.getElementById('p-title')!, title, 650);
 }

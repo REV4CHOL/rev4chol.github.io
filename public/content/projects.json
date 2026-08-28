@@ -427,24 +427,27 @@
     "tileSize": "normal"
   },
   {
-    "slug": "ghost-freight",
-    "title": "Ghost Freight",
-    "year": 2023,
-    "role": "Director / DoP",
-    "runtime": "17:48",
+    "slug": "electric-fish",
+    "title": "mr_PURPLE_dreams_in_electric_fish",
+    "year": 2026,
+    "role": "Director / Editor / Colorist / Sound Mixer",
+    "runtime": "1:04",
     "tags": [
-      "short film",
-      "drama"
+      "experimental"
     ],
-    "accent": "#EDEDE6",
-    "synopsis": "The last driver on an automated freight line, hauling cargo nobody ordered to towns nobody lives in.",
+    "accent": "#D689FF",
+    "aspect": "4:3",
+    "synopsis": "Two morning cafés, and the street slips underwater. Stillness and voltage share one purple breath — the organic and the synthetic dreaming each other in the city's electric current.",
     "credits": [
       {
-        "role": "Director",
+        "role": "Director / Editor / Colorist / Sound Mixer",
         "name": "Revachol"
       }
     ],
-    "film": null,
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/pkp3QJ6o95A"
+    },
     "category": "human",
     "tileSize": "large"
   },

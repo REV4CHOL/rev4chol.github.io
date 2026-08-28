@@ -45,6 +45,7 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | tags | list of words | `["short film","sci-fi"]` |
 | accent | this film's color, hex | `"#C8FF00"` |
 | tileSize | `"normal"` or `"large"` (large = double tile) | `"large"` |
+| aspect | `"16:9"` (default) or `"4:3"` — the floor pane AND the whole dossier (hero + stills) present in this ratio | `"4:3"` |
 | category | which works channel: `"human"` or `"machine"` (leave out = human) | `"machine"` |
 | synopsis | one short paragraph | |
 | credits | list of `{ "role": …, "name": … }` | |

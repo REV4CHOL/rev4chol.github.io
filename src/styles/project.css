@@ -19,11 +19,60 @@
 
 /* -------------------------------------------------------------- hero -- */
 
-.p-hero { position: relative; height: min(92svh, 980px); overflow: hidden; background: #000; }
+.p-hero { --hero-h: min(92svh, 980px); position: relative; height: var(--hero-h); overflow: hidden; background: #000; }
 .p-hero video, .p-hero #p-hero-veil {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
 }
 #p-hero-veil { image-rendering: pixelated; z-index: 1; }
+/* a 4:3 film presents in its own ratio: a centered column, never cropped —
+   it fills the hero's height on wide screens and the viewport's width on
+   narrow ones (void above and below) */
+.p-hero--43 { --p43w: min(100%, calc(var(--hero-h) * 4 / 3)); }
+.p-hero--43 video, .p-hero--43 #p-hero-veil {
+  inset: 50% auto auto 50%; translate: -50% -50%;
+  width: var(--p43w);
+  height: auto; aspect-ratio: 4 / 3;
+}
+
+/* the side fields are RACK PANELS, not blank void: gate hairline, an
+   inner-edge rail (checker left, tick rail right), a vertical format
+   stamp, a hazard strip. The blueprint ring becomes the right panel's
+   instrument instead of hanging half off-frame. */
+.p-pillar {
+  position: absolute; top: 0; bottom: 0; z-index: 2; pointer-events: none;
+  width: calc((100% - var(--p43w)) / 2);
+}
+.p-pillar-l {
+  left: 0; border-right: 1px solid rgba(200, 255, 0, 0.55);
+  background: repeating-conic-gradient(rgba(200, 255, 0, 0.45) 0% 25%, transparent 0% 50%);
+  background-size: 10px 10px; background-position: right top; background-repeat: repeat-y;
+}
+.p-pillar-r {
+  right: 0; border-left: 1px solid rgba(255, 46, 99, 0.55);
+  background: repeating-linear-gradient(0deg, rgba(237, 237, 230, 0.6) 0 2px, transparent 2px 26px);
+  background-size: 12px 100%; background-position: left top; background-repeat: no-repeat;
+}
+.p-pillar-tag {
+  position: absolute; top: 148px; writing-mode: vertical-rl;
+  letter-spacing: 0.3em; color: var(--signal); opacity: 0.85; white-space: nowrap;
+}
+.p-pillar-l .p-pillar-tag { right: 26px; }
+.p-pillar-r .p-pillar-tag { left: 26px; color: var(--flourish); }
+.p-pillar-l::after {
+  content: ''; position: absolute; left: 18px; right: 22px; bottom: 22px; height: 10px;
+  background: repeating-linear-gradient(45deg, rgba(255, 46, 99, 0.55) 0 8px, transparent 8px 18px);
+}
+.p-pillar-r::after {
+  content: '✚'; position: absolute; left: 24px; bottom: 18px;
+  font-family: var(--f-display); font-size: 24px; color: rgba(200, 255, 0, 0.8);
+}
+.p-hero--43 .p-ring {
+  width: calc(((100% - var(--p43w)) / 2) * 1.15); height: auto; aspect-ratio: 1 / 1;
+  right: calc(((100% - var(--p43w)) / 2) * -0.08);
+}
+@media (max-width: 900px) {
+  .p-pillar { display: none; } /* narrow screens letterbox instead — no side fields to dress */
+}
 .p-hero::after {
   content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
   background: linear-gradient(transparent 55%, rgba(6, 6, 6, 0.94));
@@ -100,11 +149,14 @@
   width: 4px; height: 4px; border-radius: 50%; background: var(--signal);
 }
 
-.p-title-stack { position: absolute; left: 28px; bottom: 16px; z-index: 4; margin: 0; }
+.p-title-stack { position: absolute; left: 28px; bottom: 16px; right: 28px; z-index: 4; margin: 0; }
 .p-title, .p-title-ghost {
   display: block; font-family: var(--f-display); font-weight: 700;
   font-size: var(--t-3xl); line-height: 0.84; text-transform: uppercase;
+  overflow-wrap: anywhere;
 }
+/* one unbroken stylized name needs a smaller cut to hold one line */
+.p-title--long .p-title, .p-title--long .p-title-ghost { font-size: var(--t-2xl); }
 .p-title { position: relative; color: var(--bone); text-shadow: 0 4px 40px rgba(0, 0, 0, 0.85); }
 .p-title-ghost {
   position: absolute; left: 9px; top: 10px; z-index: -1;
@@ -234,6 +286,8 @@
   width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block;
   transition: transform 0.6s var(--ease-out);
 }
+/* a 4:3 dossier keeps its wall in the film's ratio too */
+.p-aspect-43 .p-still img { aspect-ratio: 4 / 3; }
 .p-still canvas {
   position: absolute; inset: 0; width: 100%; height: 100%;
   image-rendering: pixelated; transition: opacity 0.7s; z-index: 3;
@@ -309,7 +363,7 @@
 /* -------------------------------------------------------------- phone -- */
 
 @media (max-width: 760px) {
-  .p-hero { height: min(88svh, 820px); }
+  .p-hero { --hero-h: min(88svh, 820px); }
   .p-scanframe { inset: 96px 16px 130px 16px; }
   .p-status { left: 16px; right: 16px; top: 130px; } /* wraps; clears nav + fixed HUD row */
   .p-index { right: 16px; top: 176px; } /* stacked under the status line */
