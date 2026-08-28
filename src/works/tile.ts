@@ -1,4 +1,4 @@
-import { BlurFilter, Container, Graphics, Matrix, Sprite, Text, Texture } from 'pixi.js';
+import { BlurFilter, Container, Graphics, Matrix, Sprite, Text, Texture, VideoSource } from 'pixi.js';
 import gsap from 'gsap';
 import type { Project } from '../lib/content';
 import { loopSrcChain, projectAssetUrl } from '../lib/content';
@@ -28,6 +28,10 @@ export class ProjectTile extends Container {
    *  sprite stays hidden (poster showing) until then, so a stalled decoder
    *  can never park a black rectangle over a good poster. */
   private frameSeen = false;
+  /** hover.mp4 confirmed absent — stop re-attempting it on every hover, which
+   *  restarted the loop (404 → fallback → reload → first-frame wait) and read
+   *  as a stall each time the pointer touched the tile. */
+  private hoverMissing = false;
   private glow?: Sprite;
   /** Featured tiles keep a faint resting underglow; hover raises it, exit returns here. */
   private baseGlowAlpha = 0;
@@ -105,11 +109,12 @@ export class ProjectTile extends Container {
   }
 
   swapToMontage(): void {
+    if (this.hoverMissing) return; // keep the loop rolling — no montage exists
     if (!this.video) this.createVideo();
     const v = this.video;
     if (!v) return;
     if (!v.src.endsWith('hover.mp4')) {
-      v.src = this.hoverUrl(); // the error handler falls back to preview.mp4
+      v.src = this.hoverUrl(); // the error handler falls back to the loop
       void v.play().catch(() => {});
     }
   }
@@ -167,7 +172,8 @@ export class ProjectTile extends Container {
     v.addEventListener('error', () => {
       if (this.video !== v) return; // stale element — releaseVideo() already moved on
       if (v.src.endsWith('hover.mp4')) {
-        // failed montage — back to the tile's resolved loop
+        // failed montage — remember, and back to the tile's resolved loop
+        this.hoverMissing = true;
         v.src = this.baseSrc ?? this.srcChain[0];
         if (this.mode !== 'sleep') void v.play().catch(() => {});
         return;
@@ -203,6 +209,9 @@ export class ProjectTile extends Container {
     }
     const s = new Sprite(Texture.from(this.video));
     s.anchor.set(0.5);
+    // upload at content rate, not render rate — a 24fps clip gains nothing
+    // from 60Hz texture uploads, and the floor plays several at once
+    if (s.texture.source instanceof VideoSource) s.texture.source.updateFPS = 30;
     const fit = () => {
       const tex = s.texture;
       s.texture = Texture.EMPTY; // force the texture setter to re-run —

@@ -1,4 +1,4 @@
-import { Application, Assets, Container, DisplacementFilter, Sprite, Texture } from 'pixi.js';
+import { Application, Assets, Container, DisplacementFilter, Sprite, Texture, VideoSource } from 'pixi.js';
 import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
 import { ditherImageToCanvas } from '../lib/dither';
 import { dprCap, reducedMotion } from '../lib/env';
@@ -119,6 +119,8 @@ function loadVideoClip(url: string, autostart: boolean): Promise<Clip | null> {
       clearTimeout(bail);
       const sprite = new Sprite(Texture.from(v));
       sprite.anchor.set(0.5);
+      // upload at content rate, not render rate — fullscreen frames are heavy
+      if (sprite.texture.source instanceof VideoSource) sprite.texture.source.updateFPS = 30;
       if (autostart) void v.play().catch(() => { /* poster frame remains */ });
       else v.pause();
       resolve({
