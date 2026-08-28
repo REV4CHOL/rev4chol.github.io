@@ -299,6 +299,11 @@
   letter-spacing: 0.18em;
 }
 .p-run:hover { background: transparent; color: var(--signal); }
+/* pending transmission: the button stands, drained of its charge */
+.p-run:disabled {
+  background: none; border-color: rgba(237, 237, 230, 0.25);
+  color: rgba(237, 237, 230, 0.35); cursor: default; pointer-events: none;
+}
 .p-player { margin-top: 34px; position: relative; }
 .p-player iframe, .p-player video {
   width: min(100%, 1080px); aspect-ratio: 16 / 9; border: 0; background: #000;

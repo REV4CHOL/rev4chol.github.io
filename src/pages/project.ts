@@ -217,7 +217,15 @@ function mountSynopsis(p: Project): void {
 
   const watch = document.getElementById('p-watch-btn') as HTMLButtonElement;
   const player = document.getElementById('p-player') as HTMLDivElement;
-  if (!p.film) return;
+  if (!p.film) {
+    if (p.filmPending) {
+      // the film exists but isn't linkable yet — the button stands, greyed
+      watch.hidden = false;
+      watch.disabled = true;
+      watch.title = 'TRANSMISSION PENDING';
+    }
+    return;
+  }
   watch.hidden = false;
   watch.dataset.cursor = 'PLAY ▸';
   watch.addEventListener('click', () => {

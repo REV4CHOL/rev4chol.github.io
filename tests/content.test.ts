@@ -128,6 +128,12 @@ describe('helpers', () => {
     expect(() => parseProjects([{ ...validProject(), aspect: 'wide' }])).toThrow(ContentError);
   });
 
+  it('filmPending: defaults false, accepts true, rejects junk', () => {
+    expect(parseProjects([validProject()])[0].filmPending).toBe(false);
+    expect(parseProjects([{ ...validProject(), filmPending: true }])[0].filmPending).toBe(true);
+    expect(() => parseProjects([{ ...validProject(), filmPending: 'yes' }])).toThrow(ContentError);
+  });
+
   it('loop chain: preview.mp4 first, then the loop spellings — pane and hero share it', () => {
     expect(loopSrcChain('x')).toEqual([
       '/content/projects/x/preview.mp4',

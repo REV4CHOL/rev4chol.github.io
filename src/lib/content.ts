@@ -26,6 +26,8 @@ export interface Project {
   synopsis: string;
   credits: Credit[];
   film: FilmRef | null;
+  /** film not linkable yet — the dossier shows a greyed-out WATCH button */
+  filmPending: boolean;
   stills: string[];
   position: GridPos | null;
 }
@@ -136,6 +138,10 @@ export function parseProject(raw: unknown, i: number): Project {
     };
   });
 
+  if (r.filmPending !== undefined && typeof r.filmPending !== 'boolean')
+    fail(file, `${where} filmPending must be true or false`);
+  const filmPending = r.filmPending === true;
+
   let film: FilmRef | null = null;
   if (r.film !== undefined && r.film !== null) {
     const f = obj(r.film, file, `${where} film`);
@@ -169,6 +175,7 @@ export function parseProject(raw: unknown, i: number): Project {
     synopsis: str(r.synopsis, file, `${where} synopsis`, ''),
     credits,
     film,
+    filmPending,
     stills: stills as string[],
     position,
   };

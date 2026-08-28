@@ -63,6 +63,10 @@ For vimeo/youtube, `src` accepts any link form — a watch URL, a share
 link, or the **full embed code** pasted straight from the platform's
 Share ▸ Embed box (the video id is extracted from it either way).
 
+No link yet but the film is coming? Set `"film": null` plus
+`"filmPending": true` — the dossier shows the WATCH button greyed out
+until you swap in the real link.
+
 ## The project page (the dossier)
 
 Clicking a tile opens the film's **procedure dossier**. Everything on it comes
