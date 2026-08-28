@@ -13,9 +13,14 @@ describe('shipped content files', () => {
     expect(site.nav.length).toBe(4);
   });
 
-  it('projects.json is valid and has 26 projects', () => {
+  it('projects.json is valid: 20 films per channel, 6 featured each', () => {
     const projects = parseProjects(parseJson(read('projects.json'), 'projects.json'));
-    expect(projects).toHaveLength(26);
+    const human = projects.filter((p) => p.category === 'human');
+    const machine = projects.filter((p) => p.category === 'machine');
+    expect(human).toHaveLength(20);
+    expect(machine).toHaveLength(20);
+    expect(human.filter((p) => p.tileSize === 'large')).toHaveLength(6);
+    expect(machine.filter((p) => p.tileSize === 'large')).toHaveLength(6);
   });
 
   it('the homepage hero image exists at its contract path', () => {
