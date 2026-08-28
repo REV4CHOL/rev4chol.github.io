@@ -333,10 +333,13 @@
   .p-watch { display: contents; }
   .p-run { grid-column: 1; grid-row: 2; justify-self: start; }
   .p-player {
-    grid-column: 2; grid-row: 1 / span 2; margin-top: 0;
+    grid-column: 2; grid-row: 1 / span 2;
     position: relative; z-index: 2;
+    /* reach UP beside the spec sheet — the window spans the whole dark zone
+       from the intake rows down past the synopsis, arc riding behind */
+    margin-top: -220px;
   }
-  /* fill the whole dark field — the arc rides behind the transmission */
+  /* fill the dark field, a breath short of the edge */
   .p-player iframe, .p-player video { width: 100%; max-width: none; }
 }
 
