@@ -122,6 +122,10 @@ placeholders — replace them with your real photos.**
   the featured dress (double frame, FEATURED tag, resting glow, photographic
   poster). Six featured films make the best centre block.
 - **Remove a film:** delete its entry from `projects.json` (the folder can stay).
+- **The floor has no size limit.** Add as many films as you like — append
+  entries to `projects.json` and each channel's floor grows on its own:
+  the band widens with the count, rows extend, the featured cluster
+  re-centers. Nothing else to configure.
 - **The two channels:** the works floor broadcasts on `CH·01 FOR NO MANKIND`
   and `CH·02 THINKING MACHINES` — the switcher sits bottom-center.
   A film's `category` decides its channel. Give each channel a few

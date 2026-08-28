@@ -102,6 +102,44 @@ describe('layoutProjects (contiguous carpet)', () => {
     expect(Math.abs((minR + maxR) / 2 - rAll)).toBeLessThanOrEqual(1);
   });
 
+  it('grows organically — future films can be appended at any scale, no cap', () => {
+    // Adding panes must never require touching the engine: the band widens
+    // with the count, rows extend as needed, every tile lands exactly once,
+    // and the featured larges stay inside their centred cluster envelope.
+    for (const [smalls, larges] of [[10, 3], [23, 3], [34, 6], [54, 6], [92, 8], [200, 12]] as const) {
+      const items = [
+        ...Array.from({ length: smalls }, (_, i) => item(`s${i}`)),
+        ...Array.from({ length: larges }, (_, i) => item(`big${i}`, 'large')),
+      ];
+      const placed = layoutProjects(items);
+      expect(placed, `${smalls}+${larges}: every film placed`).toHaveLength(items.length);
+
+      const cells = new Set<string>();
+      for (const p of placed) {
+        for (const k of cellsOf(p)) {
+          expect(cells.has(k), `overlap at ${k} (${smalls}+${larges})`).toBe(false);
+          cells.add(k);
+        }
+      }
+
+      // the carpet stays a bounded landscape band — growth adds rows, and
+      // width never exceeds the derived band (or the cluster envelope)
+      const cellCount = smalls + larges * 4;
+      const clusterCols = Math.ceil(Math.sqrt(larges));
+      const expectedCols = Math.max(2, Math.round(Math.sqrt(cellCount * 1.6)), clusterCols * 2);
+      const colsUsed = [...cells].map((k) => Number(k.split(',')[0]));
+      expect(Math.max(...colsUsed) - Math.min(...colsUsed) + 1).toBeLessThanOrEqual(expectedCols);
+
+      // larges stay confined to the reserved centre cluster envelope
+      const bigCells = placed.filter((p) => p.span === 2).flatMap(cellsOf).map((k) => k.split(',').map(Number));
+      const bw = Math.max(...bigCells.map(([c]) => c)) - Math.min(...bigCells.map(([c]) => c)) + 1;
+      const bh = Math.max(...bigCells.map(([, r]) => r)) - Math.min(...bigCells.map(([, r]) => r)) + 1;
+      const clusterRows = Math.ceil(larges / clusterCols);
+      expect(bw, `${smalls}+${larges}: cluster width`).toBeLessThanOrEqual(clusterCols * 2);
+      expect(bh, `${smalls}+${larges}: cluster height`).toBeLessThanOrEqual(clusterRows * 2);
+    }
+  });
+
   it('honors explicit position overrides and keeps others clear of them', () => {
     const placed = layoutProjects([item('pinned', 'normal', { col: 0, row: 0 }), item('auto')]);
     expect(placed[0]).toEqual({ slug: 'pinned', col: 0, row: 0, span: 1 });
