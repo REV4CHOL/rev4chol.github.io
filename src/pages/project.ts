@@ -77,13 +77,15 @@ function mountHero(p: Project, stamp: string): void {
   const hero = document.getElementById('p-hero-video') as HTMLVideoElement;
   const veil = document.getElementById('p-hero-veil') as HTMLCanvasElement;
 
-  if (p.aspect === '4:3') {
-    // the side fields flanking a 4:3 picture are rack panels, not dead void —
-    // each carries a gate hairline, an inner-edge rail, a vertical format
-    // stamp and a hazard strip (styles: .p-pillar in project.css)
+  if (p.aspect !== '16:9') {
+    // no dead space around an odd-ratio picture: the side fields are rack
+    // panels (gate hairline, inner-edge rail, vertical format stamp, hazard
+    // strip) and the letterbox strips are film-gate bands (sprockets, an
+    // outlined ratio stamp, a timecode ruler). Whichever leftover exists at
+    // the current viewport gets dressed; the other collapses to zero.
     const heroSec = document.getElementById('p-hero')!;
     for (const [side, label] of [
-      ['l', `FMT :: 4:3 ▪ ${p.slug.toUpperCase()}`],
+      ['l', `FMT :: ${p.aspect} ▪ ${p.slug.toUpperCase()}`],
       ['r', `MONITOR ▸ ${stamp} ▪ REVACHOL`],
     ] as const) {
       const d = document.createElement('div');
@@ -91,6 +93,13 @@ function mountHero(p: Project, stamp: string): void {
       d.setAttribute('aria-hidden', 'true');
       d.innerHTML = `<span class="p-pillar-tag micro">${escapeHtml(label)}</span>`;
       heroSec.append(d);
+    }
+    for (const side of ['t', 'b'] as const) {
+      const b = document.createElement('div');
+      b.className = `p-band p-band-${side}`;
+      b.dataset.ratio = p.aspect;
+      b.setAttribute('aria-hidden', 'true');
+      heroSec.append(b);
     }
   }
 

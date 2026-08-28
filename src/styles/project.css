@@ -26,13 +26,68 @@
 #p-hero-veil { image-rendering: pixelated; z-index: 1; }
 /* a non-16:9 film presents in its own ratio (--pratio, set from JS): a
    centered picture, never cropped — it fills the hero's height when the
-   viewport is wide enough (4:3 gets void pillars at its sides) and the
-   viewport's width otherwise (scope gets cinema letterbox above/below) */
-.p-hero--fit { --pfitw: min(100%, calc(var(--hero-h) * var(--pratio, 1.7778))); }
+   viewport is wide enough and the viewport's width otherwise. The hero is
+   a size container so children can do exact leftover-space math in cq
+   units: pillars dress the side fields, bands dress the letterbox. */
+.p-hero--fit {
+  container-type: size;
+  --pfitw: min(100cqw, calc(100cqh * var(--pratio, 1.7778)));
+  --pfith: calc(var(--pfitw) / var(--pratio, 1.7778));
+}
 .p-hero--fit video, .p-hero--fit #p-hero-veil {
   inset: 50% auto auto 50%; translate: -50% -50%;
   width: var(--pfitw);
   height: auto; aspect-ratio: var(--pratio, 16 / 9);
+}
+
+/* the letterbox strips are a film gate, not blank void: sprocket rows and a
+   signal hairline hug the picture's edges, an oversized outlined format
+   stamp sits in the top band, a timecode tick ruler runs through the bottom
+   one (behind the title). Bands collapse to 0 when the picture fills the
+   height (then the side pillars take over). */
+.p-band {
+  position: absolute; left: 0; right: 0; z-index: 2; pointer-events: none;
+  height: calc((100cqh - var(--pfith)) / 2);
+  overflow: hidden;
+}
+.p-band-t { top: 0; }
+.p-band-b { bottom: 0; }
+.p-band-t::before, .p-band-b::before {
+  content: ''; position: absolute; left: 0; right: 0; height: 14px;
+  background-repeat: no-repeat;
+}
+.p-band-t::before {
+  bottom: 0;
+  background-image:
+    linear-gradient(var(--signal), var(--signal)),
+    repeating-linear-gradient(90deg, rgba(237, 237, 230, 0.5) 0 16px, transparent 16px 40px);
+  background-position: 0 100%, 0 0;
+  background-size: 100% 1.5px, 100% 9px;
+}
+.p-band-b::before {
+  top: 0;
+  background-image:
+    linear-gradient(var(--signal), var(--signal)),
+    repeating-linear-gradient(90deg, rgba(237, 237, 230, 0.5) 0 16px, transparent 16px 40px);
+  background-position: 0 0, 0 100%;
+  background-size: 100% 1.5px, 100% 9px;
+}
+.p-band-t::after {
+  content: attr(data-ratio); position: absolute; right: 40px; top: calc(50% - 0.5em);
+  font-family: var(--f-display); font-weight: 700; font-size: var(--t-2xl); line-height: 1;
+  color: transparent; -webkit-text-stroke: 1.5px var(--signal); opacity: 0.7;
+}
+@supports not (-webkit-text-stroke: 1px #000) {
+  .p-band-t::after { color: var(--signal); opacity: 0.3; }
+}
+.p-band-b::after {
+  content: ''; position: absolute; left: 24px; right: 24px; top: 22px; height: 14px;
+  background:
+    repeating-linear-gradient(90deg, rgba(200, 255, 0, 0.65) 0 2px, transparent 2px 24px) 0 0 / 100% 14px no-repeat,
+    repeating-linear-gradient(90deg, rgba(255, 46, 99, 0.8) 0 2.5px, transparent 2.5px 120px) 0 0 / 100% 14px no-repeat;
+}
+@media (max-width: 760px) {
+  .p-band-t::after { font-size: var(--t-xl); right: 16px; }
 }
 
 /* the side fields are RACK PANELS, not blank void: gate hairline, an
@@ -41,7 +96,8 @@
    instrument instead of hanging half off-frame. */
 .p-pillar {
   position: absolute; top: 0; bottom: 0; z-index: 2; pointer-events: none;
-  width: calc((100% - var(--pfitw)) / 2);
+  width: calc((100cqw - var(--pfitw)) / 2);
+  overflow: hidden;
 }
 .p-pillar-l {
   left: 0; border-right: 1px solid rgba(200, 255, 0, 0.55);
@@ -68,8 +124,8 @@
   font-family: var(--f-display); font-size: 24px; color: rgba(200, 255, 0, 0.8);
 }
 .p-hero--43 .p-ring {
-  width: calc(((100% - var(--pfitw)) / 2) * 1.15); height: auto; aspect-ratio: 1 / 1;
-  right: calc(((100% - var(--pfitw)) / 2) * -0.08);
+  width: calc(((100cqw - var(--pfitw)) / 2) * 1.15); height: auto; aspect-ratio: 1 / 1;
+  right: calc(((100cqw - var(--pfitw)) / 2) * -0.08);
 }
 @media (max-width: 900px) {
   .p-pillar { display: none; } /* narrow screens letterbox instead — no side fields to dress */
