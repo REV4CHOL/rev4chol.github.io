@@ -85,8 +85,6 @@
   position: absolute; right: 44px; top: 92px; z-index: 4;
   display: grid; gap: 6px; justify-items: end; color: var(--bone);
 }
-.p-index .p-bars { width: 92px; height: 14px; color: rgba(200, 255, 0, 0.75); }
-.p-bars rect { fill: currentColor; }
 
 .p-callouts {
   position: absolute; right: 44px; top: 170px; z-index: 4;
@@ -300,7 +298,6 @@
   display: grid; justify-items: center; gap: 14px; padding: 24px 28px 130px;
   color: rgba(237, 237, 230, 0.5); letter-spacing: 0.16em;
 }
-.p-eof .p-bars { width: 240px; height: 18px; color: rgba(200, 255, 0, 0.45); }
 
 /* ------------------------------------------------------------- shared -- */
 

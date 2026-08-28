@@ -5,7 +5,7 @@ import { mulberry32 } from '../lib/rng';
 import { escapeHtml } from '../lib/escape';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
-import { barcodeSvg, hashSlug, specimenCodes, wallRhythm } from '../project/dossier';
+import { hashSlug, wallRhythm } from '../project/dossier';
 import { armStamps } from '../lib/stamps';
 import { startPage } from '../shell/page';
 import '../styles/project.css';
@@ -42,26 +42,25 @@ function render(p: Project, all: Project[], idx: number): void {
   document.title = `${p.title.toUpperCase()} — REVACHOL`;
   // The page chrome commits to the fixed acid quartet (--signal/--alert/
   // --field/--flourish). The project's own accent survives as a recorded
-  // property of the specimen: the dither veils and the HUE chip below.
-  const codes = specimenCodes(p.slug);
+  // property of the specimen: the dither veils.
   const stamp = `P·${pad2(idx + 1)}/${pad2(all.length)}`;
 
-  mountHero(p, codes, stamp);
+  mountHero(p, stamp);
   mountSpec(p);
   mountSynopsis(p);
-  mountTicker(p, codes, stamp);
+  mountTicker(p, stamp);
   mountWall(p);
   mountEndNav(all, idx);
 
   document.getElementById('p-eof')!.innerHTML =
-    `<span>EOF ▪ ${stamp} ▪ REVACHOL — ${p.year}</span>${barcodeSvg(codes.bars)}`;
+    `<span>EOF ▪ ${stamp} ▪ REVACHOL — ${p.year}</span>`;
 
   armStamps();
 }
 
 /* ---------------------------------------------------------------- hero -- */
 
-function mountHero(p: Project, codes: { code: string; sig: string; bars: number[] }, stamp: string): void {
+function mountHero(p: Project, stamp: string): void {
   const hero = document.getElementById('p-hero-video') as HTMLVideoElement;
   const veil = document.getElementById('p-hero-veil') as HTMLCanvasElement;
 
@@ -103,14 +102,12 @@ function mountHero(p: Project, codes: { code: string; sig: string; bars: number[
 
   void scrambleEl(document.getElementById('p-status-line')!, `PROCEDURE :: ${p.slug.toUpperCase()} // ONLINE`, 900);
 
-  document.getElementById('p-index')!.innerHTML =
-    `<span>${stamp}</span>${barcodeSvg(codes.bars, 16)}`;
+  document.getElementById('p-index')!.innerHTML = `<span>${stamp}</span>`;
 
   const rows: [string, string][] = [
     ['ROLE', p.role],
     ['YR', String(p.year)],
     ['RT', p.runtime],
-    ['CODE', codes.code],
   ];
   document.getElementById('p-callouts')!.innerHTML = rows
     .filter(([, v]) => v)
@@ -188,8 +185,8 @@ function mountSynopsis(p: Project): void {
 
 /* -------------------------------------------------------------- ticker -- */
 
-function mountTicker(p: Project, codes: { code: string }, stamp: string): void {
-  const items = [p.title, ...p.tags, 'REVACHOL', codes.code, stamp, 'ONLINE'];
+function mountTicker(p: Project, stamp: string): void {
+  const items = [p.title, ...p.tags, 'REVACHOL', stamp, 'ONLINE'];
   const half = items
     .map(
       (t, i) =>
