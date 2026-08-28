@@ -6,6 +6,7 @@ import { escapeHtml } from '../lib/escape';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { barcodeSvg, hashSlug, specimenCodes, wallRhythm } from '../project/dossier';
+import { armStamps } from '../lib/stamps';
 import { startPage } from '../shell/page';
 import '../styles/project.css';
 
@@ -311,25 +312,4 @@ function mountConfirm(all: Project[], idx: number): void {
       ${solo ? '' : `<a class="p-yes" href="/project.html?p=${next.slug}" data-internal data-cursor="NEXT ▸">YES ▸ ${escapeHtml(next.title.toUpperCase())}</a>`}
       <a class="p-no" href="/works.html" data-internal data-cursor="FLOOR ◂">NO ▸ RETURN TO FLOOR</a>
     </div>`;
-}
-
-/* ------------------------------------------------------- entry stamps -- */
-
-function armStamps(): void {
-  const els = [...document.querySelectorAll<HTMLElement>('[data-stamp]')];
-  const io = new IntersectionObserver(
-    (entries) => {
-      for (const e of entries) {
-        if (e.isIntersecting) {
-          e.target.classList.add('in');
-          io.unobserve(e.target);
-        }
-      }
-    },
-    { threshold: 0.15, rootMargin: '0px 0px -40px 0px' },
-  );
-  els.forEach((el, i) => {
-    el.style.setProperty('--d', `${(i % 5) * 70}ms`);
-    io.observe(el);
-  });
 }

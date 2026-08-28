@@ -198,3 +198,58 @@ let projectsPromise: Promise<Project[]> | null = null;
 export function loadProjects(): Promise<Project[]> {
   return (projectsPromise ??= fetchParsed(`${CONTENT_BASE}/projects.json`, 'projects.json').then(parseProjects));
 }
+
+/* ------------------------------------------------ about (operator file) -- */
+
+export interface AboutFact { k: string; v: string }
+export interface AboutContent {
+  statement: string;
+  bio: string[];
+  facts: AboutFact[];
+  capabilities: string[];
+}
+
+export const ABOUT_FALLBACK: AboutContent = {
+  statement: 'THE EYE BEHIND THE MACHINE',
+  bio: [],
+  facts: [],
+  capabilities: [],
+};
+
+export function parseAbout(raw: unknown): AboutContent {
+  const file = 'about.json';
+  const r = obj(raw, file, 'root');
+  const statement = str(r.statement, file, 'statement', ABOUT_FALLBACK.statement);
+  const bio = r.bio ?? [];
+  if (!Array.isArray(bio) || bio.some((b) => typeof b !== 'string'))
+    fail(file, '"bio" must be an array of strings');
+  const factsRaw = r.facts ?? [];
+  if (!Array.isArray(factsRaw)) fail(file, '"facts" must be an array');
+  const facts = factsRaw.map((f, i) => {
+    const o = obj(f, file, `facts[${i}]`);
+    return { k: str(o.k, file, `facts[${i}].k`), v: str(o.v, file, `facts[${i}].v`) };
+  });
+  const caps = r.capabilities ?? [];
+  if (!Array.isArray(caps) || caps.some((c) => typeof c !== 'string'))
+    fail(file, '"capabilities" must be an array of strings');
+  return {
+    statement,
+    bio: bio as string[],
+    facts,
+    capabilities: (caps as string[]).map((c) => c.toUpperCase()),
+  };
+}
+
+let aboutPromise: Promise<AboutContent> | null = null;
+/** about.json is OPTIONAL: a missing file falls back quietly (the page has
+ *  designed defaults), but a malformed file that actually exists stays loud. */
+export function loadAbout(): Promise<AboutContent> {
+  return (aboutPromise ??= (async () => {
+    const res = await fetch(`${CONTENT_BASE}/about/about.json`).catch(() => null);
+    if (!res || !res.ok) return ABOUT_FALLBACK;
+    // dev servers answer missing files with the SPA's index.html — that is
+    // an absent file, not a broken one
+    if ((res.headers.get('content-type') ?? '').includes('text/html')) return ABOUT_FALLBACK;
+    return parseAbout(parseJson(await res.text(), 'about.json'));
+  })());
+}

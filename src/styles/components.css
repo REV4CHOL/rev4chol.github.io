@@ -361,6 +361,24 @@
 .wk-reg-bl { left: 12px; bottom: 12px; }
 .wk-reg-br { right: 12px; bottom: 12px; }
 
+/* ---- shared page grammar (project + about) ---- */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+.lightbox { border: 1px solid var(--signal); background: var(--void); padding: 12px; }
+.lightbox::backdrop { background: rgba(6, 6, 6, 0.92); }
+.lightbox img { max-width: 86vw; max-height: 80vh; }
+.lightbox button { margin-top: 10px; }
+
+/* ---- entry stamps (shared by project + about via lib/stamps.ts) ---- */
+[data-stamp] {
+  opacity: 0; translate: 0 16px;
+  transition: opacity 0.55s var(--ease-out) var(--d, 0ms), translate 0.55s var(--ease-out) var(--d, 0ms);
+}
+[data-stamp].in { opacity: 1; translate: 0 0; }
+.rvl-calm [data-stamp] { opacity: 1; translate: none; transition: none; }
+
 /* ---- the reveal ----
    Every page inlines body{visibility:hidden} in <head>; this final rule fires
    only once the full stylesheet chain is parsed, so no frame of unstyled
