@@ -76,26 +76,26 @@
     "category": "human"
   },
   {
-    "slug": "red-telemetry",
-    "title": "Red Telemetry",
-    "year": 2025,
-    "role": "Director / Edit",
-    "runtime": "07:33",
+    "slug": "katara",
+    "title": "KATARA",
+    "year": 2026,
+    "role": "Director / Editor / Colorist / Sound Mixer",
+    "runtime": "1:20",
     "tags": [
       "experimental"
     ],
-    "accent": "#FF2E63",
+    "accent": "#FFB4A8",
     "tileSize": "large",
-    "synopsis": "Every heartbeat of a marathon runner, rendered as light. A portrait made entirely of data.",
+    "synopsis": "Human shadows fall across a garden that was never grown. An AI short film.",
     "credits": [
       {
-        "role": "Director",
+        "role": "Director / Editor / Colorist / Sound Mixer",
         "name": "Revachol"
       }
     ],
     "film": {
       "type": "youtube",
-      "src": "https://www.youtube.com/watch?v=aqz-KE-bpKQ"
+      "src": "https://www.youtube.com/embed/IF-nMj19wqE"
     },
     "category": "machine"
   },
