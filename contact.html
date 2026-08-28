@@ -6,13 +6,37 @@
   <script>try{if(localStorage.getItem('rvl-motion')==='calm')document.documentElement.classList.add('rvl-calm')}catch(e){}</script>
   <style>html{background:#060606;color-scheme:dark}body{visibility:hidden}</style>
   <title>CONTACT — REVACHOL</title>
-  <meta name="description" content="Contact REVACHOL." />
+  <meta name="description" content="Open a channel to REVACHOL — colorist, editor, AI generalist." />
 </head>
 <body class="page-contact">
-  <main id="app" class="stub-main">
-    <h1 class="statement" id="statement">OPEN A CHANNEL</h1>
-    <p class="micro" id="contact-email"></p>
-    <p class="stub-cta"><a class="btn" href="/works.html" data-internal>ENTER THE FLOOR ▸</a></p>
+  <main id="app" class="contact-main">
+    <section class="c-console">
+      <p class="c-status micro"><span id="c-status-line"></span><span class="c-caret" aria-hidden="true">▮</span></p>
+      <div class="c-index micro">P·TX/01</div>
+      <div class="c-rail-tag" aria-hidden="true">TX:</div>
+
+      <div class="c-body">
+        <h1 class="c-heading" id="c-heading">OPEN A CHANNEL</h1>
+
+        <a class="c-freq" id="c-freq" href="#" data-stamp></a>
+
+        <div class="c-actions" data-stamp>
+          <button class="c-copy" id="c-copy">COPY FREQ</button>
+          <p class="c-vow">Every transmission is answered. Bring something strange.</p>
+        </div>
+
+        <div class="c-meter" id="c-meter" aria-hidden="true"></div>
+
+        <div class="c-callouts micro" id="c-callouts"></div>
+
+        <div class="c-aux" data-stamp>
+          <span class="c-aux-label micro">AUX CHANNELS ::</span>
+          <span id="c-socials"></span>
+        </div>
+      </div>
+    </section>
+
+    <footer class="c-eof micro"><span>EOF ▪ P·TX/01 ▪ REVACHOL</span></footer>
   </main>
   <script type="module" src="/src/pages/contact.ts"></script>
 </body>
