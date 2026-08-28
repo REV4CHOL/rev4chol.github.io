@@ -1,6 +1,7 @@
 import gsap from 'gsap';
 import { loadProjects, projectAssetUrl, type Project } from '../lib/content';
 import { reducedMotion } from '../lib/env';
+import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { startPage } from '../shell/page';
 import { CHANNELS, ChannelKey, channelFromSearch, channelProjects } from '../works/channels';
@@ -55,10 +56,14 @@ startPage(
       active = key;
       paint();
       history.replaceState(null, '', `?ch=${key}`);
-      // the channel ident stamps over the static while the floor swaps
+      // the channel ident stamps over the static while the floor swaps —
+      // the words scramble in while the plate copies (data-text) show the
+      // tuned-in name underneath; scrambleEl self-gates on calm mode
       const ch = CHANNELS.find((c) => c.key === key)!;
-      document.getElementById('ch-ident-idx')!.textContent = `${ch.index} ▸ TUNING`;
-      document.getElementById('ch-ident-name')!.textContent = ch.name;
+      const nameEl = document.getElementById('ch-ident-name')!;
+      nameEl.dataset.text = ch.name;
+      void scrambleEl(document.getElementById('ch-ident-idx')!, `${ch.index} ▸ TUNING`, 320);
+      void scrambleEl(nameEl, ch.name, 480);
       sound.chime();
       staticEl.classList.add('on');
       // the whole world leaves physically — panes, furniture and lattice
@@ -69,7 +74,7 @@ startPage(
       world = null;
       await mount(key);
       world!.arrive();
-      await new Promise((r) => setTimeout(r, reducedMotion() ? 80 : 300));
+      await new Promise((r) => setTimeout(r, reducedMotion() ? 80 : 380));
       staticEl.classList.remove('on');
       flipping = false;
     };

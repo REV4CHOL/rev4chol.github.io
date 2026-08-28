@@ -312,10 +312,10 @@ export class WorksWorld {
   exit(): Promise<void> {
     if (reducedMotion()) return Promise.resolve();
     const span = Math.max(this.app.screen.width, this.app.screen.height) * 1.7;
-    joltCamera(this.app.stage);
+    joltCamera(this.app.stage, 1.3);
     this.misreg?.dispose();
     // ramps for longer than the exit lasts — destroy() disposes it mid-climb
-    this.misreg = misregister(this.app, this.worldC, 1.5, 16, 0.8);
+    this.misreg = misregister(this.app, this.worldC, 3, 30, 0.7);
     this.bursts.push(streakBurst(this.worldC, 2, this.viewRect(), 1));
     const pull = (o: Container, dir: number, delay: number, ease: string, dist: number) =>
       new Promise<void>((res) => {
@@ -344,7 +344,7 @@ export class WorksWorld {
     if (reducedMotion()) return;
     const span = Math.max(this.app.screen.width, this.app.screen.height) * 1.5;
     this.misreg?.dispose();
-    this.misreg = misregister(this.app, this.worldC, 14, 0, 0.52, () => joltCamera(this.app.stage, 0.5));
+    this.misreg = misregister(this.app, this.worldC, 24, 0, 0.6, () => joltCamera(this.app.stage, 0.6));
     this.bursts.push(streakBurst(this.worldC, 2, this.viewRect(), -1));
     const drop = (o: Container, dir: number, delay: number, ease: string, dist: number) => {
       const hx = o.x;

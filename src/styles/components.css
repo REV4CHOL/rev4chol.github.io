@@ -388,15 +388,19 @@
    moving (world.exit/arrive). This layer only carries the station ident. */
 .ch-static {
   position: fixed; inset: 0; z-index: 960; pointer-events: none;
-  opacity: 0; transition: opacity 0.12s;
+  opacity: 0; transition: opacity 0.34s ease;
 }
-.ch-static.on { opacity: 1; }
+.ch-static.on { opacity: 1; transition-duration: 0.26s; }
 
-/* the channel ident — a TV station stamp while the floor retunes */
+/* the channel ident — a TV station stamp while the floor retunes. It
+   materializes: blur + scale dissolve in, the reverse on the way out
+   (the jitter is delayed so the entrance reads before the shake starts) */
 .ch-ident {
   position: absolute; left: 50%; top: 50%; translate: -50% -50%;
   display: grid; justify-items: center; gap: 10px; text-align: center;
   opacity: 0; width: max-content; max-width: 92vw;
+  filter: blur(9px); transform: scale(1.06);
+  transition: opacity 0.34s ease, filter 0.34s ease, transform 0.34s ease;
 }
 /* a soft void pool behind the words so they read over panes in motion */
 .ch-ident::before {
@@ -404,21 +408,58 @@
   background: radial-gradient(ellipse, rgba(6, 6, 6, 0.85) 30%, transparent 72%);
 }
 .ch-ident-idx { color: var(--signal); letter-spacing: 0.22em; }
+.ch-static.on .ch-ident-idx { animation: ch-idx-flicker 0.72s steps(2) infinite; }
 .ch-ident-name {
+  position: relative;
   font-family: var(--f-display); font-weight: 700; font-size: var(--t-2xl);
   line-height: 0.9; text-transform: uppercase; color: var(--bone); white-space: nowrap;
   text-shadow: -4px 0 rgba(255, 46, 99, 0.75), 4px 0 rgba(36, 24, 255, 0.75);
 }
-.ch-static.on .ch-ident { opacity: 1; animation: ch-ident-jitter 0.22s steps(2) infinite; }
+/* misregistered plate copies of the name — slivers jumping in steps */
+.ch-ident-name::before,
+.ch-ident-name::after {
+  content: attr(data-text); position: absolute; inset: 0;
+  text-shadow: none; pointer-events: none;
+}
+.ch-ident-name::before { color: var(--alert); animation: ch-slice-a 0.46s steps(1) infinite; }
+.ch-ident-name::after { color: var(--field); animation: ch-slice-b 0.58s steps(1) infinite; }
+.ch-static.on .ch-ident {
+  opacity: 1; filter: blur(0); transform: scale(1);
+  transition-duration: 0.26s;
+  animation: ch-ident-jitter 0.22s steps(2) 0.34s infinite;
+}
 @keyframes ch-ident-jitter {
   0% { translate: -50% -50%; }
   50% { translate: calc(-50% + 5px) calc(-50% - 2px); }
   100% { translate: calc(-50% - 4px) -50%; }
 }
+@keyframes ch-idx-flicker {
+  0%, 42% { opacity: 1; }
+  50% { opacity: 0.25; }
+  58%, 100% { opacity: 1; }
+}
+@keyframes ch-slice-a {
+  0% { clip-path: inset(8% 0 80% 0); translate: 5px -2px; }
+  25% { clip-path: inset(62% 0 24% 0); translate: -6px 1px; }
+  50% { clip-path: inset(34% 0 52% 0); translate: 7px 0; }
+  75% { clip-path: inset(78% 0 4% 0); translate: -5px 2px; }
+  100% { clip-path: inset(8% 0 80% 0); translate: 5px -2px; }
+}
+@keyframes ch-slice-b {
+  0% { clip-path: inset(70% 0 12% 0); translate: -6px 2px; }
+  30% { clip-path: inset(18% 0 66% 0); translate: 6px -1px; }
+  55% { clip-path: inset(48% 0 38% 0); translate: -8px 0; }
+  80% { clip-path: inset(4% 0 84% 0); translate: 5px 2px; }
+  100% { clip-path: inset(70% 0 12% 0); translate: -6px 2px; }
+}
 
 .rvl-calm .ch-static { transition: opacity 0.2s; }
+.rvl-calm .ch-ident { filter: none; transform: none; transition: opacity 0.2s; }
 .rvl-calm .ch-static.on .ch-ident { animation: none; }
+.rvl-calm .ch-static.on .ch-ident-idx { animation: none; }
 .rvl-calm .ch-ident-name { text-shadow: none; }
+.rvl-calm .ch-ident-name::before,
+.rvl-calm .ch-ident-name::after { display: none; }
 
 /* phone: the two names stack — lift the stack clear of the bottom HUD.
    (Must sit AFTER the base .ch-* rules above: equal specificity, order wins.) */

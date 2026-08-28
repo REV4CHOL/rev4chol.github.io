@@ -55,15 +55,15 @@ export function misregister(
   duration: number,
   onDone?: () => void,
 ): Misreg {
-  const glitch = new GlitchFilter({ slices: 10, offset: 24, direction: GRAIN_DEG });
+  const glitch = new GlitchFilter({ slices: 14, offset: 24, direction: GRAIN_DEG });
   const rgb = new RGBSplitFilter({ red: { x: 0, y: 0 }, green: { x: 0, y: 0 }, blue: { x: 0, y: 0 } });
   target.filters = [glitch, rgb];
   const ticker = app.ticker;
   const k = { v: from };
   const jitter = () => {
     glitch.seed = Math.random();
-    glitch.offset = k.v * (2.2 + Math.random() * 3.4);
-    const s = k.v * (0.7 + Math.random() * 0.6);
+    glitch.offset = k.v * (2.8 + Math.random() * 4.4);
+    const s = k.v * (0.85 + Math.random() * 0.7);
     rgb.red = { x: s, y: -s * 0.35 };
     rgb.blue = { x: -s, y: s * 0.35 };
   };
