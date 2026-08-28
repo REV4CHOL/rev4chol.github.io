@@ -63,6 +63,17 @@ body { font-size: var(--t-md); line-height: 1.6; }
 }
 .rvl-calm #grain { opacity: 0.22; }
 
+/* an open transmission window is raw glass: the film layers carry a punched
+   hole tracking its rect (vars set from JS), so no grain or scanlines land
+   on the player while the rest of the page keeps its texture */
+#grain.has-hole, .scan-layer.has-hole {
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  mask-repeat: no-repeat;
+  mask-position: 0 0, var(--hole-x, -9999px) var(--hole-y, -9999px);
+  mask-size: 100% 100%, var(--hole-w, 0) var(--hole-h, 0);
+  mask-composite: exclude;
+}
+
 /* ---- glitch wipe ---- */
 #wipe { position: fixed; inset: 0; z-index: 9500; pointer-events: none; }
 .wipe-slice {

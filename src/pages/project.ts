@@ -223,6 +223,7 @@ function mountSynopsis(p: Project): void {
   watch.addEventListener('click', () => {
     watch.hidden = true;
     player.hidden = false;
+    armEffectHole(player);
     sound.zap();
     if (p.film!.type === 'local') {
       const v = document.createElement('video');
@@ -241,6 +242,30 @@ function mountSynopsis(p: Project): void {
       }
     }
   });
+}
+
+/** The site's film layers (grain + scanlines) must never land on an open
+ *  player: punch a hole in both, tracking the player's viewport rect on
+ *  scroll and resize. The rest of the page keeps its texture. */
+function armEffectHole(target: HTMLElement): void {
+  const layers = [
+    document.getElementById('grain'),
+    document.querySelector<HTMLElement>('.scan-layer'),
+  ].filter((el): el is HTMLElement => el !== null);
+  if (layers.length === 0) return;
+  const sync = () => {
+    const r = target.getBoundingClientRect();
+    for (const el of layers) {
+      el.classList.add('has-hole');
+      el.style.setProperty('--hole-x', `${r.left}px`);
+      el.style.setProperty('--hole-y', `${r.top}px`);
+      el.style.setProperty('--hole-w', `${r.width}px`);
+      el.style.setProperty('--hole-h', `${r.height}px`);
+    }
+  };
+  sync();
+  window.addEventListener('scroll', sync, { passive: true });
+  window.addEventListener('resize', sync);
 }
 
 /* -------------------------------------------------------------- ticker -- */
