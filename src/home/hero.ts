@@ -97,6 +97,10 @@ interface Clip {
   height: number;
   play(): void;
   pause(): void;
+  /** Seek back to the first frame — a free jump to the file's first keyframe.
+   *  Resuming a paused clip mid-GOP instead makes the decoder hold (duplicate)
+   *  frames while it grinds forward from the previous keyframe. */
+  rewind(): void;
   /** A same-origin frame source for accent sampling; null when only a WebGL
    *  read-back can see the pixels (gif). */
   sample(): CanvasImageSource | null;
@@ -124,6 +128,7 @@ function loadVideoClip(url: string, autostart: boolean): Promise<Clip | null> {
         height: v.videoHeight,
         play: () => { void v.play().catch(() => { /* stays on its frame */ }); },
         pause: () => v.pause(),
+        rewind: () => { try { v.currentTime = 0; } catch { /* not seekable yet */ } },
         sample: () => v,
       });
     }, { once: true });
@@ -145,6 +150,7 @@ async function loadGifClip(url: string, autostart: boolean): Promise<Clip | null
       height: sprite.texture.height,
       play: () => sprite.play(),
       pause: () => sprite.stop(),
+      rewind: () => { try { sprite.currentFrame = 0; } catch { /* stays where it is */ } },
       sample: () => null,
     };
   } catch {
@@ -313,6 +319,10 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     const cur = clips[active];
     prev.sprite.visible = false;
     prev.pause();
+    // every window replays its loop from the top — the first rotation was
+    // clean because every clip began at 0; later rotations resumed mid-GOP
+    // and opened on decoder-held duplicate frames
+    cur.rewind();
     cur.sprite.visible = true;
     cur.play();
     clipClock = 0;
@@ -356,12 +366,19 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     if (loaded.length > 0) mountReel(loaded);
   });
 
-  // playback hygiene: browsers pause media on tab-hide and bfcache restore
-  const resumeActive = () => { if (clips.length > 0 && !document.hidden) clips[active].play(); };
+  // playback hygiene: browsers pause media on tab-hide and bfcache restore.
+  // Coming back always restarts the window from the clip's top — resuming the
+  // paused position mid-GOP opens on held frames, same as the swap case.
+  const resumeActive = () => {
+    if (clips.length === 0 || document.hidden) return;
+    clips[active].rewind();
+    clips[active].play();
+    clipClock = 0;
+  };
   document.addEventListener('visibilitychange', () => {
     if (clips.length === 0) return;
     if (document.hidden) clips[active].pause();
-    else clips[active].play();
+    else resumeActive();
   });
   window.addEventListener('pageshow', (e) => { if (e.persisted) resumeActive(); });
 
