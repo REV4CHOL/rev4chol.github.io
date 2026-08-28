@@ -1,5 +1,38 @@
 export interface Placed { slug: string; col: number; row: number; span: 1 | 2 }
 
+/** Lego pass: turn the integer grid into packed rows. Each pane advances its
+    row cursor by its own width plus the seam, so a narrower pane (4:3 in a
+    16:9 carpet) pulls every later neighbor in its row(s) tight against it —
+    no air. A 2-row large takes the max cursor of both its rows and advances
+    them together, which keeps the carpet overlap-free by construction.
+    Uniform widths reproduce the classic lattice exactly (centers stepW
+    apart). Returns each slug's u-CENTER in card-space px along the row axis. */
+export function packRows(
+  placed: Placed[],
+  widthOf: (p: Placed) => number,
+  seam: number,
+  stepW: number,
+): Map<string, number> {
+  const rowStart = new Map<number, number>();
+  for (const p of placed) {
+    for (let k = 0; k < p.span; k++) {
+      const r = p.row + k;
+      rowStart.set(r, Math.min(rowStart.get(r) ?? Infinity, p.col));
+    }
+  }
+  const cursor = new Map<number, number>();
+  const out = new Map<string, number>();
+  const items = [...placed].sort((a, b) => a.col - b.col || a.row - b.row);
+  for (const p of items) {
+    const w = widthOf(p) * p.span + seam * (p.span - 1);
+    const myRows = Array.from({ length: p.span }, (_, k) => p.row + k);
+    const start = Math.max(...myRows.map((r) => cursor.get(r) ?? (rowStart.get(r) ?? 0) * stepW));
+    for (const r of myRows) cursor.set(r, start + w + seam);
+    out.set(p.slug, start + w / 2);
+  }
+  return out;
+}
+
 interface LayoutInput {
   slug: string;
   tileSize: 'normal' | 'large';

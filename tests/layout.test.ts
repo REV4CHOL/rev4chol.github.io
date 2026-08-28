@@ -1,5 +1,46 @@
 import { describe, expect, it } from 'vitest';
-import { layoutProjects, Placed } from '../src/works/layout';
+import { layoutProjects, packRows, Placed } from '../src/works/layout';
+
+const W169 = 400;
+const W43 = 300;
+const SEAM = 8;
+const STEP = 408;
+
+describe('packRows — the lego pass', () => {
+  it('uniform widths reproduce the classic lattice spacing', () => {
+    const placed: Placed[] = [
+      { slug: 'a', col: 0, row: 0, span: 1 },
+      { slug: 'b', col: 1, row: 0, span: 1 },
+      { slug: 'c', col: 2, row: 0, span: 1 },
+    ];
+    const u = packRows(placed, () => W169, SEAM, STEP);
+    expect(u.get('b')! - u.get('a')!).toBe(STEP);
+    expect(u.get('c')! - u.get('b')!).toBe(STEP);
+  });
+
+  it('a 4:3 pane pulls every later neighbor in its row tight against it', () => {
+    const placed: Placed[] = [
+      { slug: 'a', col: 0, row: 0, span: 1 },
+      { slug: 'fish', col: 1, row: 0, span: 1 },
+      { slug: 'c', col: 2, row: 0, span: 1 },
+    ];
+    const u = packRows(placed, (p) => (p.slug === 'fish' ? W43 : W169), SEAM, STEP);
+    expect(u.get('fish')! - u.get('a')!).toBe(W169 / 2 + SEAM + W43 / 2);
+    expect(u.get('c')! - u.get('fish')!).toBe(W43 / 2 + SEAM + W169 / 2);
+  });
+
+  it('a 2-row 4:3 large advances both its rows together — later tiles align, no overlap', () => {
+    const placed: Placed[] = [
+      { slug: 'L', col: 0, row: 0, span: 2 },
+      { slug: 'r0', col: 2, row: 0, span: 1 },
+      { slug: 'r1', col: 2, row: 1, span: 1 },
+    ];
+    const u = packRows(placed, (p) => (p.slug === 'L' ? W43 : W169), SEAM, STEP);
+    const lW = W43 * 2 + SEAM;
+    expect(u.get('r0')! - u.get('L')!).toBe(lW / 2 + SEAM + W169 / 2);
+    expect(u.get('r1')).toBe(u.get('r0'));
+  });
+});
 
 const item = (slug: string, tileSize: 'normal' | 'large' = 'normal', position: { col: number; row: number } | null = null) =>
   ({ slug, tileSize, position });

@@ -7,12 +7,12 @@ import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { leaveTo } from '../lib/transitions';
 import { setCursorLabel } from '../shell/cursor';
-import { ISO, WORLD_PAD } from './constants';
+import { CARD_H, CARD_W, ISO, SEAM, STEP_W, WORLD_PAD, rowAxisWorld } from './constants';
 import { buildDebris } from './debris';
 import { buildFields } from './fields';
 import { GRAIN, joltCamera, misregister, streakBurst, type Burst, type Misreg } from './flipfx';
 import { PanController } from './input';
-import { layoutProjects } from './layout';
+import { layoutProjects, packRows } from './layout';
 import { PlaybackManager } from './playback';
 import { loadPosterCanvas } from './poster';
 import type { ViewRect } from './priority';
@@ -59,10 +59,19 @@ export class WorksWorld {
       projects.map((p) => ({ slug: p.slug, tileSize: p.tileSize, position: p.position })),
     );
     const placedBySlug = new Map(placed.map((pl) => [pl.slug, pl]));
+    // the lego pass: pack each row by the panes' REAL widths, so a 4:3 card
+    // sits brick-tight against its 16:9 neighbors instead of on fixed columns
+    const widthBySlug = new Map(
+      projects.map((p) => [p.slug, p.aspect === '4:3' ? Math.round((CARD_H * 4) / 3) : CARD_W]),
+    );
+    const packedU = packRows(placed, (pl) => widthBySlug.get(pl.slug) ?? CARD_W, SEAM, STEP_W);
 
     w.tilesLayer.sortableChildren = true;
     projects.forEach((p, i) => {
-      const tile = new ProjectTile(p, placedBySlug.get(p.slug)!, posters[i]);
+      const pl = placedBySlug.get(p.slug)!;
+      const tile = new ProjectTile(p, pl, posters[i]);
+      const pos = rowAxisWorld(packedU.get(p.slug)!, pl.row + (pl.span - 1) / 2);
+      tile.position.set(pos.x, pos.y);
       w.tiles.set(p.slug, tile);
       w.tilesLayer.addChild(tile);
     });
