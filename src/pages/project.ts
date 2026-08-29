@@ -188,6 +188,7 @@ function mountSpec(p: Project): void {
   const rows: [string, string][] = [];
   rows.push(['YEAR', `<span>${p.year}</span>`]);
   if (p.role) rows.push(['ROLE', `<span>${escapeHtml(p.role.toUpperCase())}</span>`]);
+  if (p.client) rows.push(['CLIENT', `<span>${escapeHtml(p.client.toUpperCase())}</span>`]);
   if (p.runtime) rows.push(['RUNTIME', `<span>${escapeHtml(p.runtime)}</span>`]);
   if (p.tags.length)
     rows.push(['GENRE', p.tags.map((t) => `<span class="p-pill">${escapeHtml(t.toUpperCase())}</span>`).join('')]);

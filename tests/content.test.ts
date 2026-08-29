@@ -128,6 +128,11 @@ describe('helpers', () => {
     expect(() => parseProjects([{ ...validProject(), aspect: 'wide' }])).toThrow(ContentError);
   });
 
+  it('client: defaults empty, accepts a name', () => {
+    expect(parseProjects([validProject()])[0].client).toBe('');
+    expect(parseProjects([{ ...validProject(), client: 'Garena' }])[0].client).toBe('Garena');
+  });
+
   it('film.type embed: accepted, carrying any platform iframe verbatim', () => {
     const [p] = parseProjects([
       { ...validProject(), film: { type: 'embed', src: '<iframe src="https://www.facebook.com/plugins/video.php?x=1"></iframe>' } },

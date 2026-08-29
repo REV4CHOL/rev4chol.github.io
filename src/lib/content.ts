@@ -16,6 +16,8 @@ export interface Project {
   year: number;
   role: string;
   runtime: string;
+  /** commissioning client — a CLIENT row on the spec sheet when set */
+  client: string;
   tags: string[];
   accent: string;
   tileSize: 'normal' | 'large';
@@ -167,6 +169,7 @@ export function parseProject(raw: unknown, i: number): Project {
     year: r.year,
     role: str(r.role, file, `${where} role`, ''),
     runtime: str(r.runtime, file, `${where} runtime`, ''),
+    client: str(r.client, file, `${where} client`, ''),
     tags: tags as string[],
     accent,
     tileSize,

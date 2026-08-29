@@ -42,6 +42,7 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | year | number, no quotes | `2026` |
 | role | your role line | `"Director / DoP"` |
 | runtime | free text | `"12:40"` |
+| client | commissioning client — adds a CLIENT row to the spec sheet (leave out to hide) | `"Garena"` |
 | tags | list of words | `["short film","sci-fi"]` |
 | accent | this film's color, hex | `"#C8FF00"` |
 | tileSize | `"normal"` or `"large"` (large = double tile) | `"large"` |

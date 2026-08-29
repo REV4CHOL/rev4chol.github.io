@@ -298,7 +298,7 @@
   },
   {
     "slug": "lien-quan",
-    "title": "LIEN QUAN",
+    "title": "APL 2026 TEASER: Valor Rises, Battles Collide",
     "year": 2026,
     "role": "Colorist",
     "runtime": "",
@@ -318,7 +318,8 @@
     "film": {
       "type": "embed",
       "src": "<iframe src=\"https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Freel%2F1026445899822328%2F&show_text=false&width=560&t=0\" width=\"560\" height=\"314\" style=\"border:none;overflow:hidden\" scrolling=\"no\" frameborder=\"0\" allowfullscreen=\"true\" allow=\"autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share\" allowFullScreen=\"true\"></iframe>"
-    }
+    },
+    "client": "Garena"
   },
   {
     "slug": "pale-circuitry",

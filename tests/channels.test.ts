@@ -8,6 +8,7 @@ const proj = (slug: string, category: 'human' | 'machine'): Project => ({
   year: 2026,
   role: '',
   runtime: '',
+  client: '',
   tags: [],
   accent: '#C8FF00',
   tileSize: 'normal',
