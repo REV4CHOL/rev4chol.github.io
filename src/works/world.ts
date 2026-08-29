@@ -124,6 +124,13 @@ export class WorksWorld {
       host,
       { minX: -maxX, maxX: -minX, minY: -maxY, maxY: -minY },
       !reducedMotion(),
+      // pinch-to-zoom drives the world container's scale; the controller keeps the
+      // point under the fingers fixed and scales the pan bounds to match
+      {
+        get: () => w.worldC.scale.x || 1,
+        set: (s) => w.worldC.scale.set(s),
+        center: () => ({ x: app.screen.width / 2, y: app.screen.height / 2 }),
+      },
     );
 
     let coordsClock = 0;
@@ -167,11 +174,13 @@ export class WorksWorld {
   }
 
   viewRect(): ViewRect {
+    // pan.pos is a screen offset; the visible WORLD rect shrinks as the pinch zooms in
+    const s = this.worldC.scale.x || 1;
     return {
-      x: -this.pan.pos.x - this.app.screen.width / 2,
-      y: -this.pan.pos.y - this.app.screen.height / 2,
-      w: this.app.screen.width,
-      h: this.app.screen.height,
+      x: (-this.pan.pos.x - this.app.screen.width / 2) / s,
+      y: (-this.pan.pos.y - this.app.screen.height / 2) / s,
+      w: this.app.screen.width / s,
+      h: this.app.screen.height / s,
     };
   }
 
@@ -256,11 +265,15 @@ export class WorksWorld {
     const rgb = new RGBSplitFilter({ red: { x: 4, y: 0 }, green: { x: 0, y: 0 }, blue: { x: -4, y: 0 } });
     this.worldC.filters = [glitch, rgb];
     this.fxLayer.addChild(tile);
+    // under pinch zoom the tile is already rendered zs times larger and sits at a
+    // zs-scaled screen offset — both the cover target and the camera target follow
+    const zs = this.worldC.scale.x || 1;
     const cover =
-      (Math.max(this.app.screen.width / tile.cw, this.app.screen.height / tile.ch) * 1.12) / tile.sizeMul;
+      (Math.max(this.app.screen.width / (tile.cw * zs), this.app.screen.height / (tile.ch * zs)) * 1.12) /
+      tile.sizeMul;
     gsap.killTweensOf(tile.m);
     gsap.killTweensOf(this.pan.pos);
-    gsap.to(this.pan.pos, { x: -tile.x, y: -tile.y, duration: 0.42, ease: 'power2.in' });
+    gsap.to(this.pan.pos, { x: -tile.x * zs, y: -tile.y * zs, duration: 0.42, ease: 'power2.in' });
     gsap.to(tile.m, {
       a: cover, b: 0, c: 0, d: cover,
       duration: 0.46, ease: 'power3.in',
@@ -324,7 +337,9 @@ export class WorksWorld {
   exit(): Promise<void> {
     this.exiting = true;
     if (reducedMotion()) return Promise.resolve();
-    const span = Math.max(this.app.screen.width, this.app.screen.height) * 1.7;
+    // world-unit travel: divide by the pinch scale so the screen distance covered
+    // stays the same however far the visitor is zoomed in or out
+    const span = (Math.max(this.app.screen.width, this.app.screen.height) * 1.7) / (this.worldC.scale.x || 1);
     joltCamera(this.app.stage, 1.3);
     this.misreg?.dispose();
     // ramps for longer than the exit lasts — destroy() disposes it mid-climb
