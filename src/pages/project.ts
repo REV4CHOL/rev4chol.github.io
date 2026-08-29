@@ -174,11 +174,25 @@ function mountHero(p: Project, stamp: string): void {
     .join('');
 
   const title = p.title.toUpperCase();
-  if (title.length > 18) {
-    // one unbroken stylized name at display scale needs a smaller cut
-    document.querySelector('.p-title-stack')!.classList.add('p-title--long');
-  }
-  document.getElementById('p-title-ghost')!.textContent = title;
+  const stack = document.querySelector<HTMLElement>('.p-title-stack')!;
+  const ghost = document.getElementById('p-title-ghost')!;
+  ghost.textContent = title;
+  // the title never breaks: measure the name (via the ghost — it carries the
+  // full text at once, the visible copy is still scrambling in) and scale the
+  // shared font-size so any length holds exactly one line at any viewport
+  const fitTitle = () => {
+    stack.style.removeProperty('--tfs');
+    const w = stack.clientWidth;
+    const sw = ghost.scrollWidth;
+    if (sw > w && w > 0) {
+      const base = parseFloat(getComputedStyle(ghost).fontSize);
+      stack.style.setProperty('--tfs', `${Math.max(12, Math.floor(base * (w / sw) * 98) / 100)}px`);
+    }
+  };
+  fitTitle();
+  // a fallback-font measurement lies — refit once the display face is in
+  void document.fonts?.ready?.then(fitTitle);
+  window.addEventListener('resize', fitTitle);
   void scrambleEl(document.getElementById('p-title')!, title, 650);
 }
 

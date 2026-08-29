@@ -209,11 +209,12 @@
 .p-title-stack { position: absolute; left: 28px; bottom: 16px; right: 28px; z-index: 4; margin: 0; }
 .p-title, .p-title-ghost {
   display: block; font-family: var(--f-display); font-weight: 700;
-  font-size: var(--t-3xl); line-height: 0.84; text-transform: uppercase;
-  overflow-wrap: anywhere;
+  font-size: var(--tfs, var(--t-3xl)); line-height: 0.84; text-transform: uppercase;
+  /* one line, always: mountHero measures the name and sets --tfs so any
+     length fits the measure exactly — never a second line */
+  white-space: nowrap;
+  word-spacing: 0.18em;
 }
-/* one unbroken stylized name needs a smaller cut to hold one line */
-.p-title--long .p-title, .p-title--long .p-title-ghost { font-size: var(--t-2xl); }
 .p-title { position: relative; color: var(--bone); text-shadow: 0 4px 40px rgba(0, 0, 0, 0.85); }
 .p-title-ghost {
   position: absolute; left: 9px; top: 10px; z-index: -1;
