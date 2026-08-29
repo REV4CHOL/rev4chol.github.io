@@ -252,59 +252,61 @@
 .a-chip:hover { background: var(--signal); color: var(--void); }
 .a-chip:hover em { color: var(--void); }
 
-/* -------------------------------------------- CAP: the skill board -- */
+/* --------------------------------------------- CAP: the machine rack -- */
 
-.a-skill-board {
-  position: relative; overflow: hidden;
-  display: grid; grid-template-columns: 1fr 52px 1fr; align-items: start;
-  padding: 44px 8px 40px;
+.a-rack {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 44px 48px;
+  padding: 40px 0 44px;
   border-block: 1px solid color-mix(in srgb, var(--signal) 30%, transparent);
   background:
-    repeating-linear-gradient(0deg, color-mix(in srgb, var(--field) 7%, transparent) 0 1px, transparent 1px 34px),
-    repeating-linear-gradient(90deg, color-mix(in srgb, var(--field) 5%, transparent) 0 1px, transparent 1px 34px);
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--field) 6%, transparent) 0 1px, transparent 1px 36px);
 }
-/* the oversized ghost stamped behind the banks */
-.a-skill-ghost {
-  position: absolute; right: -22px; top: -30px; z-index: 0; pointer-events: none;
-  font-family: var(--f-display); font-weight: 700; text-transform: uppercase;
-  font-size: calc(var(--t-3xl) * 1.7); line-height: 1; letter-spacing: 0.02em;
-  color: transparent; -webkit-text-stroke: 1.5px color-mix(in srgb, var(--bone) 14%, transparent);
-}
-@supports not (-webkit-text-stroke: 1px #000) {
-  .a-skill-ghost { color: color-mix(in srgb, var(--bone) 8%, transparent); }
-}
-.a-skill-col { position: relative; z-index: 1; display: grid; gap: 18px; min-width: 0; }
+.a-rack-group { display: grid; gap: 10px; align-content: start; min-width: 0; }
 .a-skill-head {
-  justify-self: start; margin: 0 0 8px; padding: 6px 16px 5px 10px;
+  justify-self: start; margin: 0 0 10px; padding: 6px 16px 5px 10px;
   letter-spacing: 0.3em; font-weight: 500; color: var(--void);
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 100%, 6px 100%);
 }
-.a-skill-col--creative .a-skill-head { background: var(--alert); }
-.a-skill-col--technical .a-skill-head { background: var(--field); color: var(--bone); }
-.a-skill-row { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
-.a-skill-row em { font-style: normal; color: var(--signal); letter-spacing: 0.18em; flex: none; }
-.a-skill-name {
-  font-family: var(--f-display); font-weight: 700; text-transform: uppercase;
-  font-size: var(--t-xl); line-height: 0.95; color: var(--bone); min-width: 0;
+.a-skill-head--c { background: var(--alert); }
+.a-skill-head--t { background: var(--field); color: var(--bone); }
+
+/* one skill = one cartridge: uniform hardware, nothing ever clips */
+.a-bar {
+  position: relative; display: flex; align-items: center; gap: 14px;
+  height: 62px; padding: 0 16px 0 0; overflow: hidden; min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--bone) 20%, transparent);
+  background: color-mix(in srgb, var(--void) 88%, var(--bone) 4%);
 }
-/* alternate cuts down the bank — solid, outline, solid, outline */
-.a-skill-row:nth-of-type(odd) .a-skill-name {
-  color: transparent; -webkit-text-stroke: 1.2px var(--bone);
+.a-bar[data-kind='c'] { border-left: 4px solid var(--alert); }
+.a-bar[data-kind='t'] { border-left: 4px solid var(--field); }
+.a-bar-idx {
+  align-self: stretch; display: grid; place-items: center; flex: none;
+  min-width: 52px; font-style: normal; letter-spacing: 0.16em;
+  color: var(--void); background: var(--signal);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
 }
-@supports not (-webkit-text-stroke: 1px #000) {
-  .a-skill-row:nth-of-type(odd) .a-skill-name { color: color-mix(in srgb, var(--bone) 55%, transparent); }
+.a-bar-name {
+  flex: none; font-family: var(--f-display); font-weight: 700;
+  font-size: clamp(17px, calc(11px + 1.15vw), 28px); line-height: 1;
+  text-transform: uppercase; white-space: nowrap; color: var(--bone);
 }
-.a-skill-lead { flex: 1 1 20px; border-top: 1px dotted color-mix(in srgb, var(--bone) 30%, transparent); }
-.a-skill-row b { font-weight: 400; flex: none; }
-.a-skill-col--creative .a-skill-row b { color: var(--alert); }
-.a-skill-col--technical .a-skill-row b { color: color-mix(in srgb, var(--field) 70%, var(--bone) 30%); }
-.a-skill-row:hover .a-skill-name { animation: rgb-flick 0.32s steps(2) 1; }
-.a-skill-row:hover em { color: var(--bone); }
-/* the hazard spine between the banks */
-.a-skill-spine {
-  justify-self: center; align-self: stretch; width: 6px; min-height: 100%;
-  background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--signal) 65%, transparent) 0 8px, transparent 8px 18px);
+.a-bar-rail {
+  flex: 1 1 16px; align-self: center; height: 10px; min-width: 12px;
+  background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--bone) 22%, transparent) 0 5px, transparent 5px 10px) 0 0 / 100% 5px no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 5px, color-mix(in srgb, var(--bone) 14%, transparent) 5px 10px) 0 5px / 100% 5px no-repeat;
 }
+.a-bar-cap { flex: none; letter-spacing: 0.2em; }
+.a-bar[data-kind='c'] .a-bar-cap { color: var(--alert); }
+.a-bar[data-kind='t'] .a-bar-cap { color: color-mix(in srgb, var(--field) 60%, var(--bone) 40%); }
+/* hover: the cartridge slams to its bank color */
+.a-bar:hover[data-kind='c'] { background: var(--alert); border-color: var(--alert); }
+.a-bar:hover[data-kind='t'] { background: var(--field); border-color: var(--field); }
+.a-bar:hover .a-bar-name { color: var(--void); animation: rgb-flick 0.32s steps(2) 1; }
+.a-bar:hover[data-kind='t'] .a-bar-name { color: var(--bone); }
+.a-bar:hover .a-bar-cap { color: var(--void); }
+.a-bar:hover[data-kind='t'] .a-bar-cap { color: var(--bone); }
+.a-bar:hover .a-bar-rail { opacity: 0.35; }
+.rvl-calm .a-bar:hover .a-bar-name { animation: none; }
 
 /* --------------------------------------------------------- transmit -- */
 
@@ -371,9 +373,9 @@
   }
   .a-rail-tag { position: static; margin-bottom: 20px; }
   .a-spec dt { padding-right: 20px; }
-  .a-skill-board { grid-template-columns: 1fr; gap: 34px; padding-inline: 4px; }
-  .a-skill-spine { width: 100%; min-height: 6px; }
-  .a-skill-ghost { font-size: calc(var(--t-3xl) * 1.1); top: auto; bottom: -14px; }
+  .a-rack { grid-template-columns: 1fr; gap: 36px; }
+  .a-bar { height: 54px; gap: 10px; }
+  .a-bar-cap { display: none; }
 
   .a-transmit { padding: 80px 18px 64px; }
   .a-yes { font-size: var(--t-xl); }

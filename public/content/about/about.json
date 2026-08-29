@@ -6,15 +6,46 @@
     "Based wherever the project is. The room travels; the standards do not."
   ],
   "facts": [
-    { "k": "BASE", "v": "Saigon / Remote" },
-    { "k": "BORN", "v": "04/04/2003" },
-    { "k": "ACTIVE SINCE", "v": "2024" },
-    { "k": "DELIVERS", "v": "HDR, SDR, and everything stranger" },
-    { "k": "STATUS", "v": "Active — accepting procedures" }
+    {
+      "k": "BASE",
+      "v": "Saigon / Remote"
+    },
+    {
+      "k": "BORN",
+      "v": "04/04/2003"
+    },
+    {
+      "k": "ACTIVE SINCE",
+      "v": "2025"
+    },
+    {
+      "k": "DELIVERS",
+      "v": "HDR, SDR, and everything stranger"
+    },
+    {
+      "k": "STATUS",
+      "v": "Active — accepting procedures"
+    }
   ],
-  "capabilities": ["COLOR GRADE", "EDIT", "AI PIPELINE", "FINISHING", "LOOK DEV"],
+  "capabilities": [
+    "COLOR GRADE",
+    "EDIT",
+    "AI PIPELINE",
+    "FINISHING",
+    "LOOK DEV"
+  ],
   "skills": {
-    "creative": ["Cinematography", "Colorist", "Storytelling", "Video Editing"],
-    "technical": ["DaVinci Resolve", "BorisFX's Mocha Pro", "Adobe Photoshop", "AI Creative Suite"]
+    "creative": [
+      "Cinematography",
+      "Colorist",
+      "Storytelling",
+      "Video Editing"
+    ],
+    "technical": [
+      "DaVinci Resolve",
+      "BorisFX's Mocha Pro",
+      "Adobe Photoshop",
+      "AI Creative Suite"
+    ]
   }
 }

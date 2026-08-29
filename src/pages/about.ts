@@ -114,22 +114,27 @@ function render(site: SiteContent, about: AboutContent): void {
   const capsEl = document.getElementById('a-caps')!;
   const hasSkills = about.skills.creative.length > 0 || about.skills.technical.length > 0;
   if (hasSkills) {
-    const bank = (kind: 'creative' | 'technical', items: string[]) => {
-      const tag = kind === 'creative' ? 'C' : 'T';
-      const rows = items
+    // the machine rack: every skill is one uniform cartridge bar — index
+    // plate, name, machined rail, category cap — color-coded per bank and
+    // inverting on hover. Uniform hardware, so nothing can ever clip.
+    const bank = (kind: 'c' | 't', label: string, items: string[]) => {
+      const bars = items
         .map(
           (s, i) =>
-            `<div class="a-skill-row" data-stamp><em class="micro">${tag}·${pad2(i + 1)}</em><span class="a-skill-name">${escapeHtml(s.toUpperCase())}</span><i class="a-skill-lead" aria-hidden="true"></i><b aria-hidden="true">▸</b></div>`,
+            `<div class="a-bar" data-kind="${kind}" data-stamp>
+              <em class="a-bar-idx micro">${kind.toUpperCase()}·${pad2(i + 1)}</em>
+              <span class="a-bar-name">${escapeHtml(s.toUpperCase())}</span>
+              <i class="a-bar-rail" aria-hidden="true"></i>
+              <span class="a-bar-cap micro" aria-hidden="true">${label.slice(0, 3)} ▪ ${pad2(i + 1)}/${pad2(items.length)}</span>
+            </div>`,
         )
         .join('');
-      return `<div class="a-skill-col a-skill-col--${kind}">
-        <h3 class="a-skill-head micro">${kind.toUpperCase()}</h3>${rows}</div>`;
+      return `<div class="a-rack-group">
+        <h3 class="a-skill-head micro a-skill-head--${kind}">${label}</h3>${bars}</div>`;
     };
-    capsEl.innerHTML = `<div class="a-skill-board">
-      <span class="a-skill-ghost" aria-hidden="true">SKILL</span>
-      ${bank('creative', about.skills.creative)}
-      <i class="a-skill-spine" aria-hidden="true"></i>
-      ${bank('technical', about.skills.technical)}
+    capsEl.innerHTML = `<div class="a-rack">
+      ${bank('c', 'CREATIVE', about.skills.creative)}
+      ${bank('t', 'TECHNICAL', about.skills.technical)}
     </div>`;
   } else {
     capsEl.innerHTML = caps
