@@ -297,26 +297,28 @@
     "tileSize": "large"
   },
   {
-    "slug": "night-cartel",
-    "title": "Night Cartel",
-    "year": 2025,
-    "role": "DoP",
-    "runtime": "15:30",
+    "slug": "lien-quan",
+    "title": "LIEN QUAN",
+    "year": 2026,
+    "role": "Colorist",
+    "runtime": "",
     "tags": [
-      "short film",
-      "noir"
+      "social promotion clip"
     ],
-    "accent": "#B79CFF",
-    "synopsis": "Three couriers, one city, and a package none of them will open. Shot entirely at gas stations.",
+    "accent": "#FF5C4D",
+    "tileSize": "large",
+    "category": "human",
+    "synopsis": "Small gods on a table. The arena is wherever everyone looks at once.",
     "credits": [
       {
-        "role": "Cinematography",
+        "role": "Colorist",
         "name": "Revachol"
       }
     ],
-    "film": null,
-    "category": "human",
-    "tileSize": "large"
+    "film": {
+      "type": "embed",
+      "src": "<iframe src=\"https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Freel%2F1026445899822328%2F&show_text=false&width=560&t=0\" width=\"560\" height=\"314\" style=\"border:none;overflow:hidden\" scrolling=\"no\" frameborder=\"0\" allowfullscreen=\"true\" allow=\"autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share\" allowFullScreen=\"true\"></iframe>"
+    }
   },
   {
     "slug": "pale-circuitry",

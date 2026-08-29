@@ -7,7 +7,7 @@ export interface SiteContent {
   nav: NavItem[];
   socials: Social[];
 }
-export interface FilmRef { type: 'vimeo' | 'youtube' | 'local'; src: string }
+export interface FilmRef { type: 'vimeo' | 'youtube' | 'local' | 'embed'; src: string }
 export interface Credit { role: string; name: string }
 export interface GridPos { col: number; row: number }
 export interface Project {
@@ -145,8 +145,8 @@ export function parseProject(raw: unknown, i: number): Project {
   let film: FilmRef | null = null;
   if (r.film !== undefined && r.film !== null) {
     const f = obj(r.film, file, `${where} film`);
-    if (f.type !== 'vimeo' && f.type !== 'youtube' && f.type !== 'local')
-      fail(file, `${where} film.type must be "vimeo", "youtube" or "local"`);
+    if (f.type !== 'vimeo' && f.type !== 'youtube' && f.type !== 'local' && f.type !== 'embed')
+      fail(file, `${where} film.type must be "vimeo", "youtube", "local" or "embed"`);
     film = { type: f.type, src: str(f.src, file, `${where} film.src`) };
   }
 

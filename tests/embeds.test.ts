@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { embedSrc, vimeoId, youtubeId } from '../src/lib/embeds';
+import { embedSrc, iframeSrc, vimeoId, youtubeId } from '../src/lib/embeds';
 
 describe('youtubeId', () => {
   it('parses common url shapes', () => {
@@ -39,6 +39,35 @@ describe('pasted embed codes', () => {
         '<iframe src="https://player.vimeo.com/video/76979871?h=8272103f6e&badge=0" width="640" height="360" frameborder="0" allowfullscreen></iframe>',
       ),
     ).toBe('76979871');
+  });
+});
+
+describe('the generic embed type — any platform\'s iframe, verbatim', () => {
+  const FB =
+    '<iframe src="https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Freel%2F1026445899822328%2F&show_text=false&width=560&t=0" width="560" height="314" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowFullScreen="true"></iframe>';
+
+  it('pulls the player url out of a pasted Facebook reel snippet', () => {
+    expect(iframeSrc(FB)).toBe(
+      'https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Freel%2F1026445899822328%2F&show_text=false&width=560&t=0',
+    );
+  });
+
+  it('passes a bare https url through untouched', () => {
+    expect(iframeSrc('https://www.facebook.com/plugins/video.php?href=x')).toBe(
+      'https://www.facebook.com/plugins/video.php?href=x',
+    );
+  });
+
+  it('refuses non-https payloads', () => {
+    expect(iframeSrc('http://evil.example/embed')).toBeNull();
+    expect(iframeSrc('<iframe src="javascript:alert(1)"></iframe>')).toBeNull();
+    expect(iframeSrc('just words')).toBeNull();
+  });
+
+  it('embedSrc serves the embed type verbatim from the pasted snippet', () => {
+    expect(embedSrc({ type: 'embed', src: FB })).toBe(
+      'https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Freel%2F1026445899822328%2F&show_text=false&width=560&t=0',
+    );
   });
 });
 

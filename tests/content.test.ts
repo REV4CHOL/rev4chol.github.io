@@ -128,6 +128,13 @@ describe('helpers', () => {
     expect(() => parseProjects([{ ...validProject(), aspect: 'wide' }])).toThrow(ContentError);
   });
 
+  it('film.type embed: accepted, carrying any platform iframe verbatim', () => {
+    const [p] = parseProjects([
+      { ...validProject(), film: { type: 'embed', src: '<iframe src="https://www.facebook.com/plugins/video.php?x=1"></iframe>' } },
+    ]);
+    expect(p.film?.type).toBe('embed');
+  });
+
   it('filmPending: defaults false, accepts true, rejects junk', () => {
     expect(parseProjects([validProject()])[0].filmPending).toBe(false);
     expect(parseProjects([{ ...validProject(), filmPending: true }])[0].filmPending).toBe(true);

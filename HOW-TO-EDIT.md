@@ -56,6 +56,9 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 **film** is what the WATCH button plays. It is one of:
 - `{ "type": "vimeo", "src": "https://vimeo.com/123456789" }`
 - `{ "type": "youtube", "src": "https://youtu.be/XXXXXXXXXXX" }`
+- `{ "type": "embed", "src": "<iframe …></iframe>" }` — ANY other platform
+  (Facebook, TikTok, …): paste the platform's full Share ▸ Embed iframe code
+  straight in, the player address is pulled out of it
 - `{ "type": "local", "src": "film.mp4" }` — put `film.mp4` in the folder
 - `null` — no WATCH button (trailer-only project)
 
