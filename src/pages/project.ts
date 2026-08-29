@@ -246,7 +246,7 @@ function mountSynopsis(p: Project): void {
   watch.addEventListener('click', () => {
     watch.hidden = true;
     player.hidden = false;
-    armEffectHole(player);
+    armEffectHole('player', player);
     sound.zap();
     if (p.film!.type === 'local') {
       const v = document.createElement('video');
@@ -268,27 +268,47 @@ function mountSynopsis(p: Project): void {
 }
 
 /** The site's film layers (grain + scanlines) must never land on an open
- *  player: punch a hole in both, tracking the player's viewport rect on
- *  scroll and resize. The rest of the page keeps its texture. */
-function armEffectHole(target: HTMLElement): void {
+ *  player or on the footage wall: punch a hole per region in both layers,
+ *  tracking each rect on scroll and resize. The rest of the page keeps its
+ *  texture. Two named slots ('player', 'wall') map to the two mask holes. */
+const holeTargets: { player?: HTMLElement; wall?: HTMLElement } = {};
+let holesWired = false;
+
+function syncHoles(): void {
   const layers = [
     document.getElementById('grain'),
     document.querySelector<HTMLElement>('.scan-layer'),
   ].filter((el): el is HTMLElement => el !== null);
-  if (layers.length === 0) return;
-  const sync = () => {
-    const r = target.getBoundingClientRect();
-    for (const el of layers) {
-      el.classList.add('has-hole');
-      el.style.setProperty('--hole-x', `${r.left}px`);
-      el.style.setProperty('--hole-y', `${r.top}px`);
-      el.style.setProperty('--hole-w', `${r.width}px`);
-      el.style.setProperty('--hole-h', `${r.height}px`);
+  const put = (el: HTMLElement, prefix: string, t?: HTMLElement) => {
+    if (t && t.isConnected) {
+      const r = t.getBoundingClientRect();
+      el.style.setProperty(`${prefix}-x`, `${r.left}px`);
+      el.style.setProperty(`${prefix}-y`, `${r.top}px`);
+      el.style.setProperty(`${prefix}-w`, `${r.width}px`);
+      el.style.setProperty(`${prefix}-h`, `${r.height}px`);
     }
   };
-  sync();
-  window.addEventListener('scroll', sync, { passive: true });
-  window.addEventListener('resize', sync);
+  for (const el of layers) {
+    el.classList.add('has-hole');
+    put(el, '--hole', holeTargets.player);
+    put(el, '--hole2', holeTargets.wall);
+  }
+}
+
+let holesRO: ResizeObserver | null = null;
+
+function armEffectHole(slot: 'player' | 'wall', target: HTMLElement): void {
+  holeTargets[slot] = target;
+  syncHoles();
+  if (!holesWired) {
+    holesWired = true;
+    window.addEventListener('scroll', syncHoles, { passive: true });
+    window.addEventListener('resize', syncHoles);
+    // scroll/resize can't see a region GROWING — the wall gains height with
+    // every still that finishes loading — so the regions watch themselves
+    holesRO = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => syncHoles()) : null;
+  }
+  holesRO?.observe(target);
 }
 
 /* -------------------------------------------------------------- ticker -- */
@@ -365,6 +385,9 @@ async function mountWall(p: Project): Promise<void> {
   if (urls.length === 0) return;
   sec.hidden = false;
   const wall = document.getElementById('p-stills')!;
+  // the footage itself is raw glass: the film layers carve the wall out, so
+  // no grain or scanlines ever land on the stills
+  armEffectHole('wall', wall);
 
   const io = new IntersectionObserver(
     (entries) => {

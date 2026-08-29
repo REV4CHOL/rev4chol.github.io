@@ -67,10 +67,16 @@ body { font-size: var(--t-md); line-height: 1.6; }
    hole tracking its rect (vars set from JS), so no grain or scanlines land
    on the player while the rest of the page keeps its texture */
 #grain.has-hole, .scan-layer.has-hole {
-  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  /* full veil minus up to two carved regions (the open film player, the
+     stills wall) — the regions never overlap each other, so successive
+     exclude compositing is a clean subtraction */
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0), linear-gradient(#000 0 0);
   mask-repeat: no-repeat;
-  mask-position: 0 0, var(--hole-x, -9999px) var(--hole-y, -9999px);
-  mask-size: 100% 100%, var(--hole-w, 0) var(--hole-h, 0);
+  mask-position:
+    0 0,
+    var(--hole-x, -9999px) var(--hole-y, -9999px),
+    var(--hole2-x, -9999px) var(--hole2-y, -9999px);
+  mask-size: 100% 100%, var(--hole-w, 0) var(--hole-h, 0), var(--hole2-w, 0) var(--hole2-h, 0);
   mask-composite: exclude;
 }
 
