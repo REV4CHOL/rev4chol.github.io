@@ -27,3 +27,38 @@ decoration).
 
 **Out of scope.** Desktop wheel/trackpad, swipe-back gestures, and chaining the
 gesture onto other pages — homepage only, per the request.
+
+---
+
+## v2 — physical glide + site-wide chain (owner revision, same day)
+
+Owner, after trying v1: *"I still want to use my finger thumb, and physically
+slide down on the homepage to move to another page. And yes bring that swipe
+chaining to the rest of the site"* — plus: remove the `noice weather innit?`
+CTA on touch devices. Reading: the burst+wipe cut is not physical enough (the
+same correction as the channel flip: the page itself must move), and the
+gesture goes site-wide. "Slide down" = scroll-down intent = finger travels up.
+
+**The glide.** While a touch drag runs, `document.body` translates 1:1 with the
+finger (soft resistance past 35% of the viewport, capped at 60%); behind it —
+a fixed panel appended to `<html>`, painting between the root background and
+the body (z-index −1) — the destination's station card: micro `TUNING ▸`
+kicker + the next page's name in outlined Clash with the chromatic ident
+shadows. Release past `glideCommit` (drag ≥ 22% of viewport height, or a flick
+≥ 40px at ≥ 0.5 px/ms) → the body slides fully off, whoosh, and the browser
+navigates (the slide IS the transition — no wipe on top). Release short →
+spring back. Calm mode: no drag-follow; a completed swipe (classifySwipe)
+navigates via the standard wipe.
+
+**The chain** (from `site.json` nav order, via `navNeighbors`): finger up =
+onward, finger down = back. HOMEPAGE → WORK (no back). ABOUT: up → CONTACT,
+down → WORK, but only when the page is scrolled to the respective end
+(boundary-armed so normal scrolling never glides). CONTACT: down → ABOUT (no
+onward). WORK is excluded — the floor's pan/pinch owns every touch there.
+Dossier pages keep their own RETURN/NEXT endnav. The `⌄` cue (class
+`swipe-cue`) mounts on every armed page, coarse pointers only.
+
+**Guards unchanged:** touch pointers only, second finger poisons (pinch wins),
+link/button starts ignored, pointercancel aborts. While a glide is engaged, a
+non-passive touchmove preventDefault stops the browser scrolling/refreshing
+underneath. Module: `src/lib/swipe-nav.ts` (replaces `src/home/swipe.ts`).

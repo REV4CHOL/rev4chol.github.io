@@ -6,6 +6,7 @@ import { sound } from '../lib/sound';
 import { armStamps } from '../lib/stamps';
 import { capabilitiesFromTagline, portraitCandidates, sheetCandidates } from '../about/operator';
 import { mountSpecimen } from '../about/specimen';
+import { armGlideNav, navNeighbors } from '../lib/swipe-nav';
 import { hashSlug } from '../project/dossier';
 import { startPage } from '../shell/page';
 import '../styles/about.css';
@@ -13,6 +14,16 @@ import '../styles/about.css';
 startPage(
   'about',
   async ({ site }) => {
+    // this page scrolls, so the glide only arms at the respective end of the
+    // scroll — normal thumb-scrolling never drags the page itself
+    const se = document.scrollingElement ?? document.documentElement;
+    armGlideNav({
+      ...navNeighbors(site.nav, location.pathname),
+      allow: (dir) =>
+        dir > 0
+          ? se.scrollTop + window.innerHeight >= se.scrollHeight - 6
+          : se.scrollTop <= 6,
+    });
     const about = await loadAbout();
     render(site, about);
   },

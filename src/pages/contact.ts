@@ -4,6 +4,7 @@ import { mulberry32 } from '../lib/rng';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { armStamps } from '../lib/stamps';
+import { armGlideNav, navNeighbors } from '../lib/swipe-nav';
 import { hashSlug } from '../project/dossier';
 import { startPage } from '../shell/page';
 import '../styles/contact.css';
@@ -11,6 +12,9 @@ import '../styles/contact.css';
 const BARS = 24;
 
 startPage('contact', ({ site }) => {
+  // end of the chain: thumb-glide down returns to the page before CONTACT
+  armGlideNav(navNeighbors(site.nav, location.pathname));
+
   void scrambleEl(document.getElementById('c-status-line')!, 'UPLINK :: CHANNEL OPEN // AWAITING SIGNAL', 900);
 
   // -- the frequency: the page's one loud thing --------------------------
