@@ -1,6 +1,8 @@
 import { reducedMotion } from '../lib/env';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
+import { leaveTo } from '../lib/transitions';
+import { armSwipeNav } from '../home/swipe';
 import { startPage } from '../shell/page';
 
 let heroBurst: () => void = () => {};
@@ -23,6 +25,39 @@ startPage('home', async ({ site }) => {
       .map((r) => r.trim().replace(/ /g, '_'))
       .filter(Boolean)
       .join(' · ');
+  }
+
+  // touch visitors scroll down into the site — honor it: a real upward swipe
+  // bursts the hero and wipes to the page after HOMEPAGE in the nav, and a
+  // micro cue makes the gesture discoverable on coarse-pointer devices.
+  // Armed BEFORE the type reveal below: navigation must never wait on decoration.
+  const here = location.pathname === '/' ? '/index.html' : location.pathname;
+  const idx = site.nav.findIndex((n) => n.href === here || n.href === '/');
+  const next = site.nav[idx + 1] ?? site.nav.find((n) => n.href.includes('works')) ?? null;
+  if (next) {
+    const cue = document.createElement('a');
+    cue.className = 'home-swipe-cue';
+    cue.href = next.href;
+    cue.setAttribute('data-internal', '');
+    const label = document.createElement('span');
+    label.className = 'swc-label';
+    label.textContent = next.label;
+    const chevron = document.createElement('span');
+    chevron.className = 'swc-chevron';
+    chevron.textContent = '⌄';
+    chevron.setAttribute('aria-hidden', 'true');
+    cue.append(label, chevron);
+    document.body.append(cue);
+    let swipes = 0;
+    const commit = () => {
+      swipes++;
+      heroBurst();
+      sound.whoosh();
+      leaveTo(next.href);
+    };
+    armSwipeNav(commit);
+    // debug handle for verification
+    (window as unknown as { rvlSwipe: unknown }).rvlSwipe = { commit, count: () => swipes };
   }
 
   // the Clash layers scramble in; each ghost (::after reads data-text) arms
