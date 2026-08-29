@@ -130,6 +130,9 @@ export class WorksWorld {
         get: () => w.worldC.scale.x || 1,
         set: (s) => w.worldC.scale.set(s),
         center: () => ({ x: app.screen.width / 2, y: app.screen.height / 2 }),
+        // full pinch-out on any device reveals what a ~1920px desktop sees —
+        // a phone reaches ~0.2, a tablet ~0.4, a wide screen keeps 0.5
+        min: () => Math.max(0.16, Math.min(0.5, app.screen.width / 1920)),
       },
     );
 

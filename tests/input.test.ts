@@ -393,6 +393,19 @@ describe('PanController pinch zoom', () => {
     expect(state.s).toBe(0.5);
   });
 
+  it('honors a host-provided zoom-out floor (small screens see a desktop-wide view)', () => {
+    stubClock(0);
+    const { host, state } = makeZoom();
+    host.min = () => 0.2; // a 375px phone matching a ~1920px desktop view
+    const { listeners } = makeController(WIDE, true, () => {}, host);
+
+    fireDown(listeners, 90, 100, 1);
+    fireDown(listeners, 110, 100, 2); // d = 20
+    fireMove(listeners, 99, 100, 1, 16);
+    fireMove(listeners, 101, 100, 2, 32); // d = 2 -> collapse toward the floor
+    expect(state.s).toBeCloseTo(0.2, 5);
+  });
+
   it('a pinch can never read as a tap', () => {
     stubClock(0);
     const { host } = makeZoom();

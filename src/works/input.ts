@@ -9,6 +9,9 @@ export interface ZoomHost {
   get(): number;
   set(s: number): void;
   center(): { x: number; y: number };
+  /** Optional zoom-out floor override — small screens use it to reach a
+   *  desktop-wide overview instead of stopping at the default 0.5. */
+  min?(): number;
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -133,7 +136,8 @@ export class PanController {
     const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
     if (this.zoomHost && this.pinchDist! > 0 && d > 0) {
       const sOld = this.zoomHost.get();
-      const sNew = clamp(sOld * (d / this.pinchDist!), MIN_SCALE, MAX_SCALE);
+      const floor = Math.min(this.zoomHost.min?.() ?? MIN_SCALE, MIN_SCALE);
+      const sNew = clamp(sOld * (d / this.pinchDist!), floor, MAX_SCALE);
       if (sNew !== sOld) {
         // keep the world point under the fingers stationary while the scale changes:
         // world = (mid - C - pos) / s  =>  pos' = mid - C - world * s'
