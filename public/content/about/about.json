@@ -1,5 +1,5 @@
 {
-  "statement": "THE EYE BEHIND THE MACHINE",
+  "statement": "MACHINED-EYED ARCHITECT.",
   "bio": [
     "I grade, cut and machine-dream moving images. Most of my nights end in a dark room with a scope glowing and a director asking for one more pass.",
     "Trained as an editor, converted by color, extended by machines. I build finishing pipelines where AI does the lifting and a human eye does the deciding — every frame that leaves this room was chosen, not generated.",
@@ -7,10 +7,14 @@
   ],
   "facts": [
     { "k": "BASE", "v": "Saigon / Remote" },
-    { "k": "ACTIVE SINCE", "v": "2019" },
-    { "k": "SUITE", "v": "DaVinci Resolve, Premiere, ComfyUI" },
+    { "k": "BORN", "v": "04/04/2003" },
+    { "k": "ACTIVE SINCE", "v": "2024" },
     { "k": "DELIVERS", "v": "HDR, SDR, and everything stranger" },
     { "k": "STATUS", "v": "Active — accepting procedures" }
   ],
-  "capabilities": ["COLOR GRADE", "EDIT", "AI PIPELINE", "FINISHING", "LOOK DEV"]
+  "capabilities": ["COLOR GRADE", "EDIT", "AI PIPELINE", "FINISHING", "LOOK DEV"],
+  "skills": {
+    "creative": ["Cinematography", "Colorist", "Storytelling", "Video Editing"],
+    "technical": ["DaVinci Resolve", "BorisFX's Mocha Pro", "Adobe Photoshop", "AI Creative Suite"]
+  }
 }

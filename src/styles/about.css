@@ -25,28 +25,61 @@
 }
 
 .a-hero-grid {
-  display: grid; grid-template-columns: 1fr minmax(340px, 460px);
+  display: grid; grid-template-columns: 1fr minmax(380px, 560px);
   gap: 56px; align-items: end;
 }
 
 .a-id { min-width: 0; } /* the mega name must never inflate the 1fr track */
-.a-name-stack { margin: 0; }
-.a-name-ghost, .a-name {
-  display: block; font-family: var(--f-display); font-weight: 700;
-  font-size: var(--t-3xl); line-height: 0.86; text-transform: uppercase;
+/* the name is the loudest thing on the page: solid Clash carrying hard
+   chromatic shadows, two misregistered plate copies slicing on stepped
+   clocks (the channel-ident grammar), and a periodic skew-jolt pulse */
+.a-name-stack { margin: 0; animation: a-name-pulse 9s steps(1) infinite; }
+.a-name {
+  position: relative; display: block;
+  font-family: var(--f-display); font-weight: 700;
+  font-size: calc(var(--t-3xl) * 1.18); line-height: 0.84; text-transform: uppercase;
+  color: var(--bone);
+  text-shadow: -6px 0 rgba(255, 46, 99, 0.8), 6px 0 rgba(36, 24, 255, 0.85);
 }
-.a-name-ghost { color: transparent; -webkit-text-stroke: 1.5px var(--signal); opacity: 0.55; }
+.a-name::before,
+.a-name::after {
+  content: attr(data-text); position: absolute; inset: 0;
+  text-shadow: none; pointer-events: none; color: transparent;
+}
+.a-name::before {
+  -webkit-text-stroke: 1.5px var(--alert); translate: 9px 5px;
+  animation: ch-slice-a 0.52s steps(1) infinite;
+}
+.a-name::after {
+  -webkit-text-stroke: 1.5px var(--field); translate: -8px -4px;
+  animation: ch-slice-b 0.66s steps(1) infinite;
+}
 @supports not (-webkit-text-stroke: 1px #000) {
-  .a-name-ghost { color: var(--signal); opacity: 0.28; }
+  .a-name::before { color: rgba(255, 46, 99, 0.4); }
+  .a-name::after { color: rgba(36, 24, 255, 0.45); }
 }
-.a-name { color: var(--bone); }
+@keyframes a-name-pulse {
+  0%, 94% { transform: none; }
+  95% { transform: translate(5px, -2px) skewX(-5deg); }
+  97% { transform: translate(-4px, 1px) skewX(2deg); }
+  100% { transform: none; }
+}
+.rvl-calm .a-name-stack { animation: none; }
+.rvl-calm .a-name::before, .rvl-calm .a-name::after { display: none; }
+/* the inverted registration strip under the name — homepage plate grammar */
+.a-name-plate {
+  display: inline-block; margin: 18px 0 0; padding: 6px 14px 5px 10px;
+  background: var(--signal); color: var(--void);
+  letter-spacing: 0.24em; font-weight: 500;
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 100%, 8px 100%);
+}
 .a-statement {
-  margin: 30px 0 0; font-family: var(--f-serif); font-style: italic;
+  margin: 26px 0 0; font-family: var(--f-serif); font-style: italic;
   font-size: var(--t-lg); line-height: 1.4; color: var(--bone); max-width: 26ch;
 }
 
-/* the subject — portrait through the machine */
-.a-subject { position: relative; justify-self: end; width: min(100%, 440px); min-width: 0; }
+/* the subject — portrait through the machine, big enough to hold the room */
+.a-subject { position: relative; justify-self: end; width: min(100%, 560px); min-width: 0; }
 /* rings center on the portrait frame (top-aligned 4:5 box), not the whole
    column — the callouts below must not drag the scanner's eye down */
 .a-reticle { position: absolute; inset: 0 0 auto 0; aspect-ratio: 4 / 5; pointer-events: none; }
@@ -92,6 +125,47 @@
   position: absolute; left: 14px; bottom: 12px; z-index: 2; pointer-events: none;
   color: rgba(237, 237, 230, 0.8); letter-spacing: 0.12em;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
+}
+
+/* misregistered echo frames — the portrait's chromatic plates, breathing on
+   stepped clocks like the channel ident's slivers */
+.a-echo {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  border: 1.5px solid var(--alert); opacity: 0.75;
+  animation: a-echo-a 2.9s steps(2) infinite;
+}
+.a-echo-b {
+  border-color: var(--field); opacity: 0.85;
+  animation: a-echo-b 3.7s steps(2) infinite;
+}
+@keyframes a-echo-a {
+  0%, 100% { translate: 9px 7px; }
+  50% { translate: 12px 4px; }
+}
+@keyframes a-echo-b {
+  0%, 100% { translate: -8px -6px; }
+  50% { translate: -5px -9px; }
+}
+.rvl-calm .a-echo { animation: none; }
+
+/* the scanner never stops reading the subject */
+.a-sweep {
+  position: absolute; left: 0; right: 0; top: 0; height: 20%;
+  z-index: 2; pointer-events: none; mix-blend-mode: screen;
+  background: linear-gradient(180deg, transparent, rgba(200, 255, 0, 0.16) 55%, rgba(200, 255, 0, 0.4) 97%, transparent);
+  animation: a-sweep-run 6.5s linear infinite;
+}
+@keyframes a-sweep-run {
+  0% { transform: translateY(-110%); }
+  100% { transform: translateY(520%); }
+}
+.rvl-calm .a-sweep { display: none; }
+
+/* vertical raw-feed tag riding the frame's right shoulder */
+.a-subj-tag {
+  position: absolute; right: -14px; top: 8px; z-index: 2;
+  writing-mode: vertical-rl; letter-spacing: 0.3em;
+  color: color-mix(in srgb, var(--bone) 65%, transparent);
 }
 
 .a-callouts {
@@ -178,41 +252,59 @@
 .a-chip:hover { background: var(--signal); color: var(--void); }
 .a-chip:hover em { color: var(--void); }
 
-/* ------------------------------------------------ SHT: contact sheet -- */
+/* -------------------------------------------- CAP: the skill board -- */
 
-.a-sheet {
-  position: relative; padding: 30px 0;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px;
+.a-skill-board {
+  position: relative; overflow: hidden;
+  display: grid; grid-template-columns: 1fr 52px 1fr; align-items: start;
+  padding: 44px 8px 40px;
+  border-block: 1px solid color-mix(in srgb, var(--signal) 30%, transparent);
+  background:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--field) 7%, transparent) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--field) 5%, transparent) 0 1px, transparent 1px 34px);
 }
-/* sprocket strips — the filmstrip's perforations */
-.a-sheet::before, .a-sheet::after {
-  content: ''; position: absolute; left: 0; right: 0; height: 12px;
-  background: repeating-linear-gradient(90deg, rgba(200, 255, 0, 0.4) 0 16px, transparent 16px 30px);
+/* the oversized ghost stamped behind the banks */
+.a-skill-ghost {
+  position: absolute; right: -22px; top: -30px; z-index: 0; pointer-events: none;
+  font-family: var(--f-display); font-weight: 700; text-transform: uppercase;
+  font-size: calc(var(--t-3xl) * 1.7); line-height: 1; letter-spacing: 0.02em;
+  color: transparent; -webkit-text-stroke: 1.5px color-mix(in srgb, var(--bone) 14%, transparent);
 }
-.a-sheet::before { top: 0; }
-.a-sheet::after { bottom: 0; }
-
-.a-frame {
-  position: relative; margin: 0; aspect-ratio: 4 / 3; overflow: hidden;
-  background: #000; cursor: pointer;
+@supports not (-webkit-text-stroke: 1px #000) {
+  .a-skill-ghost { color: color-mix(in srgb, var(--bone) 8%, transparent); }
 }
-/* dither-first, strictly: the raw photo stays hidden until its veil exists,
-   so no frame of truth ever paints outside the cursor's permission */
-.a-frame img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; }
-.a-frame.ready img { opacity: 1; }
-.a-frame canvas {
-  position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1;
-  image-rendering: pixelated; opacity: 1; transition: opacity 0.35s;
+.a-skill-col { position: relative; z-index: 1; display: grid; gap: 18px; min-width: 0; }
+.a-skill-head {
+  justify-self: start; margin: 0 0 8px; padding: 6px 16px 5px 10px;
+  letter-spacing: 0.3em; font-weight: 500; color: var(--void);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 100%, 6px 100%);
 }
-/* dither-first: truth only under the cursor */
-.a-frame:hover canvas, .a-frame:focus-visible canvas { opacity: 0; }
-.rvl-calm .a-frame canvas { transition: none; }
-.a-frame figcaption {
-  position: absolute; left: 10px; bottom: 8px; z-index: 2; pointer-events: none;
-  color: rgba(237, 237, 230, 0.75); letter-spacing: 0.14em;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
+.a-skill-col--creative .a-skill-head { background: var(--alert); }
+.a-skill-col--technical .a-skill-head { background: var(--field); color: var(--bone); }
+.a-skill-row { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
+.a-skill-row em { font-style: normal; color: var(--signal); letter-spacing: 0.18em; flex: none; }
+.a-skill-name {
+  font-family: var(--f-display); font-weight: 700; text-transform: uppercase;
+  font-size: var(--t-xl); line-height: 0.95; color: var(--bone); min-width: 0;
 }
-.a-frame:hover figcaption { color: var(--signal); }
+/* alternate cuts down the bank — solid, outline, solid, outline */
+.a-skill-row:nth-of-type(odd) .a-skill-name {
+  color: transparent; -webkit-text-stroke: 1.2px var(--bone);
+}
+@supports not (-webkit-text-stroke: 1px #000) {
+  .a-skill-row:nth-of-type(odd) .a-skill-name { color: color-mix(in srgb, var(--bone) 55%, transparent); }
+}
+.a-skill-lead { flex: 1 1 20px; border-top: 1px dotted color-mix(in srgb, var(--bone) 30%, transparent); }
+.a-skill-row b { font-weight: 400; flex: none; }
+.a-skill-col--creative .a-skill-row b { color: var(--alert); }
+.a-skill-col--technical .a-skill-row b { color: color-mix(in srgb, var(--field) 70%, var(--bone) 30%); }
+.a-skill-row:hover .a-skill-name { animation: rgb-flick 0.32s steps(2) 1; }
+.a-skill-row:hover em { color: var(--bone); }
+/* the hazard spine between the banks */
+.a-skill-spine {
+  justify-self: center; align-self: stretch; width: 6px; min-height: 100%;
+  background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--signal) 65%, transparent) 0 8px, transparent 8px 18px);
+}
 
 /* --------------------------------------------------------- transmit -- */
 
@@ -261,7 +353,10 @@
   .a-index { display: none; } /* the EOF stamp repeats it */
   .a-hero-grid { grid-template-columns: 1fr; gap: 44px; align-items: start; }
   /* OPERATOR/REVACHOL must fit the phone column as one unbroken word */
-  .a-name-ghost, .a-name { font-size: clamp(2.4rem, 15vw, 4rem); }
+  .a-name { font-size: clamp(2.4rem, 16.5vw, 4.4rem); }
+  .a-name::before { translate: 5px 3px; }
+  .a-name::after { translate: -4px -2px; }
+  .a-subj-tag { right: 2px; }
   .a-subject { justify-self: stretch; width: 100%; }
   .a-reticle i:nth-child(3) { display: none; }
   .a-callouts { justify-items: start; }
@@ -276,7 +371,9 @@
   }
   .a-rail-tag { position: static; margin-bottom: 20px; }
   .a-spec dt { padding-right: 20px; }
-  .a-sheet { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .a-skill-board { grid-template-columns: 1fr; gap: 34px; padding-inline: 4px; }
+  .a-skill-spine { width: 100%; min-height: 6px; }
+  .a-skill-ghost { font-size: calc(var(--t-3xl) * 1.1); top: auto; bottom: -14px; }
 
   .a-transmit { padding: 80px 18px 64px; }
   .a-yes { font-size: var(--t-xl); }

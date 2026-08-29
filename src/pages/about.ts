@@ -1,10 +1,9 @@
 import { AboutContent, loadAbout, SiteContent } from '../lib/content';
-import { ditherImageToCanvas } from '../lib/dither';
 import { escapeHtml } from '../lib/escape';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { armStamps } from '../lib/stamps';
-import { capabilitiesFromTagline, portraitCandidates, sheetCandidates } from '../about/operator';
+import { capabilitiesFromTagline, portraitCandidates } from '../about/operator';
 import { mountSpecimen } from '../about/specimen';
 import { armGlideNav, navNeighbors } from '../lib/swipe-nav';
 import { hashSlug } from '../project/dossier';
@@ -48,7 +47,27 @@ function render(site: SiteContent, about: AboutContent): void {
   // -- hero -------------------------------------------------------------
   void scrambleEl(document.getElementById('a-status-line')!, `PERSONNEL :: ${site.name.toUpperCase()} // CLEARED`, 900);
   document.getElementById('a-index')!.innerHTML = `<span>P·OP/01</span>`;
-  void scrambleEl(document.getElementById('a-name')!, site.name.toUpperCase(), 650);
+  const nameEl = document.getElementById('a-name')!;
+  // the chromatic plate copies read attr(data-text): the full name from frame
+  // one, while the visible layer is still scrambling in
+  const fullName = site.name.toUpperCase();
+  nameEl.dataset.text = fullName;
+  // the name never leaves its column: measure the full glyphs at CSS size and
+  // cap the font to fit (the dossier-title fit-to-measure, fourth outing)
+  nameEl.textContent = fullName;
+  const idCol = document.querySelector<HTMLElement>('.a-id')!;
+  const fitName = () => {
+    nameEl.style.fontSize = '';
+    const w = idCol.clientWidth;
+    if (nameEl.scrollWidth > w && w > 0) {
+      const base = parseFloat(getComputedStyle(nameEl).fontSize);
+      nameEl.style.fontSize = `${Math.floor(base * (w / nameEl.scrollWidth) * 98) / 100}px`;
+    }
+  };
+  fitName();
+  void document.fonts?.ready?.then(fitName);
+  window.addEventListener('resize', fitName);
+  void scrambleEl(nameEl, fullName, 650);
   document.getElementById('a-statement')!.textContent = about.statement;
 
   const caps = about.capabilities.length ? about.capabilities : capabilitiesFromTagline(site.tagline);
@@ -87,10 +106,36 @@ function render(site: SiteContent, about: AboutContent): void {
     .map((f) => `<dt>${escapeHtml(f.k.toUpperCase())}</dt><dd><span>${escapeHtml(f.v.toUpperCase())}</span></dd>`)
     .join('');
 
-  // -- CAP: matrix ------------------------------------------------------
-  document.getElementById('a-caps')!.innerHTML = caps
-    .map((c, i) => `<span class="a-chip" data-stamp><em>${pad2(i + 1)}</em> ▸ ${escapeHtml(c)}</span>`)
-    .join('');
+  // -- CAP: the skill board ---------------------------------------------
+  // two banks in the ident grammar — creative rides the alert plate,
+  // technical rides the field plate, a hazard spine between them and an
+  // oversized ghost SKILL stamped behind. Falls back to the chip matrix
+  // when about.json carries no skills.
+  const capsEl = document.getElementById('a-caps')!;
+  const hasSkills = about.skills.creative.length > 0 || about.skills.technical.length > 0;
+  if (hasSkills) {
+    const bank = (kind: 'creative' | 'technical', items: string[]) => {
+      const tag = kind === 'creative' ? 'C' : 'T';
+      const rows = items
+        .map(
+          (s, i) =>
+            `<div class="a-skill-row" data-stamp><em class="micro">${tag}·${pad2(i + 1)}</em><span class="a-skill-name">${escapeHtml(s.toUpperCase())}</span><i class="a-skill-lead" aria-hidden="true"></i><b aria-hidden="true">▸</b></div>`,
+        )
+        .join('');
+      return `<div class="a-skill-col a-skill-col--${kind}">
+        <h3 class="a-skill-head micro">${kind.toUpperCase()}</h3>${rows}</div>`;
+    };
+    capsEl.innerHTML = `<div class="a-skill-board">
+      <span class="a-skill-ghost" aria-hidden="true">SKILL</span>
+      ${bank('creative', about.skills.creative)}
+      <i class="a-skill-spine" aria-hidden="true"></i>
+      ${bank('technical', about.skills.technical)}
+    </div>`;
+  } else {
+    capsEl.innerHTML = caps
+      .map((c, i) => `<span class="a-chip" data-stamp><em>${pad2(i + 1)}</em> ▸ ${escapeHtml(c)}</span>`)
+      .join('');
+  }
 
   // -- TRANSMIT? finale -------------------------------------------------
   const socials = site.socials
@@ -106,9 +151,6 @@ function render(site: SiteContent, about: AboutContent): void {
 
   document.getElementById('a-eof')!.innerHTML =
     `<span>EOF ▪ P·OP/01 ▪ ${escapeHtml(site.name.toUpperCase())}</span>`;
-
-  // -- SHT: contact sheet -----------------------------------------------
-  void mountSheet(site);
 
   armStamps();
 }
@@ -148,57 +190,3 @@ function wireBursts(canvas: HTMLCanvasElement, spec: { burst(ms?: number): void 
   });
 }
 
-async function mountSheet(site: SiteContent): Promise<void> {
-  const found: string[] = [];
-  for (const slot of sheetCandidates()) {
-    const hit = await probeFirst(slot);
-    if (hit) found.push(hit);
-  }
-  if (!found.length) return; // section stays hidden
-
-  const sec = document.getElementById('a-sheet-sec')!;
-  sec.hidden = false;
-  const sheet = document.getElementById('a-sheet')!;
-  const lightbox = document.getElementById('lightbox') as HTMLDialogElement;
-  const lightboxImg = document.getElementById('lightbox-img') as HTMLImageElement;
-  document.getElementById('lightbox-close')!.addEventListener('click', () => lightbox.close());
-
-  found.forEach((url, i) => {
-    const fig = document.createElement('figure');
-    fig.className = 'a-frame';
-    fig.dataset.cursor = 'VIEW +';
-    const im = new Image();
-    im.loading = 'lazy';
-    im.alt = `${site.name} — frame ${i + 1}`;
-    im.src = url;
-    const veil = document.createElement('canvas');
-    im.addEventListener('load', () => {
-      // dither-first: the veil IS the resting state; truth only on hover.
-      // Cover-crop to the cell's 4:3 before dithering so the veil and the
-      // photo underneath crop identically — any aspect ratio welcome.
-      const cw = 440;
-      const ch = 330;
-      const crop = document.createElement('canvas');
-      crop.width = cw;
-      crop.height = ch;
-      const cctx = crop.getContext('2d')!;
-      const s = Math.max(cw / im.naturalWidth, ch / im.naturalHeight);
-      cctx.drawImage(im, (cw - im.naturalWidth * s) / 2, (ch - im.naturalHeight * s) / 2, im.naturalWidth * s, im.naturalHeight * s);
-      const d = ditherImageToCanvas(crop, cw, ch, 220, '#060606', '#C8FF00');
-      veil.width = d.width;
-      veil.height = d.height;
-      veil.getContext('2d')?.drawImage(d, 0, 0);
-      fig.classList.add('ready'); // photo may show only once its dither exists
-    });
-    im.addEventListener('error', () => fig.remove());
-    const num = document.createElement('figcaption');
-    num.className = 'micro';
-    num.textContent = `FR·${pad2(i + 1)}`;
-    fig.append(im, veil, num);
-    fig.addEventListener('click', () => {
-      lightboxImg.src = im.src;
-      lightbox.showModal();
-    });
-    sheet.append(fig);
-  });
-}

@@ -270,6 +270,8 @@ export interface AboutContent {
   bio: string[];
   facts: AboutFact[];
   capabilities: string[];
+  /** the CAP skill board's two banks; both empty = legacy chip fallback */
+  skills: { creative: string[]; technical: string[] };
 }
 
 export const ABOUT_FALLBACK: AboutContent = {
@@ -277,6 +279,7 @@ export const ABOUT_FALLBACK: AboutContent = {
   bio: [],
   facts: [],
   capabilities: [],
+  skills: { creative: [], technical: [] },
 };
 
 export function parseAbout(raw: unknown): AboutContent {
@@ -295,11 +298,22 @@ export function parseAbout(raw: unknown): AboutContent {
   const caps = r.capabilities ?? [];
   if (!Array.isArray(caps) || caps.some((c) => typeof c !== 'string'))
     fail(file, '"capabilities" must be an array of strings');
+  const bank = (v: unknown, where: string): string[] => {
+    if (v === undefined) return [];
+    if (!Array.isArray(v) || v.some((s) => typeof s !== 'string'))
+      fail(file, `"${where}" must be an array of strings`);
+    return v as string[];
+  };
+  const skillsRaw = r.skills === undefined ? {} : obj(r.skills, file, 'skills');
   return {
     statement,
     bio: bio as string[],
     facts,
     capabilities: (caps as string[]).map((c) => c.toUpperCase()),
+    skills: {
+      creative: bank((skillsRaw as Record<string, unknown>).creative, 'skills.creative'),
+      technical: bank((skillsRaw as Record<string, unknown>).technical, 'skills.technical'),
+    },
   };
 }
 

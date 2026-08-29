@@ -101,24 +101,24 @@ from the fields above — nothing extra to maintain:
 Everything lives in `content/about/`. **The test images shipped there are
 placeholders — replace them with your real photos.**
 
-- **Photos are found automatically — no field to edit.** Drop in
-  `portrait.jpg` (or `.jpeg/.png/.webp`) for the big scanner portrait, and
-  `01.jpg` … `08.jpg` for the contact sheet. Any sizes, any aspect ratios,
-  any count: every photo is cover-cropped and dithered into the site's look,
-  so you can swap pictures forever without touching the design. No portrait
-  = the machine scans static and says AWAITING SUBJECT. No numbered photos
-  = the contact-sheet section simply doesn't render.
+- **The portrait is found automatically — no field to edit.** Drop in
+  `portrait.jpg` (or `.jpeg/.png/.webp`) for the big scanner portrait. Any
+  size, any aspect ratio: it is cover-cropped and dithered into the site's
+  look, so you can swap the picture forever without touching the design.
+  No portrait = the machine scans static and says AWAITING SUBJECT.
 - The portrait glitches on its own every few seconds; hover puts a reticle
-  under your cursor, click fires a long burst. MTN calm mode freezes it to
-  one still dither.
-- The contact sheet shows every photo dithered; the real photo appears only
-  under the cursor. Click for full size.
+  under your cursor, click fires a long burst. Chromatic echo frames breathe
+  around it and a scanner line sweeps it continuously. MTN calm mode freezes
+  all of it to one still dither.
 - **`about.json`** (all fields optional — delete any and the page adapts):
   - `statement` — the line under your name
   - `bio` — list of paragraphs (first one renders big and italic)
   - `facts` — list of `{ "k": "BASE", "v": "Saigon / Remote" }` rows
-  - `capabilities` — list of words for the CAP chips (defaults to your
-    `site.json` tagline split on commas)
+  - `skills` — the CAP skill board's two banks:
+    `{ "creative": ["Colorist", …], "technical": ["DaVinci Resolve", …] }`
+  - `capabilities` — list of words for the CLASS callout (defaults to your
+    `site.json` tagline split on commas); also the CAP fallback chips when
+    no `skills` are set
 
 ## The site runs itself
 
