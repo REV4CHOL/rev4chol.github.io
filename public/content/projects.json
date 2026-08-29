@@ -1,36 +1,28 @@
 [
   {
-    "slug": "neon-dream",
-    "title": "Neon Dream",
+    "slug": "philia",
+    "title": "PHILIA",
     "year": 2026,
-    "role": "Director / DoP",
-    "runtime": "12:40",
+    "role": "Colorist",
+    "runtime": "11:42",
     "tags": [
-      "short film",
-      "sci-fi"
+      "experimental",
+      "supernatural"
     ],
-    "accent": "#C8FF00",
+    "accent": "#8FCC6B",
     "tileSize": "large",
-    "synopsis": "A night courier crosses a city that keeps rearranging itself. Shot on empty streets between 2 and 5 AM.",
+    "category": "human",
+    "synopsis": "Summer keeps a copy of everyone.",
     "credits": [
       {
-        "role": "Director",
-        "name": "Revachol"
-      },
-      {
-        "role": "Cinematography",
-        "name": "Revachol"
-      },
-      {
-        "role": "Edit",
+        "role": "Colorist",
         "name": "Revachol"
       }
     ],
     "film": {
-      "type": "vimeo",
-      "src": "https://vimeo.com/22439234"
-    },
-    "category": "human"
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/iX0XhpNSaTY"
+    }
   },
   {
     "slug": "static-hymn",
