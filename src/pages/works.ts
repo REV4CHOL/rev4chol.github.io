@@ -63,6 +63,16 @@ startPage(
       const ch = CHANNELS.find((c) => c.key === key)!;
       const nameEl = document.getElementById('ch-ident-name')!;
       nameEl.dataset.text = ch.name;
+      // the ident name never leaves the screen: measure the full name at its
+      // CSS size and cap the font so the nowrap type fits 92% of any viewport
+      // (the same fit-to-measure move as the dossier titles)
+      nameEl.textContent = ch.name;
+      nameEl.style.fontSize = '';
+      const fitW = window.innerWidth * 0.92;
+      if (nameEl.scrollWidth > fitW) {
+        const base = parseFloat(getComputedStyle(nameEl).fontSize);
+        nameEl.style.fontSize = `${Math.floor(base * (fitW / nameEl.scrollWidth) * 98) / 100}px`;
+      }
       void scrambleEl(document.getElementById('ch-ident-idx')!, `${ch.index} ▸ TUNING`, 320);
       void scrambleEl(nameEl, ch.name, 480);
       sound.chime();
