@@ -8,6 +8,9 @@ class SoundEngine {
   private humTeardown: { timer: ReturnType<typeof setTimeout>; stop: () => void } | null = null;
   private unlockCbs: (() => void)[] = [];
   private armed = false;
+  /** On touch devices the bus exits through this element (see ensureCtx). */
+  private mediaEl: HTMLAudioElement | null = null;
+  private routeKind: 'direct' | 'media' = 'direct';
 
   constructor() {
     // v2 key: the pre-rewrite engine was near-inaudible, so a stored 'off'
@@ -35,6 +38,14 @@ class SoundEngine {
   unlock(): void {
     const ctx = this.ensureCtx();
     if (ctx && ctx.state === 'suspended') void ctx.resume().catch(() => { /* not a gesture */ });
+    this.wakeMedia();
+  }
+
+  /** The media-route element needs its own gesture-blessed play(); idempotent. */
+  private wakeMedia(): void {
+    if (this.mediaEl && this.mediaEl.paused) {
+      void this.mediaEl.play().catch(() => { /* next gesture retries */ });
+    }
   }
 
   onUnlock(cb: () => void): void {
@@ -73,7 +84,23 @@ class SoundEngine {
       this.analyser = ctxRef.createAnalyser();
       this.analyser.fftSize = 256;
       this.master.connect(this.analyser);
-      this.analyser.connect(ctxRef.destination);
+      // The last hop decides whether phones ever hear anything: bare
+      // ctx.destination is "sound effects" to iOS and the ringer switch mutes
+      // it — which is where most phones live. A MediaStream-fed <audio>
+      // element is MEDIA: it rides the volume buttons like a video would. So
+      // touch devices exit through the element; everything else stays direct.
+      if (navigator.maxTouchPoints > 0 && 'createMediaStreamDestination' in ctxRef) {
+        const mediaOut = ctxRef.createMediaStreamDestination();
+        this.analyser.connect(mediaOut);
+        const el = document.createElement('audio');
+        el.srcObject = mediaOut.stream;
+        el.setAttribute('playsinline', '');
+        (el as HTMLAudioElement & { playsInline: boolean }).playsInline = true;
+        this.mediaEl = el;
+        this.routeKind = 'media';
+      } else {
+        this.analyser.connect(ctxRef.destination);
+      }
       ctxRef.addEventListener('statechange', () => {
         if (this.ready()) this.flushUnlockCbs();
       });
@@ -84,6 +111,8 @@ class SoundEngine {
         if (!document.hidden && ctxRef?.state === 'suspended') {
           void ctxRef.resume().catch(() => { /* next gesture retries */ });
         }
+        // backgrounding pauses the media-route element like any other media
+        if (!document.hidden) this.wakeMedia();
       });
       navigator.mediaDevices?.addEventListener?.('devicechange', () => {
         if (ctxRef?.state !== 'running') return;
@@ -292,6 +321,13 @@ class SoundEngine {
     return ctxRef ? ctxRef.state : 'none';
   }
 
+  /** Which door the bus leaves through — 'media' on touch devices, plus
+   *  whether that element is actually rolling. */
+  route(): string {
+    if (this.routeKind === 'direct') return 'direct';
+    return `media:${this.mediaEl && !this.mediaEl.paused ? 'playing' : 'paused'}`;
+  }
+
   private noiseBuffer(ctx: AudioContext, seconds: number): AudioBuffer {
     const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * seconds), ctx.sampleRate);
     const d = buf.getChannelData(0);
@@ -309,5 +345,6 @@ if (typeof window !== 'undefined') {
     level: () => sound.level(),
     humOn: () => sound.humOn(),
     test: () => sound.click(),
+    route: () => sound.route(),
   };
 }
