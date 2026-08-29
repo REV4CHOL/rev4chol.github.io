@@ -129,9 +129,8 @@ build step, no terminal.
   Manager once.
 - **Start it by hand** (after stopping): double-click
   `scripts\serve-forever.vbs` in the site folder.
-- **Publishing for the world** is a separate step: `npm run build` produces
-  the `dist/` folder — upload that to any static host (Netlify, Cloudflare
-  Pages, GitHub Pages) when the real films are in.
+- **Publishing for the world** happens through GitHub — see the
+  Publishing section at the bottom.
 
 ## Export recipes (if you don't use the script)
 
@@ -209,8 +208,20 @@ the choice is remembered on their browser.
 
 ## Publishing
 
-Build once per CODE change (not content): `npm run build` → upload the `dist/`
-folder to any static host (Netlify Drop: drag the folder into the browser).
-To update content on an already-published site, replace files inside the
-host's `content/` folder (or re-upload `dist/`) — no rebuild needed.
-Host the site at the domain root (site.com), not in a subfolder (site.com/portfolio/) — the site's paths assume the root.
+**The site is live at https://rev4chol.github.io/** — hosted free on GitHub
+Pages from the repo https://github.com/REV4CHOL/rev4chol.github.io.
+
+Updating the live site is one move. Edit your content locally as usual
+(drop files, tweak `projects.json`, check it at localhost), then publish
+everything with:
+
+```
+git add -A && git commit -m "content update" && git push
+```
+
+GitHub receives the push, rebuilds the site on its own servers (the
+`deploy` workflow in `.github/workflows/`), and the live site updates
+about a minute later. No build step, no uploading folders — the push IS
+the publish. If you ever add a custom domain (revachol.com etc.), it plugs
+into the repo's Settings ▸ Pages; the site must stay at a domain root,
+which GitHub Pages handles automatically.
