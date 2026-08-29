@@ -113,9 +113,19 @@ function loadVideoClip(url: string, autostart: boolean): Promise<Clip | null> {
     v.loop = true;
     v.playsInline = true;
     v.preload = 'auto';
+    // the attributes, not just the properties: the strictest mobile engines gate
+    // inline muted autoplay on these being present before the first load
+    v.setAttribute('muted', '');
+    v.setAttribute('playsinline', '');
     const bail = setTimeout(() => { v.src = ''; v.load(); resolve(null); }, 10000);
     v.addEventListener('error', () => { clearTimeout(bail); resolve(null); }, { once: true });
-    v.addEventListener('canplay', () => {
+    // Resolve at loadedmetadata, not canplay: mobile engines (iOS above all) never
+    // buffer a paused video to canplay-readiness no matter what preload says — the
+    // old canplay wait meant every clip hit the bail on phones and the reel never
+    // mounted. Metadata is the one milestone every engine reaches, sizes included;
+    // the play() kick right here is what actually starts the bytes flowing (same
+    // reason the works tiles always played: they play() immediately).
+    v.addEventListener('loadedmetadata', () => {
       clearTimeout(bail);
       const sprite = new Sprite(Texture.from(v));
       sprite.anchor.set(0.5);
@@ -340,11 +350,20 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
       root.addChild(c.sprite);
     });
     if (imageSprite) {
-      // the poster hands over to the reel inside a tear
+      // the poster hands over to the reel inside a tear — but only once the first
+      // clip has a real decoded frame to show. Clips resolve at loadedmetadata now,
+      // which is frameless; on a slow cell connection the old fixed 90ms handoff
+      // would flash black between poster and first frame.
       burstLeft = Math.max(burstLeft, 200);
       const poster = imageSprite;
       imageSprite = null;
-      setTimeout(() => { poster.visible = false; }, 90);
+      const hide = () => setTimeout(() => { poster.visible = false; }, 90);
+      const el = clips[0]?.sample();
+      if (el instanceof HTMLVideoElement && 'requestVideoFrameCallback' in el) {
+        el.requestVideoFrameCallback(() => hide());
+      } else {
+        hide();
+      }
     }
     sampleClipAccent(clips[0]);
     (window as unknown as { rvlReel: unknown }).rvlReel = {
@@ -383,6 +402,14 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     else resumeActive();
   });
   window.addEventListener('pageshow', (e) => { if (e.persisted) resumeActive(); });
+  // battery-saver policies (iOS Low Power Mode and kin) reject every play() that
+  // does not come from a user gesture — so every touch quietly re-offers playback
+  // to the active clip. A no-op when it is already rolling; the heal when not.
+  const gestureKick = () => {
+    if (clips.length > 0 && !document.hidden) clips[active].play();
+  };
+  window.addEventListener('pointerdown', gestureKick, { passive: true });
+  window.addEventListener('touchend', gestureKick, { passive: true });
 
   // ---- the drive: chromatic breathing, a quiet pointer lean, punctuated tears ----
   const split = { x: 1.5, y: 0 };
