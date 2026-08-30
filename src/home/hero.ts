@@ -106,13 +106,16 @@ interface Clip {
   sample(): CanvasImageSource | null;
 }
 
-function loadVideoClip(url: string, autostart: boolean): Promise<Clip | null> {
+function loadVideoClip(url: string, autostart: boolean, eager = true): Promise<Clip | null> {
   return new Promise((resolve) => {
     const v = document.createElement('video');
     v.muted = true;
     v.loop = true;
     v.playsInline = true;
-    v.preload = 'auto';
+    // eager clips buffer ahead (the one about to play); the rest fetch only
+    // metadata now and stream when their window comes — seven loops fully
+    // downloading in parallel was the blank-screen bandwidth stampede
+    v.preload = eager ? 'auto' : 'metadata';
     // the attributes, not just the properties: the strictest mobile engines gate
     // inline muted autoplay on these being present before the first load
     v.setAttribute('muted', '');
@@ -367,7 +370,8 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     }
     sampleClipAccent(clips[0]);
     (window as unknown as { rvlReel: unknown }).rvlReel = {
-      count: clips.length,
+      // live: clips keep attaching after the first mounts (progressive reel)
+      get count() { return clips.length; },
       active: () => active,
       cut: beginCut,
     };
@@ -383,8 +387,28 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     app.destroy(true);
     return null;
   }
-  void loadFound(foundLoops, true).then((loaded) => {
-    if (loaded.length > 0) mountReel(loaded);
+  // progressive: the FIRST clip to reach metadata starts the reel — the old
+  // Promise.all barrier held the whole page black until the slowest of seven
+  // loops answered. Later arrivals slot into the rotation live.
+  const attachClip = (c: Clip) => {
+    fitSprite(c.sprite, c.width, c.height);
+    c.sprite.visible = false;
+    c.pause();
+    root.addChild(c.sprite);
+    clips.push(c);
+  };
+  let reelUp = false;
+  foundLoops.forEach((fl, i) => {
+    const load = fl.ext === 'gif' ? loadGifClip(fl.url, false) : loadVideoClip(fl.url, false, i < 2);
+    void load.then((c) => {
+      if (!c) return;
+      if (!reelUp) {
+        reelUp = true;
+        mountReel([c]);
+      } else {
+        attachClip(c);
+      }
+    });
   });
 
   // playback hygiene: browsers pause media on tab-hide and bfcache restore.
