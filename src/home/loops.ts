@@ -39,3 +39,25 @@ export function nextClip(current: number, count: number): number {
   if (count <= 1) return current;
   return (current + 1) % count;
 }
+
+/** Parse the accent strings setAccent() writes: `hsl(H S% L%)`. */
+export function parseHsl(accent: string): { h: number; s: number; l: number } | null {
+  const m = accent.match(/hsl\(\s*([\d.]+)[\s,]+([\d.]+)%[\s,]+([\d.]+)%\s*\)/i);
+  if (!m) return null;
+  return { h: parseFloat(m[1]) % 360, s: parseFloat(m[2]), l: parseFloat(m[3]) };
+}
+
+/** The statement's first word follows the footage: the sampled accent's hue
+ *  names the dream. Washed-out clips dream in SILVER. */
+export function colorWord(h: number, s: number): string {
+  if (s < 14) return 'SILVER';
+  const hue = ((h % 360) + 360) % 360;
+  if (hue < 15 || hue >= 345) return 'CRIMSON';
+  if (hue < 45) return 'AMBER';
+  if (hue < 72) return 'GOLDEN';
+  if (hue < 160) return 'VERDANT';
+  if (hue < 200) return 'TEAL';
+  if (hue < 252) return 'COBALT';
+  if (hue < 292) return 'PURPLE';
+  return 'MAGENTA';
+}

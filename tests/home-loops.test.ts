@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLIP_MS, LOOP_EXTS, LOOP_SLOTS, coverScale, loopCandidates, nextClip } from '../src/home/loops';
+import { CLIP_MS, LOOP_EXTS, LOOP_SLOTS, colorWord, coverScale, loopCandidates, nextClip, parseHsl } from '../src/home/loops';
 
 describe('homepage reel contract', () => {
   it('probes every slot with every extension in both spellings, mp4 first', () => {
@@ -31,5 +31,30 @@ describe('homepage reel contract', () => {
     expect(nextClip(4, 5)).toBe(0);
     expect(nextClip(0, 1)).toBe(0);
     expect(nextClip(0, 0)).toBe(0);
+  });
+});
+
+describe('the dream is the color of the footage', () => {
+  it('parses the accent strings setAccent writes', () => {
+    expect(parseHsl('hsl(286 31% 58%)')).toEqual({ h: 286, s: 31, l: 58 });
+    expect(parseHsl('#C8FF00')).toBeNull();
+    expect(parseHsl('junk')).toBeNull();
+  });
+
+  it('names every hue band', () => {
+    expect(colorWord(286, 60)).toBe('PURPLE'); // the fish keep their word
+    expect(colorWord(5, 70)).toBe('CRIMSON');
+    expect(colorWord(350, 70)).toBe('CRIMSON');
+    expect(colorWord(30, 70)).toBe('AMBER');
+    expect(colorWord(55, 70)).toBe('GOLDEN');
+    expect(colorWord(120, 70)).toBe('VERDANT');
+    expect(colorWord(180, 70)).toBe('TEAL');
+    expect(colorWord(220, 70)).toBe('COBALT');
+    expect(colorWord(320, 70)).toBe('MAGENTA');
+  });
+
+  it('washed-out footage dreams in silver, whatever the hue', () => {
+    expect(colorWord(220, 8)).toBe('SILVER');
+    expect(colorWord(0, 0)).toBe('SILVER');
   });
 });

@@ -2,6 +2,7 @@ import { reducedMotion } from '../lib/env';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { armGlideNav, navNeighbors } from '../lib/swipe-nav';
+import { colorWord, parseHsl } from '../home/loops';
 import { startPage } from '../shell/page';
 
 let heroBurst: () => void = () => {};
@@ -48,6 +49,29 @@ startPage('home', async ({ site }) => {
   );
   document.querySelector('.home-main')?.classList.add('is-revealed');
   initHomeEffects();
+
+  // the first word of the statement is the footage's color: every clip the
+  // reel lands on re-samples an accent, and the word physically scrambles
+  // into the hue's name — PURPLE was only ever the fish
+  const colorRow = lines[0];
+  if (colorRow) {
+    const leaf = colorRow.querySelector<HTMLElement>('.gl') ?? colorRow;
+    let currentWord = leaf.textContent ?? 'PURPLE';
+    window.addEventListener('rvl:accent', (e) => {
+      const hsl = parseHsl(String((e as CustomEvent).detail ?? ''));
+      if (!hsl) return;
+      const word = colorWord(hsl.h, hsl.s);
+      if (word === currentWord || colorRow.dataset.busy) return;
+      currentWord = word;
+      colorRow.dataset.busy = '1';
+      colorRow.classList.add('rip');
+      void scrambleEl(leaf, word, 340).then(() => {
+        colorRow.dataset.text = word; // the ghost slices follow
+        delete colorRow.dataset.busy;
+        setTimeout(() => colorRow.classList.remove('rip'), 140);
+      });
+    });
+  }
 });
 
 /** Every text reacts, the room reacts: hover scrambles any [data-glitch],
