@@ -5,14 +5,14 @@
    meter is a real instrument riding the site's audio engine.
    ========================================================================== */
 
-/* The console is a designed composition, so like the homepage poster it is
-   PINNED under browser zoom: counter-scaled by --uiz with compensated
-   dimensions, it holds the same apparent size at every zoom level. */
+/* The console is a designed composition: a fixed 1440px plate on fine
+   pointers (lib/poster-lock.ts zooms <body>) — browser zoom and window width
+   scale the whole console as one poster, never reflow it. 100svh stays raw:
+   CSS zoom leaves viewport units alone, so the console fills the screen
+   exactly at every zoom (the /--plate division cancels the plate factor the
+   zoom bakes into viewport units). The --uiz counter-scale is retired. */
 .contact-main {
-  min-height: calc(100svh / var(--uiz));
-  width: calc(100% / var(--uiz));
-  transform: scale(var(--uiz));
-  transform-origin: top left;
+  min-height: calc(100svh / var(--plate, 1));
   display: flex; flex-direction: column;
 }
 
@@ -96,8 +96,10 @@
   background: repeating-linear-gradient(45deg, rgba(255, 46, 99, 0.55) 0 8px, transparent 8px 18px);
 }
 
-/* phone — AFTER base rules: equal specificity, source order decides */
-@media (max-width: 760px) {
+/* phone — AFTER base rules: equal specificity, source order decides.
+   Coarse-gated: the poster lock must never see this block (a zoomed-in
+   desktop viewport crosses 760px too; only actual touch devices reflow) */
+@media (max-width: 760px) and (pointer: coarse) {
   .c-console { padding: 128px 18px 32px; }
   .c-status { left: 16px; right: 16px; top: 108px; }
   .c-index { display: none; }

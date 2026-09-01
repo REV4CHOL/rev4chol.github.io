@@ -18,13 +18,30 @@
  *  blocks on `pointer: coarse` — a zoomed-in desktop viewport is not a
  *  phone). Coarse pointers never lock: phones and tablets keep their
  *  responsive layout untouched.
+ *
+ *  `exempt` opts a full-viewport CANVAS layer out of the lock (the works
+ *  floor, the home reel): the element is counter-zoomed by 1/k so its inner
+ *  coordinate space is true viewport px again — Pixi's resizeTo, pointer
+ *  clientX math and world framing all stay 1:1 while the DOM chrome around
+ *  it sits on the plate.
  */
 export const POSTER_W = 1440;
 
-export function armPosterLock(designW: number = POSTER_W): void {
+export function armPosterLock(opts: { designW?: number; exempt?: string } = {}): void {
   if (!window.matchMedia('(pointer: fine)').matches) return;
-  const fit = () =>
-    document.body.style.setProperty('zoom', String(document.documentElement.clientWidth / designW));
+  const designW = opts.designW ?? POSTER_W;
+  const fit = () => {
+    const k = document.documentElement.clientWidth / designW;
+    document.body.style.setProperty('zoom', String(k));
+    // viewport units inside the zoomed body get premultiplied by k (measured:
+    // 100svh rendered k-short) — full-viewport intents divide by --plate to
+    // cancel it: calc(100vh / var(--plate, 1)) always fills the real screen
+    document.body.style.setProperty('--plate', String(k));
+    if (opts.exempt) {
+      for (const el of document.querySelectorAll<HTMLElement>(opts.exempt))
+        el.style.setProperty('zoom', String(1 / k));
+    }
+  };
   fit();
   window.addEventListener('resize', fit); // browser zoom fires resize too
 }

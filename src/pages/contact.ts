@@ -3,6 +3,7 @@ import { escapeHtml } from '../lib/escape';
 import { mulberry32 } from '../lib/rng';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
+import { armPosterLock } from '../lib/poster-lock';
 import { armStamps } from '../lib/stamps';
 import { armGlideNav, navNeighbors } from '../lib/swipe-nav';
 import { hashSlug } from '../project/dossier';
@@ -12,6 +13,9 @@ import '../styles/contact.css';
 const BARS = 24;
 
 startPage('contact', ({ site }) => {
+  // the console is a fixed 1440px plate — zoom and window width scale it as
+  // one poster, they never reflow it (owner decree: benchmark 100% only)
+  armPosterLock();
   // end of the chain: thumb-glide down returns to the page before CONTACT
   armGlideNav(navNeighbors(site.nav, location.pathname));
 

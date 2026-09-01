@@ -1,4 +1,5 @@
 import { reducedMotion } from '../lib/env';
+import { armPosterLock, posterZoom } from '../lib/poster-lock';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { armGlideNav, navNeighbors } from '../lib/swipe-nav';
@@ -8,6 +9,9 @@ import { startPage } from '../shell/page';
 let heroBurst: () => void = () => {};
 
 startPage('home', async ({ site }) => {
+  // the poster is a fixed 1440px plate; only the reel behind it stays a true
+  // full-viewport surface (counter-zoomed), so footage framing never changes
+  armPosterLock({ exempt: '#hero-host' });
   // hero first: the accent it samples from the image must land before the type reveals
   const host = document.getElementById('hero-host');
   if (host) {
@@ -42,10 +46,16 @@ startPage('home', async ({ site }) => {
   const brand = document.querySelector<HTMLElement>('.brand');
   if (kicker && brand) {
     const pinKicker = () => {
-      if (window.innerWidth <= 640) { kicker.style.top = ''; kicker.style.left = ''; return; }
+      // phones (coarse ≤640): the stacked-nav CSS override owns it. A FINE
+      // pointer under 640px is deep browser zoom — the lock holds, keep pinning.
+      if (window.innerWidth <= 640 && !window.matchMedia('(pointer: fine)').matches) {
+        kicker.style.top = ''; kicker.style.left = ''; return;
+      }
+      // brand rect arrives in viewport px; the kicker lays out in plate px
+      const z = posterZoom();
       const b = brand.getBoundingClientRect();
-      kicker.style.top = `${Math.round(b.bottom + 2)}px`;
-      kicker.style.left = `${Math.round(b.left)}px`;
+      kicker.style.top = `${Math.round(b.bottom / z + 2)}px`;
+      kicker.style.left = `${Math.round(b.left / z)}px`;
     };
     pinKicker();
     window.addEventListener('resize', pinKicker); // browser zoom fires resize too

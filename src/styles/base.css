@@ -14,7 +14,10 @@ body {
   background: var(--void);
   color: var(--bone);
   font-family: 'Geist Mono', ui-monospace, monospace;
-  min-height: 100vh;
+  /* /--plate: on poster-locked pages the zoom premultiplies vh by the plate
+     factor — undivided, k>1 overshoots the viewport by a few px and hangs a
+     phantom scrollbar on the fixed pages (unlocked pages: --plate is 1) */
+  min-height: calc(100vh / var(--plate, 1));
 }
 img, video, canvas { display: block; max-width: 100%; }
 a { color: inherit; }

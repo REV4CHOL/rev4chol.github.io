@@ -1,6 +1,7 @@
 import gsap from 'gsap';
 import { loadLoopManifest, loadProjects, projectAssetUrl, type Project } from '../lib/content';
 import { reducedMotion } from '../lib/env';
+import { armPosterLock, posterZoom } from '../lib/poster-lock';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { startPage } from '../shell/page';
@@ -11,6 +12,10 @@ import { WorksWorld } from '../works/world';
 startPage(
   'work',
   async ({ hud }) => {
+    // the DOM chrome (nav, HUD, switcher, ident, label, corner marks) is a
+    // fixed 1440px plate; the FLOOR is exempt — panes and background keep
+    // their true full-viewport world, untouched by the lock
+    armPosterLock({ exempt: '#floor' });
     const projects = await loadProjects();
     await loadLoopManifest(); // tiles build their loop chains synchronously
     mountWorksOverlay();
@@ -68,7 +73,8 @@ startPage(
       // (the same fit-to-measure move as the dossier titles)
       nameEl.textContent = ch.name;
       nameEl.style.fontSize = '';
-      const fitW = window.innerWidth * 0.92;
+      // the ident lives on the plate: fit against plate width, not viewport
+      const fitW = (window.innerWidth / posterZoom()) * 0.92;
       if (nameEl.scrollWidth > fitW) {
         const base = parseFloat(getComputedStyle(nameEl).fontSize);
         nameEl.style.fontSize = `${Math.floor(base * (fitW / nameEl.scrollWidth) * 98) / 100}px`;

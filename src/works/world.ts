@@ -4,6 +4,7 @@ import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
 import type { Project } from '../lib/content';
 import { aspectRatio } from '../lib/content';
 import { dprCap, finePointer, reducedMotion } from '../lib/env';
+import { posterZoom } from '../lib/poster-lock';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { leaveTo } from '../lib/transitions';
@@ -413,8 +414,13 @@ export class WorksWorld {
     const p = tile.project;
     const global = this.worldC.toGlobal({ x: tile.x, y: tile.y });
     this.labelEl.hidden = false;
-    this.labelEl.style.left = `${Math.max(16, Math.min(window.innerWidth - 360, global.x + tile.extentX() * 0.7))}px`;
-    this.labelEl.style.top = `${Math.min(window.innerHeight - 120, Math.max(70, global.y - 40))}px`;
+    // canvas coords are viewport px (the floor is lock-exempt); the label is
+    // plate chrome — convert both the point and the clamps into plate px
+    const z = posterZoom();
+    const pw = window.innerWidth / z;
+    const ph = window.innerHeight / z;
+    this.labelEl.style.left = `${Math.max(16, Math.min(pw - 360, (global.x + tile.extentX() * 0.7) / z))}px`;
+    this.labelEl.style.top = `${Math.min(ph - 120, Math.max(70, global.y / z - 40))}px`;
     const title = this.labelEl.querySelector('.tl-title') as HTMLElement;
     const meta = this.labelEl.querySelector('.tl-meta') as HTMLElement;
     meta.textContent = [p.year, p.role, p.runtime].filter(Boolean).join(' · ').toUpperCase();
