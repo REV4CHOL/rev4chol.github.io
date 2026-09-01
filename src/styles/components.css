@@ -121,7 +121,9 @@
     --t-xl: 3.6rem;    /* clamp(2.2rem, 5vw, 3.6rem) @1440 → cap */
     --t-2xl: 6rem;     /* clamp(3rem, 8vw, 6rem) @1440 → cap */
     --t-3xl: 8.5rem;   /* clamp(4rem, 11vw, 8.5rem) @1440 → cap */
-    --zw: 14.4px;      /* 1vw at the 1440 plate */
+    --zw: 14.4px;      /* pre-JS fallback — poster-lock.ts sets the live value:
+                          14.4px while the plate scales (k<1), natural 1vw on
+                          wider-than-plate viewports (classic fluid caps) */
   }
   /* the home poster never scrolls: fractional plate zoom overreports
      scrollHeight by ~10px and hung a phantom scrollbar on the plate */
