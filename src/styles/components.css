@@ -162,7 +162,11 @@
 .st-clash {
   font-family: var(--f-display); font-weight: 700;
   font-size: clamp(4rem, calc(12.5 * var(--zw)), 10.5rem); line-height: 0.84;
-  letter-spacing: -0.02em; text-transform: uppercase; color: var(--bone);
+  letter-spacing: -0.02em; text-transform: uppercase;
+  /* the color word WEARS its color: the fill rides the live accent (tweens
+     with every cut), so the whole title block shifts hue with the footage.
+     DREAMS stays a bone outline via .st-outline — it is not a color. */
+  color: var(--accent);
   text-shadow: 4px 0 var(--alert), -4px 0 var(--field), 0 3px 26px rgba(6, 6, 6, 0.7);
   position: relative;
 }
