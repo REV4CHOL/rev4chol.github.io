@@ -10,12 +10,18 @@
  *  layout is the classic fluid design at native width (a wide monitor is
  *  NOT a magnified 1440 — that balloon was rejected).
  *
- *  THE ZOOM TELL: browser zoom scales devicePixelRatio; window drags do
- *  not. So on a dpr shift the plate HOLDS and only k moves — zoom-in gives
- *  k < 1, zoom-out k > 1, and in both cases k times the browser's own
- *  factor is identity: the render never moves. On a same-dpr resize the
- *  plate re-baselines and the layout is fluid again. (No outer/innerWidth
- *  zoom probe anywhere — that machinery was retired for lying.)
+ *  THE ZOOM TELL (two-factor): browser zoom scales devicePixelRatio AND
+ *  shrinks the viewport by exactly the inverse ratio. Only when BOTH agree
+ *  (dpr shifted, width ≈ lastW·lastDpr/dpr) does the plate HOLD — zoom-in
+ *  gives k < 1, zoom-out k > 1, and in both cases k times the browser's
+ *  own factor is identity: the render never moves. A dpr shift whose width
+ *  does NOT match the prediction is a monitor hop or an OS-scale change —
+ *  re-baseline, or the old monitor's plate sticks and everything renders
+ *  miniature until a refresh (the bug that shipped first). A same-dpr
+ *  width change is a true window resize — re-baseline, fluid again. And
+ *  when NOTHING changed, fit is a no-op — tab switches and bfcache
+ *  restores must never disturb a held zoom. (No outer/innerWidth zoom
+ *  probe anywhere — that machinery was retired for lying.)
  *
  *  The lever is CSS `zoom` on <body> (never transform: it participates in
  *  layout, keeps scrollbars honest, and does not become a containing block
@@ -43,13 +49,25 @@ export function armPosterLock(opts: { designW?: number; exempt?: string } = {}):
   if (!window.matchMedia('(pointer: fine)').matches) return;
   const floor = opts.designW ?? POSTER_W;
   let plate = 0; // the locked canvas width (baseline viewport)
+  let lastW = 0;
   let lastDpr = 0;
   const fit = () => {
     const w = document.documentElement.clientWidth;
     const dpr = window.devicePixelRatio || 1;
-    // same dpr = a true window resize (or first run): re-baseline.
-    // dpr shifted = browser zoom: HOLD the plate — that is the whole lock.
-    if (!plate || dpr === lastDpr) plate = Math.max(w, floor);
+    if (w <= 0) return; // a hidden/collapsing viewport reads 0 — never bake it
+    if (!plate) {
+      plate = Math.max(w, floor);
+    } else if (dpr !== lastDpr) {
+      // dpr moved: zoom if the width moved by exactly the inverse ratio
+      // (scrollbar slack allowed) — otherwise a monitor hop / OS-scale
+      // change, which is a NEW baseline, not a zoom to counter
+      const predicted = lastW * (lastDpr / dpr);
+      if (Math.abs(w - predicted) > Math.max(32, predicted * 0.03)) plate = Math.max(w, floor);
+    } else if (w !== lastW) {
+      plate = Math.max(w, floor); // true window resize: fluid re-baseline
+    }
+    // nothing changed → plate untouched: tab switches are no-ops
+    lastW = w;
     lastDpr = dpr;
     const k = w / plate;
     document.body.style.setProperty('zoom', String(k));
@@ -68,10 +86,16 @@ export function armPosterLock(opts: { designW?: number; exempt?: string } = {}):
   window.addEventListener('resize', fit); // browser zoom fires resize too
   // Back/Forward restores the page from bfcache with the OLD factor baked in
   // and no resize event; a background tab can also miss the zoom's resize.
-  // Re-assert on every re-entry — fit() is idempotent and cheap.
-  window.addEventListener('pageshow', fit);
+  // Re-assert on every re-entry, then once more after the window settles —
+  // a mid-restore read can be transiently wrong, and with no follow-up
+  // event a bad k would stick until refresh. fit() is idempotent and cheap.
+  const refit = () => {
+    fit();
+    setTimeout(fit, 280);
+  };
+  window.addEventListener('pageshow', refit);
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) fit();
+    if (!document.hidden) refit();
   });
 }
 
