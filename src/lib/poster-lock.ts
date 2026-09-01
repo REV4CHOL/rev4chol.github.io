@@ -3,25 +3,27 @@
  *  layout — in EITHER direction (owner decree: benchmark at 100%, the
  *  render must be pixel-identical at every zoom level).
  *
- *  THE BASELINE: the plate is the viewport width at the last TRUE window
- *  size — captured at load and on real window resizes, floored at 1440 so
- *  a narrow window still gets the whole composition scaled down as one
- *  poster, never a crushed layout. At 100% on any monitor k = 1 and the
- *  layout is the classic fluid design at native width (a wide monitor is
- *  NOT a magnified 1440 — that balloon was rejected).
+ *  THE PLATE IS THE MONITOR — stateless, so nothing can ever stick:
+ *  plate = max(1440, screen.width). screen.width is measured in
+ *  zoom-independent units and always describes the display the window is
+ *  on, so k = clientWidth / plate is a PURE FUNCTION of the current
+ *  moment: k = 1 at 100% on every monitor (the classic fluid layout at
+ *  native width — a wide monitor is NOT a magnified 1440, that balloon
+ *  was rejected); browser zoom moves clientWidth but not the plate, so
+ *  zoom-in gives k < 1, zoom-out k > 1, and k times the browser's own
+ *  factor is identity in BOTH directions — the render never moves, and a
+ *  visitor who arrives pre-zoomed still sees the 100% benchmark. Monitor
+ *  hops update screen.width and the very next fit is correct.
  *
- *  THE ZOOM TELL (two-factor): browser zoom scales devicePixelRatio AND
- *  shrinks the viewport by exactly the inverse ratio. Only when BOTH agree
- *  (dpr shifted, width ≈ lastW·lastDpr/dpr) does the plate HOLD — zoom-in
- *  gives k < 1, zoom-out k > 1, and in both cases k times the browser's
- *  own factor is identity: the render never moves. A dpr shift whose width
- *  does NOT match the prediction is a monitor hop or an OS-scale change —
- *  re-baseline, or the old monitor's plate sticks and everything renders
- *  miniature until a refresh (the bug that shipped first). A same-dpr
- *  width change is a true window resize — re-baseline, fluid again. And
- *  when NOTHING changed, fit is a no-op — tab switches and bfcache
- *  restores must never disturb a held zoom. (No outer/innerWidth zoom
- *  probe anywhere — that machinery was retired for lying.)
+ *  Every EVENT-BASELINE version of this died in production: dpr-only
+ *  tells hold the wrong plate on monitor hops, and dpr+width prediction
+ *  cannot work at all — two monitors of equal physical resolution at
+ *  different OS scales produce EXACTLY the zoom signature (width scales
+ *  by the inverse dpr ratio), so hop and zoom are indistinguishable from
+ *  events. Only a zoom-immune anchor read fresh each time survives; do
+ *  not reintroduce state or heuristics here. A window narrower than the
+ *  monitor renders the monitor's composition scaled down — that is the
+ *  poster model, not a bug.
  *
  *  The lever is CSS `zoom` on <body> (never transform: it participates in
  *  layout, keeps scrollbars honest, and does not become a containing block
@@ -48,27 +50,11 @@ export const POSTER_W = 1440;
 export function armPosterLock(opts: { designW?: number; exempt?: string } = {}): void {
   if (!window.matchMedia('(pointer: fine)').matches) return;
   const floor = opts.designW ?? POSTER_W;
-  let plate = 0; // the locked canvas width (baseline viewport)
-  let lastW = 0;
-  let lastDpr = 0;
   const fit = () => {
     const w = document.documentElement.clientWidth;
-    const dpr = window.devicePixelRatio || 1;
-    if (w <= 0) return; // a hidden/collapsing viewport reads 0 — never bake it
-    if (!plate) {
-      plate = Math.max(w, floor);
-    } else if (dpr !== lastDpr) {
-      // dpr moved: zoom if the width moved by exactly the inverse ratio
-      // (scrollbar slack allowed) — otherwise a monitor hop / OS-scale
-      // change, which is a NEW baseline, not a zoom to counter
-      const predicted = lastW * (lastDpr / dpr);
-      if (Math.abs(w - predicted) > Math.max(32, predicted * 0.03)) plate = Math.max(w, floor);
-    } else if (w !== lastW) {
-      plate = Math.max(w, floor); // true window resize: fluid re-baseline
-    }
-    // nothing changed → plate untouched: tab switches are no-ops
-    lastW = w;
-    lastDpr = dpr;
+    if (w <= 0) return; // a hidden/collapsing viewport reads 0 — never apply it
+    // stateless: the plate is the CURRENT monitor, read fresh every time
+    const plate = Math.max(floor, window.screen?.width || w);
     const k = w / plate;
     document.body.style.setProperty('zoom', String(k));
     // viewport units inside the zoomed body get premultiplied by k (measured:
