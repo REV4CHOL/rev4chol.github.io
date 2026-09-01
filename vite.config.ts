@@ -100,6 +100,7 @@ export default defineConfig({
         index: p('index.html'),
         works: p('works.html'),
         about: p('about.html'),
+        aboutOld: p('about-old.html'), // the pre-remake ABOUT, archived live
         contact: p('contact.html'),
         project: p('project.html'),
       },

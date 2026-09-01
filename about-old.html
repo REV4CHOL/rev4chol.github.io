@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{if(localStorage.getItem('rvl-motion')==='calm')document.documentElement.classList.add('rvl-calm')}catch(e){}</script>
+  <style>html{background:#060606;color-scheme:dark}body{visibility:hidden}</style>
+  <script>/* stale-deploy self-heal: cached HTML can 404 its renamed chunks after a deploy - if the app never boots, fetch fresh HTML once and stop */addEventListener("load",function(){setTimeout(function(){if(window.rvlBooted)return;try{if(sessionStorage.getItem("rvl-heal"))return;sessionStorage.setItem("rvl-heal","1")}catch(e){return}location.reload()},1400)});</script>
+  <title>ABOUT_OLD — REVACHOL</title>
+  <meta name="description" content="About REVACHOL — colorist, editor, AI generalist." />
+</head>
+<body class="page-about">
+  <main id="app" class="about-main">
+
+    <section class="a-hero">
+      <p class="a-status micro"><span id="a-status-line"></span><span class="a-caret" aria-hidden="true">▮</span></p>
+
+      <div class="a-hero-grid">
+        <div class="a-id">
+          <h1 class="a-name-stack">
+            <span class="a-name" id="a-name"></span>
+          </h1>
+          <p class="a-name-plate micro" aria-hidden="true">OP-FILE ▸ ACTIVE ▪ SGN//C8FF00 ▪ 2025—∞</p>
+          <p class="a-statement" id="a-statement"></p>
+        </div>
+
+        <div class="a-subject">
+          <div class="a-reticle" aria-hidden="true"><i></i><i></i><i></i></div>
+          <figure class="a-portrait" id="a-portrait">
+            <i class="a-echo a-echo-a" aria-hidden="true"></i>
+            <i class="a-echo a-echo-b" aria-hidden="true"></i>
+            <canvas id="a-specimen" width="720" height="900"></canvas>
+            <i class="a-sweep" aria-hidden="true"></i>
+            <figcaption class="micro" id="a-portrait-cap"></figcaption>
+          </figure>
+          <span class="a-subj-tag micro" aria-hidden="true">SUBJ ▸ REVACHOL ▪ RAW FEED</span>
+          <div class="a-callouts micro" id="a-callouts"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="a-cal" aria-hidden="true">
+      <div class="a-cal-bars">
+        <i style="--c:#C8FF00"></i><i style="--c:#FF2E63"></i><i style="--c:#2418FF"></i><i style="--c:#B79CFF"></i><i style="--c:#EDEDE6"></i><i style="--c:#0A0A12"></i><i style="--c:#060606"></i>
+      </div>
+      <p class="a-cal-label micro">CAL ▸ C8FF00 · FF2E63 · 2418FF · B79CFF · EDEDE6 · 0A0A12 · 060606</p>
+    </div>
+
+    <section class="a-sec a-op-sec">
+      <div class="a-rail"><span class="a-rail-tag" aria-hidden="true">OP:</span></div>
+      <div class="a-sec-body">
+        <h2 class="visually-hidden">Operator dossier</h2>
+        <div class="a-bio" id="a-bio" data-stamp></div>
+        <dl class="a-spec" id="a-facts" data-stamp></dl>
+      </div>
+    </section>
+
+    <section class="a-sec a-cap-sec">
+      <div class="a-rail"><span class="a-rail-tag" aria-hidden="true">CAP:</span></div>
+      <div class="a-sec-body">
+        <h2 class="visually-hidden">Capabilities</h2>
+        <div class="a-caps" id="a-caps"></div>
+      </div>
+    </section>
+
+    <nav class="a-transmit" id="a-transmit" aria-label="Contact"></nav>
+
+    <footer class="a-eof micro" id="a-eof"></footer>
+  </main>
+
+  <script type="module" src="/src/pages/about-old.ts"></script>
+</body>
+</html>
