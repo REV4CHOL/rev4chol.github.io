@@ -15,6 +15,16 @@
 .page-home .brand, .page-home .nav-links a, .page-home .hud-tr {
   text-shadow: 0 0 4px rgba(6, 6, 6, 0.95), 0 1px 2px rgba(6, 6, 6, 0.9), 0 2px 16px rgba(6, 6, 6, 0.8);
 }
+/* the HUD instruments ride void plates (the roles bar's grammar): halos
+   alone lose to bright sky, and the accent ink can itself be pale — a plate
+   keeps SND/MTN and the readouts legible over ANY clip */
+.page-home .hud-tr, .page-home .hud-bl, .page-home .hud-br {
+  padding: 5px 10px 4px;
+  background: color-mix(in srgb, var(--void) 78%, transparent);
+  color: color-mix(in srgb, var(--bone) 85%, transparent);
+}
+.page-home .hud-tr { border-left: 2px solid var(--accent); font-size: 11px; }
+.page-home .hud button { text-shadow: 0 0 6px rgba(6, 6, 6, 0.95); }
 .nav a { pointer-events: auto; text-decoration: none; }
 .brand {
   font-family: var(--f-serif); font-weight: 700; font-size: var(--t-lg);
@@ -157,10 +167,13 @@
 }
 .home-main {
   /* the poster anchors to the REAL screen bottom: vh terms divide by --plate
-     (the poster lock premultiplies viewport units by the plate factor) */
-  position: relative; z-index: 3; min-height: calc(100vh / var(--plate, 1));
+     (the poster lock premultiplies viewport units by the plate factor).
+     svh, not vh: a phone's 100vh is the bar-retracted height, and the glide
+     page can't scroll — everything must sit inside the SMALL viewport, or
+     the plate row and roles bar drown under the URL bar */
+  position: relative; z-index: 3; min-height: calc(100svh / var(--plate, 1));
   display: flex; flex-direction: column; justify-content: flex-end;
-  align-items: flex-start; padding: 0 28px clamp(64px, calc(10vh / var(--plate, 1)), 120px);
+  align-items: flex-start; padding: 0 28px clamp(64px, calc(10svh / var(--plate, 1)), 120px);
 }
 
 .hk-kicker {

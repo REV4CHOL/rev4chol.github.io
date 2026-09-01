@@ -16,8 +16,10 @@ body {
   font-family: 'Geist Mono', ui-monospace, monospace;
   /* /--plate: on poster-locked pages the zoom premultiplies vh by the plate
      factor — undivided, k>1 overshoots the viewport by a few px and hangs a
-     phantom scrollbar on the fixed pages (unlocked pages: --plate is 1) */
-  min-height: calc(100vh / var(--plate, 1));
+     phantom scrollbar on the fixed pages (unlocked pages: --plate is 1).
+     svh not vh: on phones 100vh is the URL-bar-retracted viewport, which
+     shoves bottom-anchored content under the fold on load */
+  min-height: calc(100svh / var(--plate, 1));
 }
 img, video, canvas { display: block; max-width: 100%; }
 a { color: inherit; }
