@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script>try{if(localStorage.getItem('rvl-motion')==='calm')document.documentElement.classList.add('rvl-calm')}catch(e){}</script>
   <style>html{background:#060606;color-scheme:dark}body{visibility:hidden}</style>
+  <script>/* stale-deploy self-heal: cached HTML can 404 its renamed chunks after a deploy - if the app never boots, fetch fresh HTML once and stop */addEventListener("load",function(){setTimeout(function(){if(window.rvlBooted)return;try{if(sessionStorage.getItem("rvl-heal"))return;sessionStorage.setItem("rvl-heal","1")}catch(e){return}location.reload()},1400)});</script>
   <title>WORK — REVACHOL</title>
   <meta name="description" content="Selected films by REVACHOL — an explorable floor of moving images." />
 </head>

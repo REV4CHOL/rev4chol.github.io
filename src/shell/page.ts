@@ -8,6 +8,29 @@ import { mountShell, PageKey } from './shell';
 
 export interface PageCtx { site: SiteContent; hud: Hud }
 
+// STALE-DEPLOY SELF-HEAL. Every deploy renames the hashed chunks; a device
+// holding cached HTML (Pages caches everything ~10 min) then 404s its
+// modules and the page dies half-mounted — the visitor sees black + chrome
+// and leaves. Reaching this line proves the module graph loaded, so flag it
+// for the inline watchdog in each page's <head>; if boot still fails (a
+// flaky first fetch, a stale dynamic chunk), reload ONCE for fresh HTML —
+// the sessionStorage guard stops any loop, and a successful boot clears it.
+(window as unknown as { rvlBooted?: boolean }).rvlBooted = true;
+
+function heal(): void {
+  try {
+    if (sessionStorage.getItem('rvl-heal')) return; // one attempt per break
+    sessionStorage.setItem('rvl-heal', '1');
+  } catch {
+    return; // no storage = no loop guard = no auto-reload
+  }
+  location.reload();
+}
+
+// vite emits this when a dynamically imported chunk 404s (the homepage's
+// hero module is one) — same disease, same cure
+window.addEventListener('vite:preloadError', heal);
+
 export function startPage(
   active: PageKey,
   main: (ctx: PageCtx) => void | Promise<void>,
@@ -32,6 +55,10 @@ export function startPage(
       const site = await loadSite();
       const { hud } = mountShell(site, active);
       await main({ site, hud });
+      try { sessionStorage.removeItem('rvl-heal'); } catch { /* ok */ }
     })
-    .catch((e: unknown) => console.error('[revachol] boot failed', e));
+    .catch((e: unknown) => {
+      console.error('[revachol] boot failed', e);
+      heal(); // a failed loader stays memoized-rejected — only fresh HTML heals
+    });
 }
