@@ -52,15 +52,22 @@ startPage('home', async ({ site }) => {
     // overlap never shifts; only the glyphs grow or tighten to fit.
     const meas = document.createElement('span');
     meas.className = 'st-clash';
-    meas.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;pointer-events:none;';
+    meas.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;pointer-events:none;animation:none;';
     meas.setAttribute('aria-hidden', 'true');
     colorRow.parentElement?.appendChild(meas);
+    // the scale must live on its OWN wrapper: .st-clash's idle drift animates
+    // `transform`, and a running animation silently replaces any inline
+    // transform — the first fit attempt never rendered because of exactly that
+    const fit = document.createElement('span');
+    fit.className = 'st-fit';
+    fit.style.cssText = 'display:inline-block;transform-origin:left bottom;';
+    colorRow.parentElement?.insertBefore(fit, colorRow);
+    fit.appendChild(colorRow);
     const widthOf = (t: string) => { meas.textContent = t; return meas.getBoundingClientRect().width; };
     let targetW = widthOf('PURPLE');
     const fitWord = (word: string) => {
       const w = widthOf(word);
-      colorRow.style.transformOrigin = 'left bottom';
-      colorRow.style.transform = w > 0 && targetW > 0 ? `scale(${(targetW / w).toFixed(4)})` : '';
+      fit.style.transform = w > 0 && targetW > 0 ? `scale(${(targetW / w).toFixed(4)})` : '';
     };
     window.addEventListener('resize', () => { targetW = widthOf('PURPLE'); fitWord(currentWord); });
     window.addEventListener('rvl:accent', (e) => {
