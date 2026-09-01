@@ -38,6 +38,48 @@ startPage('home', async ({ site }) => {
   // the Clash layers scramble in; each ghost (::after reads data-text) arms
   // only once its line has resolved
   const lines = [...document.querySelectorAll<HTMLElement>('.st-clash')];
+
+  // the first word of the statement is the footage's color: every clip the
+  // reel lands on re-samples an accent, and the word physically scrambles
+  // into the hue's name — PURPLE was only ever the fish
+  const colorRow = lines[0];
+  if (colorRow) {
+    const leaf = colorRow.querySelector<HTMLElement>('.gl') ?? colorRow;
+    let currentWord = leaf.textContent ?? 'PURPLE';
+    // the composition is calibrated to PURPLE's glyph run (its right edge
+    // kisses the M of DREAMS below) — every word must span EXACTLY that run.
+    // A transform scale keeps the row's layout box untouched, so the rows'
+    // overlap never shifts; only the glyphs grow or tighten to fit.
+    const meas = document.createElement('span');
+    meas.className = 'st-clash';
+    meas.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;pointer-events:none;';
+    meas.setAttribute('aria-hidden', 'true');
+    colorRow.parentElement?.appendChild(meas);
+    const widthOf = (t: string) => { meas.textContent = t; return meas.getBoundingClientRect().width; };
+    let targetW = widthOf('PURPLE');
+    const fitWord = (word: string) => {
+      const w = widthOf(word);
+      colorRow.style.transformOrigin = 'left bottom';
+      colorRow.style.transform = w > 0 && targetW > 0 ? `scale(${(targetW / w).toFixed(4)})` : '';
+    };
+    window.addEventListener('resize', () => { targetW = widthOf('PURPLE'); fitWord(currentWord); });
+    window.addEventListener('rvl:accent', (e) => {
+      const hsl = parseHsl(String((e as CustomEvent).detail ?? ''));
+      if (!hsl) return;
+      const word = colorWord(hsl.h, hsl.s);
+      if (!colorRow.dataset.text) return; // boot reveal still running
+      if (word === currentWord || colorRow.dataset.busy) return;
+      currentWord = word;
+      colorRow.dataset.busy = '1';
+      colorRow.classList.add('rip');
+      fitWord(word); // land at final size before the glyphs morph
+      void scrambleEl(leaf, word, 340).then(() => {
+        colorRow.dataset.text = word; // the ghost slices follow
+        delete colorRow.dataset.busy;
+        setTimeout(() => colorRow.classList.remove('rip'), 140);
+      });
+    });
+  }
   await Promise.all(
     lines.map(async (el, i) => {
       const g = el.querySelector<HTMLElement>('.gl') ?? el;
@@ -50,28 +92,6 @@ startPage('home', async ({ site }) => {
   document.querySelector('.home-main')?.classList.add('is-revealed');
   initHomeEffects();
 
-  // the first word of the statement is the footage's color: every clip the
-  // reel lands on re-samples an accent, and the word physically scrambles
-  // into the hue's name — PURPLE was only ever the fish
-  const colorRow = lines[0];
-  if (colorRow) {
-    const leaf = colorRow.querySelector<HTMLElement>('.gl') ?? colorRow;
-    let currentWord = leaf.textContent ?? 'PURPLE';
-    window.addEventListener('rvl:accent', (e) => {
-      const hsl = parseHsl(String((e as CustomEvent).detail ?? ''));
-      if (!hsl) return;
-      const word = colorWord(hsl.h, hsl.s);
-      if (word === currentWord || colorRow.dataset.busy) return;
-      currentWord = word;
-      colorRow.dataset.busy = '1';
-      colorRow.classList.add('rip');
-      void scrambleEl(leaf, word, 340).then(() => {
-        colorRow.dataset.text = word; // the ghost slices follow
-        delete colorRow.dataset.busy;
-        setTimeout(() => colorRow.classList.remove('rip'), 140);
-      });
-    });
-  }
 });
 
 /** Every text reacts, the room reacts: hover scrambles any [data-glitch],
