@@ -15,16 +15,16 @@
 .page-home .brand, .page-home .nav-links a, .page-home .hud-tr {
   text-shadow: 0 0 4px rgba(6, 6, 6, 0.95), 0 1px 2px rgba(6, 6, 6, 0.9), 0 2px 16px rgba(6, 6, 6, 0.8);
 }
-/* the HUD instruments ride void plates (the roles bar's grammar): halos
-   alone lose to bright sky, and the accent ink can itself be pale — a plate
-   keeps SND/MTN and the readouts legible over ANY clip */
+/* the HUD fights bright footage with INK alone — owner decree: no plates,
+   black boxes clog the design. Full white at high opacity + the hard void
+   halo, the same treatment the nav links wear; the buttons drop their
+   accent (which can be pale over pale sky) for bone. */
 .page-home .hud-tr, .page-home .hud-bl, .page-home .hud-br {
-  padding: 5px 10px 4px;
-  background: color-mix(in srgb, var(--void) 78%, transparent);
-  color: color-mix(in srgb, var(--bone) 85%, transparent);
+  color: rgba(237, 237, 230, 0.92);
+  text-shadow: 0 0 4px rgba(6, 6, 6, 0.95), 0 1px 2px rgba(6, 6, 6, 0.9), 0 2px 16px rgba(6, 6, 6, 0.8);
 }
-.page-home .hud-tr { border-left: 2px solid var(--accent); font-size: 11px; }
-.page-home .hud button { text-shadow: 0 0 6px rgba(6, 6, 6, 0.95); }
+.page-home .hud-tr { font-size: 11px; }
+.page-home .hud button { color: var(--bone); text-shadow: 0 0 6px rgba(6, 6, 6, 0.95); }
 .nav a { pointer-events: auto; text-decoration: none; }
 .brand {
   font-family: var(--f-serif); font-weight: 700; font-size: var(--t-lg);
