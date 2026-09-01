@@ -25,10 +25,12 @@
 }
 
 .a-hero-grid {
-  /* the min() guard keeps the subject column from overflowing when browser
-     zoom shrinks the CSS viewport under the old 380px hard floor */
-  display: grid; grid-template-columns: 1fr minmax(min(380px, 44vw), 560px);
-  gap: 56px; align-items: end;
+  /* the subject column is PROPORTIONAL (capped for ultra-wide): under zoom
+     the CSS viewport shrinks, and a px-floored column used to swallow the
+     name's track — proportional columns keep the whole hero composed as one
+     piece at any zoom or window width */
+  display: grid; grid-template-columns: 1fr min(41%, 560px);
+  gap: clamp(24px, 4vw, 56px); align-items: end;
 }
 
 .a-id { min-width: 0; } /* the mega name must never inflate the 1fr track */
@@ -81,7 +83,7 @@
 }
 
 /* the subject — portrait through the machine, big enough to hold the room */
-.a-subject { position: relative; justify-self: end; width: min(100%, 560px); min-width: 0; }
+.a-subject { position: relative; justify-self: end; width: 100%; min-width: 0; }
 /* rings center on the portrait frame (top-aligned 4:5 box), not the whole
    column — the callouts below must not drag the scanner's eye down */
 .a-reticle { position: absolute; inset: 0 0 auto 0; aspect-ratio: 4 / 5; pointer-events: none; }
