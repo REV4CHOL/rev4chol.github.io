@@ -44,6 +44,13 @@ export function armPosterLock(opts: { designW?: number; exempt?: string } = {}):
   };
   fit();
   window.addEventListener('resize', fit); // browser zoom fires resize too
+  // Back/Forward restores the page from bfcache with the OLD factor baked in
+  // and no resize event; a background tab can also miss the zoom's resize.
+  // Re-assert on every re-entry — fit() is idempotent and cheap.
+  window.addEventListener('pageshow', fit);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) fit();
+  });
 }
 
 /** Effective poster zoom (1 wherever no lock is armed). JS that positions a

@@ -3,6 +3,7 @@ import { ditherImageToCanvas } from '../lib/dither';
 import { embedSrc } from '../lib/embeds';
 import { mulberry32 } from '../lib/rng';
 import { escapeHtml } from '../lib/escape';
+import { armPosterLock, posterZoom } from '../lib/poster-lock';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { hashSlug, stillSlotUrls, wallRhythm } from '../project/dossier';
@@ -15,6 +16,9 @@ startPage(
   // no count in the HUD here — the dossier's own P·NN/NN stamp carries it,
   // and two counters in the same corner read as clutter
   async () => {
+    // the dossier is a fixed 1440px plate like the rest of the site — zoom
+    // and window width scale it as one document, they never reflow it
+    armPosterLock();
     const projects = await loadProjects();
     await loadLoopManifest(); // the hero walks the manifest-led chain
     const slug = getSlugFromSearch(location.search);
@@ -279,13 +283,17 @@ function syncHoles(): void {
     document.getElementById('grain'),
     document.querySelector<HTMLElement>('.scan-layer'),
   ].filter((el): el is HTMLElement => el !== null);
+  // rects arrive in viewport px; the mask vars land on the zoomed film
+  // layers, which lay out in plate px — divide or the holes drift off
+  // their windows under the poster lock
+  const z = posterZoom();
   const put = (el: HTMLElement, prefix: string, t?: HTMLElement) => {
     if (t && t.isConnected) {
       const r = t.getBoundingClientRect();
-      el.style.setProperty(`${prefix}-x`, `${r.left}px`);
-      el.style.setProperty(`${prefix}-y`, `${r.top}px`);
-      el.style.setProperty(`${prefix}-w`, `${r.width}px`);
-      el.style.setProperty(`${prefix}-h`, `${r.height}px`);
+      el.style.setProperty(`${prefix}-x`, `${r.left / z}px`);
+      el.style.setProperty(`${prefix}-y`, `${r.top / z}px`);
+      el.style.setProperty(`${prefix}-w`, `${r.width / z}px`);
+      el.style.setProperty(`${prefix}-h`, `${r.height / z}px`);
     }
   };
   for (const el of layers) {

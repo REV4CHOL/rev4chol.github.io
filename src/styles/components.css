@@ -90,12 +90,9 @@
 #cursor .x { transform: translate(-50%, -50%) scale(var(--uiz)); }
 #cursor .cursor-label { font-size: calc(10px * var(--uiz)); }
 #cursor .cursor-coords { font-size: calc(9px * var(--uiz)); }
-/* the homepage poster is pinned like the chrome: the whole composition
-   counter-scales as ONE rigid unit from its bottom-left anchor, so browser
-   zoom changes nothing about it — only the hero media behind it zooms.
-   (Inner vw sizes are --zw, i.e. zoom-natural, which this scale then pins;
-   px/rem inside pin the same way.) */
-.home-main { transform: scale(var(--uiz)); transform-origin: left bottom; }
+/* (the b1c91b9-era .home-main counter-scale is DELETED — the poster lock
+   owns zoom now, and a stray transform on the poster root was the last
+   zoom-machinery relic on the homepage) */
 .hk-spine { font-size: calc(10px * var(--uiz)); right: calc(14px * var(--uiz)); }
 .hk-ticks {
   right: calc(92px * var(--uiz)); top: calc(96px * var(--uiz));
@@ -119,7 +116,7 @@
    `--zw` consumer through the --zw pin (1vw at 1440 = 14.4px). Coarse
    pointers never lock: phones and tablets keep the fluid base values. */
 @media (pointer: fine) {
-  .page-home, .page-work, .page-contact {
+  .page-home, .page-work, .page-contact, .page-project {
     --t-lg: 2rem;      /* clamp(1.4rem, 2.5vw, 2rem) @1440 → cap */
     --t-xl: 3.6rem;    /* clamp(2.2rem, 5vw, 3.6rem) @1440 → cap */
     --t-2xl: 6rem;     /* clamp(3rem, 8vw, 6rem) @1440 → cap */
