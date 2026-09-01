@@ -1,4 +1,5 @@
 import { finePointer, reducedMotion } from '../lib/env';
+import { posterZoom } from '../lib/poster-lock';
 
 let labelEl: HTMLSpanElement | null = null;
 
@@ -23,7 +24,10 @@ export function initCursor(): void {
     if (raf) return;
     raf = requestAnimationFrame(() => {
       raf = 0;
-      c.style.transform = `translate3d(${clientX}px, ${clientY}px, 0)`;
+      // pointer coords are viewport px; on a poster-locked page the cursor
+      // element lays out in the zoomed plate's px — divide or it drifts
+      const z = posterZoom();
+      c.style.transform = `translate3d(${clientX / z}px, ${clientY / z}px, 0)`;
       coordsEl.textContent = `${String(clientX).padStart(4, '0')} ${String(clientY).padStart(4, '0')}`;
     });
   });

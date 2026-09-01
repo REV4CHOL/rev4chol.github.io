@@ -5,6 +5,7 @@ import { sound } from '../lib/sound';
 import { armStamps } from '../lib/stamps';
 import { capabilitiesFromTagline, portraitCandidates } from '../about/operator';
 import { mountSpecimen } from '../about/specimen';
+import { armPosterLock } from '../lib/poster-lock';
 import { armGlideNav, navNeighbors } from '../lib/swipe-nav';
 import { hashSlug } from '../project/dossier';
 import { startPage } from '../shell/page';
@@ -13,6 +14,9 @@ import '../styles/about.css';
 startPage(
   'about',
   async ({ site }) => {
+    // the page is a fixed 1440px plate — zoom and window width scale it as
+    // one poster, they never reflow it (owner decree: benchmark 100% only)
+    armPosterLock();
     // this page scrolls, so the glide only arms at the respective end of the
     // scroll — normal thumb-scrolling never drags the page itself
     const se = document.scrollingElement ?? document.documentElement;

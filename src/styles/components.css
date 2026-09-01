@@ -38,7 +38,9 @@
 }
 .nav-links a:hover, .btn:hover, .brand:hover { animation: rgb-flick 0.32s steps(2) 1; }
 
-@media (max-width: 640px) {
+/* coarse-gated: the phone nav is for phones — a desktop viewport narrowed by
+   browser zoom keeps the desktop chrome (the 100%-benchmark zoom law) */
+@media (max-width: 640px) and (pointer: coarse) {
   .nav { flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px 16px; }
   .nav-links { gap: 16px; flex-wrap: wrap; }
   .nav-links a { font-size: 0.65rem; }
@@ -62,7 +64,7 @@
 .hud-br { right: 28px; bottom: 22px; }
 .hud-tr { right: 28px; top: 64px; }
 
-@media (max-width: 640px) {
+@media (max-width: 640px) and (pointer: coarse) {
   .hud-bl { left: 16px; bottom: 14px; }
   .hud-br { right: 16px; bottom: 34px; text-align: right; }
   .hud-tr { right: 16px; top: 96px; }
@@ -99,7 +101,7 @@
   right: calc(92px * var(--uiz)); top: calc(96px * var(--uiz));
   width: calc(150px * var(--uiz)); height: calc(10px * var(--uiz));
 }
-@media (max-width: 640px) {
+@media (max-width: 640px) and (pointer: coarse) {
   .nav { padding: calc(14px * var(--uiz)) calc(16px * var(--uiz)); }
   .nav-links { gap: calc(16px * var(--uiz)); }
   .nav-links a { font-size: calc(0.65rem * var(--uiz)); }

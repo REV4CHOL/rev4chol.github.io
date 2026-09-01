@@ -4,6 +4,12 @@
    procedure dossier: signal structure, alert interactives, field blueprint
    forms, flourish one soft accent. Every photograph on this page passes
    through the dither machine — the page owns the look, not the picture.
+
+   POSTER-LOCKED (owner decree): on fine pointers this page is a fixed 1440px
+   plate (lib/poster-lock.ts zooms <body> to the viewport) — browser zoom and
+   window width scale the whole composition, they never reflow it. The lock
+   block at the END of this file pins every vw-fluid value to its 1440
+   resolution; the phone block answers only to coarse pointers.
    ========================================================================== */
 
 .about-main { padding-bottom: 0; }
@@ -353,7 +359,9 @@
 
 /* -------------------------------------------------------------- phone -- */
 
-@media (max-width: 760px) {
+/* coarse-gated: a zoomed-in desktop viewport crosses 760px too, and the
+   poster lock must never see this block — only actual touch devices do */
+@media (max-width: 760px) and (pointer: coarse) {
   .a-hero { padding: 150px 18px 56px; }
   .a-status { left: 16px; right: 16px; top: 130px; }
   .a-index { display: none; } /* the EOF stamp repeats it */
@@ -383,4 +391,20 @@
 
   .a-transmit { padding: 80px 18px 64px; }
   .a-yes { font-size: var(--t-xl); }
+}
+
+/* -------------------------------------------------- the poster lock -- */
+
+/* Fine pointers only (the lock regime): vw units bypass CSS `zoom`, so every
+   vw-fluid value the page consumes is pinned to what it resolves to at the
+   1440 plate width. Coarse devices keep the fluid base rules above. */
+@media (pointer: fine) {
+  .page-about {
+    --t-lg: 2rem;      /* clamp(1.4rem, 2.5vw, 2rem) @1440 → cap */
+    --t-xl: 3.6rem;    /* clamp(2.2rem, 5vw, 3.6rem) @1440 → cap */
+    --t-2xl: 6rem;     /* clamp(3rem, 8vw, 6rem) @1440 → cap */
+    --t-3xl: 8.5rem;   /* clamp(4rem, 11vw, 8.5rem) @1440 → cap */
+  }
+  .a-hero-grid { gap: 56px; }        /* clamp(24px, 4vw, 56px) @1440 */
+  .a-bar-name { font-size: 27.5px; } /* clamp(17px, 11px + 1.15vw, 28px) @1440 */
 }
