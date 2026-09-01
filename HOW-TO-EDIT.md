@@ -178,6 +178,10 @@ accent color re-samples from every clip as it lands. Any number of loops works
 (5 recommended); numbering order = play order; refresh, done. Underscore
 names (`loop_1.mp4`) are accepted too.
 
+Drop files exactly as they are: if a loop carries baked black bars
+(letterbox or pillarbox), the site detects the active picture and crops
+them out on its own.
+
 Formats, checked in this order per slot: `.mp4`, `.webm`, `.gif`.
 **Use mp4** — a 3s mp4 is ~10× smaller and cleaner than the same clip as GIF
 (GIFs work, but they're capped at 256 colors and huge).

@@ -175,6 +175,40 @@ async function loadGifClip(url: string, autostart: boolean): Promise<Clip | null
 
 interface FoundLoop { url: string; ext: string }
 
+/** Baked letterbox/pillarbox bars in a dropped loop: find the active picture
+ *  by scanning a decoded frame's margins — the site trims them on its own, so
+ *  the owner drops files exactly as they are. Null = no confident bars. */
+function detectActiveRegion(v: HTMLVideoElement): { x: number; y: number; w: number; h: number } | null {
+  const vw = v.videoWidth;
+  const vh = v.videoHeight;
+  if (!vw || !vh) return null;
+  const W = 96;
+  const H = Math.max(6, Math.round((W * vh) / vw));
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+  try { ctx.drawImage(v, 0, 0, W, H); } catch { return null; }
+  const d = ctx.getImageData(0, 0, W, H).data;
+  const dark = (i: number) => 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2] < 24;
+  const rowBar = (y: number) => { let n = 0; for (let x = 0; x < W; x++) if (dark((y * W + x) * 4)) n++; return n / W >= 0.97; };
+  const colBar = (x: number) => { let n = 0; for (let y = 0; y < H; y++) if (dark((y * W + x) * 4)) n++; return n / H >= 0.97; };
+  let top = 0; while (top < H / 3 && rowBar(top)) top++;
+  let bot = 0; while (bot < H / 3 && rowBar(H - 1 - bot)) bot++;
+  let left = 0; while (left < W / 3 && colBar(left)) left++;
+  let right = 0; while (right < W / 3 && colBar(W - 1 - right)) right++;
+  const sx = vw / W;
+  const sy = vh / H;
+  const x = Math.round(left * sx);
+  const y = Math.round(top * sy);
+  const w = vw - x - Math.round(right * sx);
+  const h = vh - y - Math.round(bot * sy);
+  if (w >= vw - 2 && h >= vh - 2) return null; // nothing worth trimming
+  if (w < vw * 0.5 || h < vh * 0.5) return null; // a dark SHOT is not a bar — bail
+  return { x, y, w, h };
+}
+
 /** Which loops did the owner drop? HEAD probes only — cheap and fast. */
 async function discoverLoops(): Promise<FoundLoop[]> {
   const found = await Promise.all(
@@ -374,6 +408,11 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
       get count() { return clips.length; },
       active: () => active,
       cut: beginCut,
+      // texture frames per clip — a cropped loop shows y>0 / reduced height
+      frames: () => clips.map((c) => {
+        const f = c.sprite.texture.frame;
+        return `${c.url.split('/').pop()}: ${f.x},${f.y} ${f.width}x${f.height}`;
+      }),
     };
   };
 
@@ -390,12 +429,38 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
   // progressive: the FIRST clip to reach metadata starts the reel — the old
   // Promise.all barrier held the whole page black until the slowest of seven
   // loops answered. Later arrivals slot into the rotation live.
+  // any clip may carry baked bars: once it has decoded past the fade-in
+  // window, detect the active picture and crop the texture to it, then refit
+  const armAutoCrop = (c: Clip) => {
+    const el = c.sample();
+    if (!(el instanceof HTMLVideoElement) || !('requestVideoFrameCallback' in el)) return;
+    const v = el as HTMLVideoElement & {
+      requestVideoFrameCallback(cb: (now: number, meta: { mediaTime: number }) => void): void;
+    };
+    let tries = 0;
+    const attempt = (_n: number, meta: { mediaTime: number }) => {
+      if (meta.mediaTime < 0.35 && tries++ < 90) { v.requestVideoFrameCallback(attempt); return; }
+      const r = detectActiveRegion(v);
+      if (!r) return;
+      const tex = c.sprite.texture;
+      tex.frame.x = r.x;
+      tex.frame.y = r.y;
+      tex.frame.width = r.w;
+      tex.frame.height = r.h;
+      tex.updateUvs();
+      c.width = r.w;
+      c.height = r.h;
+      fitSprite(c.sprite, r.w, r.h);
+    };
+    v.requestVideoFrameCallback(attempt);
+  };
   const attachClip = (c: Clip) => {
     fitSprite(c.sprite, c.width, c.height);
     c.sprite.visible = false;
     c.pause();
     root.addChild(c.sprite);
     clips.push(c);
+    armAutoCrop(c);
   };
   let reelUp = false;
   foundLoops.forEach((fl, i) => {
@@ -405,6 +470,7 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
       if (!reelUp) {
         reelUp = true;
         mountReel([c]);
+        armAutoCrop(c);
       } else {
         attachClip(c);
       }
