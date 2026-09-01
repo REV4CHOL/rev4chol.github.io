@@ -25,7 +25,9 @@
 }
 
 .a-hero-grid {
-  display: grid; grid-template-columns: 1fr minmax(380px, 560px);
+  /* the min() guard keeps the subject column from overflowing when browser
+     zoom shrinks the CSS viewport under the old 380px hard floor */
+  display: grid; grid-template-columns: 1fr minmax(min(380px, 44vw), 560px);
   gap: 56px; align-items: end;
 }
 

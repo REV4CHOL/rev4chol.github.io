@@ -1,5 +1,4 @@
 import type { SiteContent } from '../lib/content';
-import { isMobile } from '../lib/env';
 import { escapeHtml } from '../lib/escape';
 import { sound } from '../lib/sound';
 import { initTransitions } from '../lib/transitions';
@@ -47,26 +46,13 @@ export function mountShell(site: SiteContent, active: PageKey): ShellRefs {
   initCursor();
   const hud = mountHud();
 
-  // zoom-fixed chrome: browser zoom shrinks/grows CSS pixels, so the shell UI
-  // counter-scales to hold its apparent size (--uiz feeds the CSS calcs).
-  // outerWidth is in OS pixels and zoom-invariant; innerWidth is CSS pixels.
-  const applyUiScale = () => {
-    if (isMobile()) {
-      // phones pinch the visual viewport, never the CSS pixel — and their
-      // outer/innerWidth ratio is unreliable; the chrome stays 1:1
-      document.documentElement.style.setProperty('--uiz', '1');
-      return;
-    }
-    const z = window.outerWidth > 0 && window.innerWidth > 0
-      ? window.outerWidth / window.innerWidth
-      : 1;
-    let m = 1 / z;
-    if (Math.abs(m - 1) < 0.08) m = 1; // window borders jitter the ratio at 100%
-    m = Math.min(4, Math.max(0.25, m)); // covers Chrome's full 25%–400% zoom range
-    document.documentElement.style.setProperty('--uiz', String(+m.toFixed(3)));
-  };
-  applyUiScale();
-  window.addEventListener('resize', applyUiScale);
+  // Zoom compensation RETIRED by owner decree: the outer/innerWidth probe was
+  // unreliable (devtools, OS scaling, browser chrome all skew it) and the
+  // per-surface counter-scaling it fed tore layouts apart at any zoom other
+  // than 100%. The site now zooms like any normal page — a uniform magnification
+  // of the 100% design. --uiz stays pinned at 1 so every calc(... * var(--uiz))
+  // in the stylesheets degrades to its base value, and --zw becomes plain 1vw.
+  document.documentElement.style.setProperty('--uiz', '1');
 
   // WebAudio: the engine handles activation itself (same-origin navigations
   // propagate the gesture, so sound flows page to page); hover blips on
