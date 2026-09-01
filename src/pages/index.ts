@@ -35,6 +35,23 @@ startPage('home', async ({ site }) => {
     onCommit: () => heroBurst(),
   });
 
+  // the SYS kicker hugs the wordmark by MEASUREMENT, not modeling: the brand
+  // is viewport-fluid type in a zoom-pinned bar, so any px/uiz formula drifts
+  // somewhere. Below 640px the stacked-nav CSS override owns it instead.
+  const kicker = document.querySelector<HTMLElement>('.hk-kicker');
+  const brand = document.querySelector<HTMLElement>('.brand');
+  if (kicker && brand) {
+    const pinKicker = () => {
+      if (window.innerWidth <= 640) { kicker.style.top = ''; kicker.style.left = ''; return; }
+      const b = brand.getBoundingClientRect();
+      kicker.style.top = `${Math.round(b.bottom + 2)}px`;
+      kicker.style.left = `${Math.round(b.left)}px`;
+    };
+    pinKicker();
+    window.addEventListener('resize', pinKicker); // browser zoom fires resize too
+    void document.fonts?.ready?.then(pinKicker); // the serif wordmark reflows on load
+  }
+
   // the Clash layers scramble in; each ghost (::after reads data-text) arms
   // only once its line has resolved
   const lines = [...document.querySelectorAll<HTMLElement>('.st-clash')];

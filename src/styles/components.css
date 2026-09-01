@@ -140,11 +140,13 @@
 }
 
 .hk-kicker {
-  /* tucked directly under the REVACHOL wordmark. Plain px on purpose: this
-     lives inside the uiz-scaled poster block, which already carries the zoom
-     compensation — multiplying by --uiz here would double it. */
-  position: absolute; top: 52px; left: 28px;
-  font-family: var(--f-micro); font-size: 11px; letter-spacing: 0.2em;
+  /* NAV-family chrome, not poster-family: it must hug the wordmark at any
+     browser zoom, so it lives at body level (outside the bottom-origin
+     scaled poster — inside it, the poster's zoom pin flung it mid-screen)
+     and compensates like the nav does: offset and size ride --uiz. */
+  position: fixed; top: calc(18px + 34px * var(--uiz, 1)); left: 28px;
+  z-index: 945; margin: 0; /* pointer events stay on: the .gl hover-scramble lives here */
+  font-family: var(--f-micro); font-size: calc(11px * var(--uiz, 1)); letter-spacing: 0.2em;
   text-transform: uppercase; color: var(--accent);
 }
 /* the ≤640 nav stacks ~116px deep — the kicker ducks under it. AFTER the
