@@ -47,6 +47,54 @@ async function armFlight(): Promise<void> {
   const ride = mountCity3D(canvas, hashSlug('revachol-night-city'));
   (window as unknown as { rvlRide: typeof ride }).rvlRide = ride; // debug handle for verification
 
+  // -- the flight dial: TOUR (the scroll story) / AUTO (endless drift) /
+  // FREE (drag-look + WASD, fine pointers only) -------------------------
+  type Mode = 'tour' | 'auto' | 'free';
+  const fly = document.getElementById('a3-fly')!;
+  const hint = document.getElementById('a3-hint')!;
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  const modes: Mode[] = fine ? ['tour', 'auto', 'free'] : ['tour', 'auto'];
+  fly.innerHTML = modes
+    .map((m) => `<button type="button" data-m="${m}"${m === 'tour' ? ' class="on"' : ''}>${m.toUpperCase()}</button>`)
+    .join('');
+  let mode: Mode = 'tour';
+  const setMode = (m: Mode) => {
+    mode = m;
+    ride.setMode(m);
+    document.body.classList.toggle('a3-solo', m !== 'tour');
+    hint.hidden = m !== 'free';
+    for (const b of fly.querySelectorAll('button')) b.classList.toggle('on', b.dataset.m === m);
+    sound.click();
+  };
+  fly.addEventListener('click', (e) => {
+    const b = (e.target as Element).closest('button');
+    if (b) setMode(b.dataset.m as Mode);
+  });
+  // free flight: drag anywhere to look (the stations are inert in solo
+  // modes, so the whole page is the windshield), WASD/arrows to move
+  let dragging = false;
+  let lx = 0, ly = 0;
+  window.addEventListener('pointerdown', (e) => {
+    if (mode !== 'free') return;
+    if ((e.target as Element).closest?.('.a3-fly, .nav, .hud, a, button')) return;
+    dragging = true; lx = e.clientX; ly = e.clientY;
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!dragging || mode !== 'free') return;
+    ride.look(e.clientX - lx, e.clientY - ly);
+    lx = e.clientX; ly = e.clientY;
+  });
+  window.addEventListener('pointerup', () => { dragging = false; });
+  window.addEventListener('keydown', (e) => {
+    ride.keys.add(e.key.toLowerCase());
+    // the windshield owns these keys mid-flight — the page must not scroll
+    if (mode === 'free' && ['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) {
+      e.preventDefault();
+    }
+  });
+  window.addEventListener('keyup', (e) => ride.keys.delete(e.key.toLowerCase()));
+  window.addEventListener('blur', () => ride.keys.clear());
+
   const se = document.scrollingElement ?? document.documentElement;
   const stations = [...document.querySelectorAll<HTMLElement>('.a3-st')];
   const rail = document.getElementById('a3-rail')!;

@@ -66,6 +66,37 @@
 .a3-rail button.on { color: var(--signal); }
 .a3-rail button.on::after { color: var(--signal); }
 
+/* cinematic grade: a soft vignette + letterbox breath over the city, under
+   the stations — light shaping, not a box (the plates decree holds) */
+.a3-vig {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 42%, transparent 52%, rgba(2, 2, 10, 0.42) 88%, rgba(2, 2, 10, 0.62) 100%),
+    linear-gradient(180deg, rgba(2, 2, 10, 0.35), transparent 18%, transparent 86%, rgba(2, 2, 10, 0.4));
+}
+
+/* the flight dial — the works channel-switch grammar, bottom center */
+.a3-fly {
+  position: fixed; left: 50%; translate: -50% 0; bottom: 16px; z-index: 3;
+  display: flex; gap: 26px;
+}
+.a3-fly button {
+  font-family: var(--f-micro); font-size: var(--t-2xs); letter-spacing: 0.22em;
+  text-transform: uppercase; color: color-mix(in srgb, var(--bone) 45%, transparent);
+  text-shadow: 0 0 8px rgba(6, 6, 6, 0.95); cursor: pointer; padding: 3px 2px;
+}
+.a3-fly button:hover { color: var(--bone); }
+.a3-fly button.on { color: var(--signal); }
+.a3-fly button.on::before { content: '▸ '; }
+.a3-hint {
+  position: fixed; left: 50%; translate: -50% 0; bottom: 42px; z-index: 3;
+  color: color-mix(in srgb, var(--bone) 70%, transparent); letter-spacing: 0.2em;
+  text-shadow: 0 0 8px rgba(6, 6, 6, 0.95);
+}
+/* solo flight: the city takes the whole screen — the story stands aside */
+.a3-solo .a3-st, .a3-solo .a3-rail { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }
+body.a3-solo { user-select: none; }
+
 .a3-cue {
   margin-top: 26px; color: color-mix(in srgb, var(--bone) 70%, transparent);
   letter-spacing: 0.24em; animation: a3-dip 2.2s ease-in-out infinite;
