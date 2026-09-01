@@ -46,7 +46,6 @@ async function probeFirst(urls: string[]): Promise<string | null> {
 function render(site: SiteContent, about: AboutContent): void {
   // -- hero -------------------------------------------------------------
   void scrambleEl(document.getElementById('a-status-line')!, `PERSONNEL :: ${site.name.toUpperCase()} // CLEARED`, 900);
-  document.getElementById('a-index')!.innerHTML = `<span>P·OP/01</span>`;
   const nameEl = document.getElementById('a-name')!;
   // the chromatic plate copies read attr(data-text): the full name from frame
   // one, while the visible layer is still scrambling in
