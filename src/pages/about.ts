@@ -45,6 +45,7 @@ async function armFlight(): Promise<void> {
   if (!canvas) return;
   const { mountCity3D } = await import('../about/city3d');
   const ride = mountCity3D(canvas, hashSlug('revachol-night-city'));
+  (window as unknown as { rvlRide: typeof ride }).rvlRide = ride; // debug handle for verification
 
   const se = document.scrollingElement ?? document.documentElement;
   const stations = [...document.querySelectorAll<HTMLElement>('.a3-st')];
