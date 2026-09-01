@@ -19,7 +19,6 @@ import { CLIP_MS, coverScale, loopCandidates, nextClip } from './loops';
  *  drifts after the pointer — and the glitch language lands as punctuation:
  *  the 3s cuts, rare ambient bursts, and clicks. No velocity shredder. */
 
-const IMG_CANDIDATES = ['hero.jpg', 'hero.jpeg', 'hero.png', 'hero.webp'];
 
 export interface HeroInfo { accent: string; src: string }
 
@@ -68,15 +67,6 @@ function accentFromSource(src: CanvasImageSource): string {
 function setAccent(accent: string): void {
   document.documentElement.style.setProperty('--accent', accent);
   window.dispatchEvent(new CustomEvent('rvl:accent', { detail: accent }));
-}
-
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((res, rej) => {
-    const im = new Image();
-    im.onload = () => res(im);
-    im.onerror = rej;
-    im.src = url;
-  });
 }
 
 /** A file exists iff HEAD succeeds with a non-HTML body (dev servers answer
@@ -229,19 +219,13 @@ async function loadFound(found: FoundLoop[], autostart: boolean): Promise<Clip[]
 }
 
 export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
-  // the poster image: first paint + fallback + first accent
-  let img: HTMLImageElement | null = null;
-  let imgSrc = '';
-  for (const name of IMG_CANDIDATES) {
-    try {
-      img = await loadImage(`/content/home/${name}`);
-      imgSrc = `/content/home/${name}`;
-      break;
-    } catch { /* try the next candidate */ }
-  }
+  // hero images are retired by owner decree: the homepage is loops only —
+  // no poster probes, no fallback stills. The reel's first clip is the
+  // first paint.
+  const img: HTMLImageElement | null = null;
+  const imgSrc = '';
 
-  let accent = img ? accentFromSource(img) : '#C8FF00';
-  if (img) setAccent(accent);
+  let accent = '#C8FF00';
 
   const app = new Application();
   await app.init({
@@ -362,9 +346,29 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     pendingSwap = true;
     swapIn = 80; // the switch lands mid-tear, like a hard film cut
   };
+  const clipReady = (c: Clip) => {
+    const el = c.sample();
+    return !(el instanceof HTMLVideoElement) || el.readyState >= 2;
+  };
+  const warm = (c: Clip | undefined) => {
+    const el = c?.sample();
+    if (el instanceof HTMLVideoElement && el.preload !== 'auto') el.preload = 'auto';
+  };
   const doSwap = () => {
+    // never cut to a frameless clip: metadata-preload arrivals may not have
+    // decoded anything yet, and a frameless VideoSource paints PURE BLACK
+    // for its whole window. Hop to the next clip holding a frame; if nobody
+    // is ready, keep the current one for another window while they buffer.
+    let next = nextClip(active, clips.length);
+    let hops = 0;
+    while (hops < clips.length && !clipReady(clips[next])) {
+      warm(clips[next]);
+      next = nextClip(next, clips.length);
+      hops++;
+    }
+    if (next === active || hops >= clips.length) { clipClock = 0; return; }
     const prev = clips[active];
-    active = nextClip(active, clips.length);
+    active = next;
     const cur = clips[active];
     prev.sprite.visible = false;
     prev.pause();
@@ -374,6 +378,7 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     cur.rewind();
     cur.sprite.visible = true;
     cur.play();
+    warm(clips[nextClip(active, clips.length)]); // buffer the next window ahead
     clipClock = 0;
     sampleClipAccent(cur);
   };
@@ -461,6 +466,7 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     root.addChild(c.sprite);
     clips.push(c);
     armAutoCrop(c);
+    if (clips.length === 2) warm(c); // the very next window — start buffering now
   };
   let reelUp = false;
   foundLoops.forEach((fl, i) => {

@@ -193,13 +193,11 @@ Cut a 3-second loop from one of your films with ffmpeg (change the start time
 ffmpeg -ss 00:01:12 -t 3 -i "MYFILM.mp4" -an -vf "scale=1280:-2" -c:v libx264 -crf 22 -pix_fmt yuv420p -movflags +faststart loop-1.mp4
 ```
 
-## Homepage picture (fallback / first paint)
+## Homepage picture
 
-`content/home/hero.jpg` (also `.jpeg`/`.png`/`.webp`) is the poster the page
-shows instantly while the loops load — and the whole hero, if no loops exist.
-Overwrite that one file (any aspect ratio, ~1920px wide JPEG recommended),
-refresh, done — the site re-fits it, re-samples the accent from it, and runs
-the glitch treatment automatically.
+There isn't one — by design. The homepage is loops only: the first clip to
+arrive is the first paint, and hero images are never probed. (If every loop
+is missing, the page stays on the void and says so in the console.)
 
 ## Motion: full by default, CALM one click away
 
