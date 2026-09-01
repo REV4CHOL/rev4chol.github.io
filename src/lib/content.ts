@@ -217,11 +217,22 @@ let loopManifest: Record<string, string[]> | null | undefined; // undefined = no
  *  from the folders; builds bake it into dist. Quiet when absent — the
  *  canonical name chain below still works without it. */
 let homeManifest: string[] | null | undefined;
+let stillsManifest: Record<string, string[]> | null | undefined;
 
 /** The homepage reel's files as the manifest lists them (slot order), or
  *  null when no manifest is available — callers fall back to probing. */
 export function homeLoopFiles(): string[] | null {
   return homeManifest ?? null;
+}
+
+/** A project's stills wall as the manifest lists it (full urls, wall order),
+ *  or null when no manifest is available — callers fall back to probing.
+ *  Listing beats probing hard on phones: the probe path reads one dropped
+ *  HEAD as "numbering gap" and strands the wall at a single still. */
+export function manifestStills(slug: string): string[] | null {
+  const list = stillsManifest?.[slug];
+  if (!list || list.length === 0) return null;
+  return list.map((f) => projectAssetUrl(slug, `stills/${encodeURIComponent(f)}`));
 }
 
 export async function loadLoopManifest(): Promise<void> {
@@ -233,14 +244,21 @@ export async function loadLoopManifest(): Promise<void> {
     if (!res.ok || (res.headers.get('content-type') ?? '').includes('text/html')) {
       loopManifest = null;
       homeManifest = null;
+      stillsManifest = null;
       return;
     }
-    const data = (await res.json()) as { projects?: Record<string, string[]>; home?: string[] };
+    const data = (await res.json()) as {
+      projects?: Record<string, string[]>;
+      home?: string[];
+      stills?: Record<string, string[]>;
+    };
     loopManifest = data.projects ?? null;
     homeManifest = Array.isArray(data.home) ? data.home : null;
+    stillsManifest = data.stills ?? null;
   } catch {
     loopManifest = null;
     homeManifest = null;
+    stillsManifest = null;
   }
 }
 

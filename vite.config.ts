@@ -19,14 +19,35 @@ function scanHomeLoops(): string[] {
   }
 }
 
-/** Per-project loop listing plus the homepage reel: { projects, home }.
- *  Served live by the dev server (drop a file with ANY name, refresh, it's
- *  listed) and baked into dist on build so static hosting gets the same
- *  answer. */
-function scanLoops(): { projects: Record<string, string[]>; home: string[] } {
+/** Each project's stills wall, listed instead of probed: the old HEAD-probe
+ *  discovery treated ANY dropped request as "numbering gap, end the reel" —
+ *  on a flaky mobile connection one blip stranded the wall at a single
+ *  still until a refresh. The manifest is the truth; probing is only the
+ *  no-manifest fallback. */
+function scanStills(): Record<string, string[]> {
   const out: Record<string, string[]> = {};
   const root = p('public/content/projects/');
-  if (!existsSync(root)) return { projects: out, home: scanHomeLoops() };
+  if (!existsSync(root)) return out;
+  for (const ent of readdirSync(root, { withFileTypes: true })) {
+    if (!ent.isDirectory()) continue;
+    try {
+      const files = readdirSync(`${root}${ent.name}/stills/`)
+        .filter((f) => /\.(jpe?g|png|gif|webp|avif)$/i.test(f))
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+      if (files.length) out[ent.name] = files;
+    } catch { /* no stills folder */ }
+  }
+  return out;
+}
+
+/** Per-project loop listing plus the homepage reel and the stills walls:
+ *  { projects, home, stills }. Served live by the dev server (drop a file
+ *  with ANY name, refresh, it's listed) and baked into dist on build so
+ *  static hosting gets the same answer. */
+function scanLoops(): { projects: Record<string, string[]>; home: string[]; stills: Record<string, string[]> } {
+  const out: Record<string, string[]> = {};
+  const root = p('public/content/projects/');
+  if (!existsSync(root)) return { projects: out, home: scanHomeLoops(), stills: scanStills() };
   // a self-hosted full film (film.src) must never be picked as the loop
   const filmBySlug = new Map<string, string>();
   try {
@@ -48,7 +69,7 @@ function scanLoops(): { projects: Record<string, string[]>; home: string[] } {
     const loops = pickLoopFiles(files, film ? [film] : []);
     if (loops.length) out[ent.name] = loops;
   }
-  return { projects: out, home: scanHomeLoops() };
+  return { projects: out, home: scanHomeLoops(), stills: scanStills() };
 }
 
 function mediaManifest(): Plugin {

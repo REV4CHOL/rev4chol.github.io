@@ -1,4 +1,4 @@
-import { aspectRatio, getSlugFromSearch, loadLoopManifest, loadProjects, loopSrcChain, Project, projectAssetUrl } from '../lib/content';
+import { aspectRatio, getSlugFromSearch, loadLoopManifest, loadProjects, loopSrcChain, manifestStills, Project, projectAssetUrl } from '../lib/content';
 import { ditherImageToCanvas } from '../lib/dither';
 import { embedSrc } from '../lib/embeds';
 import { mulberry32 } from '../lib/rng';
@@ -365,12 +365,16 @@ async function probeFirst(urls: string[]): Promise<string | null> {
 
 const STILL_CAP = 60;
 
-/** The wall's frames: an explicit `stills` list in projects.json wins;
- *  otherwise numbered files dropped in stills/ (01.jpg, 02.gif, …) are
- *  discovered automatically — any count, contiguous from 01, capped at 60.
- *  The layout adapts to whatever is found. */
+/** The wall's frames: an explicit `stills` list in projects.json wins, then
+ *  the build manifest's listing (zero network probes — a flaky phone
+ *  connection used to drop one HEAD, read as "numbering gap", and strand
+ *  the wall at a single still until a refresh); the probe walk over
+ *  numbered files (01.jpg, 02.gif, … contiguous from 01, capped at 60) is
+ *  only the no-manifest fallback. The layout adapts to whatever is found. */
 async function resolveStills(p: Project): Promise<string[]> {
   if (p.stills.length) return p.stills.map((s) => projectAssetUrl(p.slug, `stills/${s}`));
+  const listed = manifestStills(p.slug);
+  if (listed) return listed.slice(0, STILL_CAP);
   const found: string[] = [];
   for (let base = 1; base <= STILL_CAP; base += 6) {
     const chunk = await Promise.all(
@@ -425,6 +429,13 @@ async function mountWall(p: Project): Promise<void> {
       veilC.getContext('2d')?.drawImage(d, 0, 0);
     });
     im.addEventListener('error', () => {
+      // one honest retry first: transient drops are routine on phone
+      // networks, and a removed still never comes back without a refresh
+      if (!im.dataset.retried) {
+        im.dataset.retried = '1';
+        setTimeout(() => { im.removeAttribute('src'); im.src = url; }, 900);
+        return;
+      }
       console.warn(`[revachol] missing media: ${im.src} — still removed from the gallery`);
       wrap.remove();
       // a wall of dead frames must not leave empty rhythm rows behind
