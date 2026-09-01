@@ -1,31 +1,35 @@
-/** POSTER LOCK — a page that arms this renders as a fixed 1440px plate that
- *  only ever scales DOWN, like a printed poster: it shrinks to fit a narrow
- *  frame but never blows up past print size.
+/** POSTER LOCK — a page that arms this renders on a fixed-width plate, and
+ *  browser zoom changes NOTHING about it: not size, not placement, not
+ *  layout — in EITHER direction (owner decree: benchmark at 100%, the
+ *  render must be pixel-identical at every zoom level).
  *
- *  Viewports NARROWER than the plate (browser zoom-in, small windows) get
- *  the whole 1440 composition shrunk as one rigid poster — zoom-in can
- *  never reflow, clip or miniaturize anything. Viewports WIDER than the
- *  plate get the design at its native size: k caps at 1, clamps sit on
- *  their caps, and the furniture keeps its corner anchors — the classic
- *  bottom-left composition, never a wall-filling blow-up (owner decree
- *  after the type ballooned to fill a wide monitor).
+ *  THE BASELINE: the plate is the viewport width at the last TRUE window
+ *  size — captured at load and on real window resizes, floored at 1440 so
+ *  a narrow window still gets the whole composition scaled down as one
+ *  poster, never a crushed layout. At 100% on any monitor k = 1 and the
+ *  layout is the classic fluid design at native width (a wide monitor is
+ *  NOT a magnified 1440 — that balloon was rejected).
  *
- *  The lever is CSS `zoom` on <body>, set to min(1, clientWidth/1440).
- *  Browser zoom-in shrinks the CSS viewport by exactly the factor it
- *  magnifies pixels, so while k < 1 the product is constant — zooming in
- *  changes NOTHING. `zoom` (never transform) because it participates in
- *  layout (scrollbars stay honest, no height fix-ups) and does not become
- *  a containing block for position:fixed — nav, HUD and cursor stay
- *  viewport-pinned. With body zoomed, body's own coordinate space is
- *  exactly max(1440, clientWidth) wide, so everything inside resolves on
- *  the plate.
+ *  THE ZOOM TELL: browser zoom scales devicePixelRatio; window drags do
+ *  not. So on a dpr shift the plate HOLDS and only k moves — zoom-in gives
+ *  k < 1, zoom-out k > 1, and in both cases k times the browser's own
+ *  factor is identity: the render never moves. On a same-dpr resize the
+ *  plate re-baselines and the layout is fluid again. (No outer/innerWidth
+ *  zoom probe anywhere — that machinery was retired for lying.)
  *
- *  Two leaks the factor cannot catch, owed by the locked page's stylesheet:
- *  viewport units (vw/vh bypass element zoom — pin them to their 1440 values
- *  under `@media (pointer: fine)`), and viewport media queries (gate phone
- *  blocks on `pointer: coarse` — a zoomed-in desktop viewport is not a
- *  phone). Coarse pointers never lock: phones and tablets keep their
- *  responsive layout untouched.
+ *  The lever is CSS `zoom` on <body> (never transform: it participates in
+ *  layout, keeps scrollbars honest, and does not become a containing block
+ *  for position:fixed — nav, HUD and cursor stay viewport-pinned). With
+ *  body zoomed, body's own coordinate space is exactly `plate` px wide, so
+ *  everything inside resolves on the plate forever.
+ *
+ *  Leaks the factor cannot catch, owed by the locked pages' stylesheets:
+ *  viewport units (vw/vh get premultiplied by element zoom — pin fluid
+ *  values under `@media (pointer: fine)`, or divide full-viewport intents
+ *  by --plate: calc(100svh / var(--plate, 1)) always fills the real
+ *  screen), and viewport media queries (gate phone blocks on `pointer:
+ *  coarse` — a zoomed-in desktop viewport is not a phone). Coarse pointers
+ *  never lock: phones and tablets keep their responsive layout untouched.
  *
  *  `exempt` opts a full-viewport CANVAS layer out of the lock (the works
  *  floor, the home reel): the element is counter-zoomed by 1/k so its inner
@@ -37,19 +41,24 @@ export const POSTER_W = 1440;
 
 export function armPosterLock(opts: { designW?: number; exempt?: string } = {}): void {
   if (!window.matchMedia('(pointer: fine)').matches) return;
-  const designW = opts.designW ?? POSTER_W;
+  const floor = opts.designW ?? POSTER_W;
+  let plate = 0; // the locked canvas width (baseline viewport)
+  let lastDpr = 0;
   const fit = () => {
     const w = document.documentElement.clientWidth;
-    const k = Math.min(1, w / designW); // scale DOWN only — never magnify
+    const dpr = window.devicePixelRatio || 1;
+    // same dpr = a true window resize (or first run): re-baseline.
+    // dpr shifted = browser zoom: HOLD the plate — that is the whole lock.
+    if (!plate || dpr === lastDpr) plate = Math.max(w, floor);
+    lastDpr = dpr;
+    const k = w / plate;
     document.body.style.setProperty('zoom', String(k));
     // viewport units inside the zoomed body get premultiplied by k (measured:
-    // 100svh rendered k-short) — full-viewport intents divide by --plate to
-    // cancel it: calc(100vh / var(--plate, 1)) always fills the real screen
+    // 100svh rendered k-short) — full-viewport intents divide by --plate
     document.body.style.setProperty('--plate', String(k));
-    // --zw = 1% of the plate's local width: pinned at 14.4px while the plate
-    // is scaling (k < 1), natural 1vw again on wider-than-plate viewports —
-    // the fluid clamps then breathe exactly like the classic design
-    document.body.style.setProperty('--zw', `${w / k / 100}px`);
+    // --zw = 1% of the plate: every fluid clamp evaluates at the baseline
+    // width and therefore never moves under zoom
+    document.body.style.setProperty('--zw', `${plate / 100}px`);
     if (opts.exempt) {
       for (const el of document.querySelectorAll<HTMLElement>(opts.exempt))
         el.style.setProperty('zoom', String(1 / k));
