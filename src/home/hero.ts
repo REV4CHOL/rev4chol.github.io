@@ -391,7 +391,20 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
   };
   const warm = (c: Clip | undefined) => {
     const el = c?.sample();
-    if (el instanceof HTMLVideoElement && el.preload !== 'auto') el.preload = 'auto';
+    if (!(el instanceof HTMLVideoElement)) return;
+    if (el.preload !== 'auto') el.preload = 'auto';
+    // phones ignore preload upgrades outright: a metadata clip never reaches
+    // readyState 2 without actually PLAYING, so the ready-gate held one loop
+    // forever on mobile. A muted off-screen play() is the one lever every
+    // engine obeys — and it pauses itself the moment frames exist (the
+    // decoded frames stay; doSwap rewinds to 0 anyway).
+    if (el.readyState >= 2 || !el.paused) return;
+    el.addEventListener(
+      'loadeddata',
+      () => { if (clips[active]?.sample() !== el) el.pause(); },
+      { once: true },
+    );
+    void el.play().catch(() => { /* a later turn or gesture retries */ });
   };
   const doSwap = () => {
     // never cut to a frameless clip: metadata-preload arrivals may not have
@@ -567,7 +580,11 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
   // does not come from a user gesture — so every touch quietly re-offers playback
   // to the active clip. A no-op when it is already rolling; the heal when not.
   const gestureKick = () => {
-    if (clips.length > 0 && !document.hidden) clips[active].play();
+    if (clips.length === 0 || document.hidden) return;
+    clips[active].play();
+    // battery-saver phones reject the warm-plays too — a real touch is the
+    // one moment they allow it, so re-offer the upcoming clip as well
+    warm(clips[nextClip(active, clips.length)]);
   };
   window.addEventListener('pointerdown', gestureKick, { passive: true });
   window.addEventListener('touchend', gestureKick, { passive: true });
