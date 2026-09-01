@@ -167,19 +167,23 @@ interface FoundLoop { url: string; ext: string }
 
 /** Baked letterbox/pillarbox bars in a dropped loop: find the active picture
  *  by scanning a decoded frame's margins — the site trims them on its own, so
- *  the owner drops files exactly as they are. Null = no confident bars. */
-function detectActiveRegion(v: HTMLVideoElement): { x: number; y: number; w: number; h: number } | null {
+ *  the owner drops files exactly as they are.
+ *  'clean' = confidently no bars; 'dark' = the frame is too dark to judge
+ *  (a fade-in or night shot — try again on a later frame). */
+type CropVerdict = { x: number; y: number; w: number; h: number } | 'clean' | 'dark';
+
+function detectActiveRegion(v: HTMLVideoElement): CropVerdict {
   const vw = v.videoWidth;
   const vh = v.videoHeight;
-  if (!vw || !vh) return null;
+  if (!vw || !vh) return 'dark';
   const W = 96;
   const H = Math.max(6, Math.round((W * vh) / vw));
   const c = document.createElement('canvas');
   c.width = W;
   c.height = H;
   const ctx = c.getContext('2d', { willReadFrequently: true });
-  if (!ctx) return null;
-  try { ctx.drawImage(v, 0, 0, W, H); } catch { return null; }
+  if (!ctx) return 'clean';
+  try { ctx.drawImage(v, 0, 0, W, H); } catch { return 'dark'; }
   const d = ctx.getImageData(0, 0, W, H).data;
   const dark = (i: number) => 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2] < 24;
   const rowBar = (y: number) => { let n = 0; for (let x = 0; x < W; x++) if (dark((y * W + x) * 4)) n++; return n / W >= 0.97; };
@@ -194,9 +198,29 @@ function detectActiveRegion(v: HTMLVideoElement): { x: number; y: number; w: num
   const y = Math.round(top * sy);
   const w = vw - x - Math.round(right * sx);
   const h = vh - y - Math.round(bot * sy);
-  if (w >= vw - 2 && h >= vh - 2) return null; // nothing worth trimming
-  if (w < vw * 0.5 || h < vh * 0.5) return null; // a dark SHOT is not a bar — bail
+  if (w >= vw - 2 && h >= vh - 2) return 'clean'; // nothing worth trimming
+  if (w < vw * 0.5 || h < vh * 0.5) return 'dark'; // a dark SHOT is not a bar
   return { x, y, w, h };
+}
+
+/** Crop verdicts persist per file (name + dims + duration), so on every visit
+ *  after the first the trim applies BEFORE the clip is ever shown — the bars
+ *  must never visibly snap away in front of the visitor. */
+function cropCacheKey(url: string, v: HTMLVideoElement): string {
+  return `rvl-crop:${url.split('/').pop()}:${v.videoWidth}x${v.videoHeight}:${Math.round((v.duration || 0) * 10)}`;
+}
+function readCropCache(key: string): { x: number; y: number; w: number; h: number } | 'clean' | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    if (raw === 'clean') return 'clean';
+    const p = JSON.parse(raw) as { x: number; y: number; w: number; h: number };
+    return typeof p.w === 'number' && p.w > 0 ? p : null;
+  } catch { return null; }
+}
+function writeCropCache(key: string, verdict: CropVerdict): void {
+  if (verdict === 'dark') return; // undecided — never persist
+  try { localStorage.setItem(key, verdict === 'clean' ? 'clean' : JSON.stringify(verdict)); } catch { /* private mode */ }
 }
 
 /** Which loops did the owner drop? HEAD probes only — cheap and fast. */
@@ -370,6 +394,11 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     const prev = clips[active];
     active = next;
     const cur = clips[active];
+    // settle the incoming clip's bar-trim NOW, while it is still off screen —
+    // the ready-gate above guarantees a decoded frame to judge. A clip that
+    // opens dark gets one mid-window retry (during darkness — invisible).
+    ensureCropped(cur);
+    window.setTimeout(() => ensureCropped(cur), 450);
     prev.sprite.visible = false;
     prev.pause();
     // every window replays its loop from the top — the first rotation was
@@ -434,30 +463,51 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
   // progressive: the FIRST clip to reach metadata starts the reel — the old
   // Promise.all barrier held the whole page black until the slowest of seven
   // loops answered. Later arrivals slot into the rotation live.
-  // any clip may carry baked bars: once it has decoded past the fade-in
-  // window, detect the active picture and crop the texture to it, then refit
-  const armAutoCrop = (c: Clip) => {
+  // any clip may carry baked bars — but the trim must NEVER visibly snap in
+  // front of the visitor. Verdicts are cached per file, so refreshes apply
+  // the crop before anything shows; fresh detections run pre-visibility
+  // (doSwap's ready-gate guarantees a decoded frame at that moment).
+  const cropSettled = new WeakSet<Clip>();
+  const applyCrop = (c: Clip, r: { x: number; y: number; w: number; h: number }) => {
+    const tex = c.sprite.texture;
+    tex.frame.x = r.x;
+    tex.frame.y = r.y;
+    tex.frame.width = r.w;
+    tex.frame.height = r.h;
+    tex.updateUvs();
+    c.width = r.w;
+    c.height = r.h;
+    fitSprite(c.sprite, r.w, r.h);
+  };
+  const ensureCropped = (c: Clip) => {
+    if (cropSettled.has(c)) return;
     const el = c.sample();
-    if (!(el instanceof HTMLVideoElement) || !('requestVideoFrameCallback' in el)) return;
-    const v = el as HTMLVideoElement & {
-      requestVideoFrameCallback(cb: (now: number, meta: { mediaTime: number }) => void): void;
-    };
-    let tries = 0;
-    const attempt = (_n: number, meta: { mediaTime: number }) => {
-      if (meta.mediaTime < 0.35 && tries++ < 90) { v.requestVideoFrameCallback(attempt); return; }
-      const r = detectActiveRegion(v);
-      if (!r) return;
-      const tex = c.sprite.texture;
-      tex.frame.x = r.x;
-      tex.frame.y = r.y;
-      tex.frame.width = r.w;
-      tex.frame.height = r.h;
-      tex.updateUvs();
-      c.width = r.w;
-      c.height = r.h;
-      fitSprite(c.sprite, r.w, r.h);
-    };
-    v.requestVideoFrameCallback(attempt);
+    if (!(el instanceof HTMLVideoElement)) { cropSettled.add(c); return; }
+    const key = cropCacheKey(c.url, el);
+    const cached = readCropCache(key);
+    if (cached) {
+      if (cached !== 'clean') applyCrop(c, cached);
+      cropSettled.add(c);
+      return;
+    }
+    if (el.readyState < 2) return; // no frame to judge yet — a later call retries
+    const verdict = detectActiveRegion(el);
+    if (verdict === 'dark') return; // fade-in / night open — judge a later frame
+    if (verdict !== 'clean') applyCrop(c, verdict);
+    writeCropCache(key, verdict);
+    cropSettled.add(c);
+  };
+  // the first clip paints immediately: settle its crop on its very first
+  // decoded frame (one frame of exposure at most, then cached forever)
+  const armFirstFrameCrop = (c: Clip) => {
+    const el = c.sample();
+    if (!(el instanceof HTMLVideoElement)) return;
+    ensureCropped(c); // cache hit = settled before the first frame even shows
+    if (cropSettled.has(c)) return;
+    const retry = () => { ensureCropped(c); if (!cropSettled.has(c)) setTimeout(() => ensureCropped(c), 450); };
+    const rvfc = (el as { requestVideoFrameCallback?: (cb: () => void) => void }).requestVideoFrameCallback;
+    if (rvfc) rvfc.call(el, retry);
+    else el.addEventListener('loadeddata', retry, { once: true });
   };
   const attachClip = (c: Clip) => {
     fitSprite(c.sprite, c.width, c.height);
@@ -465,7 +515,7 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     c.pause();
     root.addChild(c.sprite);
     clips.push(c);
-    armAutoCrop(c);
+    ensureCropped(c); // cached verdicts apply here, long before first show
     if (clips.length === 2) warm(c); // the very next window — start buffering now
   };
   let reelUp = false;
@@ -476,7 +526,7 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
       if (!reelUp) {
         reelUp = true;
         mountReel([c]);
-        armAutoCrop(c);
+        armFirstFrameCrop(c);
       } else {
         attachClip(c);
       }
