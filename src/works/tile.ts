@@ -328,7 +328,9 @@ export class ProjectTile extends Container {
     }
 
     const id = new Text({
-      text: `${project.year} · ${project.slug}`.toUpperCase(),
+      // a `short` name IS the pane's whole strip (the owner's exact text —
+      // APL 2026 TEASER already carries its year); otherwise year · slug
+      text: (project.short || `${project.year} · ${project.slug}`).toUpperCase(),
       style: { fontFamily: 'Martian Mono', fontSize: 10, fill: project.accent, letterSpacing: 2 },
     });
     id.alpha = 0.92;
