@@ -17,8 +17,12 @@ import {
   Float32BufferAttribute, FogExp2, InstancedMesh, Matrix4, Mesh,
   MeshBasicMaterial, NearestFilter, Object3D, PerspectiveCamera, PlaneGeometry,
   Points, PointsMaterial, Scene, SphereGeometry, Sprite, SpriteMaterial,
-  SRGBColorSpace, Vector3, WebGLRenderer, BoxGeometry, DoubleSide,
+  SRGBColorSpace, Vector2, Vector3, WebGLRenderer, BoxGeometry, DoubleSide,
 } from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { reducedMotion } from '../lib/env';
 import { mulberry32 } from '../lib/rng';
 
@@ -194,6 +198,14 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const camera = new PerspectiveCamera(58, 1, 0.1, 900);
   const renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
   renderer.setPixelRatio(1);
+  // the "unreal grade" ingredient: every light BLOOMS — soft luminous bleed
+  // around windows, signs and the crown, rendered into the low-res buffer so
+  // even the glow stays pixel (the reference's halos, in the house grammar)
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloom = new UnrealBloomPass(new Vector2(2, 2), 0.72, 0.45, 0.3);
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
 
   // -- the ethereal night --------------------------------------------------
   scene.add(new Mesh(
@@ -212,15 +224,15 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     g.setAttribute('position', new Float32BufferAttribute(pos, 3));
     return new Points(g, new PointsMaterial({ color: tint, size, sizeAttenuation: false, transparent: true, fog: false, depthWrite: false }));
   };
-  const starsA = starShell(1500, 1.4, '#EDEDE6');
-  const starsB = starShell(700, 2.2, '#cfe6ff');
-  const starsC = starShell(260, 1.4, '#ffd9a0');
+  const starsA = starShell(1500, 2.2, '#EDEDE6');
+  const starsB = starShell(700, 3.2, '#cfe6ff');
+  const starsC = starShell(260, 2.2, '#ffd9a0');
   scene.add(starsA, starsB, starsC);
 
   // the moon waits at the END of the flight — the ascent rises to meet it
   const moon = new Sprite(new SpriteMaterial({ map: moonTexture(), transparent: true, fog: false, depthWrite: false }));
-  moon.position.set(150, 290, 430);
-  moon.scale.set(30, 30, 1);
+  moon.position.set(110, 300, 460);
+  moon.scale.set(46, 46, 1);
   scene.add(moon);
 
   const clouds: Sprite[] = [];
@@ -255,6 +267,42 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const ground = new Mesh(new PlaneGeometry(1600, 1600), new MeshBasicMaterial({ color: '#04040a' }));
   ground.rotation.x = -Math.PI / 2;
   scene.add(ground);
+
+  // -- the ENDLESS midground: a ring of low distant blocks beyond the grid,
+  // thousands of tiny lights sinking into the haze (the reference's depth) --
+  {
+    const c = document.createElement('canvas');
+    c.width = 32; c.height = 64;
+    const x = c.getContext('2d')!;
+    x.fillStyle = '#0a0a16'; x.fillRect(0, 0, 32, 64);
+    const r2 = mulberry32(seed ^ 0x51f15e);
+    for (let i = 0; i < 150; i++) {
+      x.fillStyle = windowColor(r2);
+      x.globalAlpha = 0.35 + r2() * 0.6;
+      x.fillRect(1 + Math.floor(r2() * 30), 1 + Math.floor(r2() * 62), 1, 1);
+    }
+    x.globalAlpha = 1;
+    const tex = asPixelTex(new CanvasTexture(c));
+    const mats: Matrix4[] = [];
+    const d2 = new Object3D();
+    for (let i = 0; i < 850; i++) {
+      const a = rand() * Math.PI * 2;
+      const r = 250 + rand() * 160;
+      const w = 5 + rand() * 9;
+      const h = 4 + rand() * 15;
+      d2.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+      d2.scale.set(w, h, w);
+      d2.rotation.y = 0;
+      d2.updateMatrix();
+      mats.push(d2.matrix.clone());
+    }
+    const darkTop = new MeshBasicMaterial({ color: '#08080f' });
+    const side = new MeshBasicMaterial({ map: tex });
+    const inst = new InstancedMesh(new BoxGeometry(1, 1, 1), [side, side, darkTop, darkTop, side, side], mats.length);
+    mats.forEach((m, j) => inst.setMatrixAt(j, m));
+    inst.instanceMatrix.needsUpdate = true;
+    scene.add(inst);
+  }
 
   // -- the city: tiered towers, dense facades, roof furniture -------------
   const LOT = 13, STREET = 7, HALF = 11;
@@ -420,14 +468,19 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     route.getPointAt(Math.min(0.999, t + 0.012), look);
     if (!calm) pos.x += Math.sin(tick * 0.011) * 0.7;
     camera.position.copy(pos);
-    camera.lookAt(look.x, look.y + 1.2, look.z);
-    renderer.render(scene, camera);
+    // the flight's ends gaze at the HORIZON, not the street — the reference's
+    // composition: skyline low in frame, sky above (a gentle tilt; the look
+    // target sits close, so a few units pitch the whole frame)
+    const gaze = Math.max(0, (0.1 - t) / 0.1) * 8 + Math.max(0, (t - 0.86) / 0.14) * 11;
+    camera.lookAt(look.x, look.y + 1.2 + gaze, look.z);
+    composer.render();
   };
 
   const fit = () => {
     const w = Math.max(1, canvas.clientWidth);
     const h = Math.max(1, canvas.clientHeight);
     renderer.setSize(Math.ceil(w / PIX), Math.ceil(h / PIX), false);
+    composer.setSize(Math.ceil(w / PIX), Math.ceil(h / PIX));
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     render();
