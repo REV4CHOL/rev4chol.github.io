@@ -111,6 +111,6 @@ function initHomeEffects(): void {
     if (e.button !== 0) return; // middle/right clicks (autoscroll, menus) stay silent
     if ((e.target as Element).closest?.('a, button')) return;
     heroBurst();
-    sound.zap();
+    sound.drop(); // the burst stays loud on screen — the sound answers softly
   });
 }

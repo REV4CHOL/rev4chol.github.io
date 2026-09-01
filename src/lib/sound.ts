@@ -202,6 +202,30 @@ class SoundEngine {
     note(587.33, 0.09, 0.12); // D5 — a gentle lift
   }
 
+  /** The void answering a touch: one soft round droplet — a sine easing down
+   *  a third, lowpassed, quiet. The gentle counterpart to zap(). */
+  drop(): void {
+    if (!this.enabled) return;
+    const ctx = this.ctx();
+    const out = this.out();
+    if (!ctx || !out) return;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(392, t); // G4
+    osc.frequency.exponentialRampToValueAtTime(311, t + 0.22); // eases to Eb4
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 900;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.045, t + 0.025); // soft attack — no click edge
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+    osc.connect(lp).connect(g).connect(out);
+    osc.start(t);
+    osc.stop(t + 0.46);
+  }
+
   /** The datamosh tear: a falling shred of noise + a pitch-dropped square. */
   zap(): void {
     if (!this.enabled) return;
