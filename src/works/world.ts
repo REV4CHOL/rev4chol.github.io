@@ -425,7 +425,7 @@ export class WorksWorld {
     const meta = this.labelEl.querySelector('.tl-meta') as HTMLElement;
     meta.textContent = [p.year, p.role, p.runtime].filter(Boolean).join(' · ').toUpperCase();
     meta.style.color = p.accent;
-    void scrambleEl(title, p.title.toUpperCase(), 420);
+    void scrambleEl(title, (p.short || p.title).toUpperCase(), 420);
   }
 
   private hideLabel(): void {

@@ -18,6 +18,9 @@ export interface Project {
   runtime: string;
   /** commissioning client — a CLIENT row on the spec sheet when set */
   client: string;
+  /** short display name for the floor pane's hover label — the dossier
+   *  always carries the full title */
+  short: string;
   tags: string[];
   accent: string;
   tileSize: 'normal' | 'large';
@@ -170,6 +173,7 @@ export function parseProject(raw: unknown, i: number): Project {
     role: str(r.role, file, `${where} role`, ''),
     runtime: str(r.runtime, file, `${where} runtime`, ''),
     client: str(r.client, file, `${where} client`, ''),
+    short: str(r.short, file, `${where} short`, ''),
     tags: tags as string[],
     accent,
     tileSize,

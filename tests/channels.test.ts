@@ -9,6 +9,7 @@ const proj = (slug: string, category: 'human' | 'machine'): Project => ({
   role: '',
   runtime: '',
   client: '',
+  short: '',
   tags: [],
   accent: '#C8FF00',
   tileSize: 'normal',
