@@ -1,5 +1,6 @@
 import { AboutContent, loadAbout, SiteContent } from '../lib/content';
 import { escapeHtml } from '../lib/escape';
+import { mountCity } from '../about/city';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { armStamps } from '../lib/stamps';
@@ -48,8 +49,10 @@ async function probeFirst(urls: string[]): Promise<string | null> {
 }
 
 function render(site: SiteContent, about: AboutContent): void {
-  // -- hero -------------------------------------------------------------
-  void scrambleEl(document.getElementById('a-status-line')!, `PERSONNEL :: ${site.name.toUpperCase()} // CLEARED`, 900);
+  // -- hero: the metropolis first, the sign lights over it --------------
+  const city = document.getElementById('a-city') as HTMLCanvasElement | null;
+  if (city) mountCity(city, hashSlug(`night-${site.name.toLowerCase()}`));
+  void scrambleEl(document.getElementById('a-status-line')!, `SIGNAL :: LIVE FROM ${site.name.toUpperCase()} // NIGHT FEED`, 900);
   const nameEl = document.getElementById('a-name')!;
   // the chromatic plate copies read attr(data-text): the full name from frame
   // one, while the visible layer is still scrambling in

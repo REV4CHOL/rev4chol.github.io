@@ -1,15 +1,19 @@
 /* ==========================================================================
-   ABOUT — the OPERATOR FILE.
-   The machine examines its own operator. Same acid quartet discipline as the
-   procedure dossier: signal structure, alert interactives, field blueprint
-   forms, flourish one soft accent. Every photograph on this page passes
-   through the dither machine — the page owns the look, not the picture.
+   ABOUT — LIVE FROM REVACHOL.
+   The remake (owner refs: pixel-city nightscapes, fused with the house
+   machine grammar): the page opens on the pixel metropolis the alias names
+   — a seeded canvas city (about/city.ts) under a field-blue night. The
+   wordmark is the landmark neon sign (its misregistration reads as broken
+   tubes), section rails are vertical signage, the portrait is the city's
+   mega-billboard with an aircraft beacon, the CAP rack is a wall of shop
+   signs. NO plates behind chrome (owner decree: black boxes clog the
+   design) — legibility and drama come from ink, edges and LIGHT only.
+   Every photograph still passes through the dither machine.
 
-   POSTER-LOCKED (owner decree): on fine pointers this page is a fixed 1440px
-   plate (lib/poster-lock.ts zooms <body> to the viewport) — browser zoom and
-   window width scale the whole composition, they never reflow it. The lock
-   block at the END of this file pins every vw-fluid value to its 1440
-   resolution; the phone block answers only to coarse pointers.
+   POSTER-LOCKED (owner decree): on fine pointers this page rides the plate
+   (lib/poster-lock.ts zooms <body>) — zoom never reflows it. The lock block
+   at the END of this file pins every vw-fluid value; the phone block
+   answers only to coarse pointers.
    ========================================================================== */
 
 .about-main { padding-bottom: 0; }
@@ -18,38 +22,54 @@
 .a-caret { display: inline-block; margin-left: 6px; animation: a-caret-blink 1.1s steps(1) infinite; }
 .rvl-calm .a-caret { animation: none; }
 
+/* neon hardware: signs dip and buzz on step clocks, never smoothly */
+@keyframes neon-buzz {
+  0%, 88% { opacity: 1; }
+  89% { opacity: 0.44; }
+  90%, 93% { opacity: 1; }
+  94% { opacity: 0.62; }
+  95%, 100% { opacity: 1; }
+}
+@keyframes beacon-blink { 0%, 55% { opacity: 1; } 56%, 100% { opacity: 0.08; } }
+
 /* -------------------------------------------------------------- hero -- */
 
-.a-hero { position: relative; padding: 168px 44px 84px 28px; }
-.a-status {
-  position: absolute; left: 28px; top: 96px;
-  color: var(--signal); letter-spacing: 0.14em;
+.a-hero {
+  position: relative; overflow: hidden;
+  min-height: calc(92svh / var(--plate, 1));
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 168px 44px 64px 28px;
 }
-.a-index {
-  position: absolute; right: 44px; top: 96px;
-  display: grid; gap: 6px; justify-items: end; color: var(--bone);
+/* the metropolis — tiny internal raster, blown up: the pixels ARE the look */
+.a-city {
+  position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%;
+  image-rendering: pixelated; pointer-events: none;
+}
+.a-status {
+  position: relative; z-index: 2; position: absolute; left: 28px; top: 96px;
+  color: var(--signal); letter-spacing: 0.14em;
+  text-shadow: 0 0 8px rgba(6, 6, 6, 0.9);
 }
 
 .a-hero-grid {
-  /* the subject column is PROPORTIONAL (capped for ultra-wide): under zoom
-     the CSS viewport shrinks, and a px-floored column used to swallow the
-     name's track — proportional columns keep the whole hero composed as one
-     piece at any zoom or window width */
+  position: relative; z-index: 2;
   display: grid; grid-template-columns: 1fr min(41%, 560px);
   gap: clamp(24px, 4vw, 56px); align-items: end;
 }
 
-.a-id { min-width: 0; } /* the mega name must never inflate the 1fr track */
-/* the name is the loudest thing on the page: solid Clash carrying hard
-   chromatic shadows, two misregistered plate copies slicing on stepped
-   clocks (the channel-ident grammar), and a periodic skew-jolt pulse */
+.a-id { min-width: 0; }
+/* the name is the LANDMARK SIGN: solid Clash with the chromatic plate
+   copies now reading as a broken neon tube — misregistered light — and a
+   field-blue halo bleeding into the night behind it */
 .a-name-stack { margin: 0; animation: a-name-pulse 9s steps(1) infinite; }
 .a-name {
   position: relative; display: block;
   font-family: var(--f-display); font-weight: 700;
   font-size: calc(var(--t-3xl) * 1.18); line-height: 0.84; text-transform: uppercase;
   color: var(--bone);
-  text-shadow: -6px 0 rgba(255, 46, 99, 0.8), 6px 0 rgba(36, 24, 255, 0.85);
+  text-shadow:
+    -6px 0 rgba(255, 46, 99, 0.8), 6px 0 rgba(36, 24, 255, 0.85),
+    0 0 30px rgba(36, 24, 255, 0.55), 0 0 90px rgba(36, 24, 255, 0.3);
 }
 .a-name::before,
 .a-name::after {
@@ -76,43 +96,46 @@
 }
 .rvl-calm .a-name-stack { animation: none; }
 .rvl-calm .a-name::before, .rvl-calm .a-name::after { display: none; }
-/* the inverted registration strip under the name — homepage plate grammar */
 .a-name-plate {
   display: inline-block; margin: 18px 0 0; padding: 6px 14px 5px 10px;
   background: var(--signal); color: var(--void);
   letter-spacing: 0.24em; font-weight: 500;
   clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 100%, 8px 100%);
+  box-shadow: 0 0 22px -6px var(--signal);
 }
 .a-statement {
   margin: 26px 0 0; font-family: var(--f-serif); font-style: italic;
   font-size: var(--t-lg); line-height: 1.4; color: var(--bone); max-width: 26ch;
+  text-shadow: 0 1px 10px rgba(6, 6, 6, 0.9);
 }
 
-/* the subject — portrait through the machine, big enough to hold the room */
+/* the subject — the city's MEGA-BILLBOARD: mount strut, bolts, an aircraft
+   beacon, neon edge; the portrait behind the dither machine as always */
 .a-subject { position: relative; justify-self: end; width: 100%; min-width: 0; }
-/* rings center on the portrait frame (top-aligned 4:5 box), not the whole
-   column — the callouts below must not drag the scanner's eye down */
-.a-reticle { position: absolute; inset: 0 0 auto 0; aspect-ratio: 4 / 5; pointer-events: none; }
-.a-reticle i {
-  position: absolute; left: 50%; top: 50%; translate: -50% -50%;
-  border: 1px solid rgba(36, 24, 255, 0.55); border-radius: 50%;
+.a-strut {
+  position: absolute; left: 8%; right: 8%; top: -14px; height: 3px;
+  background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--bone) 45%, transparent) 0 14px, transparent 14px 26px);
 }
-.a-reticle i:nth-child(1) { width: 118%; aspect-ratio: 1; }
-.a-reticle i:nth-child(2) {
-  width: 146%; aspect-ratio: 1; border-style: dashed;
-  animation: a-reticle-spin 70s linear infinite;
+.a-strut::before, .a-strut::after {
+  content: ''; position: absolute; top: -3px; width: 3px; height: 9px;
+  background: color-mix(in srgb, var(--bone) 55%, transparent);
 }
-.a-reticle i:nth-child(3) { width: 178%; aspect-ratio: 1; opacity: 0.5; }
-@keyframes a-reticle-spin { to { rotate: 360deg; } }
-.rvl-calm .a-reticle i { animation: none; }
+.a-strut::before { left: 12%; }
+.a-strut::after { right: 12%; }
+.a-beacon {
+  position: absolute; right: -5px; top: -19px; z-index: 3;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--alert); box-shadow: 0 0 12px var(--alert);
+  animation: beacon-blink 1.6s steps(1) infinite;
+}
+.rvl-calm .a-beacon { animation: none; }
 
 .a-portrait {
   position: relative; margin: 0; width: 100%; overflow: hidden;
-  background: #000; outline: 1px solid rgba(200, 255, 0, 0.3);
+  background: #000;
+  outline: 1px solid color-mix(in srgb, var(--field) 65%, transparent);
+  box-shadow: 0 0 34px -10px color-mix(in srgb, var(--field) 70%, transparent);
 }
-/* the canvas is the sized element: width from the column, height from the
-   ratio — never from its 720×900 backing store (that intrinsic size used to
-   leak through the %-height circularity and overflow the phone column) */
 .a-portrait canvas {
   display: block; width: 100%; height: auto; aspect-ratio: 4 / 5;
   image-rendering: pixelated; cursor: crosshair; touch-action: manipulation;
@@ -137,8 +160,7 @@
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
 }
 
-/* misregistered echo frames — the portrait's chromatic plates, breathing on
-   stepped clocks like the channel ident's slivers */
+/* misregistered echo frames — the billboard's chromatic ghosts */
 .a-echo {
   position: absolute; inset: 0; z-index: 3; pointer-events: none;
   border: 1.5px solid var(--alert); opacity: 0.75;
@@ -158,7 +180,7 @@
 }
 .rvl-calm .a-echo { animation: none; }
 
-/* the scanner never stops reading the subject */
+/* the scanner never stops reading the billboard */
 .a-sweep {
   position: absolute; left: 0; right: 0; top: 0; height: 20%;
   z-index: 2; pointer-events: none; mix-blend-mode: screen;
@@ -171,7 +193,6 @@
 }
 .rvl-calm .a-sweep { display: none; }
 
-/* vertical raw-feed tag riding the frame's right shoulder */
 .a-subj-tag {
   position: absolute; right: -14px; top: 8px; z-index: 2;
   writing-mode: vertical-rl; letter-spacing: 0.3em;
@@ -214,15 +235,26 @@
   gap: 0 var(--a-gap); padding: 92px var(--a-pad-r) 68px var(--a-pad-l);
 }
 .a-sec-body { position: relative; min-width: 0; }
+/* the rail tags are VERTICAL NEON SIGNAGE now — image 1's hanging strips:
+   outlined Clash running top-to-bottom, glowing, buzzing on a step clock */
 .a-rail-tag {
   position: sticky; top: 104px; display: inline-block;
+  writing-mode: vertical-rl; text-orientation: mixed;
   font-family: var(--f-display); font-weight: 700; font-size: var(--t-xl);
-  line-height: 0.8; color: transparent; -webkit-text-stroke: 1.5px var(--signal);
-  opacity: 0.85;
+  line-height: 0.9; color: transparent; -webkit-text-stroke: 1.5px var(--signal);
+  text-shadow: 0 0 20px color-mix(in srgb, var(--signal) 45%, transparent);
+  animation: neon-buzz 8s steps(1) infinite;
+}
+.a-cap-sec .a-rail-tag {
+  -webkit-text-stroke-color: var(--alert);
+  text-shadow: 0 0 20px color-mix(in srgb, var(--alert) 45%, transparent);
+  animation-delay: -3.4s;
 }
 @supports not (-webkit-text-stroke: 1px #000) {
-  .a-rail-tag { color: var(--signal); opacity: 0.4; }
+  .a-rail-tag { color: var(--signal); opacity: 0.5; }
+  .a-cap-sec .a-rail-tag { color: var(--alert); }
 }
+.rvl-calm .a-rail-tag { animation: none; }
 
 /* ------------------------------------------------------- OP: dossier -- */
 
@@ -262,8 +294,11 @@
 .a-chip:hover { background: var(--signal); color: var(--void); }
 .a-chip:hover em { color: var(--void); }
 
-/* --------------------------------------------- CAP: the machine rack -- */
+/* ------------------------------------------- CAP: the wall of signs -- */
 
+/* the machine rack keeps its uniform cartridges (nothing can ever clip)
+   but each is a LIT SHOP SIGN now: bank-colored neon edge and a low glow
+   that slams to full light on hover — image 1's storefront wall */
 .a-rack {
   display: grid; grid-template-columns: 1fr 1fr; gap: 44px 48px;
   padding: 40px 0 44px;
@@ -277,18 +312,17 @@
   letter-spacing: 0.3em; font-weight: 500; color: var(--void);
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 100%, 6px 100%);
 }
-.a-skill-head--c { background: var(--alert); }
-.a-skill-head--t { background: var(--field); color: var(--bone); }
+.a-skill-head--c { background: var(--alert); box-shadow: 0 0 22px -6px var(--alert); }
+.a-skill-head--t { background: var(--field); color: var(--bone); box-shadow: 0 0 22px -6px var(--field); }
 
-/* one skill = one cartridge: uniform hardware, nothing ever clips */
 .a-bar {
   position: relative; display: flex; align-items: center; gap: 14px;
   height: 62px; padding: 0 16px 0 0; overflow: hidden; min-width: 0;
   border: 1px solid color-mix(in srgb, var(--bone) 20%, transparent);
   background: color-mix(in srgb, var(--void) 88%, var(--bone) 4%);
 }
-.a-bar[data-kind='c'] { border-left: 4px solid var(--alert); }
-.a-bar[data-kind='t'] { border-left: 4px solid var(--field); }
+.a-bar[data-kind='c'] { border-left: 4px solid var(--alert); box-shadow: 0 0 18px -9px var(--alert); }
+.a-bar[data-kind='t'] { border-left: 4px solid var(--field); box-shadow: 0 0 18px -9px var(--field); }
 .a-bar-idx {
   align-self: stretch; display: grid; place-items: center; flex: none;
   min-width: 52px; font-style: normal; letter-spacing: 0.16em;
@@ -308,9 +342,9 @@
 .a-bar-cap { flex: none; letter-spacing: 0.2em; }
 .a-bar[data-kind='c'] .a-bar-cap { color: var(--alert); }
 .a-bar[data-kind='t'] .a-bar-cap { color: color-mix(in srgb, var(--field) 60%, var(--bone) 40%); }
-/* hover: the cartridge slams to its bank color */
-.a-bar:hover[data-kind='c'] { background: var(--alert); border-color: var(--alert); }
-.a-bar:hover[data-kind='t'] { background: var(--field); border-color: var(--field); }
+/* hover: the sign lights the street */
+.a-bar:hover[data-kind='c'] { background: var(--alert); border-color: var(--alert); box-shadow: 0 0 34px -6px var(--alert); }
+.a-bar:hover[data-kind='t'] { background: var(--field); border-color: var(--field); box-shadow: 0 0 34px -6px var(--field); }
 .a-bar:hover .a-bar-name { color: var(--void); animation: rgb-flick 0.32s steps(2) 1; }
 .a-bar:hover[data-kind='t'] .a-bar-name { color: var(--bone); }
 .a-bar:hover .a-bar-cap { color: var(--void); }
@@ -329,16 +363,19 @@
   margin: 0 0 36px; font-family: var(--f-display); font-weight: 700;
   font-size: var(--t-2xl); line-height: 0.9; text-transform: uppercase;
   color: transparent; -webkit-text-stroke: 1.5px var(--alert);
+  text-shadow: 0 0 26px color-mix(in srgb, var(--alert) 45%, transparent);
+  animation: neon-buzz 9s steps(1) infinite;
 }
 @supports not (-webkit-text-stroke: 1px #000) {
   .a-transmit-q { color: var(--alert); opacity: 0.5; }
 }
+.rvl-calm .a-transmit-q { animation: none; }
 .a-yes {
   font-family: var(--f-display); font-weight: 700; font-size: var(--t-2xl);
   line-height: 1; text-transform: uppercase; text-decoration: none;
   color: var(--signal);
 }
-.a-yes:hover { background: var(--signal); color: var(--void); }
+.a-yes:hover { background: var(--signal); color: var(--void); box-shadow: 0 0 34px -6px var(--signal); }
 .a-mail { margin: 36px 0 0; color: rgba(237, 237, 230, 0.6); letter-spacing: 0.14em; }
 .a-mail a { color: var(--bone); text-decoration: none; }
 .a-mail a:hover { color: var(--signal); }
@@ -348,7 +385,7 @@
   padding: 8px 20px; font-family: var(--f-micro); font-size: var(--t-2xs);
   letter-spacing: 0.14em; text-decoration: none;
 }
-.a-social:hover { background: var(--flourish); color: var(--void); }
+.a-social:hover { background: var(--flourish); color: var(--void); box-shadow: 0 0 22px -6px var(--flourish); }
 
 /* --------------------------------------------------------------- eof -- */
 
@@ -362,17 +399,15 @@
 /* coarse-gated: a zoomed-in desktop viewport crosses 760px too, and the
    poster lock must never see this block — only actual touch devices do */
 @media (max-width: 760px) and (pointer: coarse) {
-  .a-hero { padding: 150px 18px 56px; }
+  .a-hero { padding: 150px 18px 56px; min-height: calc(94svh / var(--plate, 1)); }
   .a-status { left: 16px; right: 16px; top: 130px; }
-  .a-index { display: none; } /* the EOF stamp repeats it */
   .a-hero-grid { grid-template-columns: 1fr; gap: 44px; align-items: start; }
-  /* OPERATOR/REVACHOL must fit the phone column as one unbroken word */
   .a-name { font-size: clamp(2.4rem, 16.5vw, 4.4rem); }
   .a-name::before { translate: 5px 3px; }
   .a-name::after { translate: -4px -2px; }
   .a-subj-tag { right: 2px; }
   .a-subject { justify-self: stretch; width: 100%; }
-  .a-reticle i:nth-child(3) { display: none; }
+  .a-beacon { right: 2px; }
   .a-callouts { justify-items: start; }
   .a-callout { flex-direction: row-reverse; }
 
@@ -383,7 +418,7 @@
     --a-pad-l: 18px; --a-pad-r: 18px; --a-rail: 0px; --a-gap: 0px;
     grid-template-columns: 1fr; gap: 0; padding: 60px var(--a-pad-r) 44px var(--a-pad-l);
   }
-  .a-rail-tag { position: static; margin-bottom: 20px; }
+  .a-rail-tag { position: static; writing-mode: horizontal-tb; margin-bottom: 20px; }
   .a-spec dt { padding-right: 20px; }
   .a-rack { grid-template-columns: 1fr; gap: 36px; }
   .a-bar { height: 54px; gap: 10px; }
@@ -397,14 +432,14 @@
 
 /* Fine pointers only (the lock regime): vw units bypass CSS `zoom`, so every
    vw-fluid value the page consumes is pinned to what it resolves to at the
-   1440 plate width. Coarse devices keep the fluid base rules above. */
+   plate width. Coarse devices keep the fluid base rules above. */
 @media (pointer: fine) {
   .page-about {
-    --t-lg: 2rem;      /* clamp(1.4rem, 2.5vw, 2rem) @1440 → cap */
-    --t-xl: 3.6rem;    /* clamp(2.2rem, 5vw, 3.6rem) @1440 → cap */
-    --t-2xl: 6rem;     /* clamp(3rem, 8vw, 6rem) @1440 → cap */
-    --t-3xl: 8.5rem;   /* clamp(4rem, 11vw, 8.5rem) @1440 → cap */
+    --t-lg: 2rem;      /* clamp(1.4rem, 2.5vw, 2rem) → cap */
+    --t-xl: 3.6rem;    /* clamp(2.2rem, 5vw, 3.6rem) → cap */
+    --t-2xl: 6rem;     /* clamp(3rem, 8vw, 6rem) → cap */
+    --t-3xl: 8.5rem;   /* clamp(4rem, 11vw, 8.5rem) → cap */
   }
-  .a-hero-grid { gap: 56px; }        /* clamp(24px, 4vw, 56px) @1440 */
-  .a-bar-name { font-size: 27.5px; } /* clamp(17px, 11px + 1.15vw, 28px) @1440 */
+  .a-hero-grid { gap: 56px; }        /* clamp(24px, 4vw, 56px) @plate */
+  .a-bar-name { font-size: 27.5px; } /* clamp(17px, 11px + 1.15vw, 28px) @plate */
 }
