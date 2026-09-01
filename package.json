@@ -14,7 +14,8 @@
   "dependencies": {
     "gsap": "^3.12.5",
     "pixi-filters": "^6.1.0",
-    "pixi.js": "^8.6.0"
+    "pixi.js": "^8.6.0",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
