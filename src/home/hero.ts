@@ -1,5 +1,6 @@
 import { Application, Assets, Container, DisplacementFilter, Sprite, Texture, VideoSource } from 'pixi.js';
 import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
+import { homeLoopFiles, loadLoopManifest } from '../lib/content';
 import { ditherImageToCanvas } from '../lib/dither';
 import { dprCap, reducedMotion } from '../lib/env';
 import { CLIP_MS, coverScale, loopCandidates, nextClip } from './loops';
@@ -225,6 +226,16 @@ function writeCropCache(key: string, verdict: CropVerdict): void {
 
 /** Which loops did the owner drop? HEAD probes only — cheap and fast. */
 async function discoverLoops(): Promise<FoundLoop[]> {
+  // the manifest names every reel file outright — one small fetch (usually
+  // already preloaded from the page head) instead of ~20 HEAD round-trips
+  await loadLoopManifest();
+  const listed = homeLoopFiles();
+  if (listed) {
+    return listed.map((f) => ({
+      url: `/content/home/${encodeURIComponent(f)}`,
+      ext: (f.split('.').pop() ?? 'mp4').toLowerCase(),
+    }));
+  }
   const found = await Promise.all(
     loopCandidates().map(async (slot) => {
       for (const c of slot) if (await probe(c.url)) return c;
@@ -248,6 +259,10 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
   // first paint.
   const img: HTMLImageElement | null = null;
   const imgSrc = '';
+
+  // discovery races Pixi's own boot — by the time the renderer exists the
+  // manifest answer (and often the first clip's bytes) are already in flight
+  const loopsPromise = discoverLoops();
 
   let accent = '#C8FF00';
 
@@ -298,7 +313,7 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
       revealVeil(host, img, accent);
       return { accent, src: imgSrc };
     }
-    const found = await discoverLoops();
+    const found = await loopsPromise;
     const first = found.length > 0 ? (await loadFound([found[0]], false))[0] : undefined;
     if (!first) {
       console.warn('[revachol] missing media: /content/home/{loop-N.*|hero.*} — homepage stays on the void');
@@ -454,7 +469,7 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
   // must never sit unveiled while probes run (it read as a bright flash)
   if (img) revealVeil(host, img, accent);
 
-  const foundLoops = await discoverLoops();
+  const foundLoops = await loopsPromise;
   if (!img && foundLoops.length === 0) {
     console.warn('[revachol] missing media: /content/home/{loop-N.*|hero.*} — homepage stays on the void');
     app.destroy(true);

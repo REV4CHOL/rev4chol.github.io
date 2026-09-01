@@ -216,18 +216,31 @@ let loopManifest: Record<string, string[]> | null | undefined; // undefined = no
 /** Fetch the per-project loop listing once. The dev server answers it live
  *  from the folders; builds bake it into dist. Quiet when absent — the
  *  canonical name chain below still works without it. */
+let homeManifest: string[] | null | undefined;
+
+/** The homepage reel's files as the manifest lists them (slot order), or
+ *  null when no manifest is available — callers fall back to probing. */
+export function homeLoopFiles(): string[] | null {
+  return homeManifest ?? null;
+}
+
 export async function loadLoopManifest(): Promise<void> {
   if (loopManifest !== undefined) return;
   try {
-    const res = await fetch('/content/media-manifest.json', { cache: 'no-store' });
+    // default cache mode on purpose: the <link rel=preload> in each page's
+    // head has usually fetched this already — no-store would refetch it
+    const res = await fetch('/content/media-manifest.json');
     if (!res.ok || (res.headers.get('content-type') ?? '').includes('text/html')) {
       loopManifest = null;
+      homeManifest = null;
       return;
     }
-    const data = (await res.json()) as { projects?: Record<string, string[]> };
+    const data = (await res.json()) as { projects?: Record<string, string[]>; home?: string[] };
     loopManifest = data.projects ?? null;
+    homeManifest = Array.isArray(data.home) ? data.home : null;
   } catch {
     loopManifest = null;
+    homeManifest = null;
   }
 }
 

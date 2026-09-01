@@ -5,13 +5,28 @@ import { pickLoopFiles } from './src/lib/loop-files';
 
 const p = (f: string) => fileURLToPath(new URL(f, import.meta.url));
 
-/** Per-project loop listing: { projects: { slug: [video files] } }. Served
- *  live by the dev server (drop a file with ANY name, refresh, it's listed)
- *  and baked into dist on build so static hosting gets the same answer. */
-function scanLoops(): { projects: Record<string, string[]> } {
+/** The homepage reel's slots, listed instead of probed: the old HEAD-probe
+ *  discovery cost the first paint ~20 sequential round-trips. */
+function scanHomeLoops(): string[] {
+  const dir = p('public/content/home/');
+  if (!existsSync(dir)) return [];
+  try {
+    return readdirSync(dir)
+      .filter((f) => /^loop[-_]\d+\.(mp4|webm|gif)$/i.test(f))
+      .sort((a, b) => parseInt(a.match(/(\d+)/)![1], 10) - parseInt(b.match(/(\d+)/)![1], 10));
+  } catch {
+    return [];
+  }
+}
+
+/** Per-project loop listing plus the homepage reel: { projects, home }.
+ *  Served live by the dev server (drop a file with ANY name, refresh, it's
+ *  listed) and baked into dist on build so static hosting gets the same
+ *  answer. */
+function scanLoops(): { projects: Record<string, string[]>; home: string[] } {
   const out: Record<string, string[]> = {};
   const root = p('public/content/projects/');
-  if (!existsSync(root)) return { projects: out };
+  if (!existsSync(root)) return { projects: out, home: scanHomeLoops() };
   // a self-hosted full film (film.src) must never be picked as the loop
   const filmBySlug = new Map<string, string>();
   try {
@@ -33,7 +48,7 @@ function scanLoops(): { projects: Record<string, string[]> } {
     const loops = pickLoopFiles(files, film ? [film] : []);
     if (loops.length) out[ent.name] = loops;
   }
-  return { projects: out };
+  return { projects: out, home: scanHomeLoops() };
 }
 
 function mediaManifest(): Plugin {
