@@ -1,0 +1,134 @@
+import { describe, expect, it } from 'vitest';
+import { Vector3 } from 'three';
+import {
+  AutoFlight, BOUND, CAM_R, CollisionGrid, EXT, planCity, starPositions, tourRoute,
+} from '../src/about/city-plan';
+import { mulberry32 } from '../src/lib/rng';
+import { hashSlug } from '../src/project/dossier';
+
+const SEED = hashSlug('revachol-night-city');
+
+describe('CollisionGrid', () => {
+  const grid = new CollisionGrid();
+  grid.add({ x: 0, y: 20, z: 0, w: 10, h: 40, d: 10 }); // a tower on the origin
+
+  it('leaves free points alone', () => {
+    const p = new Vector3(30, 10, 30);
+    expect(grid.resolve(p, CAM_R)).toBe(false);
+    expect(p.toArray()).toEqual([30, 10, 30]);
+    expect(grid.hit(30, 10, 30, CAM_R)).toBeNull();
+  });
+
+  it('pushes a penetrating camera out along the least-penetration axis', () => {
+    const p = new Vector3(4.5, 10, 0.5); // just inside the +x face, mid-height
+    expect(grid.resolve(p, CAM_R)).toBe(true);
+    expect(p.x).toBeCloseTo(5 + CAM_R, 5);
+    expect(p.y).toBe(10);
+    expect(p.z).toBe(0.5);
+    expect(grid.hit(p.x, p.y, p.z, CAM_R)).toBeNull();
+  });
+
+  it('lifts a camera that sinks onto a roof', () => {
+    const p = new Vector3(1, 39.5, -1);
+    grid.resolve(p, CAM_R);
+    expect(p.y).toBeCloseTo(40 + CAM_R, 5);
+    expect(p.x).toBe(1);
+  });
+
+  it('honours the camera radius (a wall is solid before the surface)', () => {
+    const p = new Vector3(5.6, 10, 0); // 0.6 clear of the face, radius 1.2
+    expect(grid.resolve(p, CAM_R)).toBe(true);
+    expect(p.x).toBeCloseTo(6.2, 5);
+  });
+});
+
+describe('planCity', () => {
+  const plan = planCity(SEED);
+
+  it('builds a dense core and a far ring with a real spread of building kinds', () => {
+    expect(plan.core.length).toBeGreaterThan(1500);
+    expect(plan.far.length).toBeGreaterThan(5000);
+    const kinds = new Set<string>(plan.core.map((s) => s.kind));
+    for (const k of ['facade', 'dark', 'cyl', 'pyr', 'spire', 'dome']) expect(kinds.has(k), k).toBe(true);
+    const archetypes = new Set(plan.core.map((s) => s.arch));
+    expect(archetypes.size).toBeGreaterThanOrEqual(9);
+    expect(plan.styles.length).toBeGreaterThanOrEqual(16);
+    expect(new Set(plan.styles.map((s) => s.win)).size).toBe(6);
+  });
+
+  it('keeps the tour route clear of every solid — the city is built around the story flight', () => {
+    const route = tourRoute();
+    for (let i = 0; i <= 1500; i++) {
+      const p = route.getPointAt(i / 1500);
+      const hit = plan.grid.hit(p.x, p.y, p.z, CAM_R + 1.0);
+      expect(hit, `route t=${i / 1500} at ${p.x.toFixed(1)},${p.y.toFixed(1)},${p.z.toFixed(1)}`).toBeNull();
+    }
+  });
+
+  it('keeps the far ring outside the core and the whole plan inside its extent', () => {
+    for (const s of plan.far) expect(Math.max(Math.abs(s.x), Math.abs(s.z))).toBeGreaterThan(EXT);
+    for (const s of plan.core) expect(Math.max(Math.abs(s.x), Math.abs(s.z))).toBeLessThan(EXT + 10);
+  });
+
+  it('is deterministic for a seed', () => {
+    const again = planCity(SEED);
+    expect(again.core.length).toBe(plan.core.length);
+    expect(again.core[7]).toEqual(plan.core[7]);
+  });
+});
+
+describe('AutoFlight', () => {
+  const plan = planCity(SEED);
+
+  it('never enters a building, stays inside the fence, and does not repeat itself', () => {
+    const visited = new Set<string>();
+    const firstPaths: string[] = [];
+    for (const s of [1, 2, 3]) {
+      const flight = new AutoFlight(plan.grid, mulberry32(s), new Vector3(-90, 80, 120), 2.5);
+      const pos = new Vector3();
+      const look = new Vector3();
+      for (let i = 0; i < 24000; i++) {
+        flight.step(0.5, pos, look);
+        const hit = plan.grid.hit(pos.x, pos.y, pos.z, CAM_R * 0.8);
+        expect(hit, `seed ${s} step ${i} at ${pos.x.toFixed(1)},${pos.y.toFixed(1)},${pos.z.toFixed(1)}`).toBeNull();
+        expect(Math.abs(pos.x)).toBeLessThanOrEqual(BOUND);
+        expect(Math.abs(pos.z)).toBeLessThanOrEqual(BOUND);
+        expect(pos.y).toBeGreaterThan(2);
+        visited.add(`${Math.round(pos.x / 20)}:${Math.round(pos.z / 20)}`);
+        if (i === 3000) firstPaths.push(`${pos.x.toFixed(0)},${pos.z.toFixed(0)}`);
+      }
+      expect(flight.dives).toBeGreaterThan(0); // it goes down into the streets, not just rooftops
+      expect(flight.fallbacks).toBe(0); // every leg it flew was validated, none forced
+    }
+    expect(visited.size).toBeGreaterThan(120);
+    expect(new Set(firstPaths).size).toBe(3); // three seeds, three flights
+  });
+
+  it('moves at the asked pace', () => {
+    const flight = new AutoFlight(plan.grid, mulberry32(9), new Vector3(0, 90, 0), 0);
+    const a = new Vector3(); const b = new Vector3(); const l = new Vector3();
+    flight.step(0.5, a, l);
+    let travelled = 0;
+    for (let i = 0; i < 400; i++) { flight.step(0.5, b, l); travelled += b.distanceTo(a); a.copy(b); }
+    expect(travelled / 400).toBeGreaterThan(0.35);
+    expect(travelled / 400).toBeLessThan(0.7);
+  });
+});
+
+describe('starPositions', () => {
+  it('covers the whole dome — no hole at the zenith, no empty elevation band', () => {
+    const pos = starPositions(mulberry32(3), 4000, 700, 820);
+    const bins = new Array(9).fill(0); // 10° elevation bins, 0..90
+    let zenith = 0;
+    for (let i = 0; i < pos.length; i += 3) {
+      const r = Math.hypot(pos[i], pos[i + 1], pos[i + 2]);
+      const el = (Math.asin(pos[i + 1] / r) * 180) / Math.PI;
+      if (el >= 0) bins[Math.min(8, Math.floor(el / 10))] += 1;
+      if (el > 70) zenith += 1;
+      expect(r).toBeGreaterThanOrEqual(699);
+      expect(r).toBeLessThanOrEqual(821);
+    }
+    expect(zenith).toBeGreaterThan(150); // the cap above 70° is ~6% of the sphere → ~220 of 4000
+    for (const [i, n] of bins.entries()) expect(n, `elevation bin ${i * 10}°`).toBeGreaterThan(40);
+  });
+});

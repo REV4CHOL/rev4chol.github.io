@@ -66,12 +66,14 @@
 .a3-rail button.on { color: var(--signal); }
 .a3-rail button.on::after { color: var(--signal); }
 
-/* cinematic grade: a soft vignette + letterbox breath over the city, under
-   the stations — light shaping, not a box (the plates decree holds) */
+/* cinematic grade: a letterbox breath over the city, under the stations —
+   light shaping, not a box (the plates decree holds). The optical vignette
+   itself lives in the lens pass now; this only keeps the frame's edges and
+   its top and bottom breathing. */
 .a3-vig {
   position: fixed; inset: 0; z-index: 1; pointer-events: none;
   background:
-    radial-gradient(ellipse at 50% 42%, transparent 52%, rgba(2, 2, 10, 0.42) 88%, rgba(2, 2, 10, 0.62) 100%),
+    radial-gradient(ellipse at 50% 42%, transparent 62%, rgba(2, 2, 10, 0.22) 92%, rgba(2, 2, 10, 0.34) 100%),
     linear-gradient(180deg, rgba(2, 2, 10, 0.35), transparent 18%, transparent 86%, rgba(2, 2, 10, 0.4));
 }
 
