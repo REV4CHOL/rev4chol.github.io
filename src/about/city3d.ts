@@ -1,24 +1,26 @@
 /** REVACHOL, TRAVERSABLE — the about page IS the city (owner decree,
- *  logartis.info model), graded to the reference plate: the opening pulls
- *  OUT to the whole skyline; the sky carries the plate's bands (black-indigo
- *  → violet → a teal-cyan horizon glow over the distant city) under a star
- *  dome with no hole in it; facades wear cinematic two-tone shading (the
- *  moon side burns, the far side sleeps); streets run alive with head- and
- *  taillight rivers and storefront glow; UnrealBloom halos every light in
- *  the low-res pixel buffer; and the whole thing is photographed through a
- *  24mm with real glass (barrel, chromatic fringe, motion blur, vignette).
+ *  logartis.info model), graded to the reference plates: a blue night,
+ *  wide tree-lined avenues and real streets (roads with lane paint and
+ *  crosswalks, kerbs, lamp posts, kiosks, gantries), thousands of signs in
+ *  the reference's red/yellow/cyan/white over the house neon, rivers of
+ *  vehicles with head- and taillights, pedestrians on the pavements, birds
+ *  over the rooftops; a star dome with no hole in it; two-tone cinematic
+ *  facade shading; UnrealBloom halos; and the whole thing photographed
+ *  through a 24mm with real glass (barrel, chromatic fringe, motion blur,
+ *  vignette).
  *
  *  The city itself comes from the PLAN (city-plan.ts, pure and tested):
- *  twelve building archetypes across two downtowns and an old town, a far
- *  ring that runs on past the flight fence into the fog so the sandbox reads
- *  as endless, and a collision grid — buildings are solid, the camera can
- *  never pass through one in any mode.
+ *  twelve building archetypes across two downtowns and an old town, a
+ *  finished outer ring past the fence, a sprawl for the fog, and a collision
+ *  grid — buildings are solid, the camera can never pass through one in any
+ *  mode.
  *
  *  Three flight modes (owner decree): TOUR — the page's native scroll flies
  *  the story route (the city was built around it); AUTO — an endless,
- *  randomised, collision-validated drift; FREE — drag to look, WASD to move,
- *  shift to boost, walls stop you. Scroll is never hijacked; calm mode
- *  stills idle motion, the visitor still drives. */
+ *  randomised, collision-validated drift with a cinematographer's gaze;
+ *  FREE — drag to look, WASD to move, shift to boost, walls stop you.
+ *  Scroll is never hijacked; calm mode stills idle motion, the visitor
+ *  still drives. */
 import {
   AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ConeGeometry,
   CylinderGeometry, DoubleSide, FogExp2, Group, InstancedMesh, Material, Matrix4, Mesh, MeshBasicMaterial,
@@ -32,17 +34,18 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { reducedMotion } from '../lib/env';
 import { mulberry32 } from '../lib/rng';
 import {
-  AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, EXT, FacadeStyle, G, LOT, NEON, planCity, Solid,
-  starPositions, tourRoute,
+  AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, EXT, FacadeStyle, G, MEDIAN, NEON, planCity, Poi,
+  ROAD, Sign, Solid, starPositions, STREET, Street, tourRoute,
 } from './city-plan';
 import { fov24, LensPass, lensTarget, MotionBlurPass } from './city-post';
 
 const PIX = 2;
-const WARM = ['#ff9a4d', '#ffb36b', '#ff7a35', '#e8722e', '#ffd9a0'];
-const COOL = ['#7de8ff', '#ff5e7a', '#b79cff'];
+// the reference's windows: warm sodium AND a lot of cool cyan-blue-white
+const WARM = ['#ffb36b', '#ffd9a0', '#ff9a4d', '#ffe9c9', '#ffc27a'];
+const COOL = ['#7de8ff', '#4fc3ff', '#bfefff', '#ffffff', '#ff5e7a', '#b79cff'];
 
 const pick = <T>(rand: () => number, arr: T[]): T => arr[Math.floor(rand() * arr.length)];
-const windowColor = (rand: () => number, warm = 0.82) => (rand() < warm ? pick(rand, WARM) : pick(rand, COOL));
+const windowColor = (rand: () => number, warm = 0.6) => (rand() < warm ? pick(rand, WARM) : pick(rand, COOL));
 
 /** Every hand-pixel canvas is authored in sRGB — mark it so, or the renderer
  *  gamma-lifts the night into a grey wash (measured). */
@@ -56,7 +59,8 @@ function asPixelTex(t: CanvasTexture): CanvasTexture {
 /** A facade in one of six window rhythms — punched grid, ribbon bands,
  *  vertical strips, tiny residential, wide office bays, glass curtain — on
  *  its tint, with the plan's per-style density, warmth and dimness, an
- *  optional dark service core and an optional burning crown. */
+ *  optional dark service core and an optional burning crown. The reference
+ *  is far more lit than the last one: roughly a quarter of the windows. */
 function facadeTexture(rand: () => number, s: FacadeStyle): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 64; c.height = 256;
@@ -71,7 +75,7 @@ function facadeTexture(rand: () => number, s: FacadeStyle): CanvasTexture {
   };
   const mood = () => {
     const m = rand();
-    return (m < 0.32 ? 0.014 : m < 0.74 ? 0.09 : m < 0.94 ? 0.26 : 0.8) * s.dim * s.density;
+    return (m < 0.22 ? 0.04 : m < 0.6 ? 0.2 : m < 0.9 ? 0.45 : 0.9) * s.dim * s.density;
   };
   switch (s.win) {
     case 'grid':
@@ -80,27 +84,27 @@ function facadeTexture(rand: () => number, s: FacadeStyle): CanvasTexture {
         const floor = rand() < 0.25 ? windowColor(rand, s.warm) : null;
         for (let fx = 3; fx < 58; fx += 5) {
           if (Math.abs(fx - core) < 5) continue;
-          if (rand() < p) lit(fx, fy, 3, 3, 0.4 + rand() * 0.55, floor);
+          if (rand() < p) lit(fx, fy, 3, 3, 0.45 + rand() * 0.55, floor);
         }
       }
       break;
     case 'tiny':
       for (let fy = 3; fy < 252; fy += 4) {
         const p = mood() * 1.1;
-        for (let fx = 2; fx < 60; fx += 4) if (rand() < p) lit(fx, fy, 2, 2, 0.35 + rand() * 0.5);
+        for (let fx = 2; fx < 60; fx += 4) if (rand() < p) lit(fx, fy, 2, 2, 0.4 + rand() * 0.5);
       }
       break;
     case 'wide':
       for (let fy = 4; fy < 248; fy += 6) {
         const p = mood();
-        for (let fx = 2; fx < 56; fx += 8) if (rand() < p) lit(fx, fy, 6, 3, 0.4 + rand() * 0.5);
+        for (let fx = 2; fx < 56; fx += 8) if (rand() < p) lit(fx, fy, 6, 3, 0.45 + rand() * 0.5);
       }
       break;
     case 'ribbon':
       for (let fy = 4; fy < 250; fy += 5) {
-        const p = mood() * 1.4;
+        const p = mood() * 1.3;
         const band = windowColor(rand, s.warm);
-        for (let fx = 2; fx < 62; fx += 4) if (rand() < p) lit(fx, fy, 4, 2, 0.35 + rand() * 0.5, rand() < 0.7 ? band : null);
+        for (let fx = 2; fx < 62; fx += 4) if (rand() < p) lit(fx, fy, 4, 2, 0.4 + rand() * 0.5, rand() < 0.7 ? band : null);
       }
       break;
     case 'strip':
@@ -110,13 +114,13 @@ function facadeTexture(rand: () => number, s: FacadeStyle): CanvasTexture {
         const col = windowColor(rand, s.warm);
         for (let fy = 2; fy < 254; fy += 2) {
           if (rand() < 0.06) run = !run;
-          if (run && rand() < 0.9 * s.density * s.dim + 0.05) lit(fx, fy, 2, 2, 0.35 + rand() * 0.45, col);
+          if (run && rand() < 0.9 * s.density * s.dim + 0.05) lit(fx, fy, 2, 2, 0.4 + rand() * 0.45, col);
         }
       }
       break;
     case 'curtain':
       for (let fy = 2; fy < 252; fy += 5) {
-        if (rand() < mood() * 1.6) lit(1, fy, 62, 4, 0.14 + rand() * 0.2, rand() < 0.5 ? windowColor(rand, s.warm) : null);
+        if (rand() < mood() * 1.5) lit(1, fy, 62, 4, 0.16 + rand() * 0.22, rand() < 0.5 ? windowColor(rand, s.warm) : null);
       }
       x.globalAlpha = 1;
       x.fillStyle = s.tint;
@@ -148,31 +152,35 @@ function crownTexture(): CanvasTexture {
   return asPixelTex(new CanvasTexture(c));
 }
 
-function signTexture(rand: () => number, color: string): CanvasTexture {
+/** A run of abstract glyph blocks in WHITE (the instance colour tints them),
+ *  optionally framed — the signage alphabet. Never real text. */
+function glyphTexture(rand: () => number, w: number, h: number, n: number, vertical: boolean, frame: boolean): CanvasTexture {
   const c = document.createElement('canvas');
-  c.width = 16; c.height = 64;
+  c.width = w; c.height = h;
   const x = c.getContext('2d')!;
-  x.fillStyle = color;
-  for (let g = 0; g < 6; g++)
-    for (let px = 0; px < 3; px++)
-      for (let py = 0; py < 3; py++)
-        if (rand() < 0.55) x.fillRect(4 + px * 3, 4 + g * 10 + py * 3, 2, 2);
-  return asPixelTex(new CanvasTexture(c));
-}
-
-/** A roof billboard: a run of glyph blocks with a lit frame. */
-function roofSignTexture(rand: () => number, color: string): CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = 64; c.height = 16;
-  const x = c.getContext('2d')!;
-  x.fillStyle = color;
-  x.globalAlpha = 0.5;
-  x.fillRect(0, 0, 64, 1); x.fillRect(0, 15, 64, 1);
-  x.globalAlpha = 1;
-  for (let g = 0; g < 7; g++)
-    for (let px = 0; px < 3; px++)
-      for (let py = 0; py < 3; py++)
-        if (rand() < 0.55) x.fillRect(4 + g * 8 + px * 2, 5 + py * 2, 1, 1);
+  x.fillStyle = '#ffffff';
+  if (frame) {
+    x.globalAlpha = 0.45;
+    x.fillRect(0, 0, w, 1); x.fillRect(0, h - 1, w, 1); x.fillRect(0, 0, 1, h); x.fillRect(w - 1, 0, 1, h);
+    x.globalAlpha = 1;
+  }
+  const span = vertical ? h : w;
+  const across = vertical ? w : h;
+  const cell = Math.max(1, Math.floor(Math.min(span / n, across) / 4));
+  const glyph = cell * 3;
+  const step = span / n;
+  for (let g = 0; g < n; g++) {
+    const g0 = Math.floor(g * step + (step - glyph) / 2);
+    const a0 = Math.floor((across - glyph) / 2);
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        if (rand() < 0.55) {
+          if (vertical) x.fillRect(a0 + i * cell, g0 + j * cell, cell, cell);
+          else x.fillRect(g0 + i * cell, a0 + j * cell, cell, cell);
+        }
+      }
+    }
+  }
   return asPixelTex(new CanvasTexture(c));
 }
 
@@ -234,7 +242,7 @@ function horizonTexture(rand: () => number): CanvasTexture {
   x.fillStyle = g; x.fillRect(0, 0, 1024, 96);
   for (let i = 0; i < 2600; i++) {
     const sy = 78 + rand() * 17;
-    x.fillStyle = rand() < 0.8 ? pick(rand, WARM) : pick(rand, COOL);
+    x.fillStyle = rand() < 0.7 ? pick(rand, WARM) : pick(rand, COOL);
     x.globalAlpha = 0.25 + rand() * 0.6;
     x.fillRect(Math.floor(rand() * 1024), Math.floor(sy), 1, 1);
   }
@@ -256,9 +264,9 @@ function skyTexture(): CanvasTexture {
   c.width = 4; c.height = 512;
   const x = c.getContext('2d')!;
   const g = x.createLinearGradient(0, 0, 0, 512);
-  g.addColorStop(0, '#020207');
-  g.addColorStop(0.34, '#05071c');
-  g.addColorStop(0.44, '#141a44');
+  g.addColorStop(0, '#020209');
+  g.addColorStop(0.34, '#060a22');
+  g.addColorStop(0.44, '#141d4a');
   g.addColorStop(0.485, '#3b2f6b');
   g.addColorStop(0.515, '#3f7b93');
   g.addColorStop(0.54, '#a8dbe3');
@@ -268,15 +276,46 @@ function skyTexture(): CanvasTexture {
   return asPixelTex(new CanvasTexture(c));
 }
 
-/** One block of ground: a lot with its street band, tiled every G units so
- *  the grid reads from the air. */
-function groundTexture(): CanvasTexture {
+/** One block of ground, the street centred: asphalt with double centre
+ *  line, lane dashes and crosswalks at the intersection, kerbed pavements,
+ *  the dark lot in the corners. Tiled every G units with lot centres on
+ *  the tile corners. 4 px per unit. */
+function groundTexture(rand: () => number): CanvasTexture {
+  const S = 4, T = G * S;
   const c = document.createElement('canvas');
-  c.width = c.height = 40;
+  c.width = c.height = T;
   const x = c.getContext('2d')!;
-  x.fillStyle = '#08080f'; x.fillRect(0, 0, 40, 40);
-  const lot = (LOT / G) * 40;
-  x.fillStyle = '#040409'; x.fillRect((40 - lot) / 2, (40 - lot) / 2, lot, lot);
+  x.fillStyle = '#050512'; x.fillRect(0, 0, T, T);
+  const mid = T / 2, half = (STREET / 2) * S, road = (ROAD / 2) * S;
+  x.fillStyle = '#0e1022';
+  x.fillRect(mid - half, 0, half * 2, T); x.fillRect(0, mid - half, T, half * 2);
+  x.fillStyle = '#131630';
+  for (let i = 0; i < T; i += 4) { // paving dots on the kerbs
+    for (const k of [mid - half + 2, mid + half - 4]) { x.fillRect(i + (k % 8 ? 0 : 2), k, 1, 1); x.fillRect(k, i + (k % 8 ? 0 : 2), 1, 1); }
+  }
+  x.fillStyle = '#07091a';
+  x.fillRect(mid - road, 0, road * 2, T); x.fillRect(0, mid - road, T, road * 2);
+  const dashes = (color: string, at: number, on: number, off: number, w: number) => {
+    x.fillStyle = color;
+    for (let i = 0; i < T; i += on + off) {
+      if (Math.abs(i + on / 2 - mid) < road + 2) continue; // clear through the intersection
+      x.fillRect(at, i, w, on); x.fillRect(i, at, on, w);
+    }
+  };
+  dashes('#3d3418', mid - 1, 8, 6, 2); // the double yellow
+  dashes('#20233a', mid - road / 2 - 1, 6, 8, 1); // lane dashes
+  dashes('#20233a', mid + road / 2, 6, 8, 1);
+  x.fillStyle = '#8a8fa8';
+  x.globalAlpha = 0.28;
+  for (let k = 0; k < 7; k++) { // crosswalks on the four arms
+    const a = mid - road + 2 + k * 6;
+    x.fillRect(a, mid - half, 3, 8); x.fillRect(a, mid + half - 8, 3, 8);
+    x.fillRect(mid - half, a, 8, 3); x.fillRect(mid + half - 8, a, 8, 3);
+  }
+  x.globalAlpha = 0.5;
+  x.fillStyle = '#0b0d1f'; // a little wear on the lot corners
+  for (let i = 0; i < 90; i++) x.fillRect(Math.floor(rand() * T), Math.floor(rand() * T), 2, 1);
+  x.globalAlpha = 1;
   const t = asPixelTex(new CanvasTexture(c));
   t.wrapS = t.wrapT = RepeatWrapping;
   return t;
@@ -285,7 +324,7 @@ function groundTexture(): CanvasTexture {
 function paintScreen(x: CanvasRenderingContext2D, rand: () => number): void {
   x.fillStyle = '#05050c'; x.fillRect(0, 0, 32, 20);
   for (let i = 0; i < 40; i++) {
-    x.fillStyle = pick(rand, [...NEON, '#ffffff', '#ff9a4d', '#7de8ff']);
+    x.fillStyle = pick(rand, [...NEON, '#ffffff', '#ff9a4d', '#7de8ff', '#ff3b3b', '#ffd23f']);
     x.globalAlpha = 0.45 + rand() * 0.55;
     x.fillRect(Math.floor(rand() * 32), Math.floor(rand() * 20), 1 + Math.floor(rand() * 6), 1 + Math.floor(rand() * 4));
   }
@@ -310,7 +349,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const rand = mulberry32(seed ^ 0x9e3779b9); // the renderer's own stream; the plan owns the seed
   const calm = reducedMotion();
   const scene = new Scene();
-  scene.fog = new FogExp2('#0d0b2a', 0.0056);
+  scene.fog = new FogExp2('#0d0d30', 0.0034);
 
   const camera = new PerspectiveCamera(fov24(1), 1, 0.1, 1400);
   const renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
@@ -320,11 +359,13 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const lens = new LensPass();
   composer.addPass(new RenderPass(scene, camera));
   composer.addPass(blur);
-  composer.addPass(new UnrealBloomPass(new Vector2(2, 2), 0.72, 0.45, 0.3));
+  composer.addPass(new UnrealBloomPass(new Vector2(2, 2), 0.62, 0.42, 0.32));
   composer.addPass(lens);
   composer.addPass(new OutputPass());
 
-  // -- sky: everything infinitely far rides with the camera ---------------
+  // -- sky: the dome rides with the camera like a skybox (owner: clouds
+  // slid past during climbs when only x/z followed); the distant-city glow
+  // ring stays at ground level and follows x/z only --------------------------
   const sky = new Group();
   scene.add(sky);
   sky.add(new Mesh(
@@ -351,13 +392,11 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     s.scale.set(sc, sc * 0.6, 1);
     sky.add(s);
   }
-
   const MOON = new Vector3(110, 300, 460);
   const moon = new Sprite(new SpriteMaterial({ map: moonTexture(), transparent: true, fog: false, depthWrite: false }));
   moon.position.copy(MOON);
   moon.scale.set(46, 46, 1);
   sky.add(moon);
-
   const clouds: Sprite[] = [];
   const cloudAt = (low: boolean) => {
     const s = new Sprite(new SpriteMaterial({
@@ -365,15 +404,17 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       opacity: low ? 0.85 : 0.55 + rand() * 0.3, fog: false, depthWrite: false,
     }));
     const a = rand() < 0.7 ? rand() * Math.PI : rand() * Math.PI * 2;
-    const r = 320 + rand() * 260;
-    s.position.set(Math.cos(a) * r, low ? 55 + rand() * 55 : 140 + rand() * 180, Math.sin(a) * r);
-    s.scale.set(low ? 240 + rand() * 160 : 150 + rand() * 130, low ? 34 + rand() * 16 : 46 + rand() * 24, 1);
+    const r = 480 + rand() * 300;
+    s.position.set(Math.cos(a) * r, low ? 70 + rand() * 70 : 170 + rand() * 220, Math.sin(a) * r);
+    s.scale.set(low ? 300 + rand() * 200 : 190 + rand() * 160, low ? 42 + rand() * 20 : 58 + rand() * 30, 1);
     clouds.push(s);
     sky.add(s);
   };
   for (let i = 0; i < 8; i++) cloudAt(false);
   for (let i = 0; i < 7; i++) cloudAt(true); // dark slabs against the glow
 
+  const horizonRing = new Group();
+  scene.add(horizonRing);
   const horizon = new Mesh(
     new PlaneGeometry(1, 1),
     new MeshBasicMaterial({ map: horizonTexture(rand), transparent: true, fog: false, depthWrite: false, side: DoubleSide }),
@@ -384,12 +425,14 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     h.position.set(Math.cos(a) * 430, 34, Math.sin(a) * 430);
     h.scale.set(920, 96, 1);
     h.lookAt(0, 34, 0);
-    sky.add(h);
+    horizonRing.add(h);
   }
 
-  const groundTex = groundTexture();
-  groundTex.repeat.set(4000 / G, 4000 / G);
-  const ground = new Mesh(new PlaneGeometry(4000, 4000), new MeshBasicMaterial({ map: groundTex }));
+  // -- the ground: streets with lane paint, kerbs and crosswalks --------------
+  const groundTex = groundTexture(rand);
+  const GROUND = 106 * G; // a whole number of blocks: lot centres land on the tile corners
+  groundTex.repeat.set(106, 106);
+  const ground = new Mesh(new PlaneGeometry(GROUND, GROUND), new MeshBasicMaterial({ map: groundTex }));
   ground.rotation.x = -Math.PI / 2;
   scene.add(ground);
 
@@ -400,6 +443,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     pyr: new ConeGeometry(Math.SQRT1_2, 1, 4).rotateY(Math.PI / 4), // a square-based pyramid, unit footprint
     spire: new ConeGeometry(0.5, 1, 6),
     dome: new SphereGeometry(1, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), // base at y = 0, unit radius
+    tree: new ConeGeometry(0.5, 1, 7),
+    plane: new PlaneGeometry(1, 1),
   };
   const facadeTex = plan.styles.map((s) => facadeTexture(rand, s));
   const cylTex = facadeTex.map((t) => {
@@ -425,13 +470,16 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       case 'pyr': return new MeshBasicMaterial({ color: '#0b0b18' });
       case 'spire': return new MeshBasicMaterial({ color: '#5f6a92' });
       case 'dome': return new MeshBasicMaterial({ color: '#0d0e20' });
+      case 'tree': return new MeshBasicMaterial({ color: '#0b2418' });
       default: return dark;
     }
   };
+  const geoFor = (k: Solid['kind']) =>
+    k === 'cyl' ? geo.cyl : k === 'pyr' ? geo.pyr : k === 'spire' ? geo.spire : k === 'dome' ? geo.dome : k === 'tree' ? geo.tree : geo.box;
   const dummy = new Object3D();
   const buckets = new Map<string, { kind: Solid['kind']; key: string; far: boolean; mats: Matrix4[] }>();
   const place = (s: Solid, far: boolean) => {
-    const key = s.arch === 'bits' && s.kind !== 'facade' ? 'dark' : String(s.tex);
+    const key = (s.arch === 'bits' || s.arch === 'street') && s.kind !== 'facade' ? 'dark' : String(s.tex);
     const id = `${far ? 'f' : 'c'}:${s.kind}:${key}`;
     let b = buckets.get(id);
     if (!b) { b = { kind: s.kind, key, far, mats: [] }; buckets.set(id, b); }
@@ -446,9 +494,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     b.mats.push(dummy.matrix.clone());
   };
   for (const s of plan.core) place(s, false);
-  for (const s of plan.far) place(s, true);
-  const geoFor = (k: Solid['kind']) =>
-    k === 'cyl' ? geo.cyl : k === 'pyr' ? geo.pyr : k === 'spire' ? geo.spire : k === 'dome' ? geo.dome : geo.box;
+  for (const s of plan.outer) place(s, false);
+  for (const s of plan.sprawl) place(s, true);
   for (const b of buckets.values()) {
     const inst = new InstancedMesh(geoFor(b.kind), matFor(b.kind, b.key, b.far), b.mats.length);
     b.mats.forEach((m, j) => inst.setMatrixAt(j, m));
@@ -475,47 +522,114 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
 
   // -- the landmark's crown, glow and spire ------------------------------
   const { x: lmx, z: lmz } = plan.landmark;
-  const crown = new Mesh(new BoxGeometry(5.2, 3.2, 5.2), new MeshBasicMaterial({ map: crownTexture(), fog: false }));
-  crown.position.set(lmx, 95.6, lmz);
+  const crown = new Mesh(new BoxGeometry(7.4, 3.6, 7.4), new MeshBasicMaterial({ map: crownTexture(), fog: false }));
+  crown.position.set(lmx, 131.8, lmz);
   scene.add(crown);
   const crownGlow = new Sprite(new SpriteMaterial({ map: glowTexture('#7de8ff'), transparent: true, opacity: 0.8, fog: false, depthWrite: false }));
-  crownGlow.position.set(lmx, 96, lmz);
-  crownGlow.scale.set(13, 13, 1);
+  crownGlow.position.set(lmx, 132, lmz);
+  crownGlow.scale.set(16, 16, 1);
   scene.add(crownGlow);
-  const spire = new Mesh(new BoxGeometry(0.5, 14, 0.5), new MeshBasicMaterial({ color: '#9fb7d8' }));
-  spire.position.set(lmx, 104, lmz);
+  const spire = new Mesh(new BoxGeometry(0.6, 18, 0.6), new MeshBasicMaterial({ color: '#9fb7d8' }));
+  spire.position.set(lmx, 142, lmz);
   scene.add(spire);
 
-  // -- signage: wall neon, roof billboards, the giant screens --------------
-  const plane = new PlaneGeometry(1, 1);
+  // -- SIGNAGE: thousands of instanced glyph planes, tinted per sign, a few
+  // always flickering; the giant screens repaint themselves ------------------
+  const SIGN_SHAPES: Record<Exclude<Sign['kind'], 'screen'>, [number, number, number, boolean, boolean]> = {
+    hang: [16, 64, 6, true, false], wall: [16, 64, 6, true, false], board: [64, 16, 7, false, true],
+    tag: [32, 16, 3, false, true], roof: [64, 16, 7, false, true], gantry: [96, 24, 9, false, true],
+  };
+  const signGroups = new Map<string, { sign: Sign[]; tex: CanvasTexture }>();
   const screens: { tex: CanvasTexture; ctx: CanvasRenderingContext2D }[] = [];
+  let signIdx = 0;
   for (const sg of plan.signs) {
-    let map: CanvasTexture;
     if (sg.kind === 'screen') {
       const c = document.createElement('canvas');
       c.width = 32; c.height = 20;
       const ctx = c.getContext('2d')!;
       paintScreen(ctx, rand);
-      map = asPixelTex(new CanvasTexture(c));
+      const map = asPixelTex(new CanvasTexture(c));
       screens.push({ tex: map, ctx });
-    } else {
-      map = sg.kind === 'roof' ? roofSignTexture(rand, sg.color) : signTexture(rand, sg.color);
+      const m = new Mesh(geo.plane, new MeshBasicMaterial({ map, fog: false, side: DoubleSide }));
+      m.position.set(sg.x, sg.y, sg.z);
+      m.scale.set(sg.w, sg.h, 1);
+      m.rotation.y = sg.rotY;
+      scene.add(m);
+      continue;
     }
-    const m = new Mesh(plane, new MeshBasicMaterial({
-      map, transparent: sg.kind !== 'screen', blending: sg.kind === 'screen' ? undefined : AdditiveBlending,
-      fog: false, depthWrite: sg.kind === 'screen', side: DoubleSide,
-    }));
-    m.position.set(sg.x, sg.y, sg.z);
-    m.scale.set(sg.w, sg.h, 1);
-    m.rotation.y = sg.rotY;
-    scene.add(m);
+    const id = `${sg.kind}:${signIdx++ % 3}`;
+    let grp = signGroups.get(id);
+    if (!grp) {
+      const [w, h, n, vertical, frame] = SIGN_SHAPES[sg.kind];
+      grp = { sign: [], tex: glyphTexture(rand, w, h, n, vertical, frame) };
+      signGroups.set(id, grp);
+    }
+    grp.sign.push(sg);
   }
+  const flickers: { inst: InstancedMesh; base: Float32Array; lit: number[] }[] = [];
+  for (const grp of signGroups.values()) {
+    const inst = new InstancedMesh(geo.plane, new MeshBasicMaterial({
+      map: grp.tex, color: '#ffffff', transparent: true, blending: AdditiveBlending, depthWrite: false, side: DoubleSide,
+    }), grp.sign.length);
+    const base = new Float32Array(grp.sign.length * 3);
+    grp.sign.forEach((sg, j) => {
+      dummy.position.set(sg.x, sg.y, sg.z);
+      dummy.rotation.set(0, sg.rotY, 0);
+      dummy.scale.set(sg.w, sg.h, 1);
+      dummy.updateMatrix();
+      inst.setMatrixAt(j, dummy.matrix);
+      const col = new Color(sg.color).multiplyScalar(0.9);
+      inst.setColorAt(j, col);
+      col.toArray(base, j * 3);
+    });
+    dummy.rotation.set(0, 0, 0);
+    inst.instanceMatrix.needsUpdate = true;
+    if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+    scene.add(inst);
+    flickers.push({ inst, base, lit: [] });
+  }
+  const tmpCol = new Color();
+  const flicker = () => {
+    for (const f of flickers) {
+      for (const j of f.lit) f.inst.setColorAt(j, tmpCol.fromArray(f.base, j * 3));
+      f.lit.length = 0;
+      const n = Math.max(1, Math.round(f.inst.count * 0.02));
+      for (let k = 0; k < n; k++) {
+        const j = Math.floor(rand() * f.inst.count);
+        tmpCol.fromArray(f.base, j * 3).multiplyScalar(rand() < 0.5 ? 0.12 : 1.35);
+        f.inst.setColorAt(j, tmpCol);
+        f.lit.push(j);
+      }
+      if (f.inst.instanceColor) f.inst.instanceColor.needsUpdate = true;
+    }
+  };
 
-  // -- street lamps, the far ring's neon, beacons --------------------------
+  // -- street furniture: lamp posts with glowing heads, the sprawl's lamps,
+  // the sprawl's neon specks, beacons -----------------------------------------
   {
+    const inst = new InstancedMesh(geo.box, new MeshBasicMaterial({ color: '#0c0d1a' }), plan.posts.length);
+    const heads = new Float32Array(plan.posts.length * 3);
+    plan.posts.forEach((p, j) => {
+      dummy.position.set(p.x, p.h / 2, p.z);
+      dummy.scale.set(0.18, p.h, 0.18);
+      dummy.updateMatrix();
+      inst.setMatrixAt(j, dummy.matrix);
+      heads[j * 3] = p.x; heads[j * 3 + 1] = p.h + 0.25; heads[j * 3 + 2] = p.z;
+    });
+    inst.instanceMatrix.needsUpdate = true;
+    scene.add(inst);
     const g = new BufferGeometry();
-    g.setAttribute('position', new BufferAttribute(new Float32Array([...plan.lamps, ...plan.farLamps]), 3));
-    scene.add(new Points(g, new PointsMaterial({ color: '#C8FF00', size: 1.3, sizeAttenuation: false, transparent: true, opacity: 0.45 })));
+    g.setAttribute('position', new BufferAttribute(heads, 3));
+    scene.add(new Points(g, new PointsMaterial({
+      map: glowTexture('#ffe9c9'), color: '#ffe9c9', size: 4.5, sizeAttenuation: true, transparent: true,
+      blending: AdditiveBlending, depthWrite: false,
+    })));
+    const g2 = new BufferGeometry();
+    g2.setAttribute('position', new BufferAttribute(new Float32Array(plan.sprawlLamps), 3));
+    scene.add(new Points(g2, new PointsMaterial({
+      map: glowTexture('#ffd9a0'), color: '#ffd9a0', size: 3, sizeAttenuation: true, transparent: true,
+      blending: AdditiveBlending, depthWrite: false,
+    })));
   }
   {
     const g = new BufferGeometry();
@@ -524,7 +638,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     plan.neon.col.forEach((c, i) => new Color(c).toArray(cols, i * 3));
     g.setAttribute('color', new BufferAttribute(cols, 3));
     scene.add(new Points(g, new PointsMaterial({
-      vertexColors: true, size: 2.4, sizeAttenuation: true, transparent: true, opacity: 0.9,
+      vertexColors: true, size: 2.6, sizeAttenuation: true, transparent: true, opacity: 0.9,
       blending: AdditiveBlending, depthWrite: false,
     })));
   }
@@ -537,43 +651,132 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     scene.add(s);
   }
 
-  // -- LIVELY STREETS: rivers of head- and taillights, core and far ring -----
-  const RANGE = EXT + 200;
-  interface Car { axis: 'x' | 'z'; at: number; s: number; v: number }
-  const carSet = (n: number, color: string, dir: 1 | -1): { pts: Points; cars: Car[]; arr: Float32Array } => {
-    const cars: Car[] = [];
-    const arr = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) {
-      // each car rides a real street centre (odd multiples of G/2), in its direction's lane
-      const lane = (Math.floor(rand() * 42) - 21) * G + G / 2 + (dir === 1 ? 1.4 : -1.4);
-      cars.push({ axis: rand() < 0.5 ? 'x' : 'z', at: lane, s: (rand() - 0.5) * 2 * RANGE, v: (0.22 + rand() * 0.34) * dir });
-    }
+  // -- LIVELY STREETS: vehicles with head- and taillights, pedestrians on the
+  // pavements, birds over the rooftops, aircraft crossing high ------------------
+  interface Vehicle { st: Street; lane: number; s: number; v: number; len: number; w: number; h: number }
+  const vehicles: Vehicle[] = [];
+  const BODY = ['#141827', '#1a1f33', '#242a44', '#3a1f2a', '#2a2a30', '#1c2d3a', '#e8e0d0'];
+  const carCount = 420;
+  const carMesh = new InstancedMesh(geo.box, new MeshBasicMaterial({ color: '#ffffff' }), carCount);
+  for (let i = 0; i < carCount; i++) {
+    const st = pick(rand, plan.streets);
+    const dir: 1 | -1 = rand() < 0.5 ? 1 : -1;
+    const bus = rand() < 0.07;
+    const taxi = !bus && rand() < 0.15;
+    const v = (bus ? 0.09 : 0.1 + rand() * 0.1) * dir;
+    vehicles.push({
+      st, lane: st.at + dir * (rand() < 0.5 ? 1.7 : 4.2), s: st.from + rand() * (st.to - st.from), v,
+      len: bus ? 7 : 3.2, w: bus ? 2.2 : 1.4, h: bus ? 2.2 : 0.9,
+    });
+    carMesh.setColorAt(i, new Color(bus ? '#d9d2c4' : taxi ? '#ffd23f' : pick(rand, BODY)));
+  }
+  scene.add(carMesh);
+  const lightsOf = (color: string, size: number) => {
+    const arr = new Float32Array(carCount * 2 * 3);
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(arr, 3));
-    const pts = new Points(g, new PointsMaterial({ color, size: 1.6, sizeAttenuation: true, transparent: true, opacity: 0.95, depthWrite: false }));
+    const pts = new Points(g, new PointsMaterial({ color, size, sizeAttenuation: true, transparent: true, opacity: 0.95, depthWrite: false }));
     scene.add(pts);
-    return { pts, cars, arr };
+    return { arr, pts };
   };
-  const flows = [
-    carSet(120, '#ffe6c4', 1),   // headlights toward +
-    carSet(120, '#ff5040', -1),  // taillights toward −
-    carSet(22, '#C8FF00', 1),    // the acid taxis
-  ];
+  const heads = lightsOf('#fff2d8', 1.5);
+  const tails = lightsOf('#ff3b2f', 1.3);
   const driveCars = () => {
-    for (const f of flows) {
-      for (let i = 0; i < f.cars.length; i++) {
-        const car = f.cars[i];
-        car.s += car.v;
-        if (car.s > RANGE) car.s = -RANGE;
-        if (car.s < -RANGE) car.s = RANGE;
-        const j = i * 3;
-        if (car.axis === 'x') { f.arr[j] = car.s; f.arr[j + 1] = 0.6; f.arr[j + 2] = car.at; }
-        else { f.arr[j] = car.at; f.arr[j + 1] = 0.6; f.arr[j + 2] = car.s; }
+    for (let i = 0; i < vehicles.length; i++) {
+      const c = vehicles[i];
+      c.s += c.v;
+      if (c.s > c.st.to) c.s = c.st.from;
+      if (c.s < c.st.from) c.s = c.st.to;
+      const alongX = c.st.axis === 'x';
+      dummy.position.set(alongX ? c.s : c.lane, c.h / 2 + 0.05, alongX ? c.lane : c.s);
+      dummy.scale.set(alongX ? c.len : c.w, c.h, alongX ? c.w : c.len);
+      dummy.updateMatrix();
+      carMesh.setMatrixAt(i, dummy.matrix);
+      const dir = c.v > 0 ? 1 : -1;
+      const front = c.s + dir * c.len / 2, rear = c.s - dir * c.len / 2;
+      for (const [k, side] of [[0, -0.45], [1, 0.45]] as [number, number][]) {
+        const j = (i * 2 + k) * 3;
+        heads.arr[j] = alongX ? front : c.lane + side; heads.arr[j + 1] = 0.55; heads.arr[j + 2] = alongX ? c.lane + side : front;
+        tails.arr[j] = alongX ? rear : c.lane + side; tails.arr[j + 1] = 0.55; tails.arr[j + 2] = alongX ? c.lane + side : rear;
       }
-      (f.pts.geometry.getAttribute('position') as BufferAttribute).needsUpdate = true;
     }
+    carMesh.instanceMatrix.needsUpdate = true;
+    if (carMesh.instanceColor) carMesh.instanceColor.needsUpdate = true;
+    (heads.pts.geometry.getAttribute('position') as BufferAttribute).needsUpdate = true;
+    (tails.pts.geometry.getAttribute('position') as BufferAttribute).needsUpdate = true;
   };
-  driveCars();
+
+  interface Walker { st: Street; off: number; t: number; v: number }
+  const walkers: Walker[] = [];
+  const walkArr = new Float32Array(1600 * 3);
+  for (let i = 0; i < 1600; i++) {
+    const st = pick(rand, plan.streets);
+    const median = rand() < 0.14;
+    walkers.push({
+      st, off: median ? (st.at > 0 ? st.at : st.at) - (st.at > 0 ? 1 : -1) * (STREET / 2 + MEDIAN / 2) : st.at + (rand() < 0.5 ? 1 : -1) * (ROAD / 2 + 1),
+      t: st.from + rand() * (st.to - st.from), v: (0.018 + rand() * 0.022) * (rand() < 0.5 ? 1 : -1),
+    });
+  }
+  const walkGeo = new BufferGeometry();
+  walkGeo.setAttribute('position', new BufferAttribute(walkArr, 3));
+  scene.add(new Points(walkGeo, new PointsMaterial({ color: '#d8dce8', size: 1.6, sizeAttenuation: true, transparent: true, opacity: 0.7, depthWrite: false })));
+  const walk = () => {
+    for (let i = 0; i < walkers.length; i++) {
+      const w = walkers[i];
+      w.t += w.v;
+      if (w.t > w.st.to) w.t = w.st.from;
+      if (w.t < w.st.from) w.t = w.st.to;
+      const j = i * 3;
+      walkArr[j] = w.st.axis === 'x' ? w.t : w.off; walkArr[j + 1] = 0.9; walkArr[j + 2] = w.st.axis === 'x' ? w.off : w.t;
+    }
+    (walkGeo.getAttribute('position') as BufferAttribute).needsUpdate = true;
+  };
+
+  interface Flock { x: number; y: number; z: number; vx: number; vz: number; phase: number }
+  const flocks: Flock[] = [];
+  const BIRDS = 11;
+  const birdArr = new Float32Array(2 * BIRDS * 3);
+  const birdGeo = new BufferGeometry();
+  birdGeo.setAttribute('position', new BufferAttribute(birdArr, 3));
+  scene.add(new Points(birdGeo, new PointsMaterial({ color: '#05060f', size: 2.8, sizeAttenuation: true, transparent: true, opacity: 0.9, depthWrite: false, fog: false })));
+  const launchFlock = (f: Flock) => {
+    const a = rand() * Math.PI * 2;
+    const r = EXT + 120;
+    f.x = Math.cos(a) * r; f.z = Math.sin(a) * r; f.y = 115 + rand() * 45;
+    const sp = 0.28 + rand() * 0.12;
+    const back = a + Math.PI + (rand() - 0.5) * 0.8;
+    f.vx = Math.cos(back) * sp; f.vz = Math.sin(back) * sp; f.phase = rand() * 7;
+  };
+  for (let i = 0; i < 2; i++) { const f = { x: 0, y: 0, z: 0, vx: 0, vz: 0, phase: 0 }; launchFlock(f); f.x *= rand(); f.z *= rand(); flocks.push(f); }
+  const fly = () => {
+    flocks.forEach((f, fi) => {
+      f.x += f.vx; f.z += f.vz; f.phase += 0.09;
+      if (Math.abs(f.x) > EXT + 160 || Math.abs(f.z) > EXT + 160) launchFlock(f);
+      const hx = -f.vz, hz = f.vx; // the V's wings run perpendicular to the flight
+      for (let b = 0; b < BIRDS; b++) {
+        const k = b - (BIRDS - 1) / 2;
+        const j = (fi * BIRDS + b) * 3;
+        birdArr[j] = f.x - f.vx * Math.abs(k) * 9 + hx * k * 8;
+        birdArr[j + 1] = f.y + Math.sin(f.phase + b) * 0.45;
+        birdArr[j + 2] = f.z - f.vz * Math.abs(k) * 9 + hz * k * 8;
+      }
+    });
+    (birdGeo.getAttribute('position') as BufferAttribute).needsUpdate = true;
+  };
+  const craftArr = new Float32Array(2 * 3);
+  const craft = [{ x: -700, z: 380, vx: 0.42, vz: -0.1 }, { x: 600, z: -520, vx: -0.3, vz: 0.28 }];
+  const craftGeo = new BufferGeometry();
+  craftGeo.setAttribute('position', new BufferAttribute(craftArr, 3));
+  const craftMat = new PointsMaterial({ color: '#ff8a8a', size: 3, sizeAttenuation: false, transparent: true, depthWrite: false, fog: false });
+  scene.add(new Points(craftGeo, craftMat));
+  const cruiseCraft = () => {
+    craft.forEach((c, i) => {
+      c.x += c.vx; c.z += c.vz;
+      if (Math.abs(c.x) > 900 || Math.abs(c.z) > 900) { c.x = -Math.sign(c.vx) * 850; c.z = (rand() - 0.5) * 900; }
+      craftArr[i * 3] = c.x; craftArr[i * 3 + 1] = 250 + i * 30; craftArr[i * 3 + 2] = c.z;
+    });
+    (craftGeo.getAttribute('position') as BufferAttribute).needsUpdate = true;
+  };
 
   // -- flight ---------------------------------------------------------------
   const route = tourRoute();
@@ -585,10 +788,33 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   let bank = 0;
   let prevYaw = 0;
   const keys = new Set<string>();
-  const free = { pos: new Vector3(-96, 86, 124), yaw: 2.5, pitch: -0.25 };
+  const free = { pos: new Vector3(-3.6 * G, 90, 4.6 * G), yaw: 2.5, pitch: -0.25 };
   const pos = new Vector3();
   const look = new Vector3();
   const fwd = new Vector3();
+  const HEART = new Vector3(0.55 * G, 44, 0.55 * G);
+  // the cinematographer: on each new leg, pick something worth looking at
+  // ahead (the landmark, the tallest towers, the screens) and ease the eye
+  // onto it; in the canyons, look down the street at the traffic
+  const gaze = { cur: new Vector3(), want: new Vector3(), poi: null as Poi | null, leg: -1 };
+  const chooseGaze = (phase: string) => {
+    gaze.poi = null;
+    if (phase === 'canyon' || phase === 'dive' || rand() < 0.3) return;
+    const tx = look.x - pos.x, tz = look.z - pos.z;
+    const tl = Math.hypot(tx, tz) || 1;
+    let best: Poi | null = null;
+    let bestScore = 0;
+    for (const p of plan.pois) {
+      const dx = p.x - pos.x, dz = p.z - pos.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist < 40 || dist > 340) continue;
+      const dot = (dx * tx + dz * tz) / (dist * tl);
+      if (dot < 0.3) continue;
+      const score = p.w * (0.5 + dot) * (1 - dist / 420) * (0.6 + rand() * 0.8);
+      if (score > bestScore) { best = p; bestScore = score; }
+    }
+    gaze.poi = best;
+  };
 
   const applyFree = () => {
     fwd.set(Math.sin(free.yaw) * Math.cos(free.pitch), Math.sin(free.pitch), Math.cos(free.yaw) * Math.cos(free.pitch));
@@ -613,17 +839,27 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     if (mode === 'free') {
       applyFree();
     } else if (mode === 'auto' && flight) {
-      flight.step(calm ? 0.16 : 0.32, pos, look);
+      flight.step(calm ? 0.13 : 0.26, pos, look);
       plan.grid.resolve(pos, CAM_R);
       camera.position.copy(pos);
-      camera.lookAt(look);
-      // a gentle bank into the turns
-      const yaw = Math.atan2(look.x - pos.x, look.z - pos.z);
+      if (flight.legId !== gaze.leg) { gaze.leg = flight.legId; chooseGaze(flight.phase); }
+      if (gaze.poi) {
+        const dx = gaze.poi.x - pos.x, dz = gaze.poi.z - pos.z;
+        const d = Math.hypot(dx, dz) || 1;
+        const tx = look.x - pos.x, tz = look.z - pos.z;
+        if ((dx * tx + dz * tz) / (d * (Math.hypot(tx, tz) || 1)) < 0.05) gaze.poi = null; // it slipped behind
+      }
+      if (gaze.poi) gaze.want.set(gaze.poi.x, gaze.poi.y, gaze.poi.z);
+      else gaze.want.copy(look).setY(look.y - (flight.phase === 'canyon' ? 4 : 0));
+      gaze.cur.lerp(gaze.want, 0.028);
+      camera.lookAt(gaze.cur);
+      // a gentle bank into the turns, and the slow breath of a handheld rig
+      const yaw = Math.atan2(gaze.cur.x - pos.x, gaze.cur.z - pos.z);
       let dy = yaw - prevYaw;
       if (dy > Math.PI) dy -= Math.PI * 2; else if (dy < -Math.PI) dy += Math.PI * 2;
       prevYaw = yaw;
-      bank += (Math.max(-0.22, Math.min(0.22, -dy * 14)) - bank) * 0.08;
-      camera.rotateZ(bank);
+      bank += (Math.max(-0.2, Math.min(0.2, -dy * 12)) - bank) * 0.06;
+      camera.rotateZ(bank + (calm ? 0 : Math.sin(tick * 0.011) * 0.006));
     } else {
       sm += (target - sm) * (calm ? 0.16 : 0.07);
       const t = Math.min(0.999, Math.max(0, sm)) * 0.985;
@@ -638,11 +874,12 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       let lx = look.x, ly = look.y + 1.2, lz = look.z;
       const vw = Math.max(0, (0.12 - t) / 0.12);
       const tw = Math.max(0, (t - 0.86) / 0.14) * 0.9;
-      lx += (10 - lx) * vw; ly += (34 - ly) * vw; lz += (10 - lz) * vw;
-      lx += (pos.x + MOON.x - lx) * tw; ly += (MOON.y - ly) * tw; lz += (pos.z + MOON.z - lz) * tw;
+      lx += (HEART.x - lx) * vw; ly += (HEART.y - ly) * vw; lz += (HEART.z - lz) * vw;
+      lx += (pos.x + MOON.x - lx) * tw; ly += (pos.y + MOON.y - ly) * tw; lz += (pos.z + MOON.z - lz) * tw;
       camera.lookAt(lx, ly, lz);
     }
-    sky.position.set(camera.position.x, 0, camera.position.z); // the horizon never arrives
+    sky.position.copy(camera.position); // the dome is a skybox: infinitely far in every direction
+    horizonRing.position.set(camera.position.x, 0, camera.position.z); // the far city stays on the ground
     composer.render();
   };
 
@@ -658,26 +895,38 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     blur.reset();
     render();
   };
+
+  /** Everything that moves on its own: traffic, walkers, birds, signs. */
+  const tickWorld = () => {
+    tick += 1;
+    if (calm) return;
+    (starsA.material as PointsMaterial).opacity = 0.7 + Math.sin(tick * 0.05) * 0.3;
+    (starsB.material as PointsMaterial).opacity = 0.55 + Math.cos(tick * 0.033) * 0.35;
+    for (let i = 0; i < beacons.length; i++) {
+      (beacons[i].material as SpriteMaterial).opacity = ((tick >> 4) + i) % 2 ? 0.95 : 0.12;
+    }
+    for (let i = 0; i < clouds.length; i++) {
+      clouds[i].position.x += 0.014 * ((i % 3) + 1);
+      if (clouds[i].position.x > 820) clouds[i].position.x = -820;
+    }
+    if (tick % 6 === 0) {
+      for (const s of screens) { paintScreen(s.ctx, rand); s.tex.needsUpdate = true; }
+      flicker();
+    }
+    craftMat.opacity = tick % 40 < 20 ? 1 : 0.15;
+    driveCars();
+    walk();
+    fly();
+    cruiseCraft();
+  };
+  driveCars(); walk(); fly(); cruiseCraft();
   fit();
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(canvas);
 
   const loop = () => {
     requestAnimationFrame(loop);
     if (document.hidden) return;
-    tick += 1;
-    if (!calm) {
-      (starsA.material as PointsMaterial).opacity = 0.7 + Math.sin(tick * 0.05) * 0.3;
-      (starsB.material as PointsMaterial).opacity = 0.55 + Math.cos(tick * 0.033) * 0.35;
-      for (let i = 0; i < beacons.length; i++) {
-        (beacons[i].material as SpriteMaterial).opacity = ((tick >> 4) + i) % 2 ? 0.95 : 0.12;
-      }
-      for (let i = 0; i < clouds.length; i++) {
-        clouds[i].position.x += 0.014 * ((i % 3) + 1);
-        if (clouds[i].position.x > 640) clouds[i].position.x = -640;
-      }
-      if (tick % 6 === 0) for (const s of screens) { paintScreen(s.ctx, rand); s.tex.needsUpdate = true; }
-      driveCars(); // the streets never stop
-    }
+    tickWorld();
     if (mode !== 'tour' || !calm || Math.abs(target - sm) > 0.0004) render();
   };
   loop();
@@ -700,6 +949,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
         prevYaw = Math.atan2(fwd.x, fwd.z);
         bank = 0;
         flight = new AutoFlight(plan.grid, mulberry32((Math.random() * 2 ** 32) >>> 0), camera.position, prevYaw);
+        gaze.cur.copy(camera.position).addScaledVector(fwd, 30);
+        gaze.leg = -1;
       }
       mode = m;
       blur.reset();
@@ -717,7 +968,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       blur.reset();
       render();
     },
-    tick: (n = 1) => { for (let i = 0; i < n; i++) { tick += 1; if (!calm) driveCars(); render(); } },
+    tick: (n = 1) => { for (let i = 0; i < n; i++) { tickWorld(); render(); } },
     pose: () => {
       camera.getWorldDirection(fwd);
       return { x: camera.position.x, y: camera.position.y, z: camera.position.z, yaw: free.yaw, pitch: free.pitch, mode, dir: [fwd.x, fwd.y, fwd.z] };
