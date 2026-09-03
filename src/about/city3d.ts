@@ -19,10 +19,13 @@
  *
  *  Three flight modes (owner decree): TOUR — the page's native scroll flies
  *  the story route (the city was built around it); AUTO — an endless,
- *  randomised, collision-validated drift with a cinematographer's gaze;
- *  FREE — drag to look, WASD to move, shift to boost, walls stop you.
- *  Scroll is never hijacked; calm mode stills idle motion, the visitor
- *  still drives. */
+ *  randomised, collision-validated drift flown at one steady pace, with a
+ *  cinematographer's gaze that pans on a damped spring and never whips;
+ *  FREE — a rig with mass: drag to look (the head has momentum), WASD to
+ *  move (the throttle builds, the rig glides to rest), shift to boost,
+ *  walls stop you. Scroll is never hijacked; calm mode stills idle motion,
+ *  the visitor still drives. The streets run on a real traffic network
+ *  (city-traffic.ts): lanes, lights, queues, turns, on- and off-ramps. */
 import {
   AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ConeGeometry,
   CylinderGeometry, DoubleSide, FogExp2, Group, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4,
@@ -37,10 +40,11 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { reducedMotion } from '../lib/env';
 import { mulberry32 } from '../lib/rng';
 import {
-  AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, EXT, FacadeStyle, G, HIGHWAY, planCity, Poi, REACH,
-  ROAD, Sign, signColor, Solid, starPositions, STREET, Street, tourRoute,
+  AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, EXT, FacadeStyle, G, HIGHWAY, planCity, Poi, RAMP_W, rampY,
+  REACH, ROAD, Sign, signColor, Solid, starPositions, STREET, Street, tourRoute,
 } from './city-plan';
 import { fov24, LensPass, lensTarget, MotionBlurPass } from './city-post';
+import { Traffic } from './city-traffic';
 
 const PIX = 2;
 // the reference's windows: warm sodium AND a lot of cool cyan-blue-white
@@ -513,23 +517,45 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   };
   const deckTex = strip.clone();
   deckTex.needsUpdate = true;
+  const deckDark = new MeshBasicMaterial({ color: '#0a0c1e' });
+  const edge: number[] = []; // amber lights along every deck edge — the highway's and the ramps'
   for (const st of plan.streets) {
     if (st.kind === 'diagonal') laidRoad(st, 0.05, st.width);
     if (st.kind === 'highway') {
       deckTex.repeat.set(st.len / 14, 1);
-      const dark = new MeshBasicMaterial({ color: '#0a0c1e' });
-      const deck = new Mesh(new BoxGeometry(st.len, 0.8, st.width), [dark, dark, new MeshBasicMaterial({ map: deckTex }), dark, dark, dark]);
+      const deck = new Mesh(new BoxGeometry(st.len, 0.8, st.width), [deckDark, deckDark, new MeshBasicMaterial({ map: deckTex }), deckDark, deckDark, deckDark]);
       deck.position.set(st.x0 + st.dx * st.len / 2, HIGHWAY.y, st.z0 + st.dz * st.len / 2);
       deck.rotation.y = Math.atan2(-st.dz, st.dx);
       scene.add(deck);
-      const edge: number[] = [];
       for (let t = 0; t <= st.len; t += 3) {
         for (const s of [-1, 1]) edge.push(st.x0 + st.dx * t - st.dz * s * 6.6, HIGHWAY.y + 0.9, st.z0 + st.dz * t + st.dx * s * 6.6);
       }
-      const g = new BufferGeometry();
-      g.setAttribute('position', new BufferAttribute(new Float32Array(edge), 3));
-      scene.add(new Points(g, new PointsMaterial({ color: '#ffb347', size: 2.2, sizeAttenuation: true, transparent: true, opacity: 0.9, depthWrite: false })));
     }
+    if (st.kind === 'ramp') { // a chain of tilted deck pieces down the ramp's ease
+      const N = 8;
+      const rt = strip.clone();
+      rt.needsUpdate = true;
+      rt.repeat.set(st.len / N / 14, 1);
+      const top = new MeshBasicMaterial({ map: rt });
+      for (let k = 0; k < N; k++) {
+        const t0 = (k / N) * st.len, t1 = ((k + 1) / N) * st.len;
+        const y0 = rampY(st, t0), y1 = rampY(st, t1);
+        const dh = t1 - t0, dy = y1 - y0;
+        const m = new Mesh(new BoxGeometry(Math.hypot(dh, dy) + 0.5, 0.7, RAMP_W), [deckDark, deckDark, top, deckDark, deckDark, deckDark]);
+        m.position.set(st.x0 + st.dx * (t0 + t1) / 2, (y0 + y1) / 2 - 0.35, st.z0 + st.dz * (t0 + t1) / 2);
+        m.rotation.order = 'YZX';
+        m.rotation.set(0, Math.atan2(-st.dz, st.dx), Math.atan2(dy, dh));
+        scene.add(m);
+      }
+      for (let t = 0; t <= st.len; t += 3) {
+        for (const s of [-1, 1]) edge.push(st.x0 + st.dx * t - st.dz * s * (RAMP_W / 2 - 0.5), rampY(st, t) + 0.5, st.z0 + st.dz * t + st.dx * s * (RAMP_W / 2 - 0.5));
+      }
+    }
+  }
+  {
+    const g = new BufferGeometry();
+    g.setAttribute('position', new BufferAttribute(new Float32Array(edge), 3));
+    scene.add(new Points(g, new PointsMaterial({ color: '#ffb347', size: 2.2, sizeAttenuation: true, transparent: true, opacity: 0.9, depthWrite: false })));
   }
 
   // -- the city, from the plan ----------------------------------------------
@@ -800,11 +826,12 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     const inst = new InstancedMesh(geo.box, new MeshBasicMaterial({ color: '#0c0d1a' }), plan.posts.length);
     const heads = new Float32Array(plan.posts.length * 3);
     plan.posts.forEach((p, j) => {
-      dummy.position.set(p.x, p.h / 2, p.z);
+      const base = p.y ?? 0; // some stand on the highway deck or a ramp
+      dummy.position.set(p.x, base + p.h / 2, p.z);
       dummy.scale.set(0.18, p.h, 0.18);
       dummy.updateMatrix();
       inst.setMatrixAt(j, dummy.matrix);
-      heads[j * 3] = p.x; heads[j * 3 + 1] = p.h + 0.25; heads[j * 3 + 2] = p.z;
+      heads[j * 3] = p.x; heads[j * 3 + 1] = base + p.h + 0.25; heads[j * 3 + 2] = p.z;
     });
     inst.instanceMatrix.needsUpdate = true;
     scene.add(inst);
@@ -867,84 +894,89 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     }
   };
 
-  // -- LIVELY STREETS: vehicles with head- and taillights (cars, taxis, buses,
-  // weaving motorcycles, boats on the canal), pedestrians on the pavements and
-  // in the alleys, birds over the rooftops, aircraft crossing high, rain -------
-  type VKind = 'car' | 'taxi' | 'bus' | 'moto' | 'boat';
-  interface Vehicle { st: Street; lane: number; t: number; v: number; len: number; w: number; h: number; kind: VKind; phase: number }
-  const roads = plan.streets.filter((s) => s.kind === 'road' || s.kind === 'highway' || s.kind === 'diagonal');
+  // -- LIVELY STREETS: a real traffic network (city-traffic.ts) — lanes,
+  // lights, queues, turns, the ramps; vehicles never overlap and never vanish
+  // (owner). Cars, taxis, buses, trucks, weaving motorcycles; boats on the
+  // canal; pedestrians on the pavements and in the alleys; birds; aircraft ----
+  const traffic = new Traffic(plan.streets, mulberry32(seed ^ 0x51f15e));
+  const inCore = (x: number, z: number) => Math.abs(x) < EXT + G && Math.abs(z) < EXT + G;
+  traffic.populate(calm ? 800 : 1500, (lane) => {
+    const st = lane.link.street;
+    const t = (lane.link.t0 + lane.link.t1) / 2;
+    return lane.len * (inCore(st.x0 + st.dx * t, st.z0 + st.dz * t) ? 3 : 0.9) * (st.kind === 'highway' ? 2.2 : 1);
+  });
+  const cars = traffic.cars;
   const canal = plan.streets.find((s) => s.kind === 'canal')!;
-  const roadTotal = roads.reduce((a, s) => a + s.len, 0);
-  const pickRoad = () => {
-    let r = rand() * roadTotal;
-    for (const s of roads) { r -= s.len; if (r <= 0) return s; }
-    return roads[roads.length - 1];
-  };
-  const vehicles: Vehicle[] = [];
+  interface Boat { lane: number; t: number; v: number }
+  const boats: Boat[] = [];
+  for (let i = 0; i < 14; i++) {
+    const dir = rand() < 0.5 ? 1 : -1;
+    boats.push({ lane: dir * 4, t: rand() * canal.len, v: (0.03 + rand() * 0.02) * dir });
+  }
   const BODY = ['#141827', '#1a1f33', '#242a44', '#3a1f2a', '#2a2a30', '#1c2d3a', '#e8e0d0'];
-  const colors: Color[] = [];
-  const spawn = (kind: VKind, st: Street) => {
-    const dir: 1 | -1 = rand() < 0.5 ? 1 : -1;
-    const fast = st.kind === 'highway' ? 1.9 : 1;
-    const spec: Record<VKind, [number, number, number, number]> = { // len, w, h, speed
-      car: [3.2, 1.4, 0.9, 0.1 + rand() * 0.1], taxi: [3.2, 1.4, 0.9, 0.12 + rand() * 0.1], bus: [7, 2.2, 2.2, 0.09],
-      moto: [1.6, 0.6, 0.8, 0.2 + rand() * 0.12], boat: [6, 2, 0.6, 0.03 + rand() * 0.02],
-    };
-    const [len, w, h, v] = spec[kind];
-    const lane = kind === 'boat' ? dir * 4 : dir * (rand() < 0.5 ? 1.7 : 4.2);
-    vehicles.push({ st, lane, t: rand() * st.len, v: v * fast * dir, len, w, h, kind, phase: rand() * 7 });
-    colors.push(new Color(kind === 'bus' ? '#d9d2c4' : kind === 'taxi' ? '#ffd23f' : kind === 'boat' ? '#1a1c2c' : pick(rand, BODY)));
-  };
-  for (let i = 0; i < 420; i++) { const r = rand(); spawn(r < 0.07 ? 'bus' : r < 0.22 ? 'taxi' : 'car', pickRoad()); }
-  for (let i = 0; i < 110; i++) spawn('moto', pickRoad());
-  for (let i = 0; i < 14; i++) spawn('boat', canal);
-  const carMesh = new InstancedMesh(geo.box, new MeshBasicMaterial({ color: '#ffffff' }), vehicles.length);
-  colors.forEach((c, i) => carMesh.setColorAt(i, c));
+  const TRUCK = ['#3a3f55', '#5a2a2a', '#2a3a4a', '#c9c2b2', '#2f4a3a'];
+  const total = cars.length + boats.length;
+  const carMesh = new InstancedMesh(geo.box, new MeshBasicMaterial({ color: '#ffffff' }), total);
+  cars.forEach((c, i) => carMesh.setColorAt(i, new Color(
+    c.kind === 'bus' ? '#d9d2c4' : c.kind === 'taxi' ? '#ffd23f' : c.kind === 'truck' ? pick(rand, TRUCK) : c.kind === 'moto' ? '#1a1a24' : pick(rand, BODY))));
+  boats.forEach((_, k) => carMesh.setColorAt(cars.length + k, new Color('#1a1c2c')));
   scene.add(carMesh);
-  const lightsOf = (color: string, size: number) => {
-    const arr = new Float32Array(vehicles.length * 2 * 3);
+  const lightsOf = (color: string, size: number, tinted: boolean) => {
+    const arr = new Float32Array(total * 2 * 3);
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(arr, 3));
-    const pts = new Points(g, new PointsMaterial({ color, size, sizeAttenuation: true, transparent: true, opacity: 0.95, depthWrite: false }));
+    const col = tinted ? new Float32Array(total * 2 * 3) : null;
+    if (col) g.setAttribute('color', new BufferAttribute(col, 3));
+    const pts = new Points(g, new PointsMaterial({ color, size, sizeAttenuation: true, transparent: true, opacity: 0.95, depthWrite: false, vertexColors: tinted }));
     scene.add(pts);
-    return { arr, pts };
+    return { arr, col, pts };
   };
-  const heads = lightsOf('#fff2d8', 1.5);
-  const tails = lightsOf('#ff3b2f', 1.3);
-  const driveCars = () => {
-    for (let i = 0; i < vehicles.length; i++) {
-      const c = vehicles[i];
-      const st = c.st;
-      c.t += c.v;
-      if (c.t > st.len) c.t -= st.len;
-      if (c.t < 0) c.t += st.len;
-      let lane = c.lane;
-      if (c.kind === 'moto') lane += Math.sin(c.t * 0.05 + c.phase) * 1.6; // the weave
-      const px = st.x0 + st.dx * c.t - st.dz * lane, pz = st.z0 + st.dz * c.t + st.dx * lane;
-      let y = st.y + c.h / 2 + 0.05;
-      if (st.kind === 'road' && st.dz === 0) { // east–west roads climb the canal bridges
-        const ax = Math.abs(px);
-        if (ax < 13) y += 1.3; else if (ax < 17) y += 1.3 * (17 - ax) / 4;
-      }
-      dummy.position.set(px, y, pz);
-      dummy.rotation.set(0, Math.atan2(st.dx, st.dz), 0);
-      dummy.scale.set(c.w, c.h, c.len);
-      dummy.updateMatrix();
-      carMesh.setMatrixAt(i, dummy.matrix);
-      const dir = c.v > 0 ? 1 : -1;
-      const front = c.t + dir * c.len / 2, rear = c.t - dir * c.len / 2;
-      const spread = c.kind === 'moto' ? 0 : 0.45;
-      for (const [k, side] of [[0, -spread], [1, spread]] as [number, number][]) {
-        const j = (i * 2 + k) * 3;
-        heads.arr[j] = st.x0 + st.dx * front - st.dz * (lane + side); heads.arr[j + 1] = y + 0.1; heads.arr[j + 2] = st.z0 + st.dz * front + st.dx * (lane + side);
-        tails.arr[j] = st.x0 + st.dx * rear - st.dz * (lane + side); tails.arr[j + 1] = y + 0.1; tails.arr[j + 2] = st.z0 + st.dz * rear + st.dx * (lane + side);
-      }
+  const heads = lightsOf('#fff2d8', 1.5, false);
+  const tails = lightsOf('#ffffff', 1.3, true); // per vehicle: dim red, or bright when braking
+  const TAIL = new Color('#ff3b2f').multiplyScalar(0.55), BRAKE = new Color('#ff5040').multiplyScalar(1.6);
+  const placeVehicle = (
+    i: number, x: number, y: number, z: number, yaw: number, pitch: number, w: number, h: number, len: number, weave: number, brake: boolean,
+  ) => {
+    const hx = Math.sin(yaw), hz = Math.cos(yaw); // the heading
+    const lx = hz, lz = -hx; // and its lateral
+    x += lx * weave; z += lz * weave;
+    dummy.position.set(x, y, z);
+    dummy.rotation.order = 'YXZ';
+    dummy.rotation.set(-pitch, yaw, 0);
+    dummy.scale.set(w, h, len);
+    dummy.updateMatrix();
+    carMesh.setMatrixAt(i, dummy.matrix);
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const spread = w > 1 ? 0.45 : 0;
+    for (const [k, side] of [[0, -spread], [1, spread]] as [number, number][]) {
+      const j = (i * 2 + k) * 3;
+      heads.arr[j] = x + hx * cp * len / 2 + lx * side; heads.arr[j + 1] = y + sp * len / 2 + 0.1; heads.arr[j + 2] = z + hz * cp * len / 2 + lz * side;
+      tails.arr[j] = x - hx * cp * len / 2 + lx * side; tails.arr[j + 1] = y - sp * len / 2 + 0.1; tails.arr[j + 2] = z - hz * cp * len / 2 + lz * side;
+      (brake ? BRAKE : TAIL).toArray(tails.col!, j);
     }
+  };
+  const driveCars = () => {
+    traffic.step();
+    for (let i = 0; i < cars.length; i++) {
+      const c = cars[i];
+      const weave = c.kind === 'moto' ? Math.sin(traffic.tick * 0.05 + c.phase) * 0.7 : 0; // the weave, inside the lane
+      placeVehicle(i, c.x, c.y + c.h / 2 + 0.05, c.z, c.yaw, c.pitch, c.w, c.h, c.len, weave, c.brake || c.v < 0.01);
+    }
+    boats.forEach((b, k) => {
+      b.t += b.v;
+      if (b.t > canal.len) b.t -= canal.len;
+      if (b.t < 0) b.t += canal.len;
+      const x = canal.x0 + canal.dx * b.t - canal.dz * b.lane, z = canal.z0 + canal.dz * b.t + canal.dx * b.lane;
+      const yaw = b.v > 0 ? Math.atan2(canal.dx, canal.dz) : Math.atan2(-canal.dx, -canal.dz);
+      placeVehicle(cars.length + k, x, canal.y + 0.35, z, yaw, 0, 2, 0.6, 6, 0, false);
+    });
     dummy.rotation.set(0, 0, 0);
+    dummy.rotation.order = 'XYZ';
     carMesh.instanceMatrix.needsUpdate = true;
     if (carMesh.instanceColor) carMesh.instanceColor.needsUpdate = true;
     (heads.pts.geometry.getAttribute('position') as BufferAttribute).needsUpdate = true;
     (tails.pts.geometry.getAttribute('position') as BufferAttribute).needsUpdate = true;
+    (tails.pts.geometry.getAttribute('color') as BufferAttribute).needsUpdate = true;
   };
 
   interface Walker { st: Street; off: number; t: number; v: number }
@@ -1022,28 +1054,6 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     });
     (craftGeo.getAttribute('position') as BufferAttribute).needsUpdate = true;
   };
-  // rain: a box of falling streaks that travels with the camera
-  const RAIN = calm ? 0 : 1400;
-  const rainLocal = new Float32Array(RAIN * 3);
-  const rainArr = new Float32Array(RAIN * 6);
-  for (let i = 0; i < RAIN; i++) { rainLocal[i * 3] = (rand() - 0.5) * 70; rainLocal[i * 3 + 1] = (rand() - 0.5) * 44; rainLocal[i * 3 + 2] = (rand() - 0.5) * 70; }
-  const rainGeo = new BufferGeometry();
-  rainGeo.setAttribute('position', new BufferAttribute(rainArr, 3));
-  if (RAIN) scene.add(new LineSegments(rainGeo, new LineBasicMaterial({ color: '#9fb4d8', transparent: true, opacity: 0.26, fog: false, depthWrite: false })));
-  const pour = () => {
-    if (!RAIN) return;
-    const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
-    for (let i = 0; i < RAIN; i++) {
-      let y = rainLocal[i * 3 + 1] - 1.1;
-      if (y < -22) y += 44;
-      rainLocal[i * 3 + 1] = y;
-      const x = cx + rainLocal[i * 3], z = cz + rainLocal[i * 3 + 2];
-      const j = i * 6;
-      rainArr[j] = x; rainArr[j + 1] = cy + y; rainArr[j + 2] = z;
-      rainArr[j + 3] = x + 0.15; rainArr[j + 4] = cy + y + 1.6; rainArr[j + 5] = z;
-    }
-    (rainGeo.getAttribute('position') as BufferAttribute).needsUpdate = true;
-  };
 
   // -- flight ---------------------------------------------------------------
   const route = tourRoute();
@@ -1053,21 +1063,33 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   let sm = 0;
   let tick = 0;
   let bank = 0;
-  let prevYaw = 0;
   const keys = new Set<string>();
-  const free = { pos: new Vector3(-3.6 * G, 90, 4.6 * G), yaw: 2.5, pitch: -0.25 };
+  // the free rig: position and velocity, a head with momentum, a throttle
+  // that builds, a roll that leans into turns and strafes
+  const free = {
+    pos: new Vector3(-3.6 * G, 90, 4.6 * G), yaw: 2.5, pitch: -0.25,
+    vel: new Vector3(), yawV: 0, pitchV: 0, lookX: 0, lookY: 0, roll: 0, throttle: 0,
+  };
+  // the auto rig's eye: a critically damped pan with a ceiling on its rate
+  const cam = { yaw: 0, pitch: 0, yawV: 0, pitchV: 0 };
   const pos = new Vector3();
   const look = new Vector3();
   const fwd = new Vector3();
+  const side = new Vector3();
+  const want = new Vector3();
+  const meant = new Vector3();
   const HEART = new Vector3(0.55 * G, 44, 0.55 * G);
+  const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
+  const wrap = (a: number) => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
   // the cinematographer: on each new leg, pick something worth looking at
   // ahead (the landmark, the tallest towers, the screens, the wheel, the
   // holograms) and ease the eye onto it; in the canyons, look down the
   // street at the traffic
-  const gaze = { cur: new Vector3(), want: new Vector3(), poi: null as Poi | null, leg: -1 };
+  const gaze = { want: new Vector3(), poi: null as Poi | null, leg: -1, held: 0 };
   const chooseGaze = (phase: string) => {
-    gaze.poi = null;
-    if (phase === 'canyon' || phase === 'dive' || rand() < 0.3) return;
+    if (gaze.poi && gaze.held < 240) return; // a subject is held for a few seconds at least
+    gaze.poi = null; gaze.held = 0;
+    if (phase === 'canyon' || phase === 'dive' || phase === 'flyover' || rand() < 0.3) return;
     const tx = look.x - pos.x, tz = look.z - pos.z;
     const tl = Math.hypot(tx, tz) || 1;
     let best: Poi | null = null;
@@ -1085,22 +1107,48 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   };
 
   const applyFree = () => {
+    // the head: a drag is an impulse on a velocity that decays — the look
+    // has momentum, it settles rather than stops (owner: not a spectator cam)
+    free.yawV = free.yawV * 0.8 - free.lookX * 0.00068;
+    free.pitchV = free.pitchV * 0.8 - free.lookY * 0.00068;
+    free.lookX = 0; free.lookY = 0;
+    free.yaw += free.yawV;
+    free.pitch = clamp(free.pitch + free.pitchV, -1.35, 1.35);
     fwd.set(Math.sin(free.yaw) * Math.cos(free.pitch), Math.sin(free.pitch), Math.cos(free.yaw) * Math.cos(free.pitch));
-    const boost = keys.has('shift') ? 2.6 : 1;
-    const sp = 0.9 * boost;
-    const side = new Vector3(fwd.z, 0, -fwd.x).normalize();
-    if (keys.has('w') || keys.has('arrowup')) free.pos.addScaledVector(fwd, sp);
-    if (keys.has('s') || keys.has('arrowdown')) free.pos.addScaledVector(fwd, -sp);
-    if (keys.has('a') || keys.has('arrowleft')) free.pos.addScaledVector(side, sp);
-    if (keys.has('d') || keys.has('arrowright')) free.pos.addScaledVector(side, -sp);
-    if (keys.has('e') || keys.has(' ')) free.pos.y += sp;
-    if (keys.has('q') || keys.has('c')) free.pos.y -= sp;
-    free.pos.y = Math.min(220, Math.max(2, free.pos.y));
-    free.pos.x = Math.min(BOUND, Math.max(-BOUND, free.pos.x));
-    free.pos.z = Math.min(BOUND, Math.max(-BOUND, free.pos.z));
+    side.set(fwd.z, 0, -fwd.x).normalize();
+    // the intent, in the rig's frame
+    want.set(0, 0, 0);
+    let strafe = 0;
+    if (keys.has('w') || keys.has('arrowup')) want.add(fwd);
+    if (keys.has('s') || keys.has('arrowdown')) want.sub(fwd);
+    if (keys.has('a') || keys.has('arrowleft')) { want.add(side); strafe += 1; }
+    if (keys.has('d') || keys.has('arrowright')) { want.sub(side); strafe -= 1; }
+    if (keys.has('e') || keys.has(' ')) want.y += 1;
+    if (keys.has('q') || keys.has('c')) want.y -= 1;
+    const driving = want.lengthSq() > 0;
+    // the throttle builds while a key is held and bleeds off when released;
+    // the velocity chases the intent, and glides to rest without it
+    free.throttle = driving ? Math.min(1, free.throttle + 0.02) : Math.max(0, free.throttle - 0.03);
+    const boost = keys.has('shift') ? 2.4 : 1;
+    const speed = 1.05 * boost * (0.25 + 0.75 * free.throttle * free.throttle);
+    if (driving) free.vel.lerp(want.normalize().multiplyScalar(speed), 0.07);
+    else free.vel.multiplyScalar(0.94);
+    meant.copy(free.pos).add(free.vel);
+    free.pos.copy(meant);
+    free.pos.y = clamp(free.pos.y, 2, 220);
+    free.pos.x = clamp(free.pos.x, -BOUND, BOUND);
+    free.pos.z = clamp(free.pos.z, -BOUND, BOUND);
     plan.grid.resolve(free.pos, CAM_R); // buildings are solid: walls stop you, roofs hold you
+    // what a wall (or the fence) took, the velocity loses — the slide keeps the rest
+    if (Math.abs(free.pos.x - meant.x) > 1e-6) free.vel.x = 0;
+    if (Math.abs(free.pos.y - meant.y) > 1e-6) free.vel.y = 0;
+    if (Math.abs(free.pos.z - meant.z) > 1e-6) free.vel.z = 0;
+    // the lean: into the turn, into the strafe
+    const rollTo = clamp(-free.yawV * 9 - strafe * 0.05 * free.throttle, -0.2, 0.2);
+    free.roll += (rollTo - free.roll) * 0.08;
     camera.position.copy(free.pos);
     camera.lookAt(free.pos.x + fwd.x, free.pos.y + fwd.y, free.pos.z + fwd.z);
+    camera.rotateZ(free.roll);
   };
 
   const render = () => {
@@ -1111,23 +1159,33 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       plan.grid.resolve(pos, CAM_R);
       camera.position.copy(pos);
       if (flight.legId !== gaze.leg) { gaze.leg = flight.legId; chooseGaze(flight.phase); }
+      gaze.held += 1;
+      // the eye: an orbit's centre; else the chosen subject while it stays
+      // ahead; else the path ahead (and down the street in a canyon)
+      const focus = flight.focus;
       if (gaze.poi) {
         const dx = gaze.poi.x - pos.x, dz = gaze.poi.z - pos.z;
         const d = Math.hypot(dx, dz) || 1;
         const tx = look.x - pos.x, tz = look.z - pos.z;
-        if ((dx * tx + dz * tz) / (d * (Math.hypot(tx, tz) || 1)) < 0.05) gaze.poi = null; // it slipped behind
+        if ((dx * tx + dz * tz) / (d * (Math.hypot(tx, tz) || 1)) < 0.17) gaze.poi = null; // past 80° off the path: let it go
       }
-      if (gaze.poi) gaze.want.set(gaze.poi.x, gaze.poi.y, gaze.poi.z);
+      if (focus) gaze.want.set(focus.x, focus.y, focus.z);
+      else if (gaze.poi) gaze.want.set(gaze.poi.x, gaze.poi.y, gaze.poi.z);
       else gaze.want.copy(look).setY(look.y - (flight.phase === 'canyon' ? 4 : 0));
-      gaze.cur.lerp(gaze.want, 0.028);
-      camera.lookAt(gaze.cur);
-      // a gentle bank into the turns, and the slow breath of a handheld rig
-      const yaw = Math.atan2(gaze.cur.x - pos.x, gaze.cur.z - pos.z);
-      let dy = yaw - prevYaw;
-      if (dy > Math.PI) dy -= Math.PI * 2; else if (dy < -Math.PI) dy += Math.PI * 2;
-      prevYaw = yaw;
-      bank += (Math.max(-0.2, Math.min(0.2, -dy * 12)) - bank) * 0.06;
-      camera.rotateZ(bank + (calm ? 0 : Math.sin(tick * 0.011) * 0.006));
+      // a critically damped pan with a ceiling on its rate — never a whip,
+      // never a jolt (owner: no sudden pans)
+      const dx = gaze.want.x - pos.x, dy = gaze.want.y - pos.y, dz = gaze.want.z - pos.z;
+      const ey = wrap(Math.atan2(dx, dz) - cam.yaw);
+      const ep = Math.atan2(dy, Math.hypot(dx, dz)) - cam.pitch;
+      cam.yawV = clamp(cam.yawV + ey * 0.0011 - cam.yawV * 0.066, -0.009, 0.009);
+      cam.pitchV = clamp(cam.pitchV + ep * 0.0011 - cam.pitchV * 0.066, -0.006, 0.006);
+      cam.yaw += cam.yawV;
+      cam.pitch = clamp(cam.pitch + cam.pitchV, -1.2, 1.2);
+      fwd.set(Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch));
+      camera.lookAt(pos.x + fwd.x, pos.y + fwd.y, pos.z + fwd.z);
+      // a gentle bank into the pans, and the slow breath of a handheld rig
+      bank += (clamp(-cam.yawV * 18, -0.16, 0.16) - bank) * 0.05;
+      camera.rotateZ(bank + (calm ? 0 : Math.sin(tick * 0.011) * 0.005));
     } else {
       sm += (target - sm) * (calm ? 0.16 : 0.07);
       const t = Math.min(0.999, Math.max(0, sm)) * 0.985;
@@ -1148,7 +1206,9 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     }
     sky.position.copy(camera.position); // the dome is a skybox: infinitely far in every direction
     horizonRing.position.set(camera.position.x, 0, camera.position.z); // the far city stays on the ground
-    pour();
+    // rain on the glass: down among the streets, none from the heights, none in calm
+    const wet = calm ? 0 : clamp((64 - camera.position.y) / 34, 0, 1);
+    lens.setRain(wet * wet * (3 - 2 * wet) * 0.42, tick / 60);
     composer.render();
   };
 
@@ -1212,6 +1272,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     camera.getWorldDirection(fwd);
     free.yaw = Math.atan2(fwd.x, fwd.z);
     free.pitch = Math.asin(Math.max(-0.99, Math.min(0.99, fwd.y)));
+    free.vel.set(0, 0, 0); free.yawV = 0; free.pitchV = 0; free.roll = 0; free.throttle = 0;
   };
 
   return {
@@ -1222,25 +1283,24 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       if (m === 'auto') {
         // every AUTO flight is a new one: seeded from the clock, started from wherever the camera is
         camera.getWorldDirection(fwd);
-        prevYaw = Math.atan2(fwd.x, fwd.z);
+        cam.yaw = Math.atan2(fwd.x, fwd.z);
+        cam.pitch = Math.asin(Math.max(-0.99, Math.min(0.99, fwd.y)));
+        cam.yawV = 0; cam.pitchV = 0;
         bank = 0;
-        flight = new AutoFlight(plan.grid, mulberry32((Math.random() * 2 ** 32) >>> 0), camera.position, prevYaw, plan.roomAhead);
-        gaze.cur.copy(camera.position).addScaledVector(fwd, 30);
-        gaze.leg = -1;
+        flight = new AutoFlight(plan.grid, mulberry32((Math.random() * 2 ** 32) >>> 0), camera.position, cam.yaw, plan.roomAhead, plan.pois);
+        gaze.leg = -1; gaze.poi = null; gaze.held = 0;
       }
       mode = m;
       blur.reset();
     },
-    look: (dx, dy) => {
-      free.yaw -= dx * 0.0034;
-      free.pitch = Math.max(-1.35, Math.min(1.35, free.pitch - dy * 0.0034));
-    },
+    look: (dx, dy) => { free.lookX += dx; free.lookY += dy; }, // an impulse; the head carries it
     keys,
     warp: (x, y, z, yaw, pitch) => {
       mode = 'free';
       free.pos.set(x, y, z);
       free.yaw = yaw;
       free.pitch = pitch;
+      free.vel.set(0, 0, 0); free.yawV = 0; free.pitchV = 0; free.roll = 0; free.throttle = 0;
       blur.reset();
       render();
     },

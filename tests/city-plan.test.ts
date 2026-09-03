@@ -143,13 +143,18 @@ describe('planCity', () => {
 describe('AutoFlight', () => {
   const plan = planCity(SEED);
 
-  it('never enters a building, stays inside the fence, dives but not too low, and does not repeat itself', () => {
+  it('never enters a building, stays inside the fence, dives but not too low, orbits, runs the avenues, and does not repeat itself', () => {
     const visited = new Set<string>();
     const firstPaths: string[] = [];
+    let orbits = 0, flyovers = 0;
+    let maxTurn = 0, minStep = Infinity, maxStep = 0, kinks = 0, steps = 0;
     for (const s of [1, 2, 3]) {
-      const flight = new AutoFlight(plan.grid, mulberry32(s), new Vector3(-130, 80, 160), 2.5, plan.roomAhead);
+      const flight = new AutoFlight(plan.grid, mulberry32(s), new Vector3(-130, 80, 160), 2.5, plan.roomAhead, plan.pois);
       const pos = new Vector3();
       const look = new Vector3();
+      const prev = new Vector3(-130, 80, 160);
+      const prevDir = new Vector3();
+      const dir = new Vector3();
       let lowest = Infinity;
       for (let i = 0; i < 24000; i++) {
         flight.step(0.5, pos, look);
@@ -161,26 +166,40 @@ describe('AutoFlight', () => {
         lowest = Math.min(lowest, pos.y);
         visited.add(`${Math.round(pos.x / 20)}:${Math.round(pos.z / 20)}`);
         if (i === 3000) firstPaths.push(`${pos.x.toFixed(0)},${pos.z.toFixed(0)}`);
+        // SMOOTH (owner: no jitter, no sudden movements): a steady pace, and
+        // the heading never kinks between one step and the next
+        dir.subVectors(pos, prev);
+        const step = dir.length();
+        if (i > 0) { minStep = Math.min(minStep, step); maxStep = Math.max(maxStep, step); }
+        if (i > 1 && step > 0.1 && prevDir.lengthSq() > 0.01) { const a = prevDir.angleTo(dir); maxTurn = Math.max(maxTurn, a); if (a > 0.06) kinks += 1; steps += 1; }
+        prevDir.copy(dir); prev.copy(pos);
       }
       expect(flight.dives).toBeGreaterThan(0); // it goes down into the streets, not just rooftops
       expect(lowest).toBeGreaterThan(14); // but never down among the traffic (owner: raise the dives)
       expect(flight.fallbacks).toBe(0); // every leg it flew was validated, none forced
+      orbits += flight.orbits; flyovers += flight.flyovers;
     }
     expect(visited.size).toBeGreaterThan(100);
     expect(new Set(firstPaths).size).toBe(3); // three seeds, three flights
+    expect(orbits).toBeGreaterThan(2);
+    expect(flyovers).toBeGreaterThan(2);
+    expect(minStep).toBeGreaterThan(0.44); // arc length: the pace never sags into a knot
+    expect(maxStep).toBeLessThan(0.53);
+    expect(maxTurn).toBeLessThan(0.15); // never a corner: under 8.6° per half-unit step, even at a knot
+    expect(kinks / steps).toBeLessThan(0.004); // and a bend over 3.4° is a rare thing
   });
 
   it('moves at the asked pace and reports its leg and phase', () => {
-    const flight = new AutoFlight(plan.grid, mulberry32(9), new Vector3(0, 90, 0), 0, plan.roomAhead);
+    const flight = new AutoFlight(plan.grid, mulberry32(9), new Vector3(0, 90, 0), 0, plan.roomAhead, plan.pois);
     const a = new Vector3(); const b = new Vector3(); const l = new Vector3();
     flight.step(0.5, a, l);
     let travelled = 0;
     const leg0 = flight.legId;
     for (let i = 0; i < 400; i++) { flight.step(0.5, b, l); travelled += b.distanceTo(a); a.copy(b); }
-    expect(travelled / 400).toBeGreaterThan(0.35);
-    expect(travelled / 400).toBeLessThan(0.7);
+    expect(travelled / 400).toBeGreaterThan(0.47);
+    expect(travelled / 400).toBeLessThan(0.53);
     expect(flight.legId).toBeGreaterThanOrEqual(leg0);
-    expect(['cruise', 'dive', 'canyon', 'climb']).toContain(flight.phase);
+    expect(['cruise', 'dive', 'canyon', 'climb', 'orbit', 'flyover']).toContain(flight.phase);
   });
 });
 

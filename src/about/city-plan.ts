@@ -38,7 +38,7 @@ export const MEDIAN = LOT / 2; // the avenues' open middle: ±12 about the axis
 export const CAM_R = 1.2; // the camera's body
 export const REACH = (HALF + OUTER) * G + STREET; // how far streets, traffic and lamps run
 export const HIGHWAY = { x0: -400, z0: 210, x1: 400, z1: 80, y: 14, width: 14 }; // the elevated highway across the north
-export const DIAGONAL = { x0: -250, z0: -24, x1: -24, z1: -250, width: 12 }; // the surface boulevard slashing the south-west
+export const DIAGONAL = { x0: -247, z0: -19, x1: -19, z1: -247, width: 12 }; // the surface boulevard slashing the south-west: x + z = −266 runs it through seven grid crossings, T-ing into the avenue roads at both ends
 export const CANAL = { w: 24, deck: 1.15 }; // the north–south avenue's water and its bridge decks
 const ROUTE_PAD = 3.4; // clearance the city keeps around the story route
 const FLY_PAD = 2.6; // clearance the auto-flight demands of a new leg
@@ -57,10 +57,20 @@ export type SignKind = 'hang' | 'wall' | 'board' | 'tag' | 'roof' | 'gantry' | '
 export interface Sign {
   x: number; y: number; z: number; rotY: number; w: number; h: number; color: string; kind: SignKind;
 }
-export type StreetKind = 'road' | 'highway' | 'canal' | 'alley' | 'diagonal';
+export type StreetKind = 'road' | 'highway' | 'canal' | 'alley' | 'diagonal' | 'ramp';
 /** A straight run: p(t) = (x0 + dx·t, z0 + dz·t) for t in [0, len]; lanes sit
- *  along the left normal (−dz, dx). */
-export interface Street { x0: number; z0: number; dx: number; dz: number; len: number; y: number; kind: StreetKind; width: number }
+ *  along the left normal (−dz, dx). A ramp climbs (or falls) from y to y1
+ *  along its length and is driven one way, from t = 0. */
+export interface Street {
+  x0: number; z0: number; dx: number; dz: number; len: number; y: number; kind: StreetKind; width: number;
+  y1?: number; oneWay?: boolean;
+}
+export const RAMP_W = 8;
+export const rampY = (st: Street, t: number): number => {
+  if (st.y1 === undefined) return st.y;
+  const u = Math.min(1, Math.max(0, t / st.len));
+  return st.y + (st.y1 - st.y) * u * u * (3 - 2 * u);
+};
 export interface Poi { x: number; y: number; z: number; w: number }
 export interface Holo { x: number; y: number; z: number; w: number; h: number; rotY: number }
 export interface Stall { x: number; z: number; color: string }
@@ -76,7 +86,7 @@ export interface Plan {
   leds: Strip[];
   awnings: Strip[];
   signs: Sign[];
-  posts: { x: number; z: number; h: number }[];
+  posts: { x: number; z: number; h: number; y?: number }[];
   lanterns: number[];
   wires: number[];
   vents: { x: number; z: number }[];
@@ -121,12 +131,16 @@ const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
 /** Lateral distance from (x, z) to the segment A→B, or Infinity beyond its ends. */
 function lineDist(x: number, z: number, ax: number, az: number, bx: number, bz: number): number {
+  return lineProj(x, z, ax, az, bx, bz).d;
+}
+/** The same, with the parameter (0..1) of the foot of the perpendicular. */
+function lineProj(x: number, z: number, ax: number, az: number, bx: number, bz: number): { d: number; t: number } {
   const vx = bx - ax, vz = bz - az;
   const len2 = vx * vx + vz * vz;
   const t = ((x - ax) * vx + (z - az) * vz) / len2;
-  if (t < 0 || t > 1) return Infinity;
+  if (t < 0 || t > 1) return { d: Infinity, t };
   const px = ax + vx * t, pz = az + vz * t;
-  return Math.hypot(x - px, z - pz);
+  return { d: Math.hypot(x - px, z - pz), t };
 }
 
 /** Axis-aligned solids hashed into G-sized cells; every solid registers in
@@ -259,13 +273,14 @@ export function planCity(seed: number): Plan {
   const leds: Strip[] = [];
   const awnings: Strip[] = [];
   const signs: Sign[] = [];
-  const posts: { x: number; z: number; h: number }[] = [];
+  const posts: { x: number; z: number; h: number; y?: number }[] = [];
   const lanterns: number[] = [];
   const wires: number[] = [];
   const vents: { x: number; z: number }[] = [];
   const holos: Holo[] = [];
   const stalls: Stall[] = [];
   const streets: Street[] = [];
+  const ramps: Street[] = []; // planned before any lot is built — they cap what stands under them
   const stacks: { x: number; z: number; top: number }[] = [];
   const tall: { x: number; z: number; top: number; w: number; d: number; bridges: number }[] = [];
   let bucket: Solid[] = core; // which ring the archetypes write into
@@ -302,6 +317,10 @@ export function planCity(seed: number): Plan {
     if (dv < 130) top = Math.min(top, 24 + dv * 0.26);
     if (lineDist(x, z, HIGHWAY.x0, HIGHWAY.z0, HIGHWAY.x1, HIGHWAY.z1) < HIGHWAY.width / 2 + Math.max(w, d) / 2 + 1) {
       top = Math.min(top, HIGHWAY.y - 0.5 - ROUTE_PAD);
+    }
+    for (const r of ramps) { // the ramps fall to the ground: nothing stands under their low end
+      const pr = lineProj(x, z, r.x0, r.z0, r.x0 + r.dx * r.len, r.z0 + r.dz * r.len);
+      if (pr.d < RAMP_W / 2 + Math.max(w, d) / 2 + 1) top = Math.min(top, rampY(r, pr.t * r.len) - 0.5 - ROUTE_PAD);
     }
     return top;
   };
@@ -679,6 +698,41 @@ export function planCity(seed: number): Plan {
       }
     }
   }
+  // -- the interchanges: at one column west and one east of the plaza the
+  // highway sheds an off-ramp and takes an on-ramp on each side (owner: a
+  // highway cut by smaller roads, not a generic slab) — each ramp falls
+  // 65 units along the deck to a T on the north–south street below ---------
+  const openZ = (i: number, j: number) => !closedZ.has(`${i}:${j}`);
+  const openX = (i: number, j: number) => !closedX.has(`${i}:${j}`);
+  const onStreet = (t: number) => Math.abs(((t % G) + G) % G - G / 2) < STREET / 2 + 2.5;
+  {
+    const hx = HIGHWAY.x1 - HIGHWAY.x0, hz = HIGHWAY.z1 - HIGHWAY.z0;
+    const hlen = Math.hypot(hx, hz);
+    const nx = -hz / hlen, nz = hx / hlen; // the deck's left normal — the eastbound lanes ride this side
+    const zH = (x: number) => HIGHWAY.z0 + (x - HIGHWAY.x0) * hz / hx;
+    const ramp = (ax: number, ay: number, az: number, bx: number, by: number, bz: number): Street => {
+      const dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz);
+      return { x0: ax, z0: az, dx: dx / len, dz: dz / len, len, y: ay, y1: by, kind: 'ramp', width: RAMP_W, oneWay: true };
+    };
+    const fits = (i: number): boolean => {
+      const X = streetAt(i), z = zH(X);
+      for (const off of [-24.6, -16.6, 16.6, 24.6]) if (onStreet(z + off)) return false;
+      const j0 = Math.round((z - 24.6) / G), j1 = Math.round((z + 24.6) / G);
+      for (let j = j0; j <= j1; j++) if (!openZ(i, j)) return false;
+      return Math.abs(X) + 70 < EXT;
+    };
+    for (const side of [[-4, -3, -5, -2], [2, 3, 1, 4]]) {
+      const i = side.find(fits);
+      if (i === undefined) continue;
+      const X = streetAt(i), z = zH(X), top = HIGHWAY.y + 0.4;
+      const edge = (x: number, s: number) => ({ x: x + nx * 11 * s, z: zH(x) + nz * 11 * s });
+      const a = edge(X - 67, 1), b = edge(X + 67, 1), c = edge(X + 67, -1), d = edge(X - 67, -1);
+      ramps.push(ramp(a.x, top, a.z, X, 0, z + 16.6)); // eastbound off
+      ramps.push(ramp(X, 0, z + 24.6, b.x, top, b.z)); // eastbound on
+      ramps.push(ramp(c.x, top, c.z, X, 0, z - 16.6)); // westbound off
+      ramps.push(ramp(X, 0, z - 24.6, d.x, top, d.z)); // westbound on
+    }
+  }
   const pullAt = (bx: number, bz: number) =>
     Math.max(0, 1 - (Math.abs(bx) + Math.abs(bz)) / (HALF * 1.5)) + 0.75 * Math.exp(-(((bx - 4) ** 2 + (bz + 4) ** 2) / 5));
 
@@ -795,7 +849,6 @@ export function planCity(seed: number): Plan {
   // -- the avenues: the canal (bridges at every crossing, quay lamps), the
   // tree-lined avenue (trees, lamps, gantries, footbridges); the plaza market --
   // the cross-streets cut through the medians: no tree or lamp on a crossing
-  const onStreet = (t: number) => Math.abs(((t % G) + G) % G - G / 2) < STREET / 2 + 2.5;
   const tree = (x: number, z: number) => {
     const h = 3.6 + rand() * 2;
     solid(core, 'dark', 'street', 0, x, 0.8, z, 0.34, 1.6, 0.34);
@@ -866,6 +919,20 @@ export function planCity(seed: number): Plan {
       if (t % 20 === 0 && !onStreet(x) && !onStreet(z) && Math.abs(x) < REACH && Math.abs(z) < REACH) {
         solid(core, 'dark', 'street', 0, x, HIGHWAY.y / 2 - 0.4, z, 1.4, HIGHWAY.y - 0.8, 1.4);
       }
+      if (t % 30 === 0 && Math.abs(x) < REACH) posts.push({ x, z, h: 6, y: HIGHWAY.y + 0.4 }); // median lamps up the deck
+      if (t % 110 === 50 && Math.abs(x) < EXT) { // an overhead sign gantry across the deck
+        signs.push({ x, y: HIGHWAY.y + 6.6, z, rotY: Math.atan2(dx, dz) + Math.PI / 2, w: 12, h: 2.4, color: signColor(rand), kind: 'gantry' });
+        for (const s of [-1, 1]) solid(core, 'dark', 'street', 0, x - dz * s * 7.2, HIGHWAY.y + 4, z + dx * s * 7.2, 0.36, 8, 0.36);
+      }
+    }
+    for (const r of ramps) {
+      streets.push(r);
+      for (let t = 0; t <= r.len; t += 4) { // the ramp's deck, as a chain of solids
+        const x = r.x0 + r.dx * t, z = r.z0 + r.dz * t, y = rampY(r, t);
+        grid.add({ x, y, z, w: 5 + Math.abs(r.dz) * 4, h: 0.8, d: 5 + Math.abs(r.dx) * 4 });
+        if (t % 12 === 0 && y > 3.5 && !onStreet(x) && !onStreet(z)) solid(core, 'dark', 'street', 0, x, y / 2 - 0.4, z, 1.2, y - 0.8, 1.2);
+        if (t % 16 === 8) posts.push({ x: x - r.dz * 3.4, z: z + r.dx * 3.4, h: 4.5, y });
+      }
     }
     const gx = DIAGONAL.x1 - DIAGONAL.x0, gz = DIAGONAL.z1 - DIAGONAL.z0;
     const glen = Math.hypot(gx, gz);
@@ -880,8 +947,6 @@ export function planCity(seed: number): Plan {
 
   // -- the streets: open runs between closed segments, lamps on every kerb,
   // corner kiosks; skybridges between neighbouring towers ---------------------
-  const openZ = (i: number, j: number) => !closedZ.has(`${i}:${j}`);
-  const openX = (i: number, j: number) => !closedX.has(`${i}:${j}`);
   const roads: { axis: 'x' | 'z'; at: number; from: number; to: number }[] = [];
   for (let i = -HALF - OUTER - 1; i <= HALF + OUTER; i++) {
     for (const axis of ['x', 'z'] as const) {
@@ -929,13 +994,20 @@ export function planCity(seed: number): Plan {
       const a = tall[i], b = tall[j];
       if (a.bridges > 1 || b.bridges > 1) continue;
       const gx = Math.abs(a.x - b.x) - (a.w + b.w) / 2, gz = Math.abs(a.z - b.z) - (a.d + b.d) / 2;
-      const y = Math.min(a.top, b.top) * (0.42 + rand() * 0.3);
-      if (gx >= 4 && gx <= 16 && Math.abs(a.z - b.z) < (a.d + b.d) / 2 - 3) {
+      const lowTop = Math.min(a.top, b.top);
+      let y = lowTop * (0.42 + rand() * 0.3);
+      const acrossX = gx >= 4 && gx <= 16 && Math.abs(a.z - b.z) < (a.d + b.d) / 2 - 3;
+      const acrossZ = !acrossX && gz >= 4 && gz <= 16 && Math.abs(a.x - b.x) < (a.w + b.w) / 2 - 3;
+      if ((acrossX ? gx : acrossZ ? gz : 0) >= 12) { // spanning a street: above the auto-flight's canyon band
+        y = Math.max(y, 36);
+        if (y > lowTop - 5) continue;
+      }
+      if (acrossX) {
         const x = (a.x + b.x) / 2 + (a.x < b.x ? (a.w - b.w) / 4 : (b.w - a.w) / 4);
         const z = (a.z + b.z) / 2;
         solid(core, 'facade', 'bridge', texOf((s) => s.win === 'curtain'), x, y, z, gx + 0.6, 2.4, 3);
         strips.push({ x, y: y + 1.35, z, w: gx, h: 0.16, d: 0.16, color: '#7de8ff' });
-      } else if (gz >= 4 && gz <= 16 && Math.abs(a.x - b.x) < (a.w + b.w) / 2 - 3) {
+      } else if (acrossZ) {
         const z = (a.z + b.z) / 2 + (a.z < b.z ? (a.d - b.d) / 4 : (b.d - a.d) / 4);
         const x = (a.x + b.x) / 2;
         solid(core, 'facade', 'bridge', texOf((s) => s.win === 'curtain'), x, y, z, 3, 2.4, gz + 0.6);
@@ -1034,54 +1106,79 @@ export function planCity(seed: number): Plan {
  *  sampled against the solids (and the fence) right then — rejected knots are
  *  re-proposed, never flown. (A Catmull-Rom chain can't do this: a leg's
  *  shape keeps changing until the knot after its end exists, so validation
- *  lands one step too late to fix the real culprit.) The flight alternates
- *  rooftop cruises with dives that arrive aligned to a real street, canyon
- *  runs down its centre, and climbs back out. */
-export type Phase = 'cruise' | 'dive' | 'canyon' | 'climb';
-interface FlightState { phase: Phase; left: number; heading: number; axis: 'x' | 'z'; dir: 1 | -1; street: number }
-interface Knot { p: Vector3; t: Vector3; phase: Phase }
-interface Proposal { p: Vector3; dir: Vector3; dive: boolean }
+ *  lands one step too late to fix the real culprit.) Every leg is flown by
+ *  ARC LENGTH — a table of cumulative lengths inverts the parameter — so
+ *  the camera moves at one steady pace, never surging out of a knot (owner:
+ *  the jitter). The flight alternates rooftop cruises with dives that
+ *  arrive aligned to a real street, canyon runs down its centre, climbs
+ *  back out, ORBITS around a landmark with the eye held on it, and long
+ *  low FLYOVERS down the avenues (owner: cinematic, around the city). */
+export type Phase = 'cruise' | 'dive' | 'canyon' | 'climb' | 'orbit' | 'flyover';
+interface Orbit { x: number; z: number; y: number; r: number; a: number; da: number; focus: Poi }
+interface FlightState {
+  phase: Phase; left: number; heading: number; axis: 'x' | 'z'; dir: 1 | -1; street: number; avenue: boolean; orbit: Orbit | null;
+  /** Cruise legs still to fly before another orbit may start. */
+  cool: number;
+  /** Dives refused in a row — the next choice insists on a street. */
+  retry: number;
+}
+interface Knot { p: Vector3; t: Vector3; phase: Phase; focus: Poi | null; k: number }
+/** A proposed knot: the leg into it flies as the given phase; `k` scales
+ *  its tangent by the chord (an orbit leg is a circular arc — its Hermite
+ *  wants tangents about a chord long; everything else stays flatter). */
+interface Proposal { p: Vector3; dir: Vector3; dive: boolean; phase: Phase; focus?: Poi; k?: number }
 export type RoomFn = (axis: 'x' | 'z', at: number, from: number, dir: 1 | -1) => number;
+const ARC = 48; // samples per leg in the arc-length table
+const LOOK_AHEAD = 26; // the look point runs this far ahead along the path
 
 export class AutoFlight {
   readonly knots: Knot[] = [];
   dives = 0;
+  orbits = 0;
+  flyovers = 0;
   fallbacks = 0;
   /** Counts up each time the camera enters a new leg — the cinematographer's cue. */
   legId = 0;
   private seg = 0;
-  private u = 0;
+  private s = 0; // arc distance into the current leg
   private segLen = 1;
+  private tab = new Float32Array(ARC + 1);
+  private tabNext = new Float32Array(ARC + 1);
   private st: FlightState;
   private readonly tmp = new Vector3();
+  private readonly tmp2 = new Vector3();
   private readonly room: RoomFn;
+  private readonly pois: Poi[];
 
-  constructor(private grid: CollisionGrid, private rand: () => number, start: Vector3, heading: number, room?: RoomFn) {
+  constructor(private grid: CollisionGrid, private rand: () => number, start: Vector3, heading: number, room?: RoomFn, pois: Poi[] = []) {
     this.room = room ?? ((_axis, _at, from, dir) => (dir > 0 ? EXT - 24 - from : from + EXT - 24));
-    this.st = { phase: 'cruise', left: 1 + Math.floor(rand() * 3), heading, axis: 'x', dir: 1, street: G / 2 };
-    this.knots.push({ p: start.clone(), t: new Vector3(Math.sin(heading), 0, Math.cos(heading)).multiplyScalar(30), phase: 'cruise' });
+    this.pois = pois.filter((p) => p.w >= 2);
+    this.st = { phase: 'cruise', left: 1 + Math.floor(rand() * 3), heading, axis: 'x', dir: 1, street: G / 2, avenue: false, orbit: null, cool: 2, retry: 0 };
+    this.knots.push({ p: start.clone(), t: new Vector3(Math.sin(heading), 0, Math.cos(heading)).multiplyScalar(30), phase: 'cruise', focus: null, k: 0.8 });
     this.ensure();
     this.measure();
   }
 
   /** The phase of the leg being flown. */
   get phase(): Phase { return this.knots[this.seg + 1]?.phase ?? 'cruise'; }
+  /** What the leg being flown wants the eye on (an orbit's centre), if anything. */
+  get focus(): Poi | null { return this.knots[this.seg + 1]?.focus ?? null; }
 
   /** Advance `dist` world units; writes the camera position and its look point. */
   step(dist: number, pos: Vector3, look: Vector3): void {
-    this.u += dist / this.segLen;
-    while (this.u >= 1) {
-      this.u -= 1;
+    this.s += dist;
+    while (this.s >= this.segLen) {
+      this.s -= this.segLen;
       this.seg += 1;
       this.legId += 1;
       this.trim();
       this.ensure();
       this.measure();
     }
-    this.point(this.seg, this.u, pos);
-    let li = this.seg, lu = this.u + 0.4;
-    if (lu > 1) { li += 1; lu -= 1; }
-    this.point(li, lu, look);
+    this.at(this.seg, this.tab, this.s, pos);
+    const ahead = this.s + LOOK_AHEAD;
+    if (ahead < this.segLen) this.at(this.seg, this.tab, ahead, look);
+    else this.at(this.seg + 1, this.tabNext, Math.min(ahead - this.segLen, this.tabNext[ARC]), look);
   }
 
   /** Hermite leg i at local u. */
@@ -1096,17 +1193,38 @@ export class AutoFlight {
     );
   }
 
+  /** Leg i at arc distance s, through its table. */
+  private at(i: number, tab: Float32Array, s: number, out: Vector3): void {
+    let k = 0;
+    while (k < ARC - 1 && tab[k + 1] < s) k += 1;
+    const span = tab[k + 1] - tab[k];
+    const u = (k + (span > 1e-6 ? clamp((s - tab[k]) / span, 0, 1) : 0)) / ARC;
+    this.point(i, u, out);
+  }
+
+  private table(i: number, tab: Float32Array): void {
+    tab[0] = 0;
+    let prev = this.point(i, 0, new Vector3());
+    for (let k = 1; k <= ARC; k++) {
+      const p = this.point(i, k / ARC, new Vector3());
+      tab[k] = tab[k - 1] + p.distanceTo(prev);
+      prev = p;
+    }
+  }
+
   private trim(): void {
     while (this.seg > 1) { this.knots.shift(); this.seg -= 1; }
   }
 
   /** Legs `seg` and `seg + 1` (the look-ahead) must both exist. */
   private ensure(): void {
-    while (this.knots.length < this.seg + 3) this.append();
+    while (this.knots.length < this.seg + 4) this.append(); // three legs: the third lets the second's far knot be re-sized
   }
 
   private measure(): void {
-    this.segLen = Math.max(1, this.legLength(this.seg, 16));
+    this.table(this.seg, this.tab);
+    this.table(this.seg + 1, this.tabNext);
+    this.segLen = Math.max(1, this.tab[ARC]);
   }
 
   private legLength(i: number, n: number): number {
@@ -1126,39 +1244,77 @@ export class AutoFlight {
   private append(): void {
     const last = this.knots[this.knots.length - 1];
     for (let tries = 0; tries < 64; tries++) {
-      const snap = { ...this.st };
-      if (tries >= 40) {
-        const low = this.st.phase === 'canyon' || this.st.phase === 'dive';
-        this.st.phase = low ? 'climb' : 'cruise'; this.st.left = 2;
+      const snap = { ...this.st, orbit: this.st.orbit ? { ...this.st.orbit } : null };
+      if (tries >= 40) { // only a canyon is actually low; a dive not yet flown is still up in the air
+        this.st.phase = this.st.phase === 'canyon' ? 'climb' : 'cruise'; this.st.left = 2; this.st.orbit = null; this.st.avenue = false;
       }
-      const phase = this.st.phase;
-      const c = this.propose(last.p, tries >= 40 ? 40 + this.rand() * 60 : undefined);
-      if (this.push(last, c, phase)) { if (c.dive) this.dives += 1; return; }
+      const c = this.propose(last.p, last.t, tries, tries >= 40 ? 40 + this.rand() * 60 : undefined);
+      if (this.push(last, c, c.phase)) { if (c.dive) this.dives += 1; return; }
       this.st = snap;
-      // near the fence, every retry re-aims for the plaza; elsewhere, wander
-      if (Math.abs(last.p.x) > EXT - 80 || Math.abs(last.p.z) > EXT - 80) {
-        this.st.heading = Math.atan2(-last.p.x, -last.p.z) + (this.rand() - 0.5) * 1.6;
-      } else if (this.rand() < 0.5) this.st.heading += (this.rand() - 0.5) * 2.4;
+      // an orbit that meets a tower climbs over it; otherwise the heading
+      // wanders (a cruise re-derives its own from the tangent it carries;
+      // a dive reads the street from it)
+      if (this.st.orbit) this.st.orbit.y += 9;
+      else this.st.heading += (this.rand() - 0.5) * 2.4;
     }
-    // last resort: home is the way out — toward the plaza, over the skyline
+    // last resort: straight up and onward — along the tangent we carry
+    // (no hairpin), climbing hard over whatever hems us in
     this.fallbacks += 1;
-    const home = new Vector3(-last.p.x, 0, -last.p.z);
-    if (home.lengthSq() < 1) home.set(0, 0, 1);
-    home.normalize();
-    const p = last.p.clone().addScaledVector(home, 40);
-    p.y = clamp(Math.max(last.p.y, this.ceilingAlong(last.p, p)) + 24, 30, 210);
-    if (!this.push(last, { p, dir: new Vector3(home.x, 0.6, home.z), dive: false }, 'cruise')) {
-      this.knots.push({ p, t: home.clone().multiplyScalar(20), phase: 'cruise' }); // accepted regardless
+    const on = new Vector3(last.t.x, 0, last.t.z);
+    if (on.lengthSq() < 1) on.set(0, 0, 1);
+    on.normalize();
+    const p = last.p.clone().addScaledVector(on, 26);
+    p.y = clamp(Math.max(last.p.y + 36, this.ceilingAlong(last.p, p) + 24), 30, 210);
+    const dir = new Vector3(on.x * 0.5, 0.85, on.z * 0.5);
+    if (!this.push(last, { p, dir, dive: false, phase: 'climb' }, 'climb')) {
+      this.knots.push({ p, t: dir.normalize().multiplyScalar(20), phase: 'climb', focus: null, k: 0.8 }); // accepted regardless
     }
-    this.st.phase = 'cruise'; this.st.left = 2; this.st.heading = Math.atan2(home.x, home.z);
+    this.st.phase = 'cruise'; this.st.left = 2; this.st.heading = Math.atan2(on.x, on.z); this.st.orbit = null; this.st.avenue = false;
   }
 
   private push(last: Knot, c: Proposal, phase: Phase): boolean {
     const chord = c.p.distanceTo(last.p);
-    this.knots.push({ p: c.p, t: c.dir.normalize().multiplyScalar(chord * 0.55), phase });
-    if (this.legClear(this.knots.length - 2)) return true;
-    this.knots.pop();
-    return false;
+    if (chord < 20) return false; // a stub leg under a long tangent loops — never flown
+    // no doubling back: a leg that leaves against the tangent it inherits
+    // (in plan — a drop can hide a reversal) bends through a near-cusp,
+    // and the pace would sag in it; and no plunge: a leg never rises or
+    // falls more than six tenths of its run
+    const cx = c.p.x - last.p.x, cz = c.p.z - last.p.z, ch = Math.hypot(cx, cz);
+    const th = Math.hypot(last.t.x, last.t.z);
+    const dy = Math.abs(c.p.y - last.p.y);
+    if (ch > dy && th > 1 && (last.t.x * cx + last.t.z * cz) < -0.2 * th * ch) return false; // (a mostly vertical leg may turn about)
+    if (last.p.y - c.p.y > 0.6 * ch + 4) return false;
+    c.dir.normalize();
+    // a knot needs a RUNWAY: the next leg leaves along this tangent, so a
+    // clear point hemmed in by towers would strand the flight
+    for (let t = 3; t <= 18; t += 3) {
+      const q = this.tmp.copy(c.p).addScaledVector(c.dir, t);
+      if (Math.abs(q.x) > BOUND - 16 || Math.abs(q.z) > BOUND - 16 || q.y < 3 || q.y > 230 || this.grid.hit(q.x, q.y, q.z, FLY_PAD)) return false;
+    }
+    const k = c.k ?? 0.8; // tangents most of a chord long spread a bend over the leg instead of cornering at the knot
+    this.knots.push({ p: c.p, t: c.dir.clone().multiplyScalar(chord * k), phase, focus: c.focus ?? null, k });
+    const i = this.knots.length - 2; // the new leg's start knot
+    if (!this.legClear(i)) { this.knots.pop(); return false; }
+    // now that both of its neighbours are known, re-aim the start knot's
+    // tangent from the one to the other and size it to the mean chord
+    // (Catmull-Rom's rule), so neither the direction nor the pitch kinks
+    // there — unless that knot ends the leg being flown, or the re-shaped
+    // legs stop being clear
+    if (i >= this.seg + 2 && i >= 1) {
+      const prev = this.knots[i - 1];
+      const prevChord = last.p.distanceTo(prev.p);
+      const old = last.t.clone();
+      const through = this.tmp2.subVectors(c.p, prev.p);
+      if (through.lengthSq() > 1) {
+        const len = ((last.k + k) / 2) * (prevChord + chord) / 2;
+        last.t.copy(through).setLength(len);
+        if (!this.legClear(i - 1) || !this.legClear(i)) {
+          last.t.setLength(len * 0.5); // a shorter re-aim bulges less
+          if (!this.legClear(i - 1) || !this.legClear(i)) last.t.copy(old);
+        }
+      }
+    }
+    return true;
   }
 
   /** The skyline under a chord: the tallest top sampled along it. */
@@ -1181,67 +1337,180 @@ export class AutoFlight {
     return true;
   }
 
-  private propose(last: Vector3, forceY?: number): Proposal {
+  /** A knot landing in the outer band leans its tangent a little toward
+   *  the plaza (never enough to oppose its own chord — that hairpins). */
+  private bend(p: Vector3, dir: Vector3): Vector3 {
+    const edge = Math.max(Math.abs(p.x), Math.abs(p.z));
+    if (edge < EXT - 100) return dir;
+    const h = Math.hypot(p.x, p.z) || 1;
+    dir.x = dir.x * 0.7 - (p.x / h) * 0.3;
+    dir.z = dir.z * 0.7 - (p.z / h) * 0.3;
+    return dir;
+  }
+
+  /** Turn the cruise heading toward the plaza as the fence nears — a
+   *  bounded turn per leg, so the path arcs back instead of reversing. */
+  private steerHome(last: Vector3): void {
+    const s = this.st;
+    const edge = Math.max(Math.abs(last.x), Math.abs(last.z));
+    if (edge < EXT - 170) return;
+    const w = clamp((edge - (EXT - 170)) / 110, 0, 1);
+    const home = Math.atan2(-last.x, -last.z);
+    let d = home - s.heading;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    const turn = 0.4 + 0.8 * w; // at most 69° a leg: the guard against doubling back allows ~100°
+    s.heading += clamp(d, -turn, turn) * (0.45 + 0.55 * w);
+  }
+
+  /** A landmark worth circling: ahead-ish, not too near, not too far. */
+  private pickOrbit(last: Vector3, heading: number): Orbit | null {
+    let best: Poi | null = null, bestScore = 0;
+    const hx = Math.sin(heading), hz = Math.cos(heading);
+    for (const p of this.pois) {
+      const d = Math.hypot(p.x - last.x, p.z - last.z);
+      if (d < 50 || d > 260) continue;
+      if ((hx * (p.x - last.x) + hz * (p.z - last.z)) / d < 0.2) continue; // ahead of us, not behind
+      // the whole circle must fit inside the fence
+      if (Math.max(Math.abs(p.x), Math.abs(p.z)) + Math.max(48, p.w * 20) > EXT - 40) continue;
+      const score = p.w * (1 - d / 300) * (0.5 + this.rand());
+      if (score > bestScore) { best = p; bestScore = score; }
+    }
+    if (!best) return null;
+    const r = Math.max(48, best.w * 20);
+    const da = this.rand() < 0.5 ? 0.85 : -0.85;
+    // land one step around the circle from the nearest point, so the leg
+    // onto it is a real leg even when the flight is already at the rim
+    const a = Math.atan2(last.x - best.x, last.z - best.z) + da;
+    return { x: best.x, z: best.z, y: clamp(best.y * 0.9 + 16, 44, 190), r, a, da, focus: best };
+  }
+
+  private propose(last: Vector3, tan: Vector3, tries: number, forceY?: number): Proposal {
     const s = this.st;
     const r = this.rand;
     const streetDir = () => (s.axis === 'x' ? new Vector3(s.dir, 0, 0) : new Vector3(0, 0, s.dir));
+    if (s.phase === 'orbit' && s.orbit) {
+      const o = s.orbit;
+      o.a += o.da;
+      const p = new Vector3(o.x + Math.sin(o.a) * o.r, o.y, o.z + Math.cos(o.a) * o.r);
+      const dir = new Vector3(Math.cos(o.a), 0, -Math.sin(o.a)).multiplyScalar(Math.sign(o.da));
+      if (--s.left <= 0) { s.phase = 'cruise'; s.left = 1 + Math.floor(r() * 2); s.heading = Math.atan2(dir.x, dir.z); s.orbit = null; s.cool = 4; }
+      return { p, dir, dive: false, phase: 'orbit', focus: o.focus, k: 1.0 };
+    }
     if (s.phase === 'cruise') {
-      s.heading += (r() - 0.5) * 1.3;
-      if (Math.abs(last.x) > EXT - 60 || Math.abs(last.z) > EXT - 60) s.heading = Math.atan2(-last.x, -last.z) + (r() - 0.5) * 0.9;
-      const dist = 55 + r() * 65;
+      // from the way we are actually going (the tangent we carry), a wander
+      // of up to ±26°, then the fence's steering
+      s.heading = Math.atan2(tan.x, tan.z) + (r() - 0.5) * 0.9;
+      this.steerHome(last);
+      const near = Math.max(Math.abs(last.x), Math.abs(last.z)) > EXT - 140;
+      const dist = near ? 40 + r() * 40 : 55 + r() * 65; // shorter legs along the edge: finer turning
       const dir = new Vector3(Math.sin(s.heading), 0, Math.cos(s.heading));
       const p = new Vector3(last.x + dir.x * dist, 0, last.z + dir.z * dist);
       // never park a knot on the fence: the next leg's opening bulge would
-      // have nowhere to go — turn for the plaza first
+      // have nowhere to go — turn harder for the plaza, and if that still
+      // lands outside, stop short of the line
       if (Math.abs(p.x) > EXT - 40 || Math.abs(p.z) > EXT - 40) {
-        s.heading = Math.atan2(-last.x, -last.z) + (r() - 0.5) * 0.6;
-        dir.set(Math.sin(s.heading), 0, Math.cos(s.heading));
-        p.set(last.x + dir.x * dist, 0, last.z + dir.z * dist);
+        p.x = clamp(p.x, -(EXT - 40), EXT - 40); p.z = clamp(p.z, -(EXT - 40), EXT - 40);
+        dir.set(p.x - last.x, 0, p.z - last.z);
+        if (dir.lengthSq() < 1) dir.set(Math.sin(s.heading), 0, Math.cos(s.heading));
+        dir.normalize();
+        s.heading = Math.atan2(dir.x, dir.z);
       }
       // ride the skyline: sometimes skimming the roofs, sometimes well above
+      // — but never more than half the leg's length up or down in one leg
       const ceil = this.ceilingAlong(last, p);
       p.y = clamp(Math.max(ceil + 10 + (forceY ?? r() * 36), last.y + (r() - 0.5) * 50), 34, 210);
-      if (--s.left <= 0) s.phase = 'dive';
-      return { p, dir, dive: false };
+      p.y = clamp(Math.max(Math.min(p.y, last.y + dist * 0.5), last.y - dist * 0.5, ceil + 10), 34, 210);
+      s.cool = Math.max(0, s.cool - 1);
+      if (--s.left <= 0) {
+        // what next: circle a landmark (now and then), run an avenue low
+        // (when one is near), or — mostly — dive a street
+        const a = s.retry > 0 && s.retry < 4 ? 1 : r(); // a refused dive is tried again elsewhere before anything else
+        const orbit = a < 0.16 && s.cool === 0 && tries === 0 ? this.pickOrbit(p, s.heading) : null;
+        if (orbit) {
+          s.orbit = orbit; s.phase = 'orbit'; s.left = 3 + Math.floor(r() * 3); this.orbits += 1;
+          // the first orbit leg lands on the circle where it is nearest
+          p.set(orbit.x + Math.sin(orbit.a) * orbit.r, orbit.y, orbit.z + Math.cos(orbit.a) * orbit.r);
+          dir.set(Math.cos(orbit.a), 0, -Math.sin(orbit.a)).multiplyScalar(Math.sign(orbit.da));
+          return { p, dir, dive: false, phase: 'orbit', focus: orbit.focus, k: 0.8 };
+        }
+        const nearX = Math.abs(p.z) < 70, nearZ = Math.abs(p.x) < 70; // an avenue runs along x (z ≈ 0) or along z (x ≈ 0)
+        if (a < 0.42 && (nearX || nearZ)) {
+          s.phase = 'flyover'; s.avenue = true;
+          s.axis = nearX && (!nearZ || r() < 0.5) ? 'x' : 'z';
+          const along = s.axis === 'x' ? p.x : p.z;
+          s.dir = along < 0 ? 1 : -1; // across the plaza and out the far side
+          s.heading = s.axis === 'x' ? (s.dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (s.dir > 0 ? 0 : Math.PI);
+          this.flyovers += 1;
+        } else { s.phase = 'dive'; s.avenue = false; }
+      }
+      return { p, dir: this.bend(p, dir), dive: false, phase: 'cruise' };
     }
-    if (s.phase === 'dive') {
-      const alongX = Math.abs(Math.sin(s.heading)) > Math.abs(Math.cos(s.heading));
-      s.axis = alongX ? 'x' : 'z';
-      s.dir = (alongX ? Math.sin(s.heading) : Math.cos(s.heading)) >= 0 ? 1 : -1;
-      const perp = alongX ? last.z : last.x;
-      s.street = clamp(Math.round((perp - G / 2) / G) * G + G / 2, -EXT + G / 2, EXT - G / 2);
-      const along = (alongX ? last.x : last.z) + s.dir * (60 + r() * 30);
-      const p = alongX ? new Vector3(along, 0, s.street) : new Vector3(s.street, 0, along);
+    if (s.phase === 'dive' || s.phase === 'flyover') {
+      if (!s.avenue) {
+        const alongX = Math.abs(Math.sin(s.heading)) > Math.abs(Math.cos(s.heading));
+        s.axis = alongX ? 'x' : 'z';
+        s.dir = (alongX ? Math.sin(s.heading) : Math.cos(s.heading)) >= 0 ? 1 : -1;
+        const perp = alongX ? last.z : last.x;
+        s.street = clamp(Math.round((perp - G / 2) / G) * G + G / 2, -EXT + G / 2, EXT - G / 2);
+      } else s.street = 0;
+      const along = (s.axis === 'x' ? last.x : last.z) + s.dir * (60 + r() * 30);
+      const p = s.axis === 'x' ? new Vector3(along, 0, s.street) : new Vector3(s.street, 0, along);
       const ceil = this.ceilingAlong(last, p);
       // the streets are only dived inside the main city, only where the
       // skyline is low enough to drop through, and only with enough OPEN
       // street ahead for the run AND the climb out before a closed segment
-      // or the fence — otherwise cruise on and try elsewhere
+      // or the fence — otherwise cruise on and try elsewhere. The avenues
+      // are open by construction: the flyover just needs room to the fence.
       const room = this.room(s.axis, s.street, along, s.dir);
-      if (ceil > 60 || room < 150 || Math.abs(perp) > EXT) {
-        s.phase = 'cruise'; s.left = 1;
-        return this.propose(last, forceY);
+      const perp = s.axis === 'x' ? last.z : last.x;
+      if ((!s.avenue && ceil > 90) || room < 120 || Math.abs(perp) > EXT) {
+        s.phase = 'cruise'; s.left = 1; s.avenue = false; s.retry += 1; // one more cruise leg, then try a street again
+        return this.propose(last, tan, tries, forceY);
       }
-      p.y = Math.max(44 + r() * 14, ceil + 8);
-      s.phase = 'canyon'; s.left = Math.max(1, Math.min(2 + Math.floor(r() * 3), Math.floor((room - 100) / 70)));
+      // (an avenue's own skyline is its gantries; the cell's ceiling would be
+      // the landmark next door — the legs are validated regardless)
+      p.y = s.avenue ? 36 + r() * 10 : Math.max(44 + r() * 14, ceil + 8);
+      const phase: Phase = s.avenue ? 'flyover' : 'dive';
+      const dist = s.dir * (along - (s.axis === 'x' ? last.x : last.z));
+      if (last.y - p.y > dist * 0.5 && room > 220) { // room for this leg and the one after
+        // too steep for one leg: a first leg brings the height down, still aligned with the street
+        p.y = Math.max(last.y - dist * 0.5, ceil + 8);
+        s.heading = s.axis === 'x' ? (s.dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (s.dir > 0 ? 0 : Math.PI);
+        const dir0 = streetDir(); dir0.y = -0.35;
+        return { p, dir: dir0, dive: false, phase };
+      }
+      s.retry = 0;
+      s.phase = 'canyon';
+      s.left = s.avenue ? 3 + Math.floor(r() * 2) : Math.max(1, Math.min(2 + Math.floor(r() * 3), Math.floor((room - 100) / 70)));
       const dir = streetDir(); dir.y = -0.45; // nosing down, already aligned with the street
-      return { p, dir, dive: true };
+      return { p, dir, dive: !s.avenue, phase };
     }
     if (s.phase === 'canyon') {
       const along = (s.axis === 'x' ? last.x : last.z) + s.dir * (45 + r() * 25);
-      if (Math.abs(along) > EXT - 110) { s.phase = 'climb'; return this.propose(last, forceY); } // the core ends: climb out while there is room
-      const y = 18 + r() * 12; // the dives stay above the street's life (owner: raise them)
+      if (Math.abs(along) > EXT - 110) { s.phase = 'climb'; return this.propose(last, tan, tries, forceY); } // the core ends: climb out while there is room
+      // the dives stay above the street's life (owner: raise them), and a
+      // canyon leg never falls more than half its run — the descent from the
+      // dive knot is spread over the first legs
+      const band = s.avenue ? 22 + r() * 12 : 20 + r() * 12;
+      const y = Math.max(band, last.y - Math.abs(along - (s.axis === 'x' ? last.x : last.z)) * 0.5);
       const lat = s.street + (r() - 0.5) * 1.4;
-      if (--s.left <= 0) s.phase = 'climb';
-      return { p: s.axis === 'x' ? new Vector3(along, y, lat) : new Vector3(lat, y, along), dir: streetDir(), dive: false };
+      if (y <= band + 0.01 && --s.left <= 0) s.phase = 'climb';
+      return { p: s.axis === 'x' ? new Vector3(along, y, lat) : new Vector3(lat, y, along), dir: streetDir(), dive: false, phase: 'canyon' };
     }
-    // climb: out of the canyon, back to the rooftops, still heading along the street
-    const along = clamp((s.axis === 'x' ? last.x : last.z) + s.dir * (60 + r() * 30), -(EXT - 40), EXT - 40);
-    const y = forceY ?? 64 + r() * 56;
-    s.phase = 'cruise'; s.left = 2 + Math.floor(r() * 4);
+    // climb: out of the canyon, back to the rooftops, still heading along
+    // the street — in two legs when the rise is steeper than half the run
+    const from = s.axis === 'x' ? last.x : last.z;
+    const along = clamp(from + s.dir * (60 + r() * 30), -(EXT - 40), EXT - 40);
+    const run = Math.abs(along - from);
+    let y = forceY ?? 64 + r() * 56;
+    const split = y - last.y > run * 0.5 && Math.abs(along + s.dir * 80) < EXT - 40;
+    if (split) y = last.y + run * 0.5;
+    else { y = Math.min(y, last.y + run * 0.7); s.phase = 'cruise'; s.left = 2 + Math.floor(r() * 4); s.avenue = false; }
     s.heading = s.axis === 'x' ? (s.dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (s.dir > 0 ? 0 : Math.PI);
     const dir = streetDir(); dir.y = 0.35;
-    return { p: s.axis === 'x' ? new Vector3(along, y, s.street) : new Vector3(s.street, y, along), dir, dive: false };
+    const p = s.axis === 'x' ? new Vector3(along, y, s.street) : new Vector3(s.street, y, along);
+    return { p, dir: this.bend(p, dir), dive: false, phase: 'climb' };
   }
 }
 
