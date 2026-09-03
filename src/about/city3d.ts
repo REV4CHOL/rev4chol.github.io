@@ -28,10 +28,11 @@
  *  (city-traffic.ts): lanes, lights, queues, turns, on- and off-ramps. */
 import {
   AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ConeGeometry,
-  CylinderGeometry, DirectionalLight, DoubleSide, FogExp2, Group, HemisphereLight, InstancedMesh, LineBasicMaterial,
-  LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, NearestFilter, Object3D,
-  PCFSoftShadowMap, PerspectiveCamera, PlaneGeometry, Points, PointsMaterial, RepeatWrapping, Scene, ShaderChunk,
-  SphereGeometry, Sprite, SpriteMaterial, SRGBColorSpace, TorusGeometry, Vector2, Vector3, WebGLRenderer,
+  CylinderGeometry, DirectionalLight, DoubleSide, FogExp2, Group, HemisphereLight, InstancedBufferAttribute,
+  InstancedBufferGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial,
+  MeshLambertMaterial, NearestFilter, Object3D, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Points,
+  PointsMaterial, RepeatWrapping, RingGeometry, Scene, ShaderChunk, SphereGeometry, Sprite, SpriteMaterial,
+  SRGBColorSpace, TorusGeometry, Vector2, Vector3, WebGLRenderer,
 } from 'three';
 import type { WebGLProgramParametersWithUniforms } from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -41,10 +42,12 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { isMobile, reducedMotion } from '../lib/env';
 import { mulberry32 } from '../lib/rng';
 import {
-  AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, EXT, FacadeStyle, G, HIGHWAY, planCity, Poi, RAMP_W, rampY,
-  REACH, ROAD, Sign, signColor, Solid, starPositions, STREET, Street, tourRoute,
+  AirLane, AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, EXT, FacadeStyle, G, HALF, HIGHWAY, OUTER, planCity,
+  Poi, RAMP_W, rampY, REACH, ROAD, Sign, signColor, Solid, starPositions, streetAt, STREET, Street, tourRoute,
 } from './city-plan';
 import { fov24, LensPass, lensTarget, MotionBlurPass } from './city-post';
+import { CityAudio } from './city-audio';
+import { People, Zone } from './city-people';
 import { Traffic } from './city-traffic';
 
 /** THE FOG, rewritten for every material at once: three's exponential
@@ -272,6 +275,65 @@ function livingFacade(mat: MeshLambertMaterial, cells: [number, number, number, 
   };
   mat.customProgramCacheKey = () => 'living';
   return mat;
+}
+
+/** The people: eight 8×16 frames — walk A/B, stand, sit, and the same
+ *  four under an umbrella. The body is pure white so the instance tint
+ *  can own it; head, hair and legs keep their own colours. */
+function peopleTexture(): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 16;
+  const x = c.getContext('2d')!;
+  const px = (fx: number, fy: number, w: number, h: number, col: string) => { x.fillStyle = col; x.fillRect(fx, fy, w, h); };
+  for (let f = 0; f < 8; f++) {
+    const o = f * 8, umb = f >= 4, k = f % 4; // k: 0 walk A, 1 walk B, 2 stand, 3 sit
+    const top = umb ? 3 : 1;
+    if (umb) { px(o, 0, 8, 1, '#fefefe'); px(o + 1, 1, 6, 1, '#fefefe'); px(o + 3, 2, 1, 4, '#3a3a44'); }
+    px(o + 3, top, 3, 1, '#2a1a10'); // hair
+    px(o + 3, top + 1, 3, 2, f % 2 ? '#d9a578' : '#b8865a'); // face
+    if (k === 3) { // sitting: a short body, legs out
+      px(o + 2, top + 3, 4, 4, '#ffffff'); px(o + 1, top + 7, 6, 2, '#20202e'); px(o + 1, top + 9, 2, 1, '#20202e'); px(o + 5, top + 9, 2, 1, '#20202e');
+      continue;
+    }
+    px(o + 2, top + 3, 4, 6, '#ffffff'); // the body (tinted)
+    px(o + 1, top + 4, 1, 4, '#ffffff'); px(o + 6, top + 4, 1, 4, '#ffffff'); // arms
+    const legTop = top + 9, legH = 16 - legTop;
+    if (k === 1) { px(o + 1, legTop, 2, legH, '#20202e'); px(o + 5, legTop, 2, legH, '#20202e'); }
+    else if (k === 0) { px(o + 2, legTop, 2, legH, '#20202e'); px(o + 4, legTop, 2, legH, '#20202e'); }
+    else { px(o + 2, legTop, 2, legH, '#20202e'); px(o + 4, legTop, 2, legH, '#20202e'); }
+  }
+  return asPixelTex(new CanvasTexture(c));
+}
+
+/** The stadium's seats: blocks of the two clubs' colours around the tiers. */
+function seatTexture(): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 8;
+  const x = c.getContext('2d')!;
+  const cols = ['#b8322c', '#e8e2d2', '#2e6fd0', '#e8e2d2'];
+  for (let i = 0; i < 16; i++) { x.fillStyle = cols[i % 4]; x.fillRect(i * 8, 0, 8, 8); }
+  x.fillStyle = '#0d1020';
+  for (let i = 0; i < 128; i += 2) x.fillRect(i, 3, 1, 1); // the seat rows' shadow
+  const t = asPixelTex(new CanvasTexture(c));
+  t.wrapS = RepeatWrapping;
+  return t;
+}
+
+/** The pitch: floodlit green with its lines. */
+function pitchTexture(): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 152; c.height = 96;
+  const x = c.getContext('2d')!;
+  x.fillStyle = '#2b7a44'; x.fillRect(0, 0, 152, 96);
+  x.fillStyle = '#2f8a4c';
+  for (let i = 0; i < 152; i += 16) x.fillRect(i, 0, 8, 96); // mown stripes
+  x.strokeStyle = '#dfe8dc'; x.lineWidth = 2;
+  x.strokeRect(6, 6, 140, 84);
+  x.beginPath(); x.moveTo(76, 6); x.lineTo(76, 90); x.stroke();
+  x.beginPath(); x.arc(76, 48, 12, 0, Math.PI * 2); x.stroke();
+  x.strokeRect(6, 26, 22, 44); x.strokeRect(124, 26, 22, 44);
+  x.strokeRect(6, 38, 8, 20); x.strokeRect(138, 38, 8, 20);
+  return asPixelTex(new CanvasTexture(c));
 }
 
 function crownTexture(): CanvasTexture {
@@ -531,6 +593,8 @@ export interface CityRide {
   /** The quality tier in force (far plane, fog, shadows, pixel size) — and a way to force one. */
   quality(): { tier: string; far: number; fog: number; shadows: boolean; pix: number };
   setQuality(t: number): void;
+  /** Verification: what lives where — knots of talk, flyers, counts. */
+  probe(): { people: number; cars: number; flyers: number; knots: number[][]; air: number[][]; pads: number[][] };
 }
 
 export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
@@ -547,7 +611,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
   renderer.setPixelRatio(1);
   renderer.shadowMap.enabled = TIERS[tier].shadows;
-  renderer.shadowMap.type = PCFSoftShadowMap;
+  renderer.shadowMap.type = PCFShadowMap;
   // CINEMATIC LIGHT (owner: contrast, shadow, highlights): a blue hemisphere
   // (sky above, the streets' sodium below) and the moon as a key light that
   // CASTS SHADOWS — its shadow camera rides with the eye. The facades keep
@@ -881,24 +945,151 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   spire.position.set(lmx, 142, lmz);
   scene.add(spire);
 
-  // -- the stadium's bowl, pitch and floodlights; the Ferris wheel -------------
+  // -- THE STADIUM (owner: more detailed): the bowl, three tiers of seats in
+  // the clubs' colours, a roof ring lit underneath, a marked pitch with its
+  // goals, a crowd of thousands with phone lights flashing, a match being
+  // played, floodlights, lit gates, two screens, fireworks now and then; the
+  // Ferris wheel beside it --------------------------------------------------------
+  const stadium = plan.stadium;
+  const crowdGeo = new BufferGeometry();
+  const crowdCol = new Float32Array(4200 * 3);
+  const matchArr = new Float32Array(23 * 3);
+  const matchGeo = new BufferGeometry();
+  const match = { ball: new Vector2(0, 0), vel: new Vector2(0.06, 0.02), home: [] as Vector2[] };
+  const fw = { pos: new Float32Array(60 * 3), vel: new Float32Array(60 * 3), col: new Float32Array(60 * 3), life: 0, next: 600, launched: 0 };
+  const fwGeo = new BufferGeometry();
   {
-    const st = plan.stadium;
-    const bowl = new Mesh(new CylinderGeometry(1, 0.86, 1, 28, 1, true), new MeshBasicMaterial({ color: '#101538', side: DoubleSide }));
+    const st = stadium;
+    const bowl = new Mesh(new CylinderGeometry(1, 0.86, 1, 32, 1, true), new MeshLambertMaterial({ color: '#101538', side: DoubleSide }));
     bowl.position.set(st.x, st.h / 2, st.z);
     bowl.scale.set(st.w / 2, st.h, st.d / 2);
     scene.add(bowl);
-    const pitch = new Mesh(new CylinderGeometry(1, 1, 0.3, 28), new MeshBasicMaterial({ color: '#1c5a3c' }));
-    pitch.position.set(st.x, 2.2, st.z);
-    pitch.scale.set(st.w / 2 - 5, 1, st.d / 2 - 5);
+    const seats = seatTexture();
+    for (const [r0, y, h] of [[0.6, 3.4, 3.2], [0.74, 6.8, 3.4], [0.88, 10.4, 3.6]] as [number, number, number][]) {
+      const tex = seats.clone();
+      tex.needsUpdate = true;
+      tex.repeat.set(Math.round(r0 * 20), 1);
+      const ring = new Mesh(new CylinderGeometry(1, 0.9, 1, 32, 1, true), new MeshLambertMaterial({
+        map: tex, emissive: '#ffffff', emissiveMap: tex, emissiveIntensity: 0.3, side: DoubleSide,
+      }));
+      ring.position.set(st.x, y, st.z);
+      ring.scale.set(st.w / 2 * r0, h, st.d / 2 * r0);
+      scene.add(ring);
+    }
+    const roof = new Mesh(new RingGeometry(0.64, 1.07, 40), new MeshLambertMaterial({ color: '#141a3a', side: DoubleSide }));
+    roof.rotation.x = -Math.PI / 2;
+    roof.position.set(st.x, st.h + 2.4, st.z);
+    roof.scale.set(st.w / 2, st.d / 2, 1);
+    scene.add(roof);
+    const pitchTex = pitchTexture();
+    const pitch = new Mesh(new PlaneGeometry(38, 24), new MeshLambertMaterial({ map: pitchTex, emissive: '#ffffff', emissiveMap: pitchTex, emissiveIntensity: 0.55 }));
+    pitch.rotation.x = -Math.PI / 2;
+    pitch.position.set(st.x, 0.36, st.z);
     scene.add(pitch);
+    const goalMat = new MeshBasicMaterial({ color: '#f4f1e8' });
+    for (const sx of [-1, 1]) {
+      const g = new Group();
+      g.position.set(st.x + sx * 18.6, 0, st.z);
+      for (const [px, py, pz, w, h, d] of [[0, 1.2, -2.6, 0.12, 2.4, 0.12], [0, 1.2, 2.6, 0.12, 2.4, 0.12], [0, 2.4, 0, 0.12, 0.12, 5.3]] as number[][]) {
+        const m = new Mesh(new BoxGeometry(w, h, d), goalMat); m.position.set(px, py, pz); g.add(m);
+      }
+      scene.add(g);
+    }
+    // the crowd on the tiers: dark heads, a few thousand, some holding up a light
+    const crowd: number[] = [];
+    for (const [r0, y, h] of [[0.6, 3.4, 3.2], [0.74, 6.8, 3.4], [0.88, 10.4, 3.6]] as [number, number, number][]) {
+      for (let i = 0; i < 1400; i++) {
+        const a = rand() * Math.PI * 2, f = rand();
+        const rr = r0 * (0.9 + f * 0.12);
+        crowd.push(st.x + Math.cos(a) * st.w / 2 * rr, y - h / 2 + f * h + 0.5, st.z + Math.sin(a) * st.d / 2 * rr);
+      }
+    }
+    crowdGeo.setAttribute('position', new BufferAttribute(new Float32Array(crowd), 3));
+    for (let i = 0; i < 4200; i++) new Color(rand() < 0.5 ? '#2a2f55' : '#3a3050').toArray(crowdCol, i * 3);
+    crowdGeo.setAttribute('color', new BufferAttribute(crowdCol, 3));
+    scene.add(new Points(crowdGeo, new PointsMaterial({ vertexColors: true, size: 1.1, sizeAttenuation: true, transparent: true, opacity: 0.95, depthWrite: false })));
+    // the match: two sides in their colours, a referee, the ball
+    const mcol = new Float32Array(23 * 3);
+    for (let i = 0; i < 23; i++) {
+      new Color(i < 11 ? '#ff4a3c' : i < 22 ? '#4fc3ff' : '#ffffff').toArray(mcol, i * 3);
+      const side = i < 11 ? -1 : 1, k = i % 11;
+      match.home.push(new Vector2(side * (3 + Math.floor(k / 4) * 5), (k % 4 - 1.5) * 5.5));
+    }
+    matchGeo.setAttribute('position', new BufferAttribute(matchArr, 3));
+    matchGeo.setAttribute('color', new BufferAttribute(mcol, 3));
+    scene.add(new Points(matchGeo, new PointsMaterial({ vertexColors: true, size: 2.4, sizeAttenuation: true, transparent: true, depthWrite: false })));
+    // the rim lights, the floodlights, the roof's under-lights, the gates
     const rim: number[] = [];
     for (let i = 0; i < 40; i++) { const a = (i / 40) * Math.PI * 2; rim.push(st.x + Math.cos(a) * st.w / 2, st.h + 0.4, st.z + Math.sin(a) * st.d / 2); }
+    for (let i = 0; i < 32; i++) { const a = (i / 32) * Math.PI * 2; rim.push(st.x + Math.cos(a) * st.w / 2 * 0.68, st.h + 2.0, st.z + Math.sin(a) * st.d / 2 * 0.68); }
     for (const m of st.masts) rim.push(m.x, m.h + 0.6, m.z);
+    for (const gt of st.gates) { rim.push(gt.x, 3.2, gt.z); }
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(new Float32Array(rim), 3));
     scene.add(new Points(g, new PointsMaterial({ map: glowTexture('#ffffff'), color: '#e8f4ff', size: 7, sizeAttenuation: true, transparent: true, blending: AdditiveBlending, depthWrite: false })));
+    for (const gt of st.gates) { // a lit portal in the bowl's wall
+      const m = new Mesh(new BoxGeometry(6, 4.6, 0.6), new MeshBasicMaterial({ color: '#ffd9a0' }));
+      m.position.set(gt.x, 2.3, gt.z);
+      m.rotation.y = gt.rotY;
+      scene.add(m);
+    }
+    fwGeo.setAttribute('position', new BufferAttribute(fw.pos, 3));
+    fwGeo.setAttribute('color', new BufferAttribute(fw.col, 3));
+    scene.add(new Points(fwGeo, new PointsMaterial({ vertexColors: true, size: 3, sizeAttenuation: true, transparent: true, blending: AdditiveBlending, depthWrite: false, fog: false })));
   }
+  const flashTmp = new Color();
+  const playMatch = () => {
+    const st = stadium;
+    // the ball drifts about the pitch, the players draw toward it from their posts
+    match.vel.x += (rand() - 0.5) * 0.02; match.vel.y += (rand() - 0.5) * 0.02;
+    match.vel.clampLength(0, 0.14);
+    match.ball.add(match.vel);
+    if (Math.abs(match.ball.x) > 17) match.vel.x *= -1;
+    if (Math.abs(match.ball.y) > 10.5) match.vel.y *= -1;
+    for (let i = 0; i < 22; i++) {
+      const h = match.home[i];
+      const px = h.x + (match.ball.x - h.x) * 0.45 + Math.sin(tick * 0.02 + i) * 0.6;
+      const pz = h.y + (match.ball.y - h.y) * 0.45 + Math.cos(tick * 0.023 + i * 2) * 0.6;
+      matchArr[i * 3] = st.x + px; matchArr[i * 3 + 1] = 1.2; matchArr[i * 3 + 2] = st.z + pz;
+    }
+    matchArr[66] = st.x + match.ball.x; matchArr[67] = 0.8; matchArr[68] = st.z + match.ball.y;
+    (matchGeo.getAttribute('position') as BufferAttribute).needsUpdate = true;
+    if (tick % 3 === 0) { // phones held up in the stands
+      for (let k = 0; k < 40; k++) {
+        const i = Math.floor(rand() * 4200);
+        flashTmp.set(rand() < 0.5 ? '#2a2f55' : '#3a3050');
+        if (rand() < 0.08) flashTmp.set('#f4f1e8');
+        flashTmp.toArray(crowdCol, i * 3);
+      }
+      (crowdGeo.getAttribute('color') as BufferAttribute).needsUpdate = true;
+    }
+    // fireworks over the bowl, now and then
+    if (fw.life > 0) {
+      fw.life -= 1;
+      const fade = fw.life / 70;
+      for (let i = 0; i < 60; i++) {
+        fw.vel[i * 3 + 1] -= 0.012;
+        fw.pos[i * 3] += fw.vel[i * 3]; fw.pos[i * 3 + 1] += fw.vel[i * 3 + 1]; fw.pos[i * 3 + 2] += fw.vel[i * 3 + 2];
+        fw.col[i * 3] *= 0.97; fw.col[i * 3 + 1] *= 0.97; fw.col[i * 3 + 2] *= 0.97;
+      }
+      if (fw.life === 0) fw.col.fill(0);
+      (fwGeo.getAttribute('position') as BufferAttribute).needsUpdate = true;
+      (fwGeo.getAttribute('color') as BufferAttribute).needsUpdate = true;
+      void fade;
+    } else if (--fw.next <= 0) {
+      fw.next = 700 + Math.floor(rand() * 900);
+      fw.life = 70;
+      fw.launched += 1;
+      const cx = st.x + (rand() - 0.5) * 30, cy = st.h + 30 + rand() * 20, cz = st.z + (rand() - 0.5) * 20;
+      const col = new Color(pick(rand, ['#ff4a3c', '#ffd23f', '#5df2ff', '#ff4fd8', '#C8FF00']));
+      for (let i = 0; i < 60; i++) {
+        const a = rand() * Math.PI * 2, b = (rand() - 0.5) * Math.PI, sp = 0.45 + rand() * 0.5;
+        fw.pos[i * 3] = cx; fw.pos[i * 3 + 1] = cy; fw.pos[i * 3 + 2] = cz;
+        fw.vel[i * 3] = Math.cos(a) * Math.cos(b) * sp; fw.vel[i * 3 + 1] = Math.sin(b) * sp; fw.vel[i * 3 + 2] = Math.sin(a) * Math.cos(b) * sp;
+        col.toArray(fw.col, i * 3);
+      }
+    }
+  };
   const wheel = new Group();
   {
     const w = plan.wheel;
@@ -1187,34 +1378,83 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     (tails.pts.geometry.getAttribute('color') as BufferAttribute).needsUpdate = true;
   };
 
-  interface Walker { st: Street; off: number; t: number; v: number }
-  const walkable = plan.streets.filter((s) => s.kind === 'road' || s.kind === 'alley' || s.kind === 'diagonal');
-  const walkTotal = walkable.reduce((a, s) => a + (s.kind === 'alley' ? s.len * 3 : s.len), 0);
-  const walkers: Walker[] = [];
-  const WALKERS = 1800;
-  const walkArr = new Float32Array(WALKERS * 3);
-  for (let i = 0; i < WALKERS; i++) {
-    let r = rand() * walkTotal;
-    let st = walkable[walkable.length - 1];
-    for (const s of walkable) { r -= s.kind === 'alley' ? s.len * 3 : s.len; if (r <= 0) { st = s; break; } }
-    const off = st.kind === 'alley' ? (rand() - 0.5) * (st.width - 1.5) : (rand() < 0.5 ? 1 : -1) * (st.width / 2 - 1);
-    walkers.push({ st, off, t: rand() * st.len, v: (0.018 + rand() * 0.022) * (rand() < 0.5 ? 1 : -1) });
+  // -- PEOPLE (owner: NPCs interacting, going about their business): pixel
+  // sprites with lives (city-people.ts) — walking, stopping, talking in
+  // knots, browsing and vending at the markets, crossing on the red, sitting;
+  // umbrellas up when it rains ---------------------------------------------------
+  const zones: Zone[] = [];
+  for (const st of plan.stalls) {
+    let z = zones.find((zn) => Math.abs(zn.x - st.x) < 30 && Math.abs(zn.z - st.z) < 30);
+    if (!z) { z = { x: st.x, z: st.z, w: 6, d: 6, stalls: [] }; zones.push(z); }
+    z.stalls.push(st);
   }
-  const walkGeo = new BufferGeometry();
-  walkGeo.setAttribute('position', new BufferAttribute(walkArr, 3));
-  scene.add(new Points(walkGeo, new PointsMaterial({ color: '#d8dce8', size: 1.6, sizeAttenuation: true, transparent: true, opacity: 0.7, depthWrite: false })));
-  const walk = () => {
-    for (let i = 0; i < walkers.length; i++) {
-      const w = walkers[i];
-      w.t += w.v;
-      if (w.t > w.st.len) w.t -= w.st.len;
-      if (w.t < 0) w.t += w.st.len;
-      const j = i * 3;
-      walkArr[j] = w.st.x0 + w.st.dx * w.t - w.st.dz * w.off;
-      walkArr[j + 1] = 0.9;
-      walkArr[j + 2] = w.st.z0 + w.st.dz * w.t + w.st.dx * w.off;
+  for (const z of zones) {
+    const xs = z.stalls.map((q) => q.x), zs = z.stalls.map((q) => q.z);
+    const x0 = Math.min(...xs) - 3, x1 = Math.max(...xs) + 3, z0 = Math.min(...zs) - 3, z1 = Math.max(...zs) + 3;
+    z.x = (x0 + x1) / 2; z.z = (z0 + z1) / 2; z.w = x1 - x0; z.d = z1 - z0;
+  }
+  const nodeAt = new Map<string, (typeof traffic.nodes)[number]>();
+  for (const n of traffic.nodes) nodeAt.set(`${Math.round(n.x)}:${Math.round(n.z)}`, n);
+  const crossOK = (x: number, z: number, axis: 'x' | 'z'): boolean => {
+    const n = nodeAt.get(`${Math.round(x)}:${Math.round(z)}`);
+    if (!n || !n.signal) return false;
+    const st = n.streets.find((q) => (axis === 'x') === (q.dx !== 0));
+    return st ? !traffic.green(n, Math.max(0, n.streets.indexOf(st))) : false;
+  };
+  const crossNodes: number[] = [];
+  for (let i = -HALF - OUTER - 1; i <= HALF + OUTER; i++) crossNodes.push(streetAt(i));
+  const people = new People(plan.streets, zones, plan.stalls, mulberry32(seed ^ 0x7e0b1e), calm ? 1100 : 2200, crossOK, crossNodes);
+  const PEOPLE = people.people.length;
+  const peopleGeo = new InstancedBufferGeometry();
+  {
+    const plane = new PlaneGeometry(1, 1);
+    peopleGeo.index = plane.index;
+    peopleGeo.setAttribute('position', plane.getAttribute('position'));
+    peopleGeo.setAttribute('uv', plane.getAttribute('uv'));
+  }
+  const pPos = new Float32Array(PEOPLE * 3), pFrame = new Float32Array(PEOPLE), pYaw = new Float32Array(PEOPLE), pTint = new Float32Array(PEOPLE * 3);
+  const TINTS = ['#c8552c', '#2a5aa8', '#d9c26a', '#3f7f5a', '#7a3d8f', '#c9c2b2', '#b03a3a', '#1f2a44'].map((c) => new Color(c));
+  people.people.forEach((p, i) => TINTS[p.tint].toArray(pTint, i * 3));
+  peopleGeo.setAttribute('aPos', new InstancedBufferAttribute(pPos, 3));
+  peopleGeo.setAttribute('aFrame', new InstancedBufferAttribute(pFrame, 1));
+  peopleGeo.setAttribute('aYaw', new InstancedBufferAttribute(pYaw, 1));
+  peopleGeo.setAttribute('color', new InstancedBufferAttribute(pTint, 3)); // the tint rides three's own vertex-colour path
+  peopleGeo.instanceCount = PEOPLE;
+  // a basic material, patched: each instance's quad is billboarded at its
+  // person's feet, its frame picked from the sheet, its white body tinted;
+  // the map, the alpha test and the fog are three's own
+  const peopleMat = new MeshBasicMaterial({ map: peopleTexture(), alphaTest: 0.5, vertexColors: true, color: '#8a8a94', fog: true }); // under the bloom's threshold: people don't glow
+  peopleMat.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec3 aPos; attribute float aFrame; attribute float aYaw;')
+      .replace('#include <uv_vertex>', `
+        vec3 bbRight = vec3( viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0] );
+        float bbFlip = dot( bbRight, vec3( sin( aYaw ), 0.0, cos( aYaw ) ) ) < 0.0 ? 1.0 : 0.0;
+        vMapUv = vec2( ( mix( uv.x, 1.0 - uv.x, bbFlip ) + aFrame ) / 8.0, uv.y );`)
+      .replace('#include <begin_vertex>', `
+        vec3 transformed = aPos + bbRight * position.x * 0.9 + vec3( 0.0, position.y * 1.8 + 0.9, 0.0 );`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <color_fragment>', `
+        float bbMask = step( 2.9, diffuseColor.r + diffuseColor.g + diffuseColor.b );
+        diffuseColor.rgb = mix( diffuseColor.rgb, vColor.rgb, bbMask );`);
+  };
+  peopleMat.customProgramCacheKey = () => 'people';
+  const peopleMesh = new Mesh(peopleGeo, peopleMat);
+  peopleMesh.frustumCulled = false;
+  scene.add(peopleMesh);
+  const walkPeople = () => {
+    people.rain = rainNow;
+    people.step();
+    const umb = rainNow > 0.25;
+    for (let i = 0; i < PEOPLE; i++) {
+      const p = people.people[i];
+      pPos[i * 3] = p.x; pPos[i * 3 + 1] = p.y; pPos[i * 3 + 2] = p.z;
+      pFrame[i] = p.frame + (umb && p.umbrella && p.act !== 'vend' ? 4 : 0);
+      pYaw[i] = p.yaw;
     }
-    (walkGeo.getAttribute('position') as BufferAttribute).needsUpdate = true;
+    (peopleGeo.getAttribute('aPos') as InstancedBufferAttribute).needsUpdate = true;
+    (peopleGeo.getAttribute('aFrame') as InstancedBufferAttribute).needsUpdate = true;
+    (peopleGeo.getAttribute('aYaw') as InstancedBufferAttribute).needsUpdate = true;
   };
 
   interface Flock { x: number; y: number; z: number; vx: number; vz: number; phase: number }
@@ -1263,6 +1503,159 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     (craftGeo.getAttribute('position') as BufferAttribute).needsUpdate = true;
   };
 
+  // -- THE AIR (owner: flying vehicles): spinners on the plan's corridors —
+  // over the avenues both ways, round the ring, two police patrols low over
+  // the streets with searchlights — banking through the turns, bobbing on
+  // their fans; and six that set down on the tallest roofs' pads, wait, and
+  // take off again --------------------------------------------------------------
+  interface Flyer {
+    lane: AirLane | null; s: number; v: number; lat: number; phase: number; yaw: number; roll: number;
+    x: number; y: number; z: number; police: boolean;
+    pad: { x: number; y: number; z: number } | null; stage: 'in' | 'sit' | 'out'; timer: number; from: Vector3; to: Vector3;
+  }
+  const laneLen = plan.air.map((l) => {
+    const cum = [0];
+    const n = l.pts.length;
+    for (let i = 0; i < (l.loop ? n : n - 1); i++) {
+      const [ax, ay, az] = l.pts[i], [bx, by, bz] = l.pts[(i + 1) % n];
+      cum.push(cum[i] + Math.hypot(bx - ax, by - ay, bz - az));
+    }
+    return cum;
+  });
+  const flyers: Flyer[] = [];
+  const flyer = (lane: AirLane | null, police = false): Flyer => ({
+    lane, s: 0, v: 0, lat: (rand() - 0.5) * 5, phase: rand() * 7, yaw: 0, roll: 0, x: 0, y: 0, z: 0, police,
+    pad: null, stage: 'in', timer: 0, from: new Vector3(), to: new Vector3(),
+  });
+  plan.air.forEach((lane, li) => {
+    const n = lane.kind === 'patrol' ? 1 : lane.kind === 'ring' ? 10 : 8;
+    for (let i = 0; i < n; i++) {
+      const fl = flyer(lane, lane.kind === 'patrol');
+      fl.s = (i / n) * laneLen[li][laneLen[li].length - 1];
+      fl.v = lane.speed * (0.85 + rand() * 0.3);
+      flyers.push(fl);
+    }
+  });
+  const padCycle = (fl: Flyer, stage: 'in' | 'out') => {
+    const pad = fl.pad!;
+    const a = rand() * Math.PI * 2;
+    const far = new Vector3(pad.x + Math.cos(a) * 80, pad.y + 30 + rand() * 20, pad.z + Math.sin(a) * 80);
+    const down = new Vector3(pad.x, pad.y + 0.7, pad.z);
+    fl.stage = stage;
+    if (stage === 'in') { fl.from.copy(far); fl.to.copy(down); fl.timer = 520 + rand() * 200; }
+    else { fl.from.copy(down); fl.to.copy(far); fl.timer = 420 + rand() * 120; }
+    fl.phase = fl.timer;
+  };
+  for (const pad of plan.pads) {
+    const fl = flyer(null);
+    fl.pad = pad;
+    padCycle(fl, rand() < 0.5 ? 'in' : 'out');
+    fl.timer *= rand();
+    flyers.push(fl);
+  }
+  const FLYERS = flyers.length;
+  const airBody = new InstancedMesh(geo.box, new MeshLambertMaterial({ color: '#2a3252', emissive: '#1a2a55', emissiveIntensity: 0.6 }), FLYERS);
+  const airCabin = new InstancedMesh(geo.box, new MeshLambertMaterial({ color: '#0d1626', emissive: '#7de8ff', emissiveIntensity: 0.7 }), FLYERS);
+  scene.add(airBody, airCabin);
+  const airLights = (() => {
+    const arr = new Float32Array(FLYERS * 4 * 3), col = new Float32Array(FLYERS * 4 * 3);
+    const g = new BufferGeometry();
+    g.setAttribute('position', new BufferAttribute(arr, 3));
+    g.setAttribute('color', new BufferAttribute(col, 3));
+    const pts = new Points(g, new PointsMaterial({ vertexColors: true, size: 2.2, sizeAttenuation: true, transparent: true, blending: AdditiveBlending, depthWrite: false }));
+    scene.add(pts);
+    return { arr, col, g };
+  })();
+  const NAV = [new Color('#ff3b3b'), new Color('#3dff8f'), new Color('#ffffff'), new Color('#4fa3ff').multiplyScalar(1.6)];
+  const policeBeams: Group[] = [];
+  for (const fl of flyers) {
+    if (!fl.police) continue;
+    const g = new Group();
+    for (const [r, op] of [[6, 0.1], [2.4, 0.16]] as [number, number][]) {
+      const geoC = new ConeGeometry(r, 40, 12, 1, true);
+      geoC.translate(0, -20, 0);
+      g.add(new Mesh(geoC, new MeshBasicMaterial({ color: '#dfeeff', transparent: true, opacity: op, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false })));
+    }
+    scene.add(g);
+    policeBeams.push(g);
+  }
+  const airTmp = new Vector3();
+  const flyAir = () => {
+    let bi = 0;
+    for (let i = 0; i < FLYERS; i++) {
+      const fl = flyers[i];
+      let hx = 0, hz = 1, ty = 0;
+      if (fl.lane) {
+        const lane = fl.lane, cum = laneLen[plan.air.indexOf(lane)], total = cum[cum.length - 1];
+        fl.s += fl.v;
+        if (fl.s >= total) fl.s -= total;
+        let k = 0;
+        while (k < cum.length - 2 && cum[k + 1] < fl.s) k += 1;
+        const [ax, ay, az] = lane.pts[k], [bx, by, bz] = lane.pts[(k + 1) % lane.pts.length];
+        const u = (fl.s - cum[k]) / Math.max(1e-6, cum[k + 1] - cum[k]);
+        const dx = bx - ax, dz = bz - az, dh = Math.hypot(dx, dz) || 1;
+        hx = dx / dh; hz = dz / dh;
+        fl.x = ax + dx * u - hz * fl.lat; fl.y = ay + (by - ay) * u; fl.z = az + dz * u + hx * fl.lat;
+        ty = Math.atan2(hx, hz);
+      } else { // a pad cycle: in, sit, out
+        fl.timer -= 1;
+        if (fl.stage === 'sit') {
+          fl.x = fl.to.x; fl.y = fl.to.y; fl.z = fl.to.z;
+          if (fl.timer <= 0) padCycle(fl, 'out');
+        } else {
+          const u = 1 - Math.max(0, fl.timer) / fl.phase;
+          const e = u * u * (3 - 2 * u);
+          airTmp.lerpVectors(fl.from, fl.to, e);
+          fl.x = airTmp.x; fl.y = airTmp.y + (fl.stage === 'in' ? (1 - e) * 6 : e * 6); fl.z = airTmp.z;
+          hx = fl.to.x - fl.from.x; hz = fl.to.z - fl.from.z;
+          const dh = Math.hypot(hx, hz) || 1; hx /= dh; hz /= dh;
+          ty = Math.atan2(hx, hz);
+          if (fl.timer <= 0) {
+            if (fl.stage === 'in') { fl.stage = 'sit'; fl.timer = 300 + rand() * 500; fl.to.copy(fl.to); }
+            else padCycle(fl, 'in');
+          }
+        }
+      }
+      const bob = Math.sin(tick * 0.05 + fl.phase) * 0.25;
+      let dy = ty - fl.yaw;
+      while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2;
+      if (fl.lane || fl.stage !== 'sit') fl.yaw += dy * 0.08;
+      fl.roll += (Math.max(-0.5, Math.min(0.5, -dy * 6)) - fl.roll) * 0.1;
+      dummy.rotation.order = 'YXZ';
+      dummy.position.set(fl.x, fl.y + bob, fl.z);
+      dummy.rotation.set(0, fl.yaw, fl.roll);
+      dummy.scale.set(2.2, 0.8, 4.2);
+      dummy.updateMatrix();
+      airBody.setMatrixAt(i, dummy.matrix);
+      dummy.scale.set(1.5, 0.6, 1.8);
+      dummy.position.y += 0.6;
+      dummy.updateMatrix();
+      airCabin.setMatrixAt(i, dummy.matrix);
+      const sx = Math.sin(fl.yaw), cz = Math.cos(fl.yaw);
+      const lx = cz, lz = -sx; // the lateral
+      const strobe = ((tick + Math.floor(fl.phase * 10)) % 60) < 4;
+      const lights: [number, number, number, Color][] = [
+        [fl.x + lx * 1.2, fl.y + bob + 0.2, fl.z + lz * 1.2, NAV[0]],
+        [fl.x - lx * 1.2, fl.y + bob + 0.2, fl.z - lz * 1.2, NAV[1]],
+        [fl.x, fl.y + bob + 1.1, fl.z, strobe ? NAV[2] : (fl.police && (tick >> 3) % 2 ? NAV[0] : NAV[3].clone().multiplyScalar(0.1))],
+        [fl.x - sx * 2.2, fl.y + bob, fl.z - cz * 2.2, NAV[3]],
+      ];
+      lights.forEach(([x, y, z, c], k) => { const j = (i * 4 + k) * 3; airLights.arr[j] = x; airLights.arr[j + 1] = y; airLights.arr[j + 2] = z; c.toArray(airLights.col, j); });
+      if (fl.police) {
+        const g = policeBeams[bi++];
+        g.position.set(fl.x, fl.y + bob - 0.4, fl.z);
+        g.rotation.order = 'YXZ';
+        g.rotation.set(0.45 + Math.sin(tick * 0.02 + fl.phase) * 0.3, fl.yaw + Math.sin(tick * 0.013) * 0.5, 0);
+      }
+    }
+    dummy.rotation.set(0, 0, 0);
+    dummy.rotation.order = 'XYZ';
+    airBody.instanceMatrix.needsUpdate = true;
+    airCabin.instanceMatrix.needsUpdate = true;
+    (airLights.g.getAttribute('position') as BufferAttribute).needsUpdate = true;
+    (airLights.g.getAttribute('color') as BufferAttribute).needsUpdate = true;
+  };
+
   // -- flight ---------------------------------------------------------------
   const route = tourRoute();
   let flight: AutoFlight | null = null;
@@ -1271,6 +1664,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   let sm = 0;
   let tick = 0;
   let bank = 0;
+  let rainNow = 0;
   const keys = new Set<string>();
   // the free rig: position and velocity, a head with momentum, a throttle
   // that builds, a roll that leans into turns and strafes
@@ -1359,6 +1753,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     camera.rotateZ(free.roll);
   };
 
+  const audio = new CityAudio();
+  const lastCam = new Vector3();
   const render = () => {
     if (mode === 'free') {
       applyFree();
@@ -1415,9 +1811,17 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     sky.position.copy(camera.position); // the dome is a skybox: infinitely far in every direction
     horizonRing.position.set(camera.position.x, 0, camera.position.z); // the far city stays on the ground
     aimMoon();
+    audio.update({
+      y: camera.position.y, speed: camera.position.distanceTo(lastCam), rain: rainNow,
+      dStadium: Math.hypot(camera.position.x - stadium.x, camera.position.y - 8, camera.position.z - stadium.z),
+      dMarket: zones.reduce((m, z) => Math.min(m, Math.hypot(camera.position.x - z.x, camera.position.y, camera.position.z - z.z)), 1e9),
+      fireworks: fw.launched, dFireworks: Math.hypot(camera.position.x - stadium.x, camera.position.y - 40, camera.position.z - stadium.z),
+    });
+    lastCam.copy(camera.position);
     // rain on the glass: down among the streets, none from the heights, none in calm
     const wet = calm ? 0 : clamp((64 - camera.position.y) / 34, 0, 1);
-    lens.setRain(wet * wet * (3 - 2 * wet) * 0.42, tick / 60);
+    rainNow = wet * wet * (3 - 2 * wet);
+    lens.setRain(rainNow * 0.42, tick / 60);
     composer.render();
   };
 
@@ -1461,12 +1865,14 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     (mirror.material as MeshBasicMaterial).opacity = 0.3 + Math.sin(tick * 0.03) * 0.06;
     craftMat.opacity = tick % 40 < 20 ? 1 : 0.15;
     driveCars();
-    walk();
+    walkPeople();
     fly();
+    flyAir();
+    playMatch();
     cruiseCraft();
     breathe();
   };
-  driveCars(); walk(); fly(); cruiseCraft(); breathe();
+  driveCars(); walkPeople(); fly(); flyAir(); playMatch(); cruiseCraft(); breathe();
   fit();
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(canvas);
 
@@ -1553,5 +1959,11 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     },
     quality: () => ({ tier: TIERS[tier].label, far: camera.far, fog: fog.density, shadows: renderer.shadowMap.enabled, pix: PIX }),
     setQuality: (t) => { tier = Math.max(0, Math.min(TIERS.length - 1, Math.round(t))); applyTier(); lastChange = performance.now() + 30000; render(); },
+    probe: () => ({
+      people: PEOPLE, cars: cars.length, flyers: FLYERS,
+      knots: people.knots.filter((k) => k.members.length > 1).slice(0, 6).map((k) => [k.x, k.st.y, k.z, k.members.length]),
+      air: flyers.slice(0, 6).map((fl) => [fl.x, fl.y, fl.z]),
+      pads: flyers.filter((fl) => fl.pad).map((fl) => [fl.x, fl.y, fl.z, fl.stage === 'sit' ? 1 : 0]),
+    }),
   };
 }

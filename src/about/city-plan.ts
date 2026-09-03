@@ -74,6 +74,9 @@ export const rampY = (st: Street, t: number): number => {
 export interface Poi { x: number; y: number; z: number; w: number }
 export interface Holo { x: number; y: number; z: number; w: number; h: number; rotY: number }
 export interface Stall { x: number; z: number; color: string }
+/** A corridor for the flying traffic: a polyline (closed when `loop`),
+ *  every point lifted clear of the skyline under the legs it joins. */
+export interface AirLane { pts: [number, number, number][]; loop: boolean; speed: number; kind: 'avenue' | 'ring' | 'patrol' }
 export type WinStyle = 'grid' | 'ribbon' | 'strip' | 'tiny' | 'wide' | 'curtain';
 export interface FacadeStyle {
   tint: string; win: WinStyle; crown: boolean; density: number; warm: number; dim: number; core: boolean;
@@ -99,7 +102,15 @@ export interface Plan {
   beacons: { x: number; y: number; z: number }[];
   pois: Poi[];
   streets: Street[];
-  stadium: { x: number; z: number; w: number; d: number; h: number; masts: { x: number; z: number; h: number }[] };
+  stadium: {
+    x: number; z: number; w: number; d: number; h: number; masts: { x: number; z: number; h: number }[];
+    /** The four lit gates on the bowl's rim, with the yaw of a board facing out. */
+    gates: { x: number; z: number; rotY: number }[];
+  };
+  /** The flying traffic's corridors. */
+  air: AirLane[];
+  /** Landing pads on the tallest roofs — the flying traffic sets down on them. */
+  pads: { x: number; y: number; z: number }[];
   wheel: { x: number; y: number; z: number; r: number };
   mega: { x: number; z: number; top: number };
   stacks: { x: number; z: number; top: number }[];
@@ -877,10 +888,15 @@ export function planCity(seed: number): Plan {
   const stadium = {
     x: sx0, z: sz0, w: 58, d: 44, h: 13,
     masts: [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => ({ x: sx0 + a * 27, z: sz0 + b * 20, h: 24 })),
+    gates: [[0, -1, Math.PI], [1, 0, Math.PI / 2], [0, 1, 0], [-1, 0, -Math.PI / 2]].map(([a, b, rotY]) => ({ x: sx0 + a * 29.4, z: sz0 + b * 22.4, rotY })),
   };
   grid.add({ x: stadium.x, y: stadium.h / 2, z: stadium.z, w: stadium.w, h: stadium.h, d: stadium.d });
   for (const m of stadium.masts) solid(core, 'dark', 'street', 0, m.x, m.h / 2, m.z, 0.9, m.h, 0.9);
+  // two big screens, a lit board over every gate, the roof ring's edge in the grid
   signs.push({ x: sx0, y: 15.5, z: sz0 - stadium.d / 2 - 0.4, rotY: Math.PI, w: 22, h: 4, color: '#5df2ff', kind: 'screen' });
+  signs.push({ x: sx0, y: 15.5, z: sz0 + stadium.d / 2 + 0.4, rotY: 0, w: 22, h: 4, color: '#ff4fd8', kind: 'screen' });
+  for (const g of stadium.gates) signs.push({ x: g.x, y: 6.4, z: g.z, rotY: g.rotY, w: 9, h: 1.6, color: signColor(rand), kind: 'board' });
+  grid.add({ x: stadium.x, y: stadium.h + 2.4, z: stadium.z, w: stadium.w + 4, h: 1.2, d: stadium.d + 4 }); // the roof ring
   const wheel = { x: -6 * G, y: 14.5, z: 4 * G, r: 11.5 }; // fits its lot: no overhang onto the streets
   grid.add({ x: wheel.x, y: wheel.y, z: wheel.z, w: 3, h: 25, d: 25 });
   for (const s of [-1, 1]) solid(core, 'dark', 'street', 0, wheel.x + s * 4, 7.25, wheel.z, 1.6, 14.5, 1.6);
@@ -1141,6 +1157,34 @@ export function planCity(seed: number): Plan {
     }
   }
 
+  // -- THE AIR (owner: flying vehicles): corridors above the avenues in both
+  // directions, a ring round the core, two low patrols over the streets;
+  // every point lifted clear of the skyline under the legs it joins; pads
+  // on the six tallest roofs -------------------------------------------------
+  const lift = (pts: [number, number, number][], loop: boolean, clear: number): [number, number, number][] => {
+    const tops = pts.map(([x, , z], i) => {
+      if (!loop && i === pts.length - 1) return 0;
+      const [nx, , nz] = pts[(i + 1) % pts.length];
+      let top = 0;
+      for (let k = 0; k <= 16; k++) { const t = k / 16; top = Math.max(top, grid.ceilingAt(x + (nx - x) * t, z + (nz - z) * t)); }
+      return top;
+    });
+    return pts.map(([x, y, z], i) => {
+      const prev = tops[(i - 1 + tops.length) % tops.length], next = tops[i];
+      return [x, Math.max(y, (loop || i > 0 ? prev : 0) + clear, (loop || i < pts.length - 1 ? next : 0) + clear), z];
+    });
+  };
+  const air: AirLane[] = [];
+  air.push({ kind: 'avenue', loop: true, speed: 0.42, pts: lift([[-REACH, 58, -8], [REACH, 58, -8], [REACH + 20, 62, 0], [REACH, 66, 8], [-REACH, 66, 8], [-REACH - 20, 62, 0]], true, 10) });
+  air.push({ kind: 'avenue', loop: true, speed: 0.4, pts: lift([[8, 74, -REACH], [8, 74, REACH], [0, 78, REACH + 20], [-8, 82, REACH], [-8, 82, -REACH], [0, 78, -REACH - 20]], true, 10) });
+  const ring: [number, number, number][] = [];
+  for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; ring.push([Math.cos(a) * 212, 96, Math.sin(a) * 212]); }
+  air.push({ kind: 'ring', loop: true, speed: 0.5, pts: lift(ring, true, 12) });
+  air.push({ kind: 'patrol', loop: true, speed: 0.16, pts: lift([[streetAt(-2), 30, streetAt(-2)], [streetAt(2), 30, streetAt(-2)], [streetAt(2), 30, streetAt(2)], [streetAt(-2), 30, streetAt(2)]], true, 8) });
+  air.push({ kind: 'patrol', loop: true, speed: 0.15, pts: lift([[streetAt(-5), 30, streetAt(-1)], [streetAt(-1), 30, streetAt(-1)], [streetAt(-1), 30, streetAt(-5)], [streetAt(-5), 30, streetAt(-5)]], true, 8) });
+  const pads = tall.slice(0, 6).map((t) => ({ x: t.x, y: t.top + 0.2, z: t.z }));
+  for (const p of pads) grid.add({ x: p.x, y: p.y, z: p.z, w: 6, h: 0.4, d: 6 });
+
   // -- the giant screens, beacons, points of interest ------------------------
   for (const t of tall.slice(0, 8)) {
     if (rand() < 0.75) {
@@ -1220,7 +1264,7 @@ export function planCity(seed: number): Plan {
 
   return {
     core, outer, sprawl, strips, leds, awnings, tarps, signs, posts, lanterns, wires, vents, holos, stalls, sprawlLamps, neon,
-    beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead,
+    beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead, air, pads,
   };
 }
 

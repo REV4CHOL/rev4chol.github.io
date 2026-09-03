@@ -80,6 +80,24 @@ describe('planCity', () => {
     expect(plan.mega.top).toBeGreaterThan(100);
   });
 
+  it('lays the air corridors clear of the skyline, and pads on the tallest roofs', () => {
+    expect(plan.air.length).toBe(5);
+    expect(plan.pads.length).toBe(6);
+    for (const lane of plan.air) {
+      const n = lane.pts.length;
+      for (let i = 0; i < (lane.loop ? n : n - 1); i++) {
+        const [ax, ay, az] = lane.pts[i], [bx, by, bz] = lane.pts[(i + 1) % n];
+        for (let k = 0; k <= 24; k++) {
+          const t = k / 24;
+          const x = ax + (bx - ax) * t, y = ay + (by - ay) * t, z = az + (bz - az) * t;
+          if (Math.abs(x) > EXT + G || Math.abs(z) > EXT + G) continue;
+          expect(plan.grid.hit(x, y, z, 2.5), `${lane.kind} corridor at ${x.toFixed(0)},${y.toFixed(0)},${z.toFixed(0)}`).toBeNull();
+        }
+      }
+    }
+    expect(plan.stadium.gates.length).toBe(4);
+  });
+
   it('dresses the streets: thousands of signs in every shape, lamp posts on every open kerb', () => {
     expect(plan.signs.length).toBeGreaterThan(5000);
     const kinds = new Set(plan.signs.map((s) => s.kind));

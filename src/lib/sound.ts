@@ -341,6 +341,12 @@ class SoundEngine {
     return this.hum !== null;
   }
 
+  /** The bus, for a page that synthesises its own ambience (the about
+   *  page's city): the running context and the master gain to feed. */
+  bus(): { ctx: AudioContext; out: AudioNode } | null {
+    return this.ready() && this.master && ctxRef ? { ctx: ctxRef, out: this.master } : null;
+  }
+
   state(): string {
     return ctxRef ? ctxRef.state : 'none';
   }
