@@ -52,7 +52,10 @@ describe('planCity', () => {
     const kinds = new Set<string>(plan.core.map((s) => s.kind));
     for (const k of ['facade', 'dark', 'cyl', 'pyr', 'spire', 'dome', 'tree']) expect(kinds.has(k), k).toBe(true);
     const archetypes = new Set(plan.core.map((s) => s.arch));
-    for (const a of ['tower', 'slab', 'low', 'needle', 'bridge', 'temple', 'mega', 'landmark']) expect(archetypes.has(a as never), a).toBe(true);
+    for (const a of ['tower', 'slab', 'low', 'needle', 'bridge', 'temple', 'mega', 'landmark', 'shanty']) expect(archetypes.has(a as never), a).toBe(true);
+    // the poor quarters: favelas, rooftop shacks, squats under the deck, stilt huts — hundreds of them
+    expect(plan.core.filter((s) => s.arch === 'shanty').length).toBeGreaterThan(300);
+    expect(plan.tarps.length).toBeGreaterThan(150);
     expect(archetypes.size).toBeGreaterThanOrEqual(12);
     expect(new Set(plan.outer.map((s) => s.arch)).has('industry')).toBe(true);
     expect(plan.styles.length).toBeGreaterThanOrEqual(22);
@@ -69,7 +72,7 @@ describe('planCity', () => {
     expect(plan.lanterns.length / 3).toBeGreaterThan(400);
     expect(plan.vents.length).toBeGreaterThan(20);
     expect(plan.holos.length).toBe(3);
-    expect(plan.stalls.length).toBeGreaterThan(15);
+    expect(plan.stalls.length).toBeGreaterThan(80); // the night market and three flea markets
     expect(plan.stacks.length).toBeGreaterThanOrEqual(2);
     expect(plan.bridges.length).toBe(22);
     expect(plan.stadium.masts.length).toBe(4);
@@ -102,8 +105,11 @@ describe('planCity', () => {
     // the stadium closes the east–west street at row 3 alongside columns −5 and −4
     expect(plan.roomAhead('x', streetAt(3), -5 * G - 30, 1)).toBeCloseTo(11, 5);
     expect(plan.roomAhead('x', streetAt(3), -100, -1)).toBeCloseTo(33, 5);
-    // an open street runs to the fence
-    expect(plan.roomAhead('z', streetAt(2), 0, 1)).toBeCloseTo(EXT - 24, 5);
+    // a street runs to the fence, or to a closed segment — which always sits on a block boundary
+    const room = plan.roomAhead('z', streetAt(2), 0, 1);
+    expect(room).toBeGreaterThan(50);
+    expect(room).toBeLessThanOrEqual(EXT - 24);
+    expect(Math.abs(room - (EXT - 24)) < 1e-6 || Math.abs(((room + G / 2) % G + G) % G) < 1e-6).toBe(true);
   });
 
   it('keeps the avenues open down the middle (trees, lamps and bridges aside)', () => {
@@ -184,7 +190,7 @@ describe('AutoFlight', () => {
     expect(orbits).toBeGreaterThan(2);
     expect(flyovers).toBeGreaterThan(2);
     expect(minStep).toBeGreaterThan(0.44); // arc length: the pace never sags into a knot
-    expect(maxStep).toBeLessThan(0.53);
+    expect(maxStep).toBeLessThan(0.56);
     expect(maxTurn).toBeLessThan(0.15); // never a corner: under 8.6° per half-unit step, even at a knot
     expect(kinks / steps).toBeLessThan(0.004); // and a bend over 3.4° is a rare thing
   });

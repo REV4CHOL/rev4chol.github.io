@@ -50,7 +50,7 @@ export interface Box { x: number; y: number; z: number; w: number; h: number; d:
 export type Kind = 'facade' | 'dark' | 'cyl' | 'pyr' | 'spire' | 'dome' | 'tree' | 'canopy';
 export type Arch =
   | 'tower' | 'slab' | 'cyl' | 'ziggurat' | 'twin' | 'cross' | 'needle' | 'podium' | 'low'
-  | 'oldtown' | 'landmark' | 'sprawl' | 'bits' | 'street' | 'bridge' | 'temple' | 'industry' | 'mega';
+  | 'oldtown' | 'landmark' | 'sprawl' | 'bits' | 'street' | 'bridge' | 'temple' | 'industry' | 'mega' | 'shanty';
 export interface Solid extends Box { kind: Kind; tex: number; arch: Arch }
 export interface Strip extends Box { color: string }
 export type SignKind = 'hang' | 'wall' | 'board' | 'tag' | 'roof' | 'gantry' | 'screen';
@@ -85,6 +85,8 @@ export interface Plan {
   strips: Strip[];
   leds: Strip[];
   awnings: Strip[];
+  /** Tarpaulins over the shacks and the stalls — lit dim, in their own colours. */
+  tarps: Strip[];
   signs: Sign[];
   posts: { x: number; z: number; h: number; y?: number }[];
   lanterns: number[];
@@ -253,10 +255,16 @@ export function facadeStyles(rand: () => number): FacadeStyle[] {
   out.push({ tint: '#101c40', win: 'grid', crown: true, density: 1.7, warm: 0.22, dim: 1, core: false });
   // the megastructure: a curtain of cold light
   out.push({ tint: '#0c1a2e', win: 'curtain', crown: true, density: 1.5, warm: 0.15, dim: 1, core: false });
+  // the poor quarters (owner: not only the rich live here): corrugated rust
+  // and patched tarp, crowded with tiny warm windows
+  out.push({ tint: '#3a2418', win: 'tiny', crown: false, density: 1.3, warm: 0.9, dim: 0.8, core: false });
+  out.push({ tint: '#1c2e4a', win: 'tiny', crown: false, density: 1.1, warm: 0.75, dim: 0.75, core: false });
   return out;
 }
 export const LANDMARK_TEX = 20;
 export const MEGA_TEX = 21;
+export const SHANTY_TEX: [number, number] = [22, 23];
+const TARP = ['#2a5aa8', '#c8552c', '#3f7f5a', '#d9c26a', '#7a3d8f', '#c9c2b2', '#b03a3a'];
 
 interface Rect { x: number; z: number; w: number; d: number }
 
@@ -272,7 +280,9 @@ export function planCity(seed: number): Plan {
   const strips: Strip[] = [];
   const leds: Strip[] = [];
   const awnings: Strip[] = [];
+  const tarps: Strip[] = [];
   const signs: Sign[] = [];
+  const pois: Poi[] = [];
   const posts: { x: number; z: number; h: number; y?: number }[] = [];
   const lanterns: number[] = [];
   const wires: number[] = [];
@@ -560,8 +570,23 @@ export function planCity(seed: number): Plan {
     const tex = texOf((s) => s.win === 'tiny' || s.win === 'grid');
     solid(bucket, 'facade', 'low', tex, x, h / 2, z, w, h, d);
     let top = h;
-    if (rand() < 0.4) { solid(bucket, 'pyr', 'low', 0, x, h + 1.2, z, w, 2.4, d); top = h + 2.4; }
-    else if (rand() < 0.5) { solid(bucket, 'facade', 'low', tex, x + (rand() - 0.5) * w * 0.3, h + 1.4, z + (rand() - 0.5) * d * 0.3, w * 0.5, 2.8, d * 0.5); top = h + 2.8; }
+    const roof = rand();
+    if (roof < 0.35) { solid(bucket, 'pyr', 'low', 0, x, h + 1.2, z, w, 2.4, d); top = h + 2.4; }
+    else if (roof < 0.55) { solid(bucket, 'facade', 'low', tex, x + (rand() - 0.5) * w * 0.3, h + 1.4, z + (rand() - 0.5) * d * 0.3, w * 0.5, 2.8, d * 0.5); top = h + 2.8; }
+    else if (roof < 0.85 && w > 5 && d > 5 && h + 3 <= allowed) {
+      // ROOFTOP SHANTIES (owner: the poor build where they can): shacks under
+      // tarps on the flat roofs, a water tank, a lantern
+      const n = 2 + Math.floor(rand() * 3);
+      for (let i = 0; i < n; i++) {
+        const sw = 1.6 + rand() * 1.4, sd = 1.6 + rand() * 1.4, sh = 1.6 + rand() * 1.2;
+        const sx = x + (rand() - 0.5) * (w - sw - 0.6), sz = z + (rand() - 0.5) * (d - sd - 0.6);
+        solid(bucket, 'facade', 'shanty', SHANTY_TEX[rand() < 0.6 ? 0 : 1], sx, h + sh / 2, sz, sw, sh, sd);
+        tarps.push({ x: sx, y: h + sh + 0.08, z: sz, w: sw + 0.6, h: 0.12, d: sd + 0.6, color: pick(rand, TARP) });
+      }
+      if (rand() < 0.5) solid(bucket, 'cyl', 'bits', 0, x + (rand() - 0.5) * w * 0.5, h + 1.1, z + (rand() - 0.5) * d * 0.5, 1.4, 2.2, 1.4);
+      lantern(x + (rand() - 0.5) * w * 0.6, h + 2.2, z + (rand() - 0.5) * d * 0.6);
+      top = h + 3;
+    }
     return finish({ x, z, w, d }, h, top, allowed < Infinity);
   };
 
@@ -669,6 +694,60 @@ export function planCity(seed: number): Plan {
     }
   };
 
+  /** A FLEA MARKET fills a lot: rows of tarp stalls with gaps to walk
+   *  through, string lights across, a lit gate. */
+  const flea = (r: Rect) => {
+    const cols = Math.floor((r.w - 2) / 3.6), rows = Math.floor((r.d - 2) / 3.2);
+    for (let i = 0; i < cols; i++) {
+      for (let j = 0; j < rows; j++) {
+        if (rand() < 0.22) continue;
+        const x = r.x - r.w / 2 + 2.8 + i * 3.6, z = r.z - r.d / 2 + 2.6 + j * 3.2;
+        stalls.push({ x, z, color: pick(rand, TARP) });
+        for (const [ox, oz] of [[-1.3, -1.1], [1.3, -1.1], [-1.3, 1.1], [1.3, 1.1]]) solid(bucket, 'dark', 'street', 0, x + ox, 1.2, z + oz, 0.14, 2.4, 0.14);
+        grid.add({ x, y: 2.9, z, w: 3.2, h: 1.2, d: 2.6 });
+        if ((i + j) % 3 === 0) lantern(x, 2.6, z);
+      }
+    }
+    for (let i = 0; i < 3; i++) {
+      const z = r.z - r.d / 2 + 3 + rand() * (r.d - 6);
+      for (let x = r.x - r.w / 2 + 1; x <= r.x + r.w / 2 - 1; x += 2.2) lantern(x, 3.4, z);
+    }
+    signs.push({ x: r.x, y: 5.2, z: r.z - r.d / 2 - 0.2, rotY: Math.PI, w: 8, h: 1.6, color: signColor(rand), kind: 'gantry' });
+    for (const sg of [-1, 1]) solid(bucket, 'dark', 'street', 0, r.x + sg * 4.2, 2.8, r.z - r.d / 2 - 0.2, 0.3, 5.6, 0.3);
+    pois.push({ x: r.x, y: 6, z: r.z, w: 1.4 });
+  };
+  /** A FAVELA fills a lot: tiny stacked boxes in rust and tarp, offset as
+   *  they climb, tarps over them, wires strung across, lanterns, steam. */
+  const favela = (r: Rect) => {
+    const cells: Rect[] = [];
+    partition(r, 3, 6, cells);
+    for (const c of cells) {
+      const g = 0.5 + rand() * 0.5;
+      const w = c.w - g, d = c.d - g;
+      if (w < 2 || d < 2) continue;
+      const levels = 1 + Math.floor(rand() * 3);
+      let y = 0, cx = c.x, cz = c.z, cw = w, cd = d;
+      for (let l = 0; l < levels; l++) {
+        const h = 2.4 + rand() * 1.4;
+        if (y + h > allowedTop(cx, cz, cw, cd)) break;
+        solid(bucket, 'facade', 'shanty', SHANTY_TEX[rand() < 0.65 ? 0 : 1], cx, y + h / 2, cz, cw, h, cd);
+        y += h;
+        if (rand() < 0.5) tarps.push({ x: cx, y: y + 0.1, z: cz, w: cw + 0.8, h: 0.12, d: cd + 0.8, color: pick(rand, TARP) });
+        cx += (rand() - 0.5) * 1.2; cz += (rand() - 0.5) * 1.2; cw *= 0.85; cd *= 0.85;
+      }
+      if (rand() < 0.35) lantern(c.x + (rand() - 0.5) * w, y + 0.6, c.z + (rand() - 0.5) * d);
+      if (rand() < 0.25) vents.push({ x: c.x, z: c.z + d / 2 + 0.6 });
+    }
+    for (let i = 0; i < 10; i++) {
+      const ax = r.x - r.w / 2 + rand() * r.w, az = r.z - r.d / 2 + rand() * r.d;
+      const bx = r.x - r.w / 2 + rand() * r.w, bz = r.z - r.d / 2 + rand() * r.d;
+      const ya = 4 + rand() * 4, yb = 4 + rand() * 4;
+      const mx = (ax + bx) / 2, mz = (az + bz) / 2, my = Math.min(ya, yb) - 0.8;
+      wires.push(ax, ya, az, mx, my, mz, mx, my, mz, bx, yb, bz);
+    }
+    pois.push({ x: r.x, y: 8, z: r.z, w: 1.2 });
+  };
+
   // -- the map: avenues, reserved features, merged superblocks --------------
   const reserved = new Map<string, string>();
   const key = (bx: number, bz: number) => `${bx}:${bz}`;
@@ -678,6 +757,8 @@ export function planCity(seed: number): Plan {
   for (const [bx, bz] of [[-3, -6], [5, 2], [-6, -2]]) reserved.set(key(bx, bz), 'temple');
   for (let bx = 8; bx <= 10; bx++) for (let bz = -10; bz <= -8; bz++) reserved.set(key(bx, bz), 'industry');
   reserved.set(key(LANDMARK_BLOCK.bx, LANDMARK_BLOCK.bz), 'landmark');
+  for (const [bx, bz] of [[-6, -5], [6, 6], [2, -7]]) reserved.set(key(bx, bz), 'flea'); // the flea markets
+  for (const [bx, bz] of [[-7, 6], [7, -2], [-4, 7], [6, -6]]) reserved.set(key(bx, bz), 'favela'); // the poor quarters
   // closed street segments: a north–south street line i closed alongside
   // block row j (closedZ), an east–west line i closed alongside column j (closedX)
   const closedZ = new Set<string>();
@@ -686,18 +767,9 @@ export function planCity(seed: number): Plan {
   closedZ.add('3:-3'); closedZ.add('3:-4'); closedX.add('-4:3'); closedX.add('-4:4'); // the megastructure
   const merged = new Map<string, 'x' | 'z'>(); // the first block of a merged pair → merge axis
   const swallowed = new Set<string>();
+  const noMerge = new Set<string>(); // blocks the interchanges need whole
   const ordinary = (bx: number, bz: number) =>
-    bx !== 0 && bz !== 0 && Math.max(Math.abs(bx), Math.abs(bz)) <= HALF && !reserved.has(key(bx, bz)) && !merged.has(key(bx, bz)) && !swallowed.has(key(bx, bz));
-  for (let bx = -HALF; bx <= HALF; bx++) {
-    for (let bz = -HALF; bz <= HALF; bz++) {
-      if (!ordinary(bx, bz)) continue;
-      if (bx + 1 !== 0 && ordinary(bx + 1, bz) && rand() < 0.13) {
-        merged.set(key(bx, bz), 'x'); swallowed.add(key(bx + 1, bz)); closedZ.add(`${bx}:${bz}`);
-      } else if (bz + 1 !== 0 && ordinary(bx, bz + 1) && rand() < 0.1) {
-        merged.set(key(bx, bz), 'z'); swallowed.add(key(bx, bz + 1)); closedX.add(`${bz}:${bx}`);
-      }
-    }
-  }
+    bx !== 0 && bz !== 0 && Math.max(Math.abs(bx), Math.abs(bz)) <= HALF && !reserved.has(key(bx, bz)) && !merged.has(key(bx, bz)) && !swallowed.has(key(bx, bz)) && !noMerge.has(key(bx, bz));
   // -- the interchanges: at one column west and one east of the plaza the
   // highway sheds an off-ramp and takes an on-ramp on each side (owner: a
   // highway cut by smaller roads, not a generic slab) — each ramp falls
@@ -714,23 +786,44 @@ export function planCity(seed: number): Plan {
       const dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz);
       return { x0: ax, z0: az, dx: dx / len, dz: dz / len, len, y: ay, y1: by, kind: 'ramp', width: RAMP_W, oneWay: true };
     };
-    const fits = (i: number): boolean => {
+    // a column takes an interchange if its four landings (an off-ramp's
+    // foot and an on-ramp's head each side) fall between crossings on open
+    // segments, and the ramps' far ends stay clear of the avenues
+    const fits = (i: number): number | null => {
       const X = streetAt(i), z = zH(X);
-      for (const off of [-24.6, -16.6, 16.6, 24.6]) if (onStreet(z + off)) return false;
-      const j0 = Math.round((z - 24.6) / G), j1 = Math.round((z + 24.6) / G);
-      for (let j = j0; j <= j1; j++) if (!openZ(i, j)) return false;
-      return Math.abs(X) + 70 < EXT;
+      if (Math.abs(X) + 70 >= EXT || Math.abs(X) - 67 < MEDIAN + 16) return null;
+      for (const a of [16.6, 20, 24, 28, 14]) {
+        if ([-a - 8, -a, a, a + 8].some((off) => onStreet(z + off))) continue;
+        const j0 = Math.round((z - a - 8) / G), j1 = Math.round((z + a + 8) / G);
+        let open = true;
+        for (let j = j0; j <= j1; j++) if (!openZ(i, j)) open = false; // only the features close segments this early
+        if (!open) continue;
+        for (let j = j0; j <= j1; j++) { noMerge.add(key(i, j)); noMerge.add(key(i + 1, j)); } // and no merge may close them later
+        return a;
+      }
+      return null;
     };
-    for (const side of [[-4, -3, -5, -2], [2, 3, 1, 4]]) {
-      const i = side.find(fits);
-      if (i === undefined) continue;
+    for (const side of [[-4, -3, -5], [3, 2, 4]]) {
+      let i: number | undefined, a: number | null = null;
+      for (const c of side) { a = fits(c); if (a !== null) { i = c; break; } }
+      if (i === undefined || a === null) continue;
       const X = streetAt(i), z = zH(X), top = HIGHWAY.y + 0.4;
       const edge = (x: number, s: number) => ({ x: x + nx * 11 * s, z: zH(x) + nz * 11 * s });
-      const a = edge(X - 67, 1), b = edge(X + 67, 1), c = edge(X + 67, -1), d = edge(X - 67, -1);
-      ramps.push(ramp(a.x, top, a.z, X, 0, z + 16.6)); // eastbound off
-      ramps.push(ramp(X, 0, z + 24.6, b.x, top, b.z)); // eastbound on
-      ramps.push(ramp(c.x, top, c.z, X, 0, z - 16.6)); // westbound off
-      ramps.push(ramp(X, 0, z - 24.6, d.x, top, d.z)); // westbound on
+      const p = edge(X - 67, 1), q = edge(X + 67, 1), r = edge(X + 67, -1), t = edge(X - 67, -1);
+      ramps.push(ramp(p.x, top, p.z, X, 0, z + a)); // eastbound off
+      ramps.push(ramp(X, 0, z + a + 8, q.x, top, q.z)); // eastbound on
+      ramps.push(ramp(r.x, top, r.z, X, 0, z - a)); // westbound off
+      ramps.push(ramp(X, 0, z - a - 8, t.x, top, t.z)); // westbound on
+    }
+  }
+  for (let bx = -HALF; bx <= HALF; bx++) {
+    for (let bz = -HALF; bz <= HALF; bz++) {
+      if (!ordinary(bx, bz)) continue;
+      if (bx + 1 !== 0 && ordinary(bx + 1, bz) && rand() < 0.13) {
+        merged.set(key(bx, bz), 'x'); swallowed.add(key(bx + 1, bz)); closedZ.add(`${bx}:${bz}`);
+      } else if (bz + 1 !== 0 && ordinary(bx, bz + 1) && rand() < 0.1) {
+        merged.set(key(bx, bz), 'z'); swallowed.add(key(bx, bz + 1)); closedX.add(`${bz}:${bx}`);
+      }
     }
   }
   const pullAt = (bx: number, bz: number) =>
@@ -741,6 +834,9 @@ export function planCity(seed: number): Plan {
     for (let bz = -HALF; bz <= HALF; bz++) {
       if (bx === 0 || bz === 0) continue; // the avenues
       const k = key(bx, bz);
+      const kind = reserved.get(k);
+      if (kind === 'flea') { flea({ x: bx * G, z: bz * G, w: LOT, d: LOT }); continue; }
+      if (kind === 'favela') { favela({ x: bx * G, z: bz * G, w: LOT, d: LOT }); continue; }
       if (reserved.has(k) || swallowed.has(k)) continue;
       const m = merged.get(k);
       const rect: Rect = m === 'x'
@@ -815,7 +911,7 @@ export function planCity(seed: number): Plan {
     for (let i = 0; i < 8; i++) lantern(cx + (rand() - 0.5) * 20, 2.4, cz + (rand() - 0.5) * 20);
     pois.push({ x: cx, y: 10, z: cz, w: 1.3 });
   };
-  const pois: Poi[] = [{ x: lmx, y: landmark.top * 0.62, z: lmz, w: 3 }];
+  pois.push({ x: lmx, y: landmark.top * 0.62, z: lmz, w: 3 });
   for (const [bx, bz] of [[-3, -6], [5, 2], [-6, -2]]) temple(bx * G, bz * G);
   bucket = outer;
   for (let bx = 8; bx <= 10; bx++) {
@@ -887,6 +983,17 @@ export function planCity(seed: number): Plan {
     solid(core, 'dark', 'bridge', 0, x, 9.5, 0, 3, 0.5, 56);
     for (const s of [-1, 1]) solid(core, 'dark', 'street', 0, x, 4.75, s * 27, 0.6, 9.5, 0.6);
     for (let z = -26; z <= 26; z += 4) lantern(x + 1.6, 10.4, z);
+  }
+  // STILT HUTS on the canal's edges, between the bridges: the water's poor
+  for (let i = 0; i < 16; i++) {
+    const side = i % 2 ? -1 : 1;
+    const z = (rand() - 0.5) * 2 * (EXT - 30);
+    if (onStreet(z) || Math.abs(z) < 34) continue;
+    const x = side * 10.4;
+    solid(core, 'facade', 'shanty', SHANTY_TEX[1], x, 2.2, z, 3.2, 2.6, 3.4);
+    solid(core, 'pyr', 'shanty', 0, x, 4.2, z, 3.8, 1.4, 4);
+    for (const [ox, oz] of [[-1.2, -1.2], [1.2, -1.2], [-1.2, 1.2], [1.2, 1.2]]) solid(core, 'dark', 'street', 0, x + ox, 0.45, z + oz, 0.16, 0.9, 0.16);
+    lantern(x - side * 1.9, 2.8, z);
   }
   solid(core, 'cyl', 'street', 0, 0, 0.25, 0, 30, 0.5, 30); // the plaza's disc
   for (let i = 0; i < 12; i++) {
@@ -985,6 +1092,23 @@ export function planCity(seed: number): Plan {
       if (lineDist(x, z, DIAGONAL.x0, DIAGONAL.z0, DIAGONAL.x1, DIAGONAL.z1) < 9) continue;
       solid(core, 'dark', 'street', 0, x, 1.2, z, 2.2, 2.4, 1.6);
       signs.push({ x, y: 1.5, z: z - sz * 0.85, rotY: sz > 0 ? Math.PI : 0, w: 1.8, h: 1.3, color: signColor(rand), kind: 'tag' });
+    }
+  }
+  // the SQUATS under the deck: shacks between the pillars wherever nothing stands
+  {
+    const hx = HIGHWAY.x1 - HIGHWAY.x0, hz = HIGHWAY.z1 - HIGHWAY.z0, hlen = Math.hypot(hx, hz), hdx = hx / hlen, hdz = hz / hlen;
+    for (let t = 4; t < hlen; t += 6) {
+      const x = HIGHWAY.x0 + hdx * t, z = HIGHWAY.z0 + hdz * t;
+      if (Math.abs(x) > EXT || Math.abs(z) > EXT || onStreet(x) || onStreet(z) || rand() < 0.35) continue;
+      const side = rand() < 0.5 ? -1 : 1;
+      const sx = x - hdz * side * (2.5 + rand() * 2), sz = z + hdx * side * (2.5 + rand() * 2);
+      const sw = 2.2 + rand() * 1.6, sd = 2.2 + rand() * 1.6, sh = 2 + rand() * 1.2;
+      const pad = Math.max(sw, sd) / 2 + 0.6; // the shack itself, not just the deck's axis, stays off the pavements
+      if (Math.abs(((sx % G) + G) % G - G / 2) < STREET / 2 + pad || Math.abs(((sz % G) + G) % G - G / 2) < STREET / 2 + pad) continue;
+      if (grid.hit(sx, sh / 2, sz, Math.max(sw, sd) / 2 + 0.4)) continue;
+      solid(core, 'facade', 'shanty', SHANTY_TEX[rand() < 0.6 ? 0 : 1], sx, sh / 2, sz, sw, sh, sd);
+      tarps.push({ x: sx, y: sh + 0.08, z: sz, w: sw + 0.7, h: 0.12, d: sd + 0.7, color: pick(rand, TARP) });
+      if (rand() < 0.5) lantern(sx + side * 1.6, 1.6, sz);
     }
   }
   tall.sort((a, b) => b.top - a.top);
@@ -1095,7 +1219,7 @@ export function planCity(seed: number): Plan {
   };
 
   return {
-    core, outer, sprawl, strips, leds, awnings, signs, posts, lanterns, wires, vents, holos, stalls, sprawlLamps, neon,
+    core, outer, sprawl, strips, leds, awnings, tarps, signs, posts, lanterns, wires, vents, holos, stalls, sprawlLamps, neon,
     beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead,
   };
 }
@@ -1114,7 +1238,7 @@ export function planCity(seed: number): Plan {
  *  back out, ORBITS around a landmark with the eye held on it, and long
  *  low FLYOVERS down the avenues (owner: cinematic, around the city). */
 export type Phase = 'cruise' | 'dive' | 'canyon' | 'climb' | 'orbit' | 'flyover';
-interface Orbit { x: number; z: number; y: number; r: number; a: number; da: number; focus: Poi }
+interface Orbit { x: number; z: number; y: number; yTo: number; r: number; a: number; da: number; focus: Poi }
 interface FlightState {
   phase: Phase; left: number; heading: number; axis: 'x' | 'z'; dir: 1 | -1; street: number; avenue: boolean; orbit: Orbit | null;
   /** Cruise legs still to fly before another orbit may start. */
@@ -1306,7 +1430,9 @@ export class AutoFlight {
       const old = last.t.clone();
       const through = this.tmp2.subVectors(c.p, prev.p);
       if (through.lengthSq() > 1) {
-        const len = ((last.k + k) / 2) * (prevChord + chord) / 2;
+        // sized to the mean chord, but never much past the shorter one — a
+        // long leg into a short one would otherwise overshoot the knot
+        const len = Math.min(((last.k + k) / 2) * (prevChord + chord) / 2, 1.2 * Math.min(prevChord, chord));
         last.t.copy(through).setLength(len);
         if (!this.legClear(i - 1) || !this.legClear(i)) {
           last.t.setLength(len * 0.5); // a shorter re-aim bulges less
@@ -1363,26 +1489,29 @@ export class AutoFlight {
     s.heading += clamp(d, -turn, turn) * (0.45 + 0.55 * w);
   }
 
-  /** A landmark worth circling: ahead-ish, not too near, not too far. */
+  /** A landmark worth circling: beside us or ahead, at a distance that
+   *  makes a good radius — the orbit starts where the flight already is,
+   *  so its first leg is a normal leg, and sinks toward its height as it
+   *  goes round. */
   private pickOrbit(last: Vector3, heading: number): Orbit | null {
     let best: Poi | null = null, bestScore = 0;
     const hx = Math.sin(heading), hz = Math.cos(heading);
     for (const p of this.pois) {
       const d = Math.hypot(p.x - last.x, p.z - last.z);
-      if (d < 50 || d > 260) continue;
-      if ((hx * (p.x - last.x) + hz * (p.z - last.z)) / d < 0.2) continue; // ahead of us, not behind
+      if (d < 48 || d > 130) continue;
+      if ((hx * (p.x - last.x) + hz * (p.z - last.z)) / d < -0.2) continue; // not behind us
       // the whole circle must fit inside the fence
-      if (Math.max(Math.abs(p.x), Math.abs(p.z)) + Math.max(48, p.w * 20) > EXT - 40) continue;
+      if (Math.max(Math.abs(p.x), Math.abs(p.z)) + d > EXT - 40) continue;
       const score = p.w * (1 - d / 300) * (0.5 + this.rand());
       if (score > bestScore) { best = p; bestScore = score; }
     }
     if (!best) return null;
-    const r = Math.max(48, best.w * 20);
-    const da = this.rand() < 0.5 ? 0.85 : -0.85;
-    // land one step around the circle from the nearest point, so the leg
-    // onto it is a real leg even when the flight is already at the rim
-    const a = Math.atan2(last.x - best.x, last.z - best.z) + da;
-    return { x: best.x, z: best.z, y: clamp(best.y * 0.9 + 16, 44, 190), r, a, da, focus: best };
+    const r = Math.hypot(best.x - last.x, best.z - last.z);
+    // turn the way we are already turning about it
+    const cross = hx * (best.z - last.z) - hz * (best.x - last.x);
+    const da = (cross > 0 ? 1 : -1) * 0.85;
+    const a = Math.atan2(last.x - best.x, last.z - best.z);
+    return { x: best.x, z: best.z, y: last.y, yTo: clamp(best.y * 0.9 + 16, 44, 190), r, a, da, focus: best };
   }
 
   private propose(last: Vector3, tan: Vector3, tries: number, forceY?: number): Proposal {
@@ -1392,6 +1521,7 @@ export class AutoFlight {
     if (s.phase === 'orbit' && s.orbit) {
       const o = s.orbit;
       o.a += o.da;
+      o.y += (o.yTo - o.y) * 0.3; // sinking (or rising) toward the landmark's height, a third at a time
       const p = new Vector3(o.x + Math.sin(o.a) * o.r, o.y, o.z + Math.cos(o.a) * o.r);
       const dir = new Vector3(Math.cos(o.a), 0, -Math.sin(o.a)).multiplyScalar(Math.sign(o.da));
       if (--s.left <= 0) { s.phase = 'cruise'; s.left = 1 + Math.floor(r() * 2); s.heading = Math.atan2(dir.x, dir.z); s.orbit = null; s.cool = 4; }
@@ -1429,10 +1559,12 @@ export class AutoFlight {
         const orbit = a < 0.16 && s.cool === 0 && tries === 0 ? this.pickOrbit(p, s.heading) : null;
         if (orbit) {
           s.orbit = orbit; s.phase = 'orbit'; s.left = 3 + Math.floor(r() * 3); this.orbits += 1;
-          // the first orbit leg lands on the circle where it is nearest
+          // the circle runs through this very knot: the first leg is its first step
+          orbit.a += orbit.da;
+          orbit.y += (orbit.yTo - orbit.y) * 0.3;
           p.set(orbit.x + Math.sin(orbit.a) * orbit.r, orbit.y, orbit.z + Math.cos(orbit.a) * orbit.r);
           dir.set(Math.cos(orbit.a), 0, -Math.sin(orbit.a)).multiplyScalar(Math.sign(orbit.da));
-          return { p, dir, dive: false, phase: 'orbit', focus: orbit.focus, k: 0.8 };
+          return { p, dir, dive: false, phase: 'orbit', focus: orbit.focus, k: 1.0 };
         }
         const nearX = Math.abs(p.z) < 70, nearZ = Math.abs(p.x) < 70; // an avenue runs along x (z ≈ 0) or along z (x ≈ 0)
         if (a < 0.42 && (nearX || nearZ)) {

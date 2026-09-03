@@ -132,6 +132,11 @@ const LENS_FRAG = /* glsl */ `
       fetch(uv + vec2(s, 0.0), d, r2) + fetch(uv - vec2(s, 0.0), d, r2) +
       fetch(uv + vec2(0.0, s), d, r2) + fetch(uv - vec2(0.0, s), d, r2));
     col *= 1.0 - vig * pow(r2, 1.15);
+    // the grade: a touch more contrast, cool shadows, warm highlights
+    float luma = dot(col, vec3(0.299, 0.587, 0.114));
+    col = (col - 0.5) * 1.1 + 0.5;
+    col += vec3(-0.012, 0.0, 0.024) * (1.0 - clamp(luma * 3.0, 0.0, 1.0)) + vec3(0.02, 0.008, -0.012) * clamp(luma - 0.4, 0.0, 1.0);
+    col = max(col, 0.0);
     if (rain > 0.0) {
       vec2 ru = vec2(vUv.x * aspect + vUv.y * 0.06, vUv.y); // a slight slant: the rig is moving
       float r = streaks(ru, 70.0, 1.6, 9.0) * 0.5 + streaks(ru + vec2(0.37, 0.11), 130.0, 2.4, 15.0) * 0.3;

@@ -28,16 +28,17 @@
  *  (city-traffic.ts): lanes, lights, queues, turns, on- and off-ramps. */
 import {
   AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ConeGeometry,
-  CylinderGeometry, DoubleSide, FogExp2, Group, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4,
-  Mesh, MeshBasicMaterial, NearestFilter, Object3D, PerspectiveCamera, PlaneGeometry, Points, PointsMaterial,
-  RepeatWrapping, Scene, SphereGeometry, Sprite, SpriteMaterial, SRGBColorSpace, TorusGeometry, Vector2, Vector3,
-  WebGLRenderer,
+  CylinderGeometry, DirectionalLight, DoubleSide, FogExp2, Group, HemisphereLight, InstancedMesh, LineBasicMaterial,
+  LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, NearestFilter, Object3D,
+  PCFSoftShadowMap, PerspectiveCamera, PlaneGeometry, Points, PointsMaterial, RepeatWrapping, Scene, ShaderChunk,
+  SphereGeometry, Sprite, SpriteMaterial, SRGBColorSpace, TorusGeometry, Vector2, Vector3, WebGLRenderer,
 } from 'three';
+import type { WebGLProgramParametersWithUniforms } from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { reducedMotion } from '../lib/env';
+import { isMobile, reducedMotion } from '../lib/env';
 import { mulberry32 } from '../lib/rng';
 import {
   AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, EXT, FacadeStyle, G, HIGHWAY, planCity, Poi, RAMP_W, rampY,
@@ -46,7 +47,76 @@ import {
 import { fov24, LensPass, lensTarget, MotionBlurPass } from './city-post';
 import { Traffic } from './city-traffic';
 
-const PIX = 2;
+/** THE FOG, rewritten for every material at once: three's exponential
+ *  distance fog, plus a HAZE that pools in the streets (denser low, only
+ *  with distance — the light pollution the plates are soaked in), plus the
+ *  FOG OF WAR (owner): past the fence the city dissolves whatever the
+ *  distance, so the sandbox reads as infinite and the eye never reaches
+ *  its edge — while inside it the air is clear and the render distance
+ *  long. The vertex side carries the world position out of the modelview
+ *  one (the view's rotation transposed). */
+ShaderChunk.fog_pars_vertex = /* glsl */ `
+#ifdef USE_FOG
+  varying float vFogDepth;
+  varying vec3 vFogWorld;
+#endif`;
+ShaderChunk.fog_vertex = /* glsl */ `
+#ifdef USE_FOG
+  vFogDepth = - mvPosition.z;
+  vFogWorld = cameraPosition + mvPosition.xyz * mat3( viewMatrix );
+#endif`;
+ShaderChunk.fog_pars_fragment = /* glsl */ `
+#ifdef USE_FOG
+  uniform vec3 fogColor;
+  varying float vFogDepth;
+  varying vec3 vFogWorld;
+  #ifdef FOG_EXP2
+    uniform float fogDensity;
+  #else
+    uniform float fogNear;
+    uniform float fogFar;
+  #endif
+#endif`;
+ShaderChunk.fog_fragment = /* glsl */ `
+#ifdef USE_FOG
+  #ifdef FOG_EXP2
+    float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
+  #else
+    float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
+  #endif
+  float haze = 0.42 * exp( - max( vFogWorld.y, 0.0 ) * 0.03 ) * ( 1.0 - exp( - vFogDepth * 0.011 ) );
+  fogFactor = 1.0 - ( 1.0 - fogFactor ) * ( 1.0 - haze );
+  float edge = max( abs( vFogWorld.x ), abs( vFogWorld.z ) );
+  fogFactor = max( fogFactor, smoothstep( 272.0, 440.0, edge ) * 0.93 );
+  gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );
+#endif`;
+
+/** QUALITY (owner: a render distance that adapts): four tiers of far plane,
+ *  fog density, shadows and pixel size. The opening tier reads the
+ *  connection (the Network Information API, where the browser offers it)
+ *  and the device; from then on the measured frame time steps the tier
+ *  down when frames run long and back up when they run short. */
+interface Tier { label: string; far: number; fog: number; shadows: boolean; pix: number }
+const TIERS: Tier[] = [
+  { label: 'low', far: 900, fog: 0.0036, shadows: false, pix: 3 },
+  { label: 'mid', far: 1000, fog: 0.0026, shadows: false, pix: 2 },
+  { label: 'high', far: 1200, fog: 0.0019, shadows: true, pix: 2 },
+  { label: 'ultra', far: 1400, fog: 0.0014, shadows: true, pix: 2 },
+];
+function startTier(): number {
+  const nav = navigator as Navigator & { connection?: { effectiveType?: string; saveData?: boolean; downlink?: number }; deviceMemory?: number };
+  const c = nav.connection;
+  let t = 2;
+  if (c) {
+    if (c.saveData || c.effectiveType === 'slow-2g' || c.effectiveType === '2g') t = 0;
+    else if (c.effectiveType === '3g') t = 1;
+    else if ((c.downlink ?? 10) >= 20) t = 3;
+  }
+  if ((nav.hardwareConcurrency ?? 8) < 4 || (nav.deviceMemory ?? 8) < 4) t = Math.min(t, 1);
+  if (isMobile()) t = Math.min(t, 1);
+  return t;
+}
+
 // the reference's windows: warm sodium AND a lot of cool cyan-blue-white
 const WARM = ['#ffb36b', '#ffd9a0', '#ff9a4d', '#ffe9c9', '#ffc27a'];
 const COOL = ['#7de8ff', '#4fc3ff', '#bfefff', '#ffffff', '#ff5e7a', '#b79cff'];
@@ -142,6 +212,66 @@ function facadeTexture(rand: () => number, s: FacadeStyle): CanvasTexture {
   }
   x.globalAlpha = 1;
   return asPixelTex(new CanvasTexture(c));
+}
+
+/** The window grid of a style's texture — pitch and offset per axis — so a
+ *  shader can find which window a texel belongs to. */
+function windowCells(s: FacadeStyle): [number, number, number, number] {
+  switch (s.win) {
+    case 'grid': return [5, 1, 5, 2];
+    case 'tiny': return [4, 1, 4, 2];
+    case 'wide': return [8, 1, 6, 3];
+    case 'ribbon': return [4, 2, 5, 3];
+    case 'strip': return [6, 2, 8, 0];
+    default: return [8, 0, 5, 2]; // curtain: bands
+  }
+}
+
+/** LIVING WINDOWS (owner: the lights must feel alive, slowly): the facade's
+ *  lit texels are found by their brightness against the wall; some of the
+ *  windows (never all) go dark for a stretch and come back, over seconds,
+ *  each on its own long period, each building's phases its own. Injected
+ *  into the material's map and emissive reads. */
+const winTime = { value: 0 };
+function livingFacade(mat: MeshLambertMaterial, cells: [number, number, number, number], wall: string): MeshLambertMaterial {
+  mat.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
+    shader.uniforms.uTime = winTime;
+    shader.uniforms.uPitch = { value: new Vector2(cells[0], cells[2]) };
+    shader.uniforms.uOff = { value: new Vector2(cells[1], cells[3]) };
+    shader.uniforms.uWall = { value: new Color(wall) };
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying float vInst;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+          vInst = fract( dot( instanceMatrix[3].xz, vec2( 0.0371, 0.0913 ) ) + instanceMatrix[3].y * 0.011 );
+        #else
+          vInst = 0.0;
+        #endif`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+        uniform float uTime; uniform vec2 uPitch; uniform vec2 uOff; uniform vec3 uWall; varying float vInst;
+        float wHash( vec2 p ) { return fract( sin( dot( p, vec2( 127.1, 311.7 ) ) ) * 43758.5453 ); }
+        float windowOff( vec2 uv ) {
+          vec2 cell = floor( ( uv * vec2( 64.0, 256.0 ) - uOff ) / uPitch );
+          float h = wHash( cell + vInst * 37.0 );
+          if ( h < 0.55 ) return 0.0;
+          float period = 50.0 + 90.0 * wHash( cell * 1.7 + vInst * 11.0 );
+          float w = fract( uTime / period + h * 7.0 );
+          return smoothstep( 0.0, 0.035, w ) * smoothstep( 0.3, 0.26, w );
+        }`)
+      .replace('#include <map_fragment>', `
+        vec4 sampledDiffuseColor = texture2D( map, vMapUv );
+        float wlum = dot( sampledDiffuseColor.rgb, vec3( 0.3, 0.5, 0.2 ) );
+        sampledDiffuseColor.rgb = mix( sampledDiffuseColor.rgb, uWall, smoothstep( 0.12, 0.3, wlum ) * windowOff( vMapUv ) );
+        diffuseColor *= sampledDiffuseColor;`)
+      .replace('#include <emissivemap_fragment>', `
+        vec4 emissiveColor = texture2D( emissiveMap, vEmissiveMapUv );
+        float elum = dot( emissiveColor.rgb, vec3( 0.3, 0.5, 0.2 ) );
+        emissiveColor.rgb = mix( emissiveColor.rgb, uWall, smoothstep( 0.12, 0.3, elum ) * windowOff( vEmissiveMapUv ) );
+        totalEmissiveRadiance *= emissiveColor.rgb;`);
+  };
+  mat.customProgramCacheKey = () => 'living';
+  return mat;
 }
 
 function crownTexture(): CanvasTexture {
@@ -398,6 +528,9 @@ export interface CityRide {
   warp(x: number, y: number, z: number, yaw: number, pitch: number): void;
   tick(n?: number): void;
   pose(): { x: number; y: number; z: number; yaw: number; pitch: number; mode: FlyMode; dir: number[] };
+  /** The quality tier in force (far plane, fog, shadows, pixel size) — and a way to force one. */
+  quality(): { tier: string; far: number; fog: number; shadows: boolean; pix: number };
+  setQuality(t: number): void;
 }
 
 export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
@@ -405,11 +538,41 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const rand = mulberry32(seed ^ 0x9e3779b9); // the renderer's own stream; the plan owns the seed
   const calm = reducedMotion();
   const scene = new Scene();
-  scene.fog = new FogExp2('#0c1826', 0.0036);
+  let tier = startTier();
+  let PIX = TIERS[tier].pix;
+  const fog = new FogExp2('#0c1826', TIERS[tier].fog);
+  scene.fog = fog;
 
-  const camera = new PerspectiveCamera(fov24(1), 1, 0.1, 1400);
+  const camera = new PerspectiveCamera(fov24(1), 1, 0.1, TIERS[tier].far);
   const renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
   renderer.setPixelRatio(1);
+  renderer.shadowMap.enabled = TIERS[tier].shadows;
+  renderer.shadowMap.type = PCFSoftShadowMap;
+  // CINEMATIC LIGHT (owner: contrast, shadow, highlights): a blue hemisphere
+  // (sky above, the streets' sodium below) and the moon as a key light that
+  // CASTS SHADOWS — its shadow camera rides with the eye. The facades keep
+  // their baked windows as emissive light; the walls between them take the
+  // moon and lose it in shadow.
+  const hemi = new HemisphereLight('#3a58b0', '#3a2a16', 0.26);
+  scene.add(hemi);
+  const MOON = new Vector3(110, 300, 460);
+  const moonDir = MOON.clone().normalize();
+  const moonLight = new DirectionalLight('#c4d3ff', 1.0); // strong enough that its shadows read on the streets
+  moonLight.castShadow = TIERS[tier].shadows;
+  moonLight.shadow.mapSize.set(2048, 2048);
+  moonLight.shadow.camera.left = -230; moonLight.shadow.camera.right = 230;
+  moonLight.shadow.camera.top = 230; moonLight.shadow.camera.bottom = -230;
+  moonLight.shadow.camera.near = 20; moonLight.shadow.camera.far = 900;
+  moonLight.shadow.bias = -0.0005;
+  moonLight.shadow.normalBias = 0.5;
+  moonLight.shadow.radius = 2;
+  scene.add(moonLight, moonLight.target);
+  const aimMoon = () => { // the shadow frustum follows the eye's ground focus
+    camera.getWorldDirection(fwd);
+    const fx = camera.position.x + fwd.x * 70, fz = camera.position.z + fwd.z * 70;
+    moonLight.target.position.set(fx, 0, fz);
+    moonLight.position.set(fx + moonDir.x * 340, moonDir.y * 340, fz + moonDir.z * 340);
+  };
   const composer = new EffectComposer(renderer, lensTarget(2, 2));
   const blur = new MotionBlurPass(camera, calm ? 0.35 : 0.6);
   const lens = new LensPass();
@@ -425,7 +588,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const sky = new Group();
   scene.add(sky);
   sky.add(new Mesh(
-    new SphereGeometry(880, 24, 20),
+    new SphereGeometry(640, 24, 20),
     new MeshBasicMaterial({ map: skyTexture(), side: BackSide, fog: false, depthWrite: false }),
   ));
   const starsOf = (pos: Float32Array, size: number, tint: string, opacity = 1): Points => {
@@ -433,13 +596,13 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     g.setAttribute('position', new BufferAttribute(pos, 3));
     return new Points(g, new PointsMaterial({ color: tint, size, sizeAttenuation: false, transparent: true, opacity, fog: false, depthWrite: false }));
   };
-  const starsA = starsOf(starPositions(rand, 2600, 700, 820), 2.2, '#EDEDE6');
-  const starsB = starsOf(starPositions(rand, 1100, 700, 820), 3.2, '#cfe6ff');
-  const starsC = starsOf(starPositions(rand, 500, 700, 820), 2.0, '#ffd9a0');
-  const band = starsOf(bandPositions(rand, 1500, 760, 0.3), 1.4, '#c9d2ff', 0.42);
+  const starsA = starsOf(starPositions(rand, 2600, 560, 630), 2.2, '#EDEDE6');
+  const starsB = starsOf(starPositions(rand, 1100, 560, 630), 3.2, '#cfe6ff');
+  const starsC = starsOf(starPositions(rand, 500, 560, 630), 2.0, '#ffd9a0');
+  const band = starsOf(bandPositions(rand, 1500, 600, 0.3), 1.4, '#c9d2ff', 0.42);
   sky.add(starsA, starsB, starsC, band);
   for (const [color, th, sc] of [['#b79cff', 0.4, 520], ['#7de8ff', 2.0, 440], ['#ff5e7a', 3.6, 380]] as [string, number, number][]) {
-    const p = bandPoint(th, 700);
+    const p = bandPoint(th, 590);
     if (p.y < 60) continue;
     const s = new Sprite(new SpriteMaterial({
       map: glowTexture(color), transparent: true, opacity: 0.055, blending: AdditiveBlending, fog: false, depthWrite: false,
@@ -448,7 +611,6 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     s.scale.set(sc, sc * 0.6, 1);
     sky.add(s);
   }
-  const MOON = new Vector3(110, 300, 460);
   const moon = new Sprite(new SpriteMaterial({ map: moonTexture(), transparent: true, fog: false, depthWrite: false }));
   moon.position.copy(MOON);
   moon.scale.set(46, 46, 1);
@@ -489,8 +651,11 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const groundTex = groundTexture(rand);
   const GROUND = 106 * G; // a whole number of blocks: lot centres land on the tile corners
   groundTex.repeat.set(106, 106);
-  const ground = new Mesh(new PlaneGeometry(GROUND, GROUND), new MeshBasicMaterial({ map: groundTex }));
+  const ground = new Mesh(new PlaneGeometry(GROUND, GROUND), new MeshLambertMaterial({
+    map: groundTex, emissive: '#ffffff', emissiveMap: groundTex, emissiveIntensity: 0.4,
+  }));
   ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
   scene.add(ground);
   const water = new Mesh(new PlaneGeometry(CANAL.w, 2 * REACH), new MeshBasicMaterial({ color: '#040812' }));
   water.rotation.x = -Math.PI / 2;
@@ -576,23 +741,26 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     c.needsUpdate = true;
     return c;
   });
-  const dark = new MeshBasicMaterial({ color: '#08080f' });
-  // CINEMATIC SHADING, the stylized way: the moon hangs at +x/+z, so those
-  // faces carry the map at full strength and the far faces sleep in blue
-  // shadow — two-tone per box, no lights computed (box groups: +x,-x,+y,-y,+z,-z)
-  const facadeMats = (map: CanvasTexture, shade: string): Material[] => {
-    const lit = new MeshBasicMaterial({ map });
-    const shad = new MeshBasicMaterial({ map, color: shade });
-    return [lit, shad, dark, dark, lit, shad];
+  const dark = new MeshLambertMaterial({ color: '#0a0b16' });
+  // the moon lights the near faces and the roofs, the far faces sleep in the
+  // hemisphere's blue, the shadows take the rest; the windows are emissive
+  // (they are their own light) and LIVE — see livingFacade
+  const facade = (map: CanvasTexture, style: FacadeStyle, far: boolean): MeshLambertMaterial =>
+    livingFacade(new MeshLambertMaterial({
+      map, emissive: '#ffffff', emissiveMap: map, emissiveIntensity: far ? 0.66 : 0.6, color: far ? '#9aa0c8' : '#ffffff',
+    }), windowCells(style), style.tint);
+  const facadeMats = (map: CanvasTexture, style: FacadeStyle, far: boolean): Material[] => {
+    const lit = facade(map, style, far);
+    return [lit, lit, dark, dark, lit, lit];
   };
   const matFor = (kind: Solid['kind'], key: string, far: boolean): Material | Material[] => {
     switch (kind) {
-      case 'facade': return facadeMats(facadeTex[Number(key)], far ? '#3c4068' : '#565b8f');
-      case 'cyl': return key === 'dark' ? [dark, dark, dark] : [new MeshBasicMaterial({ map: cylTex[Number(key)], color: '#b4b8d8' }), dark, dark];
-      case 'pyr': return new MeshBasicMaterial({ color: '#0b0b18' });
-      case 'spire': return new MeshBasicMaterial({ color: '#5f6a92' });
-      case 'dome': return new MeshBasicMaterial({ color: '#0d0e20' });
-      case 'tree': return new MeshBasicMaterial({ color: '#0b2418' });
+      case 'facade': return facadeMats(facadeTex[Number(key)], plan.styles[Number(key)], far);
+      case 'cyl': return key === 'dark' ? [dark, dark, dark] : [facade(cylTex[Number(key)], plan.styles[Number(key)], far), dark, dark];
+      case 'pyr': return new MeshLambertMaterial({ color: '#0b0b18' });
+      case 'spire': return new MeshLambertMaterial({ color: '#5f6a92' });
+      case 'dome': return new MeshLambertMaterial({ color: '#0d0e20' });
+      case 'tree': return new MeshLambertMaterial({ color: '#0b2418' });
       default: return dark;
     }
   };
@@ -623,8 +791,47 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     const inst = new InstancedMesh(geoFor(b.kind), matFor(b.kind, b.key, b.far), b.mats.length);
     b.mats.forEach((m, j) => inst.setMatrixAt(j, m));
     inst.instanceMatrix.needsUpdate = true;
+    inst.castShadow = !b.far && b.kind !== 'tree'; // the sprawl is fog's; the trees would only speckle
+    inst.receiveShadow = !b.far;
     scene.add(inst);
   }
+
+  // -- SEARCHLIGHTS: volumetric-looking beams (an additive cone, a brighter
+  // core) sweeping from the stadium's masts, the megastructure's top, the
+  // industrial cranes and the wheel — the night's light shafts ------------------
+  interface Beam { g: Group; phase: number; rate: number }
+  const beams: Beam[] = [];
+  const beamAt = (x: number, y: number, z: number, len: number, color: string, phase: number) => {
+    const g = new Group();
+    g.position.set(x, y, z);
+    for (const [r, op] of [[len * 0.075, 0.075], [len * 0.03, 0.12]] as [number, number][]) {
+      const geoC = new ConeGeometry(r, len, 12, 1, true);
+      geoC.translate(0, -len / 2, 0); // the apex at the lamp, the mouth far out
+      const m = new Mesh(geoC, new MeshBasicMaterial({
+        color, transparent: true, opacity: op, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false,
+      }));
+      g.add(m);
+    }
+    beams.push({ g, phase, rate: 0.0028 + (phase % 1) * 0.002 });
+    scene.add(g);
+  };
+  {
+    const st = plan.stadium;
+    beamAt(st.masts[0].x, st.masts[0].h, st.masts[0].z, 150, '#dfeeff', 0.3);
+    beamAt(st.masts[3].x, st.masts[3].h, st.masts[3].z, 150, '#dfeeff', 2.1);
+    beamAt(plan.mega.x + 7, plan.mega.top, plan.mega.z - 6, 170, '#bfe9ff', 1.2);
+    beamAt(plan.mega.x - 20, plan.mega.top - 28, plan.mega.z + 20, 140, '#ffd6e8', 3.9);
+    beamAt(plan.wheel.x, plan.wheel.y + plan.wheel.r + 1, plan.wheel.z, 120, '#fff0d0', 0.8);
+    if (plan.stacks.length) beamAt(plan.stacks[0].x + 8, plan.stacks[0].top - 6, plan.stacks[0].z, 130, '#cfe6ff', 4.6);
+  }
+  const sweep = () => {
+    for (const b of beams) {
+      const t = tick * b.rate + b.phase;
+      b.g.rotation.order = 'YXZ';
+      // the cone hangs down −y; pitch it up toward the sky, then sweep about the mast
+      b.g.rotation.set(0, t, Math.PI - (0.55 + Math.sin(t * 0.7) * 0.35));
+    }
+  };
 
   // glowing bars: storefront strips at the pavement, LED edges up the needles
   // (the LEDs run at half power — bloom does the rest, a full-white bar reads
@@ -646,6 +853,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   bars(plan.strips, 1);
   bars(plan.leds, 0.45);
   bars(plan.awnings, 0.35);
+  bars(plan.tarps, 0.5); // the tarps over the shacks and the stalls
   { // the market's canopies
     const inst = new InstancedMesh(geo.pyr, new MeshBasicMaterial({ color: '#ffffff' }), plan.stalls.length);
     plan.stalls.forEach((s, j) => {
@@ -1206,6 +1414,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     }
     sky.position.copy(camera.position); // the dome is a skybox: infinitely far in every direction
     horizonRing.position.set(camera.position.x, 0, camera.position.z); // the far city stays on the ground
+    aimMoon();
     // rain on the glass: down among the streets, none from the heights, none in calm
     const wet = calm ? 0 : clamp((64 - camera.position.y) / 34, 0, 1);
     lens.setRain(wet * wet * (3 - 2 * wet) * 0.42, tick / 60);
@@ -1230,6 +1439,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const tickWorld = () => {
     tick += 1;
     if (calm) return;
+    winTime.value = tick / 60;
+    sweep();
     (starsA.material as PointsMaterial).opacity = 0.7 + Math.sin(tick * 0.05) * 0.3;
     (starsB.material as PointsMaterial).opacity = 0.55 + Math.cos(tick * 0.033) * 0.35;
     for (let i = 0; i < beacons.length; i++) {
@@ -1259,9 +1470,40 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   fit();
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(canvas);
 
+  const applyTier = () => {
+    const T = TIERS[tier];
+    camera.far = T.far;
+    camera.updateProjectionMatrix();
+    fog.density = T.fog;
+    renderer.shadowMap.enabled = T.shadows;
+    moonLight.castShadow = T.shadows;
+    if (PIX !== T.pix) { PIX = T.pix; fit(); }
+    for (const m of scene.children) { // shadow defines: every material, arrays included
+      const mat = (m as Mesh).material as Material | Material[] | undefined;
+      if (!mat) continue;
+      for (const one of Array.isArray(mat) ? mat : [mat]) one.needsUpdate = true;
+    }
+  };
+  // the frame clock: long frames step the tier down, short ones (for a
+  // while) step it back up; the first seconds and hidden tabs don't count
+  let lastFrame = performance.now();
+  let frames = 0, spent = 0;
+  let lastChange = performance.now() + 3000;
   const loop = () => {
     requestAnimationFrame(loop);
+    const now = performance.now();
+    const dt = now - lastFrame;
+    lastFrame = now;
     if (document.hidden) return;
+    if (now > lastChange && dt < 250) {
+      spent += dt; frames += 1;
+      if (frames >= 90) {
+        const avg = spent / frames;
+        spent = 0; frames = 0;
+        if (avg > 26 && tier > 0) { tier -= 1; applyTier(); lastChange = now + 4000; }
+        else if (avg < 11.5 && tier < TIERS.length - 1 && now - lastChange > 12000) { tier += 1; applyTier(); lastChange = now + 2000; }
+      }
+    }
     tickWorld();
     if (mode !== 'tour' || !calm || Math.abs(target - sm) > 0.0004) render();
   };
@@ -1309,5 +1551,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       camera.getWorldDirection(fwd);
       return { x: camera.position.x, y: camera.position.y, z: camera.position.z, yaw: free.yaw, pitch: free.pitch, mode, dir: [fwd.x, fwd.y, fwd.z] };
     },
+    quality: () => ({ tier: TIERS[tier].label, far: camera.far, fog: fog.density, shadows: renderer.shadowMap.enabled, pix: PIX }),
+    setQuality: (t) => { tier = Math.max(0, Math.min(TIERS.length - 1, Math.round(t))); applyTier(); lastChange = performance.now() + 30000; render(); },
   };
 }

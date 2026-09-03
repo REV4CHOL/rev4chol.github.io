@@ -244,7 +244,7 @@ export class Traffic {
       if (!straight && !uturn) { if (crossing ? lane.index !== 0 : !outermost) return; }
       const to = w.kind === 'highway' && st.kind === 'ramp' ? lanes[lanes.length - 1] : lanes[Math.min(lane.index, lanes.length - 1)];
       lanePoint(to, 0, Q);
-      const weight = uturn ? 0.001 : w.kind === 'ramp' ? (st.kind === 'highway' ? 1.2 : 2) : straight ? (w === st ? 6 : 3) : crossing ? 1 : 1.5;
+      const weight = uturn ? 0.001 : w.kind === 'ramp' ? (st.kind === 'highway' ? 2 : 4) : straight ? (w === st ? 6 : 3) : crossing ? 1 : 1.5;
       let cx = (P.x + Q.x) / 2, cz = (P.z + Q.z) / 2;
       if (!straight && !uturn) { // the corner where the two lane lines meet
         const den = ux * wz - uz * wx;
