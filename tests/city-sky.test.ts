@@ -11,7 +11,9 @@ describe('Time of day', () => {
       expect(L.label.length).toBeGreaterThan(2);
       for (const c of [L.key.color, L.hemi.sky, L.hemi.ground, L.fog.color, L.sun.color, L.clouds.high, L.clouds.low, L.water, L.sky.lobe.color, L.bleach.color, L.glass]) expect(c).toMatch(HEX);
       for (const [p, c] of L.sky.stops) { expect(p).toBeGreaterThanOrEqual(0); expect(p).toBeLessThanOrEqual(1); expect(c).toMatch(HEX); }
-      for (const v of [L.windows, L.lamps, L.walls, L.bleach.amount, L.groundGlow, L.stars, L.moon, L.horizon, L.sun.opacity]) { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(1); }
+      for (const v of [L.windows, L.lamps, L.walls, L.bleach.amount, L.stars, L.moon, L.horizon, L.sun.opacity, L.reflect]) { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(1); }
+      expect(L.groundGlow).toBeGreaterThan(0); expect(L.groundGlow).toBeLessThan(3);
+      expect(L.groundLift).toBeGreaterThanOrEqual(1); expect(L.groundLift).toBeLessThan(2);
       expect(L.exposure).toBeGreaterThan(0.5); expect(L.exposure).toBeLessThan(2);
       expect(L.key.intensity).toBeGreaterThan(0); expect(L.hemi.intensity).toBeGreaterThan(0);
       expect(L.fog.density).toBeGreaterThan(0.5);
@@ -21,10 +23,13 @@ describe('Time of day', () => {
     expect(LOOKS.night.lamps).toBe(1); expect(LOOKS.day.lamps).toBe(0);
     expect(LOOKS.night.windows).toBe(1); expect(LOOKS.day.windows).toBeLessThan(0.2);
     expect(LOOKS.night.stars).toBe(1); expect(LOOKS.day.stars).toBe(0);
+    expect(LOOKS.night.groundGlow).toBeGreaterThan(LOOKS.day.groundGlow * 4); // the streets glow by night (owner: lit like a city)
+    expect(LOOKS.night.groundLift).toBeGreaterThan(LOOKS.day.groundLift);
     // the hazy morning is the thickest air, the day the clearest
     expect(LOOKS.haze.fog.density).toBeGreaterThan(LOOKS.dawn.fog.density);
     expect(LOOKS.day.walls).toBeLessThan(LOOKS.night.walls); // a sun needs far less lift than the lamps
-    expect(LOOKS.day.bleach.amount).toBeGreaterThan(0.6); // sun-bleached by day
+    expect(LOOKS.day.bleach.amount).toBeGreaterThanOrEqual(LOOKS.night.bleach.amount); // a sun's pale wash — light, the skins' own colours kept (owner: no generic buildings)
+    for (const t of TIMES) expect(LOOKS[t].bleach.amount).toBeLessThan(0.5);
     expect(LOOKS.night.shadows).toBe(false); expect(LOOKS.dusk.shadows).toBe(false); expect(LOOKS.day.shadows).toBe(true); // no patches of shadow by night
     expect(hexToRgb(LOOKS.night.bleach.color)[2]).toBeGreaterThan(hexToRgb(LOOKS.night.bleach.color)[0] + 40); // and blue by night, never black
     expect(LOOKS.day.fog.density).toBeLessThan(LOOKS.dawn.fog.density);
@@ -39,6 +44,8 @@ describe('Time of day', () => {
     expect(m.lamps).toBeCloseTo(0.5, 6);
     expect(m.key.dir[1]).toBeCloseTo((a.key.dir[1] + b.key.dir[1]) / 2, 6);
     expect(m.grade.contrast).toBeCloseTo((a.grade.contrast + b.grade.contrast) / 2, 6);
+    expect(m.reflect).toBeCloseTo((a.reflect + b.reflect) / 2, 6);
+    expect(m.groundLift).toBeCloseTo((a.groundLift + b.groundLift) / 2, 6);
     expect(m.water).toMatch(HEX);
     expect(m.sky).toBe(b.sky); // the dome crossfades separately: the target's gradient is carried
     expect(lerpHex('#000000', '#ffffff', 0.5)).toBe('#808080');

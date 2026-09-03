@@ -27,14 +27,14 @@
  *  the visitor still drives. The streets run on a real traffic network
  *  (city-traffic.ts): lanes, lights, queues, turns, on- and off-ramps. */
 import {
-  AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ConeGeometry, DataTexture,
+  AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, ClampToEdgeWrapping, Color, ConeGeometry, DataTexture,
   CylinderGeometry, DirectionalLight, DoubleSide, FogExp2, Group, HemisphereLight, InstancedBufferAttribute,
   InstancedBufferGeometry, InstancedMesh, LinearFilter, LinearMipmapLinearFilter, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial,
-  MeshLambertMaterial, NearestFilter, NeutralToneMapping, Object3D, PCFShadowMap, PerspectiveCamera, PlaneGeometry, PointLight, Points,
+  MeshLambertMaterial, MeshStandardMaterial, NearestFilter, NeutralToneMapping, NoColorSpace, Object3D, PCFShadowMap, PerspectiveCamera, PlaneGeometry, PMREMGenerator, PointLight, Points,
   PointsMaterial, RepeatWrapping, RGBAFormat, RingGeometry, Scene, ShaderChunk, SphereGeometry, Sprite, SpriteMaterial,
   SRGBColorSpace, TorusGeometry, Vector2, Vector3, WebGLRenderer,
 } from 'three';
-import type { WebGLProgramParametersWithUniforms } from 'three';
+import type { WebGLProgramParametersWithUniforms, WebGLRenderTarget } from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -42,7 +42,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { isMobile, reducedMotion } from '../lib/env';
 import { mulberry32 } from '../lib/rng';
 import {
-  AirLane, AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, EXT, FacadeStyle, G, HALF, HIGHWAY, OUTER, planCity,
+  AirLane, AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, DIAGONAL, EXT, G, HALF, HIGHWAY, OUTER, planCity,
   Poi, RAMP_W, rampY, REACH, ROAD, Sign, signColor, Solid, starPositions, streetAt, STREET, Street, tourRoute,
 } from './city-plan';
 import { fov24, LensPass, lensTarget, MotionBlurPass } from './city-post';
@@ -50,6 +50,7 @@ import { CityAudio } from './city-audio';
 import { CAST, People, Zone } from './city-people';
 import { blendLooks, ease, lerpHex, Look as SkyLook, LOOKS as SKY, paintSky, TimeOfDay } from './city-sky';
 import { Traffic, DECK_KERB } from './city-traffic';
+import { ATLAS, CELLS, FAMILIES, FLOOR, heightToNormal, PX as SKIN_PX, SHOP, skinFor, tintJitter, UPPER, VARIANTS } from './city-skins';
 
 /** THE FOG, rewritten for every material at once: three's exponential
  *  distance fog, plus a HAZE that pools in the streets (denser low, only
@@ -96,6 +97,32 @@ ShaderChunk.fog_fragment = /* glsl */ `
   gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );
 #endif`;
 
+/** ADDITIVE LIGHT IN FOG: a pool of lamplight, a headlight's throw, a
+ *  shopfront's wash on the pavement are ADDED to the frame; three's fog
+ *  would mix each toward the fog's colour — adding that colour once per
+ *  decal, so a street of them far off summed to a white haze (measured).
+ *  Their fog DIMS them instead: the same factor, multiplied in. */
+const FOG_ADD = /* glsl */ `
+#ifdef USE_FOG
+  #ifdef FOG_EXP2
+    float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
+  #else
+    float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
+  #endif
+  float haze = 0.42 * clamp( fogDensity / 0.0026, 0.6, 2.4 ) * exp( - max( vFogWorld.y, 0.0 ) * 0.03 ) * ( 1.0 - exp( - vFogDepth * 0.011 ) );
+  fogFactor = min( 0.985, 1.0 - ( 1.0 - fogFactor ) * ( 1.0 - min( haze, 0.95 ) ) );
+  float edge = max( abs( vFogWorld.x ), abs( vFogWorld.z ) );
+  fogFactor = max( fogFactor, smoothstep( 272.0, 440.0, edge ) * 0.93 );
+  gl_FragColor.rgb *= 1.0 - fogFactor;
+#endif`;
+function additiveFog<T extends Material>(m: T): T {
+  m.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
+    shader.fragmentShader = shader.fragmentShader.replace('#include <fog_fragment>', FOG_ADD);
+  };
+  m.customProgramCacheKey = () => 'additive-fog';
+  return m;
+}
+
 /** QUALITY (owner: a render distance that adapts): four tiers of far plane,
  *  fog density, shadows and pixel size. The opening tier reads the
  *  connection (the Network Information API, where the browser offers it)
@@ -138,159 +165,215 @@ function asPixelTex(t: CanvasTexture): CanvasTexture {
   return t;
 }
 
-/** A facade in one of six window rhythms — punched grid, ribbon bands,
- *  vertical strips, tiny residential, wide office bays, glass curtain — on
- *  its tint, with the plan's per-style density, warmth and dimness, an
- *  optional dark service core and an optional burning crown. The reference
- *  is far more lit than the last one: roughly a quarter of the windows. */
-function facadeTexture(rand: () => number, s: FacadeStyle): CanvasTexture {
+/** THE FACADE ATLAS (owner: every building unique, no cardboard) — see
+ *  city-skins.ts for the catalogue. Every cell of it is painted here: the
+ *  wall in its material's relief (brick courses, stone blocks, panel seams,
+ *  plaster, corrugation, rivets), the floors' spandrels and sills, the
+ *  windows in the family's rhythm — lit ones burning warm or cool by the
+ *  variant's mood, the rest dark glass — and, in the tile's bottom strip,
+ *  a row of SHOPFRONTS: lit glass, a sign fascia, a door, pilasters, some
+ *  shuttered. Alongside the colour a HEIGHT field (windows recessed, sills
+ *  and piers proud, joints cut) becomes the normal map the light rakes
+ *  across, and a MASK of the glass rides in its alpha. */
+interface SkinAtlas { map: CanvasTexture; normal: CanvasTexture }
+function skinAtlas(rand: () => number): SkinAtlas {
+  const W = ATLAS.cols * ATLAS.w, H = ATLAS.rows * ATLAS.h;
   const c = document.createElement('canvas');
-  c.width = 64; c.height = 256;
+  c.width = W; c.height = H;
   const x = c.getContext('2d')!;
-  x.fillStyle = s.tint;
-  x.fillRect(0, 0, 64, 256);
-  const core = s.core ? 8 + Math.floor(rand() * 40) : -99;
-  // THE SURFACE (owner: the walls read as cardboard by day): spandrel lines
-  // between the floors and mullions between the bays, under the windows
-  const [pitchX, , pitchY] = windowCells(s);
-  x.fillStyle = '#000000'; x.globalAlpha = 0.22;
-  for (let fy = pitchY - 1; fy < 256; fy += pitchY) x.fillRect(0, fy, 64, 1);
-  x.fillStyle = '#ffffff'; x.globalAlpha = 0.07;
-  for (let fy = pitchY - 2; fy < 256; fy += pitchY) x.fillRect(0, fy, 64, 1);
-  for (let fx = 0; fx < 64; fx += pitchX) x.fillRect(fx, 0, 1, 256);
-  x.globalAlpha = 1;
-  const lit = (px: number, py: number, w: number, h: number, alpha: number, color?: string | null) => {
-    x.fillStyle = color ?? windowColor(rand, s.warm * 0.7);
-    x.globalAlpha = alpha;
-    x.fillRect(px, py, w, h);
+  const height = new Float32Array(W * H);
+  const mask = new Uint8Array(W * H);
+  // a rectangle of colour — and, where given, of height (texel-depths: a window sits one deep) and of glass
+  const put = (px: number, py: number, w: number, h: number, color: string, alpha = 1, dh?: number, glass?: boolean) => {
+    x.fillStyle = color; x.globalAlpha = alpha; x.fillRect(px, py, w, h);
+    if (dh === undefined && glass === undefined) return;
+    for (let yy = py; yy < py + h; yy++) {
+      for (let xx = px; xx < px + w; xx++) {
+        const i = yy * W + xx;
+        if (dh !== undefined) height[i] = dh;
+        if (glass !== undefined) mask[i] = glass ? 255 : 0;
+      }
+    }
   };
-  const mood = () => { // the reference is lit floor upon floor: about half the windows burn
-    const m = rand();
-    return Math.min(0.95, (m < 0.22 ? 0.1 : m < 0.6 ? 0.38 : m < 0.9 ? 0.7 : 0.95) * s.dim * s.density);
-  };
-  switch (s.win) {
-    case 'grid':
-      for (let fy = 4; fy < 250; fy += 5) {
-        const p = mood();
-        const floor = rand() < 0.25 ? windowColor(rand, s.warm * 0.7) : null;
-        for (let fx = 3; fx < 58; fx += 5) {
-          if (Math.abs(fx - core) < 5) continue;
-          if (rand() < p) lit(fx, fy, 3, 3, 0.45 + rand() * 0.55, floor);
+  const ri = (n: number) => Math.floor(rand() * n);
+  for (let cell = 0; cell < CELLS; cell++) {
+    const fam = FAMILIES[Math.floor(cell / VARIANTS)], v = fam.variants[cell % VARIANTS];
+    const ox = (cell % ATLAS.cols) * ATLAS.w, oy = Math.floor(cell / ATLAS.cols) * ATLAS.h;
+    const cw = ATLAS.w, ch = ATLAS.h;
+    const curtain = fam.win === 'curtain';
+    // -- the wall and its relief
+    put(ox, oy, cw, ch, v.wall, 1, 0, false);
+    switch (v.relief) {
+      case 'brick': // courses two texels tall, half-bond
+        for (let yy = 0; yy < ch; yy += 2) {
+          put(ox, oy + yy + 1, cw, 1, v.joint, 0.7, -0.35);
+          for (let xx = (yy % 4 ? 0 : 2); xx < cw; xx += 4) put(ox + xx, oy + yy, 1, 1, v.joint, 0.55, -0.3);
         }
-      }
-      break;
-    case 'tiny':
-      for (let fy = 3; fy < 252; fy += 4) {
-        const p = mood() * 1.1;
-        for (let fx = 2; fx < 60; fx += 4) if (rand() < p) lit(fx, fy, 2, 2, 0.4 + rand() * 0.5);
-      }
-      break;
-    case 'wide':
-      for (let fy = 4; fy < 248; fy += 6) {
-        const p = mood();
-        for (let fx = 2; fx < 56; fx += 8) if (rand() < p) lit(fx, fy, 6, 3, 0.45 + rand() * 0.5);
-      }
-      break;
-    case 'ribbon':
-      for (let fy = 4; fy < 250; fy += 5) {
-        const p = mood() * 1.3;
-        const band = windowColor(rand, s.warm * 0.7);
-        for (let fx = 2; fx < 62; fx += 4) if (rand() < p) lit(fx, fy, 4, 2, 0.4 + rand() * 0.5, rand() < 0.7 ? band : null);
-      }
-      break;
-    case 'strip':
-      for (let fx = 3; fx < 60; fx += 6) {
-        if (Math.abs(fx - core) < 5) continue;
-        let run = false;
-        const col = windowColor(rand, s.warm * 0.7);
-        for (let fy = 2; fy < 254; fy += 2) {
-          if (rand() < 0.06) run = !run;
-          if (run && rand() < 0.9 * s.density * s.dim + 0.05) lit(fx, fy, 2, 2, 0.4 + rand() * 0.45, col);
+        break;
+      case 'block': // ashlar: courses six tall, blocks sixteen long, staggered
+        for (let yy = 0; yy < ch; yy += 6) {
+          put(ox, oy + yy, cw, 1, v.joint, 0.8, -0.4);
+          for (let xx = (yy % 12 ? 0 : 8); xx < cw; xx += 16) put(ox + xx, oy + yy, 1, 6, v.joint, 0.6, -0.35);
         }
+        break;
+      case 'panel': // precast: a seam at every floor and every bay
+        for (let yy = 0; yy < ch; yy += FLOOR) put(ox, oy + yy, cw, 1, v.joint, 0.85, -0.5);
+        for (let xx = 0; xx < cw; xx += fam.bay) put(ox + xx, oy, 1, ch, v.joint, 0.85, -0.5);
+        break;
+      case 'rivet': // steel plate: seams and rivet lines
+        for (let yy = 0; yy < ch; yy += FLOOR) put(ox, oy + yy, cw, 1, v.joint, 0.8, -0.4);
+        for (let xx = 0; xx < cw; xx += fam.bay) put(ox + xx, oy, 1, ch, v.joint, 0.8, -0.4);
+        for (let yy = 2; yy < ch; yy += 4) for (let xx = 2; xx < cw; xx += fam.bay) { put(ox + xx, oy + yy, 1, 1, '#ffffff', 0.25, 0.5); put(ox + xx + fam.bay - 4, oy + yy, 1, 1, '#ffffff', 0.25, 0.5); }
+        break;
+      case 'corrugated': // ribs three texels apart, rust and patches
+        for (let yy = 0; yy < ch; yy += 3) { put(ox, oy + yy, cw, 1, '#ffffff', 0.12, 0.3); put(ox, oy + yy + 2, cw, 1, '#000000', 0.28, -0.3); }
+        for (let i = 0; i < 40; i++) put(ox + ri(cw), oy + ri(ch), 1 + ri(3), 1 + ri(4), rand() < 0.5 ? '#c86a30' : '#5a3a2a', 0.5);
+        break;
+      case 'plaster': // render: fine grain, a few cracks
+        for (let i = 0; i < 260; i++) put(ox + ri(cw), oy + ri(ch), 1, 1, rand() < 0.5 ? '#000000' : '#ffffff', 0.05 + rand() * 0.06);
+        for (let i = 0; i < 14; i++) put(ox + ri(cw), oy + ri(ch), 1, 2 + ri(6), '#000000', 0.12);
+        break;
+      default: break; // flush: a seamless skin
+    }
+    // -- the floors: a floor line, a sill, the windows in the family's rhythm (about half of them burning, floor by floor)
+    const mood = () => { const m = rand(); return Math.min(0.97, (m < 0.2 ? 0.15 : m < 0.6 ? 0.6 : m < 0.9 ? 1 : 1.3) * v.lit); };
+    for (let k = 0; k < UPPER / FLOOR; k++) {
+      const fb = oy + UPPER - (k + 1) * FLOOR; // the floor's top row in the canvas (floor k counted up from the shop strip)
+      const wTop = fb + FLOOR - fam.wy - fam.wh; // the window sits wy up from the floor's bottom
+      if (!curtain) put(ox, fb + FLOOR - 1, cw, 1, '#000000', 0.22, v.relief === 'flush' ? 0 : -0.3);
+      const p = mood();
+      const floorCol = rand() < 0.3 ? windowColor(rand, v.warm) : null;
+      for (let bx = 0; bx < cw; bx += fam.bay) {
+        const wx = ox + bx + fam.wx;
+        const on = rand() < p;
+        const col = on ? (floorCol ?? windowColor(rand, v.warm)) : v.glass;
+        put(wx - 1, wTop - 1, fam.ww + 2, fam.wh + 2, v.frame, 1, 0.15, false); // the frame, a shade proud
+        put(wx, wTop, fam.ww, fam.wh, col, on ? 0.75 + rand() * 0.25 : 1, curtain ? -0.1 : -1, true); // the glass, recessed
+        if (on && rand() < 0.5) put(wx + ri(Math.max(1, Math.floor(fam.ww * 0.6))), wTop + 1, Math.max(1, Math.floor(fam.ww * 0.3)), Math.max(1, fam.wh - 2), '#000000', 0.25 + rand() * 0.3); // a curtain, a figure, a shade
+        if (!curtain) put(wx - 1, wTop + fam.wh, fam.ww + 2, 1, '#ffffff', 0.35, 0.45); // the sill, proud
+        if (fam.win === 'strip') { // the piers between the strips stand proud, floor through floor
+          put(ox + bx, fb, fam.wx - 1, FLOOR, v.wall, 1, 1.2, false);
+          put(ox + bx + fam.wx + fam.ww + 1, fb, fam.bay - fam.wx - fam.ww - 1, FLOOR, v.wall, 1, 1.2, false);
+        }
+        if (fam.win === 'tiny' && k % 3 === 1 && v.relief !== 'corrugated') put(ox + bx, fb + FLOOR - 2, fam.bay, 2, v.joint, 0.9, 0.7, false); // a balcony slab
       }
-      break;
-    case 'curtain':
-      for (let fy = 2; fy < 252; fy += 5) {
-        if (rand() < mood() * 1.5) lit(1, fy, 62, 4, 0.16 + rand() * 0.22, rand() < 0.5 ? windowColor(rand, s.warm * 0.7) : null);
+      if (curtain) { // the curtain's spandrel: an opaque pane a shade darker, glass still; mullions at every bay
+        put(ox, fb + FLOOR - 3, cw, 3, v.glass, 1, -0.1, true);
+        put(ox, fb + FLOOR - 3, cw, 1, '#000000', 0.35, 0.2, true);
+        for (let bx = 0; bx < cw; bx += fam.bay) put(ox + bx, fb, 1, FLOOR, v.frame, 1, 0.3, false);
       }
-      x.globalAlpha = 1;
-      x.fillStyle = s.tint;
-      for (let fx = 0; fx < 64; fx += 8) x.fillRect(fx, 0, 1, 256);
-      break;
+      if (fam.win === 'ribbon') for (let bx = 0; bx < cw; bx += fam.bay) put(ox + bx, wTop, 1, fam.wh, v.frame, 1, 0.1, false); // the band's mullions
+    }
+    // -- grime running from the sills, weather, grain
+    for (let i = 0; i < 40; i++) put(ox + ri(cw), oy + ri(UPPER), 1, 3 + ri(8), '#000000', 0.12);
+    for (let i = 0; i < 300; i++) put(ox + ri(cw), oy + ri(ch), 1, 1, rand() < 0.5 ? '#000000' : '#ffffff', 0.04 + rand() * 0.06);
+    // -- the shopfront strip: the tile's bottom texels, the ground floor of a building that has one
+    const sy = oy + UPPER;
+    put(ox, sy, cw, SHOP, v.wall, 1, 0, false);
+    put(ox, sy + SHOP - 2, cw, 2, '#000000', 0.4, 0); // the plinth
+    for (let s = 0; s < 2; s++) { // two shops of eight units
+      const sx = ox + s * 32;
+      put(sx, sy, 2, SHOP, v.wall, 1, 0.6, false); put(sx + 30, sy, 2, SHOP, v.wall, 1, 0.6, false); // pilasters
+      const shut = rand() < 0.22;
+      put(sx + 2, sy, 28, 4, shut ? '#2a2a30' : signColor(rand), 1, 0.4, !shut); // the fascia: a lit sign board
+      if (shut) {
+        for (let yy = sy + 4; yy < sy + SHOP - 2; yy += 2) put(sx + 2, yy, 28, 1, '#000000', 0.35, -0.2, false); // a shutter's ribs
+        continue;
+      }
+      put(sx + 5 + ri(6), sy + 1, 6 + ri(10), 2, '#ffffff', 0.85, 0.4, true); // its lettering, white-hot
+      put(sx + 2, sy + 4, 28, SHOP - 6, rand() < 0.7 ? '#fff1d6' : pick(rand, ['#dff6ff', '#ffe0f4', '#e6ffe0']), 0.9, -0.8, true); // the lit shop glass
+      put(sx + (rand() < 0.5 ? 3 : 22), sy + 5, 5, SHOP - 7, '#3a2a20', 1, -0.6, false); // the door
+      put(sx + 2, sy + 4, 28, 1, v.frame, 1, 0, false); // the frame's head
+      for (let m = sx + 9; m < sx + 28; m += 7) put(m, sy + 4, 1, SHOP - 6, v.frame, 1, 0, false); // mullions
+      for (let i = 0; i < 3; i++) put(sx + 4 + ri(22), sy + 6 + ri(5), 2, 2 + ri(3), '#000000', 0.3); // the goods in the window
+    }
   }
-  // concrete grain, grime running down from the sills, ledges at the setbacks, a darker plinth
-  for (let i = 0; i < 1100; i++) {
-    x.fillStyle = rand() < 0.5 ? '#000000' : '#ffffff'; x.globalAlpha = 0.05 + rand() * 0.09;
-    x.fillRect(Math.floor(rand() * 64), Math.floor(rand() * 256), 1, 1);
-  }
-  x.fillStyle = '#000000'; x.globalAlpha = 0.16;
-  for (let i = 0; i < 70; i++) x.fillRect(Math.floor(rand() * 64), Math.floor(rand() * 250), 1, 3 + Math.floor(rand() * 7));
-  x.fillStyle = '#ffffff'; x.globalAlpha = 0.12;
-  for (let fy = 40 + Math.floor(rand() * 20); fy < 240; fy += 50 + Math.floor(rand() * 30)) x.fillRect(0, fy, 64, 2);
-  x.fillStyle = '#000000'; x.globalAlpha = 0.28; x.fillRect(0, 244, 64, 12);
-  x.fillStyle = '#ffffff'; x.globalAlpha = 0.14; x.fillRect(0, 243, 64, 1);
   x.globalAlpha = 1;
-  if (s.crown) {
-    lit(2, 2, 60, 12, 0.55, pick(rand, WARM));
-    x.globalAlpha = 1;
-    x.fillStyle = '#ffd9a0';
-    x.fillRect(0, 14, 64, 1);
-  }
-  x.globalAlpha = 1;
-  return asPixelTex(new CanvasTexture(c));
+  const map = asPixelTex(new CanvasTexture(c));
+  const n = document.createElement('canvas');
+  n.width = W; n.height = H;
+  const nx = n.getContext('2d')!;
+  const img = nx.createImageData(W, H);
+  img.data.set(heightToNormal(height, W, H, mask, 1.1));
+  nx.putImageData(img, 0, 0);
+  const normal = new CanvasTexture(n);
+  normal.colorSpace = NoColorSpace;
+  normal.magFilter = NearestFilter; normal.minFilter = NearestFilter; normal.generateMipmaps = false;
+  return { map, normal };
 }
 
-/** The window grid of a style's texture — pitch and offset per axis — so a
- *  shader can find which window a texel belongs to. */
-function windowCells(s: FacadeStyle): [number, number, number, number] {
-  switch (s.win) {
-    case 'grid': return [5, 1, 5, 2];
-    case 'tiny': return [4, 1, 4, 2];
-    case 'wide': return [8, 1, 6, 3];
-    case 'ribbon': return [4, 2, 5, 3];
-    case 'strip': return [6, 2, 8, 0];
-    default: return [8, 0, 5, 2]; // curtain: bands
-  }
-}
-
-/** LIVING WINDOWS (owner: the lights must feel alive, slowly): the facade's
- *  lit texels are found by their brightness against the wall; some of the
+/** LIVING WINDOWS (owner: the lights must feel alive, slowly): some of the
  *  windows (never all) go dark for a stretch and come back, over seconds,
- *  each on its own long period, each building's phases its own. Injected
- *  into the material's map and emissive reads. */
+ *  each on its own long period, each building's phases its own. */
 const winTime = { value: 0 };
 /** Shared, live: the look's pull of every wall toward one colour, and its dark glass (city-sky.ts). */
 const wallBleach = { value: 0 };
-const wallBleachCol = { value: new Color('#22376f') };
-const wallGlass = { value: new Color('#0e1630') };
-function livingFacade(mat: MeshLambertMaterial, cells: [number, number, number, number], wall: string, lift: number): MeshLambertMaterial {
+const wallBleachCol = { value: new Color('#2c4a8e') };
+const wallGlass = { value: new Color('#101a36') };
+
+/** THE SKIN: a physically lit material that WRAPS the atlas cell a building
+ *  wears over its real width and height (a window is a window's size on
+ *  every wall; a wide slab gets more bays, not wider ones), keeps the
+ *  windows living, lifts the walls and pulls them a little toward the
+ *  look's colour, makes the glass a polished half-mirror (it takes the sky
+ *  and the lights; the walls stay matte), reads the relief from the normal
+ *  atlas and, on a building so marked, burns a crown at the roofline. Per
+ *  instance: aSkin = (cell, phase along the tile, shopfront, crown) and a
+ *  tint jitter in the instance colour. */
+function skinMaterial(atlas: SkinAtlas, cyl: boolean, far: boolean): MeshStandardMaterial {
+  const base = far ? 0.95 : 0.9, lift = far ? 1.25 : 1.35;
+  const mat = new MeshStandardMaterial({
+    map: atlas.map, emissiveMap: atlas.map, emissive: '#ffffff', emissiveIntensity: base,
+    normalMap: atlas.normal, roughness: 1, metalness: 0, color: far ? '#9aa0c8' : '#ffffff',
+  });
   const uLift = { value: lift };
-  const wallCol = new Color(wall);
-  mat.userData.uLift = uLift; // live: the time of day scales it (a sun needs far less lift than the lamps)
+  mat.userData.uLift = uLift; mat.userData.base = base; mat.userData.lift = lift;
+  const pitch = FAMILIES.map((f) => new Vector2(f.bay, FLOOR));
+  const offs = FAMILIES.map((f) => new Vector2(f.wx, f.wy));
+  const N = FAMILIES.length;
   mat.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
     shader.uniforms.uTime = winTime;
     shader.uniforms.uLift = uLift;
-    shader.uniforms.uBleach = wallBleach; // shared, live: the look's pull toward one colour
+    shader.uniforms.uBleach = wallBleach;
     shader.uniforms.uBleachCol = wallBleachCol;
     shader.uniforms.uGlass = wallGlass;
-    shader.uniforms.uWallLum = { value: wallCol.r * 0.3 + wallCol.g * 0.5 + wallCol.b * 0.2 };
-    shader.uniforms.uPitch = { value: new Vector2(cells[0], cells[2]) };
-    shader.uniforms.uOff = { value: new Vector2(cells[1], cells[3]) };
-    shader.uniforms.uWall = { value: new Color(wall) };
+    shader.uniforms.uPitch = { value: pitch };
+    shader.uniforms.uOffs = { value: offs };
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying float vInst;')
+      .replace('#include <common>', `#include <common>
+        attribute vec4 aSkin; varying vec4 vSkin; varying vec2 vTile; varying float vTop; varying float vInst;`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         #ifdef USE_INSTANCING
+          float skinW = length( instanceMatrix[0].xyz ), skinH = length( instanceMatrix[1].xyz ), skinD = length( instanceMatrix[2].xyz );
           vInst = fract( dot( instanceMatrix[3].xz, vec2( 0.0371, 0.0913 ) ) + instanceMatrix[3].y * 0.011 );
         #else
+          float skinW = 1.0, skinH = 1.0, skinD = 1.0;
           vInst = 0.0;
-        #endif`);
+        #endif
+        ${cyl ? 'float skinAlong = 3.14159265 * skinW;' : 'float skinAlong = abs( normal.x ) > 0.5 ? skinD : skinW;'}
+        vTile = vec2( uv.x * skinAlong * ${SKIN_PX}.0 + aSkin.y * ${ATLAS.w}.0, uv.y * skinH * ${SKIN_PX}.0 ); // texels along the wall and up it
+        vTop = ( 1.0 - uv.y ) * skinH; // units below the roofline
+        vSkin = aSkin;`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
-        uniform float uTime; uniform vec2 uPitch; uniform vec2 uOff; uniform vec3 uWall; uniform float uLift; uniform float uBleach; uniform vec3 uBleachCol; uniform vec3 uGlass; uniform float uWallLum; varying float vInst;
+        uniform float uTime; uniform float uLift; uniform float uBleach; uniform vec3 uBleachCol; uniform vec3 uGlass;
+        uniform vec2 uPitch[${N}]; uniform vec2 uOffs[${N}];
+        varying vec4 vSkin; varying vec2 vTile; varying float vTop; varying float vInst;
         float wHash( vec2 p ) { return fract( sin( dot( p, vec2( 127.1, 311.7 ) ) ) * 43758.5453 ); }
-        float windowOff( vec2 uv ) {
-          vec2 cell = floor( ( uv * vec2( 64.0, 256.0 ) - uOff ) / uPitch );
+        // the cell's texel under this fragment: u wraps every tile; v is the shop strip for a shopfronted ground floor, the upper floors wrapped above
+        vec2 skinTexel( float shop ) {
+          float v = vTile.y;
+          float vpx = shop > 0.5 ? ( v < ${SHOP}.0 ? v : ${SHOP}.0 + mod( v - ${SHOP}.0, ${UPPER}.0 ) ) : ${SHOP}.0 + mod( v, ${UPPER}.0 );
+          return vec2( mod( vTile.x, ${ATLAS.w}.0 ), vpx );
+        }
+        vec2 atlasUv( float cell, vec2 px ) {
+          vec2 c = vec2( mod( cell, ${ATLAS.cols}.0 ), ${ATLAS.rows - 1}.0 - floor( cell / ${ATLAS.cols}.0 ) );
+          return ( c + px / vec2( ${ATLAS.w}.0, ${ATLAS.h}.0 ) ) / vec2( ${ATLAS.cols}.0, ${ATLAS.rows}.0 );
+        }
+        // which window of the wall this is, in the family's lattice; some (never all) go dark for a stretch and come back
+        float windowOff( int fam, float shop ) {
+          vec2 px = vec2( vTile.x, vTile.y - ( shop > 0.5 ? ${SHOP}.0 : 0.0 ) );
+          vec2 cell = floor( ( px - uOffs[ fam ] ) / uPitch[ fam ] );
           float h = wHash( cell + vInst * 37.0 );
           if ( h < 0.55 ) return 0.0;
           float period = 50.0 + 90.0 * wHash( cell * 1.7 + vInst * 11.0 );
@@ -298,28 +381,55 @@ function livingFacade(mat: MeshLambertMaterial, cells: [number, number, number, 
           return smoothstep( 0.0, 0.035, w ) * smoothstep( 0.3, 0.26, w );
         }`)
       .replace('#include <map_fragment>', `
-        vec4 sampledDiffuseColor = texture2D( map, vMapUv );
+        float skinCell = floor( vSkin.x + 0.5 );
+        int skinFam = int( floor( skinCell / ${VARIANTS}.0 + 0.001 ) );
+        vec2 skinUv = atlasUv( skinCell, skinTexel( vSkin.z ) );
+        vec4 sampledDiffuseColor = texture2D( map, skinUv );
+        vec4 skinN = texture2D( normalMap, skinUv );
+        float wmask = skinN.a;
         float wlum = dot( sampledDiffuseColor.rgb, vec3( 0.3, 0.5, 0.2 ) );
-        float wmask = smoothstep( 0.12, 0.3, wlum );
-        float woff = windowOff( vMapUv );
-        float lit = wmask * ( 1.0 - woff );   // a burning window: a SOURCE, not a reflector — its albedo is cut
-        float glass = wmask * woff;           // a window gone dark: dark glass
+        float litness = smoothstep( 0.12, 0.3, wlum );
+        float woff = windowOff( skinFam, vSkin.z );
+        float litF = wmask * litness * ( 1.0 - woff );            // a burning window: a SOURCE, not a reflector — its albedo is cut
+        float glassF = wmask * ( 1.0 - litness * ( 1.0 - woff ) ); // dark glass: a mirror for the sky and the lights
         float wall = 1.0 - wmask;
-        // the WALL takes light (owner: lit by practicals): its albedo lifted, then pulled toward the look's
-        // colour — midnight blue by night, pale concrete by day — with the texture's own shading (floor lines,
-        // grain, grime) carried through, so it never reads as cardboard
-        float detail = clamp( wlum / max( uWallLum, 0.002 ), 0.55, 1.6 );
+        // the WALL takes light: its albedo lifted, then pulled a little toward the look's colour (blue by night, pale by day), its own shading kept
+        float detail = clamp( wlum / 0.2, 0.45, 1.6 );
         vec3 wallCol = mix( sampledDiffuseColor.rgb * uLift, uBleachCol * detail, uBleach );
-        sampledDiffuseColor.rgb = sampledDiffuseColor.rgb * 0.3 * lit + uGlass * glass + wallCol * wall;
+        float crown = vSkin.w * ( 1.0 - smoothstep( 2.0, 2.6, vTop ) ) * step( 0.6, vTop );
+        vec3 skinCol = sampledDiffuseColor.rgb * 0.3 * litF + uGlass * glassF + wallCol * wall;
+        sampledDiffuseColor.rgb = mix( skinCol, vec3( 0.2, 0.12, 0.06 ), crown );
         diffuseColor *= sampledDiffuseColor;`)
+      .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = mix( 0.9, 0.16, wmask );')
+      .replace('#include <metalnessmap_fragment>', 'float metalnessFactor = 0.6 * glassF;')
+      .replace('#include <normal_fragment_maps>', `
+        mat3 skinTbn = getTangentFrame( - vViewPosition, normal, vTile ); // a frame from the tile's texels: isotropic, whatever the wall's proportions
+        vec3 mapN = skinN.xyz * 2.0 - 1.0;
+        mapN.xy *= normalScale;
+        normal = normalize( skinTbn * mapN );`)
       .replace('#include <emissivemap_fragment>', `
-        vec4 emissiveColor = texture2D( emissiveMap, vEmissiveMapUv );
-        float elum = dot( emissiveColor.rgb, vec3( 0.3, 0.5, 0.2 ) );
-        emissiveColor.rgb *= 1.0 - smoothstep( 0.12, 0.3, elum ) * windowOff( vEmissiveMapUv ); // a window gone dark emits nothing
-        totalEmissiveRadiance *= emissiveColor.rgb;`);
+        vec4 emissiveColor = texture2D( emissiveMap, skinUv );
+        totalEmissiveRadiance = totalEmissiveRadiance.r * ( emissiveColor.rgb * litF + vec3( 1.0, 0.62, 0.3 ) * crown * 0.7 );`);
   };
-  mat.customProgramCacheKey = () => 'living';
+  mat.customProgramCacheKey = () => (cyl ? 'skin-cyl' : 'skin');
   return mat;
+}
+
+/** A shopfront's light on the pavement: a wash, brightest at the glass,
+ *  gone six units out, feathered at the ends. */
+function spillTexture(): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 32;
+  const x = c.getContext('2d')!;
+  const g = x.createLinearGradient(0, 0, 0, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.45, 'rgba(255,255,255,0.35)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 32);
+  const e = x.createLinearGradient(0, 0, 64, 0);
+  e.addColorStop(0, 'rgba(0,0,0,1)'); e.addColorStop(0.18, 'rgba(0,0,0,0)'); e.addColorStop(0.82, 'rgba(0,0,0,0)'); e.addColorStop(1, 'rgba(0,0,0,1)');
+  x.globalCompositeOperation = 'destination-out'; x.fillStyle = e; x.fillRect(0, 0, 64, 32);
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace; t.minFilter = LinearMipmapLinearFilter; t.magFilter = LinearFilter;
+  return t;
 }
 
 /** THE CAST'S SPRITE SHEET (owner: NPCs with a lot of variety). For every
@@ -717,68 +827,148 @@ function horizonTexture(rand: () => number): CanvasTexture {
   return asPixelTex(new CanvasTexture(c));
 }
 
-/** One block of ground, the street centred: asphalt with double centre
- *  line, lane dashes and crosswalks at the intersection, kerbed pavements,
- *  the dark lot in the corners. Tiled every G units with lot centres on
- *  the tile corners. 4 px per unit. */
-function groundTexture(rand: () => number): CanvasTexture {
-  const S = 4, T = G * S;
+/** One block of ground, the street centred (owner: road markings and road
+ *  textures clear at every time of day): asphalt with a bright double
+ *  yellow, dashed white lane lines where the lanes really are (city-traffic
+ *  OFFSETS), solid white edge lines, zebra crossings and stop lines at the
+ *  crossing, manholes and drains; kerbed pavements paved a unit square; the
+ *  lots' stone in the corners. Tiled every G units with lot centres on the
+ *  tile corners, 8 texels a unit, mipmapped so the paint holds to the
+ *  horizon without sparkle. Returns the colour and its GLOW twin (the same
+ *  picture lifted toward white) so the streets' own light by night carries
+ *  the paint brighter than the asphalt. */
+function groundTextures(rand: () => number, aniso: number): { map: CanvasTexture; glow: CanvasTexture } {
+  const S = 8, T = G * S;
   const c = document.createElement('canvas');
   c.width = c.height = T;
   const x = c.getContext('2d')!;
-  x.fillStyle = '#3a3e52'; x.fillRect(0, 0, T, T); // a mid stone: dark enough for night, an albedo the sun can show
   const mid = T / 2, half = (STREET / 2) * S, road = (ROAD / 2) * S;
-  x.fillStyle = '#484c66';
+  // the lots' ground: a mid stone with a coarse grid (the alleys and yards show it)
+  x.fillStyle = '#4c5062'; x.fillRect(0, 0, T, T);
+  x.fillStyle = '#42465a';
+  for (let i = 0; i < T; i += 2 * S) { x.fillRect(i, 0, 1, T); x.fillRect(0, i, T, 1); }
+  // the pavements: slabs a unit square
+  x.fillStyle = '#6c7082';
   x.fillRect(mid - half, 0, half * 2, T); x.fillRect(0, mid - half, T, half * 2);
-  x.fillStyle = '#5a5e78';
-  for (let i = 0; i < T; i += 4) { // paving dots on the kerbs
-    for (const k of [mid - half + 2, mid + half - 4]) { x.fillRect(i + (k % 8 ? 0 : 2), k, 1, 1); x.fillRect(k, i + (k % 8 ? 0 : 2), 1, 1); }
+  x.fillStyle = '#5c6074';
+  for (let i = 0; i < T; i += S) {
+    x.fillRect(mid - half, i, half * 2, 1); x.fillRect(i, mid - half, 1, half * 2);
   }
-  x.fillStyle = '#2a2d40';
+  for (let j = 0; j <= half * 2; j += S) { x.fillRect(mid - half + j, 0, 1, T); x.fillRect(0, mid - half + j, T, 1); }
+  // the kerb stones: a light line the road's whole length
+  x.fillStyle = '#8e92a6';
+  for (const k of [mid - road - 2, mid + road]) { x.fillRect(k, 0, 2, T); x.fillRect(0, k, T, 2); }
+  // the asphalt, patched and seamed
+  x.fillStyle = '#3e4150';
   x.fillRect(mid - road, 0, road * 2, T); x.fillRect(0, mid - road, T, road * 2);
-  const dashes = (color: string, at: number, on: number, off: number, w: number) => {
+  for (let i = 0; i < 26; i++) {
+    x.fillStyle = rand() < 0.5 ? '#383b49' : '#454858'; x.globalAlpha = 0.85;
+    const a = Math.floor(rand() * T), b = mid - road + Math.floor(rand() * (road * 2 - 3 * S));
+    const w = S * (2 + Math.floor(rand() * 5)), h = S * (1 + Math.floor(rand() * 3));
+    if (rand() < 0.5) x.fillRect(b, a, w, h); else x.fillRect(a, b, h, w);
+  }
+  x.globalAlpha = 1;
+  // the paint: a line `w` texels wide at `at` along both streets, dashed on/off (off 0 = solid), kept out of the crossing
+  const clear = road + 5 * S; // the crossing, its crosswalks and its stop lines
+  const paint = (color: string, at: number, w: number, on: number, off: number) => {
     x.fillStyle = color;
     for (let i = 0; i < T; i += on + off) {
-      if (Math.abs(i + on / 2 - mid) < road + 2) continue; // clear through the intersection
-      x.fillRect(at, i, w, on); x.fillRect(i, at, on, w);
+      let i0 = i, i1 = Math.min(T, i + on);
+      if (i1 > mid - clear && i0 < mid + clear) {
+        if (i0 < mid - clear) { x.fillRect(at, i0, w, mid - clear - i0); x.fillRect(i0, at, mid - clear - i0, w); }
+        if (i1 > mid + clear) { x.fillRect(at, mid + clear, w, i1 - mid - clear); x.fillRect(mid + clear, at, i1 - mid - clear, w); }
+        continue;
+      }
+      x.fillRect(at, i0, w, i1 - i0); x.fillRect(i0, at, i1 - i0, w);
     }
   };
-  dashes('#3d3418', mid - 1, 8, 6, 2); // the double yellow
-  dashes('#20233a', mid - road / 2 - 1, 6, 8, 1); // lane dashes
-  dashes('#20233a', mid + road / 2, 6, 8, 1);
-  x.fillStyle = '#8a8fa8';
-  x.globalAlpha = 0.28;
-  for (let k = 0; k < 7; k++) { // crosswalks on the four arms
-    const a = mid - road + 2 + k * 6;
-    x.fillRect(a, mid - half, 3, 8); x.fillRect(a, mid + half - 8, 3, 8);
-    x.fillRect(mid - half, a, 8, 3); x.fillRect(mid + half - 8, a, 8, 3);
+  const YELLOW = '#e6c042', WHITE = '#e8eaf0';
+  paint(YELLOW, mid - 3, 2, T, 0); paint(YELLOW, mid + 1, 2, T, 0); // the double yellow
+  const lane = Math.round(2.95 * S); // between the two lanes of a direction (city-traffic: 1.7 and 4.2 from the centre)
+  paint(WHITE, mid - lane - 1, 2, 3 * S, 3 * S); paint(WHITE, mid + lane - 1, 2, 3 * S, 3 * S);
+  paint(WHITE, mid - road + 2, 2, T, 0); paint(WHITE, mid + road - 4, 2, T, 0); // the edge lines
+  // the crossing: zebra stripes over each arm, a stop line before each
+  x.fillStyle = WHITE;
+  for (const side of [-1, 1]) {
+    const y0 = side > 0 ? mid + road + Math.round(0.5 * S) : mid - road - Math.round(3.5 * S);
+    for (let k = mid - road + Math.round(0.3 * S); k < mid + road - Math.round(0.6 * S); k += Math.round(1.2 * S)) {
+      x.fillRect(k, y0, Math.round(0.6 * S), 3 * S); x.fillRect(y0, k, 3 * S, Math.round(0.6 * S));
+    }
+    const s0 = side > 0 ? mid + road + 4 * S : mid - road - Math.round(4.4 * S);
+    x.fillRect(mid - road, s0, road * 2, Math.round(0.4 * S)); x.fillRect(s0, mid - road, Math.round(0.4 * S), road * 2);
   }
-  x.globalAlpha = 0.5;
-  x.fillStyle = '#0b0d1f'; // a little wear on the lot corners
-  for (let i = 0; i < 90; i++) x.fillRect(Math.floor(rand() * T), Math.floor(rand() * T), 2, 1);
-  for (let i = 0; i < 1400; i++) { // asphalt and paving grain (owner: the streets read flat by day)
-    x.fillStyle = rand() < 0.5 ? '#000000' : '#ffffff'; x.globalAlpha = 0.04 + rand() * 0.08;
+  // manholes on the carriageway, drains at the kerbs
+  x.fillStyle = '#2a2d3a';
+  for (let i = 0; i < 6; i++) {
+    const a = Math.floor(rand() * T), b = mid + (rand() - 0.5) * road * 1.2;
+    if (Math.abs(a - mid) < clear + 2 * S) continue;
+    x.beginPath(); x.arc(b, a, 0.55 * S, 0, Math.PI * 2); x.fill();
+    x.beginPath(); x.arc(a, b, 0.55 * S, 0, Math.PI * 2); x.fill();
+  }
+  for (let i = 3 * S; i < T; i += 9 * S) {
+    if (Math.abs(i - mid) < clear + S) continue;
+    for (const k of [mid - road + 2, mid + road - 2 - Math.round(0.4 * S)]) { x.fillRect(k, i, Math.round(0.4 * S), S); x.fillRect(i, k, S, Math.round(0.4 * S)); }
+  }
+  // asphalt and paving grain
+  for (let i = 0; i < 5200; i++) {
+    x.fillStyle = rand() < 0.5 ? '#000000' : '#ffffff'; x.globalAlpha = 0.03 + rand() * 0.07;
     x.fillRect(Math.floor(rand() * T), Math.floor(rand() * T), 1 + Math.floor(rand() * 2), 1);
   }
   x.globalAlpha = 1;
-  const t = asPixelTex(new CanvasTexture(c));
+  return { map: streetTex(c, aniso), glow: streetTex(glowTwin(c), aniso) };
+}
+
+/** The same picture lifted toward white: what a street emits by night, so
+ *  its paint glows brighter than its asphalt. */
+function glowTwin(c: HTMLCanvasElement): HTMLCanvasElement {
+  const g = document.createElement('canvas');
+  g.width = c.width; g.height = c.height;
+  const x = g.getContext('2d')!;
+  x.drawImage(c, 0, 0);
+  x.fillStyle = '#ffffff'; x.globalAlpha = 0.45; x.fillRect(0, 0, g.width, g.height);
+  return g;
+}
+/** A street texture: repeating, crisp up close (nearest), mipmapped and
+ *  anisotropic into the distance so the paint holds without sparkle. */
+function streetTex(c: HTMLCanvasElement, aniso: number): CanvasTexture {
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace;
   t.wrapS = t.wrapT = RepeatWrapping;
+  t.magFilter = NearestFilter; t.minFilter = LinearMipmapLinearFilter; t.generateMipmaps = true;
+  t.anisotropy = Math.min(8, aniso);
   return t;
 }
 
-/** A strip of carriageway for the highway deck and the diagonal boulevard:
- *  dark asphalt, edge lines, a dashed centre. Repeats along u. */
-function roadStripTexture(): CanvasTexture {
+/** A strip of carriageway for the highway deck, the ramps and the diagonal
+ *  boulevard, `width` units across: asphalt between solid white edge lines
+ *  at ±edge, dashed white lane lines at the given offsets, a concrete
+ *  median with yellow edges (or a double yellow) down the middle, kerb
+ *  beyond the edges. Repeats every 12 units along u. Colour and glow twin. */
+function roadStrip(width: number, lanes: number[], edge: number, median: number, centre: boolean, aniso: number): { map: CanvasTexture; glow: CanvasTexture } {
+  const S = 8, L = 12 * S;
   const c = document.createElement('canvas');
-  c.width = 64; c.height = 16;
+  c.width = L; c.height = Math.round(width * S);
   const x = c.getContext('2d')!;
-  x.fillStyle = '#1e2236'; x.fillRect(0, 0, 64, 16);
-  x.fillStyle = '#4a4e66'; x.fillRect(0, 0, 64, 1); x.fillRect(0, 15, 64, 1);
-  x.fillStyle = '#3d3418';
-  for (let i = 0; i < 64; i += 16) x.fillRect(i, 7, 8, 2);
-  const t = asPixelTex(new CanvasTexture(c));
-  t.wrapS = RepeatWrapping;
-  return t;
+  const mid = c.height / 2;
+  x.fillStyle = '#6c7082'; x.fillRect(0, 0, L, c.height);
+  x.fillStyle = '#3e4150'; x.fillRect(0, Math.round(mid - edge * S), L, Math.round(2 * edge * S));
+  x.fillStyle = '#e8eaf0';
+  x.fillRect(0, Math.round(mid - edge * S) + 1, L, 2); x.fillRect(0, Math.round(mid + edge * S) - 3, L, 2);
+  for (const o of lanes) for (const s of [-1, 1]) for (const d of [0, 6 * S]) x.fillRect(d, Math.round(mid + s * o * S) - 1, 3 * S, 2);
+  if (median > 0) {
+    x.fillStyle = '#7a7e90'; x.fillRect(0, Math.round(mid - median * S / 2), L, Math.round(median * S));
+    x.fillStyle = '#e6c042'; x.fillRect(0, Math.round(mid - median * S / 2) - 2, L, 2); x.fillRect(0, Math.round(mid + median * S / 2), L, 2);
+  } else if (centre) {
+    x.fillStyle = '#e6c042'; x.fillRect(0, mid - 3, L, 2); x.fillRect(0, mid + 1, L, 2);
+  }
+  for (let i = 0; i < 900; i++) {
+    x.fillStyle = i % 2 ? '#000000' : '#ffffff'; x.globalAlpha = 0.03 + ((i * 7919) % 100) / 1400;
+    x.fillRect((i * 37) % L, (i * 53) % c.height, 1, 1);
+  }
+  x.globalAlpha = 1;
+  const map = streetTex(c, aniso), glow = streetTex(glowTwin(c), aniso);
+  map.wrapT = glow.wrapT = ClampToEdgeWrapping;
+  return { map, glow };
 }
 
 /** The canal's mirror: vertical streaks of the city's colours, scrolled. */
@@ -852,6 +1042,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const rand = mulberry32(seed ^ 0x9e3779b9); // the renderer's own stream; the plan owns the seed
   const calm = reducedMotion();
   const scene = new Scene();
+  (window as unknown as { rvlScene?: Scene }).rvlScene = scene; // verification: the scene graph, for the pane
   // what a LOOK (city-sky.ts) dims or scales: the lamps' glow, the neon, the stars, the point lights
   const dimmables: { m: { opacity: number }; base: number; floor: number; k: 'lamps' | 'stars' }[] = [];
   const scalables: { m: MeshBasicMaterial; floor: number }[] = [];
@@ -995,11 +1186,14 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
 
   // -- the ground: streets with lane paint, kerbs and crosswalks; the canal;
   // the diagonal boulevard; the highway deck ---------------------------------
-  const groundTex = groundTexture(rand);
+  const aniso = renderer.capabilities.getMaxAnisotropy();
+  const groundTex = groundTextures(rand, aniso);
   const GROUND = 106 * G; // a whole number of blocks: lot centres land on the tile corners
-  groundTex.repeat.set(106, 106);
+  groundTex.map.repeat.set(106, 106); groundTex.glow.repeat.set(106, 106);
+  // (Lambert, not a physical material: a street seen along its length mirrors every point light and the sky's
+  // horizon at grazing angles — eighteen lamps' sheen summed to a white veil over the whole frame, measured)
   const ground = new Mesh(new PlaneGeometry(GROUND, GROUND), new MeshLambertMaterial({
-    map: groundTex, emissive: '#22376f', emissiveIntensity: 0.5, // its own glow, in the look's colour: the streets never fall to black
+    map: groundTex.map, emissiveMap: groundTex.glow, emissive: '#2c4a8e', emissiveIntensity: 1.5, // its own glow, in the look's colour, the paint brighter than the asphalt: the streets never fall to black
   }));
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
@@ -1017,26 +1211,33 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   mirror.rotation.x = -Math.PI / 2;
   mirror.position.y = 0.09;
   scene.add(mirror);
-  const strip = roadStripTexture();
+  const streetMats: MeshLambertMaterial[] = []; // the laid roads, the deck, the ramps: lit and glowing with the ground
+  const streetMat = (strip: { map: CanvasTexture; glow: CanvasTexture }, repeat: number) => {
+    const map = strip.map.clone(), glow = strip.glow.clone();
+    map.needsUpdate = true; glow.needsUpdate = true;
+    map.repeat.set(repeat, 1); glow.repeat.set(repeat, 1);
+    const m = new MeshLambertMaterial({ map, emissiveMap: glow, emissive: '#2c4a8e', emissiveIntensity: 1.8 });
+    streetMats.push(m);
+    return m;
+  };
+  const boulevardStrip = roadStrip(DIAGONAL.width, [2.95], 5.6, 0, true, aniso); // two lanes a side (city-traffic OFFSETS.diagonal)
+  const deckStrip = roadStrip(HIGHWAY.width, [2.275, 4.225], DECK_KERB - 0.1, 1, false, aniso); // three lanes a side about a median (OFFSETS.highway)
+  const rampStrip = roadStrip(RAMP_W, [], RAMP_W / 2 - 0.4, 0, false, aniso); // one lane
   const laidRoad = (st: Street, y: number, width: number) => {
-    const tex = strip.clone();
-    tex.needsUpdate = true;
-    tex.repeat.set(st.len / 14, 1);
-    const m = new Mesh(new PlaneGeometry(st.len, width), new MeshBasicMaterial({ map: tex }));
+    const m = new Mesh(new PlaneGeometry(st.len, width), streetMat(boulevardStrip, st.len / 12));
+    m.receiveShadow = true;
     m.position.set(st.x0 + st.dx * st.len / 2, y, st.z0 + st.dz * st.len / 2);
     m.rotation.y = Math.atan2(-st.dz, st.dx);
     m.rotateX(-Math.PI / 2);
     scene.add(m);
   };
-  const deckTex = strip.clone();
-  deckTex.needsUpdate = true;
   const deckDark = new MeshBasicMaterial({ color: '#0a0c1e' });
   const edge: number[] = []; // amber lights along every deck edge — the highway's and the ramps'
   for (const st of plan.streets) {
     if (st.kind === 'diagonal') laidRoad(st, 0.05, st.width);
     if (st.kind === 'highway') {
-      deckTex.repeat.set(st.len / 14, 1);
-      const deck = new Mesh(new BoxGeometry(st.len, 0.8, st.width), [deckDark, deckDark, new MeshBasicMaterial({ map: deckTex }), deckDark, deckDark, deckDark]);
+      const deck = new Mesh(new BoxGeometry(st.len, 0.8, st.width), [deckDark, deckDark, streetMat(deckStrip, st.len / 12), deckDark, deckDark, deckDark]);
+      deck.receiveShadow = true;
       deck.position.set(st.x0 + st.dx * st.len / 2, HIGHWAY.y, st.z0 + st.dz * st.len / 2);
       deck.rotation.y = Math.atan2(-st.dz, st.dx);
       scene.add(deck);
@@ -1075,10 +1276,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     }
     if (st.kind === 'ramp') { // a chain of tilted deck pieces down the ramp's ease
       const N = 8;
-      const rt = strip.clone();
-      rt.needsUpdate = true;
-      rt.repeat.set(st.len / N / 14, 1);
-      const top = new MeshBasicMaterial({ map: rt });
+      const top = streetMat(rampStrip, st.len / N / 12);
       for (let k = 0; k < N; k++) {
         const t0 = (k / N) * st.len, t1 = ((k + 1) / N) * st.len;
         const y0 = rampY(st, t0), y1 = rampY(st, t1);
@@ -1110,35 +1308,18 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     tree: new ConeGeometry(0.5, 1, 7),
     plane: new PlaneGeometry(1, 1),
   };
-  const facadeTex = plan.styles.map((s) => facadeTexture(rand, s));
-  const cylTex = facadeTex.map((t) => {
-    const c = t.clone();
-    c.wrapS = RepeatWrapping;
-    c.repeat.set(3, 1);
-    c.needsUpdate = true;
-    return c;
-  });
+  // -- THE SKINS (owner: every building unique; realistic, cinematic light on them): one atlas
+  // (city-skins.ts), four materials (box and cylinder, near and far), and per building its
+  // cell, its phase along the tile, a shopfront or none, a crown or none, a tint of its own ----
+  const atlas = skinAtlas(rand);
+  const skinMats: MeshStandardMaterial[] = [];
+  const skinOf = (cyl: boolean, far: boolean) => { const m = skinMaterial(atlas, cyl, far); skinMats.push(m); return m; };
+  const skinBox = skinOf(false, false), skinBoxFar = skinOf(false, true), skinCyl = skinOf(true, false), skinCylFar = skinOf(true, true);
   const dark = new MeshLambertMaterial({ map: roofTexture(rand), color: '#22305a' }); // the roofs (and the undersides): panels, plant, a rim — tinted by the look
-  // the moon lights the near faces and the roofs, the far faces sleep in the
-  // hemisphere's blue, the shadows take the rest; the windows are emissive
-  // (they are their own light) and LIVE — see livingFacade
-  const livingMats: { mat: MeshLambertMaterial; base: number; lift: number }[] = []; // the windows' glow and the walls' lift, for the look to scale
-  const facade = (map: CanvasTexture, style: FacadeStyle, far: boolean): MeshLambertMaterial => {
-    const base = far ? 0.95 : 0.9, lift = far ? 2.0 : 2.6;
-    const mat = livingFacade(new MeshLambertMaterial({
-      map, emissive: '#ffffff', emissiveMap: map, emissiveIntensity: base, color: far ? '#9aa0c8' : '#ffffff',
-    }), windowCells(style), style.tint, lift);
-    livingMats.push({ mat, base, lift });
-    return mat;
-  };
-  const facadeMats = (map: CanvasTexture, style: FacadeStyle, far: boolean): Material[] => {
-    const lit = facade(map, style, far);
-    return [lit, lit, dark, dark, lit, lit];
-  };
   const matFor = (kind: Solid['kind'], key: string, far: boolean): Material | Material[] => {
     switch (kind) {
-      case 'facade': return facadeMats(facadeTex[Number(key)], plan.styles[Number(key)], far);
-      case 'cyl': return key === 'dark' ? [dark, dark, dark] : [facade(cylTex[Number(key)], plan.styles[Number(key)], far), dark, dark];
+      case 'facade': { const s = far ? skinBoxFar : skinBox; return [s, s, dark, dark, s, s]; }
+      case 'cyl': return key === 'dark' ? [dark, dark, dark] : [far ? skinCylFar : skinCyl, dark, dark];
       case 'pyr': return new MeshLambertMaterial({ color: '#0b0b18' });
       case 'spire': return new MeshLambertMaterial({ color: '#5f6a92' });
       case 'dome': return new MeshLambertMaterial({ color: '#0d0e20' });
@@ -1149,13 +1330,17 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const geoFor = (k: Solid['kind']) =>
     k === 'cyl' ? geo.cyl : k === 'pyr' ? geo.pyr : k === 'spire' ? geo.spire : k === 'dome' ? geo.dome : k === 'tree' ? geo.tree : geo.box;
   const dummy = new Object3D();
-  const buckets = new Map<string, { kind: Solid['kind']; key: string; far: boolean; mats: Matrix4[] }>();
+  interface Bucket { kind: Solid['kind']; key: string; far: boolean; mats: Matrix4[]; skins: number[]; tints: number[] }
+  const buckets = new Map<string, Bucket>();
+  const shopfronts: { x: number; z: number; w: number; d: number }[] = []; // lit ground floors: they wash the pavement before them
+  const NO_SHOP = new Set<Solid['arch']>(['bits', 'street', 'bridge', 'temple', 'industry', 'shanty', 'sprawl']);
   const place = (s: Solid, far: boolean) => {
-    const key = (s.arch === 'bits' || s.arch === 'street' || s.arch === 'industry' || (s.arch === 'bridge' && s.kind !== 'facade')) && s.kind !== 'facade'
-      ? 'dark' : String(s.tex);
+    const plain = (s.arch === 'bits' || s.arch === 'street' || s.arch === 'industry' || s.arch === 'bridge') && s.kind !== 'facade';
+    const dressed = !plain && (s.kind === 'facade' || s.kind === 'cyl');
+    const key = plain ? 'dark' : dressed ? 'skin' : String(s.tex);
     const id = `${far ? 'f' : 'c'}:${s.kind}:${key}`;
     let b = buckets.get(id);
-    if (!b) { b = { kind: s.kind, key, far, mats: [] }; buckets.set(id, b); }
+    if (!b) { b = { kind: s.kind, key, far, mats: [], skins: [], tints: [] }; buckets.set(id, b); }
     if (s.kind === 'dome') {
       dummy.position.set(s.x, s.y - s.h / 2, s.z);
       dummy.scale.set(s.w / 2, s.h, s.d / 2);
@@ -1165,17 +1350,59 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     }
     dummy.updateMatrix();
     b.mats.push(dummy.matrix.clone());
+    if (dressed) {
+      const style = plan.styles[s.tex];
+      const shop = !far && s.y - s.h / 2 < 0.6 && s.h > 5 && Math.min(s.w, s.d) >= 6 && !NO_SHOP.has(s.arch) ? 1 : 0;
+      const crown = style.crown && s.kind === 'facade' && s.h > 18 ? 1 : 0;
+      b.skins.push(skinFor(s.tex, style, rand()), rand(), shop, crown);
+      b.tints.push(...tintJitter(rand(), rand()));
+      if (shop) shopfronts.push({ x: s.x, z: s.z, w: s.w, d: s.d });
+    }
   };
   for (const s of plan.core) place(s, false);
   for (const s of plan.outer) place(s, false);
   for (const s of plan.sprawl) place(s, true);
+  const tint = new Color();
   for (const b of buckets.values()) {
-    const inst = new InstancedMesh(geoFor(b.kind), matFor(b.kind, b.key, b.far), b.mats.length);
+    const dressed = b.key === 'skin';
+    const g = dressed ? geoFor(b.kind).clone() : geoFor(b.kind); // the skins ride an instance attribute: their own geometry
+    if (dressed) g.setAttribute('aSkin', new InstancedBufferAttribute(new Float32Array(b.skins), 4));
+    const inst = new InstancedMesh(g, matFor(b.kind, b.key, b.far), b.mats.length);
     b.mats.forEach((m, j) => inst.setMatrixAt(j, m));
     inst.instanceMatrix.needsUpdate = true;
+    if (dressed) {
+      b.mats.forEach((_, j) => inst.setColorAt(j, tint.setRGB(b.tints[j * 3], b.tints[j * 3 + 1], b.tints[j * 3 + 2])));
+      if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+    }
     inst.castShadow = !b.far && b.kind !== 'tree'; // the sprawl is fog's; the trees would only speckle
     inst.receiveShadow = !b.far;
     scene.add(inst);
+  }
+  // -- SHOP LIGHT ON THE PAVEMENT (owner: the street level lit like a city at night): every
+  // shopfront lays a wash of its light on the ground before it, on all four sides ---------------
+  {
+    const spill = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), dim(additiveFog(new MeshBasicMaterial({
+      map: spillTexture(), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.2,
+      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2, // a decal: never z-fights the ground
+    }))), shopfronts.length * 4);
+    const DEPTH = 5;
+    let j = 0;
+    dummy.rotation.set(0, 0, 0);
+    for (const f of shopfronts) {
+      for (const [nx, nz, len] of [[0, 1, f.w], [0, -1, f.w], [1, 0, f.d], [-1, 0, f.d]] as [number, number, number][]) {
+        dummy.position.set(f.x + nx * (f.w / 2 + DEPTH / 2 + 0.1), 0.12, f.z + nz * (f.d / 2 + DEPTH / 2 + 0.1));
+        dummy.rotation.y = Math.atan2(nx, nz); // the wash's bright edge against the glass
+        dummy.scale.set(len * 0.92, 1, DEPTH);
+        dummy.updateMatrix();
+        spill.setMatrixAt(j, dummy.matrix);
+        spill.setColorAt(j, tint.set(rand() < 0.72 ? '#ffe2b8' : pick(rand, ['#dff6ff', '#ffd6ee', '#e0ffe8'])));
+        j += 1;
+      }
+    }
+    dummy.rotation.set(0, 0, 0);
+    spill.instanceMatrix.needsUpdate = true;
+    if (spill.instanceColor) spill.instanceColor.needsUpdate = true;
+    scene.add(spill);
   }
 
   // -- SEARCHLIGHTS: volumetric-looking beams (an additive cone, a brighter
@@ -1672,10 +1899,10 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   };
   const heads = lightsOf('#fff2d8', 1.5, false);
   // and the headlights' throw: a cone of light on the road ahead (owner: lit by practicals)
-  const throws = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), dim(new MeshBasicMaterial({
+  const throws = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), dim(additiveFog(new MeshBasicMaterial({
     map: headlightTexture(), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.22, color: '#fff0cc',
     polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2, // a decal: never z-fights the road it lies on
-  })), total);
+  }))), total);
   throws.frustumCulled = false;
   scene.add(throws);
   const throwTint = new Color();
@@ -2243,19 +2470,20 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // people near the camera take light from where the light is ----------------
   {
     const pools: { x: number; y: number; z: number; r: number; color: string; a: number }[] = [];
-    for (const p of plan.posts) pools.push({ x: p.x, y: p.y ?? 0, z: p.z, r: p.h * (1.3 + rand() * 0.5), color: '#ffe2b8', a: 1 });
-    for (let i = 0; i < plan.sprawlLamps.length; i += 3) pools.push({ x: plan.sprawlLamps[i], y: 0, z: plan.sprawlLamps[i + 2], r: 7, color: '#ffd9a0', a: 0.8 });
-    for (let i = 0; i < plan.lanterns.length; i += 3) pools.push({ x: plan.lanterns[i], y: 0, z: plan.lanterns[i + 2], r: 3.2, color: '#ffb36b', a: 0.5 });
+    // (sixteen thousand of them: a budget — wider or stronger than this and the streets sum to white, measured)
+    for (const p of plan.posts) pools.push({ x: p.x, y: p.y ?? 0, z: p.z, r: p.h * (1.4 + rand() * 0.5), color: '#ffe2b8', a: 1 });
+    for (let i = 0; i < plan.sprawlLamps.length; i += 3) pools.push({ x: plan.sprawlLamps[i], y: 0, z: plan.sprawlLamps[i + 2], r: 7, color: '#ffd9a0', a: 0.55 });
+    for (let i = 0; i < plan.lanterns.length; i += 3) pools.push({ x: plan.lanterns[i], y: 0, z: plan.lanterns[i + 2], r: 3.2, color: '#ffb36b', a: 0.45 });
     for (const st of plan.stalls) pools.push({ x: st.x, y: 0, z: st.z, r: 4.5, color: st.color, a: 0.55 });
     for (const sg of plan.signs) { // the street-level signs lay their colour on the pavement (the reference's glowing streets)
       if (sg.y > 12 || !(sg.kind === 'hang' || sg.kind === 'wall' || sg.kind === 'board' || sg.kind === 'tag')) continue;
       const nx = Math.sin(sg.rotY), nz = Math.cos(sg.rotY);
-      pools.push({ x: sg.x + nx * 2.4, y: 0, z: sg.z + nz * 2.4, r: 3 + Math.min(5, (sg.w + sg.h) * 0.4), color: sg.color, a: 0.42 });
+      pools.push({ x: sg.x + nx * 2.4, y: 0, z: sg.z + nz * 2.4, r: 3 + Math.min(5, (sg.w + sg.h) * 0.4), color: sg.color, a: 0.5 });
     }
-    const inst = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), dim(new MeshBasicMaterial({
-      map: glowTexture('#ffffff', true), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.36,
+    const inst = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), dim(additiveFog(new MeshBasicMaterial({
+      map: glowTexture('#ffffff', true), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.38,
       polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2, // a decal: never z-fights the ground it lies on
-    })), pools.length);
+    }))), pools.length);
     dummy.rotation.set(0, 0, 0);
     pools.forEach((p, j) => {
       dummy.position.set(p.x, p.y + 0.1, p.z);
@@ -2272,7 +2500,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const practicals: Practical[] = [];
   {
     const LAMP = new Color('#ffe2b8');
-    for (const p of plan.posts) practicals.push({ x: p.x, y: (p.y ?? 0) + p.h + 0.2, z: p.z, color: LAMP, power: 55, reach: 34 });
+    // (32 cd: at 55 the eighteen nearest lamps, a few units from a low eye, whited the road out — measured 230,220,246 mean)
+    for (const p of plan.posts) practicals.push({ x: p.x, y: (p.y ?? 0) + p.h + 0.2, z: p.z, color: LAMP, power: 32, reach: 30 });
     for (let i = 0; i < plan.sprawlLamps.length; i += 3) practicals.push({ x: plan.sprawlLamps[i], y: plan.sprawlLamps[i + 1], z: plan.sprawlLamps[i + 2], color: new Color('#ffd9a0'), power: 24, reach: 24 });
     for (let i = 0; i < plan.lanterns.length; i += 3) practicals.push({ x: plan.lanterns[i], y: plan.lanterns[i + 1], z: plan.lanterns[i + 2], color: new Color('#ffb36b'), power: 9, reach: 14 });
     for (const sg of plan.signs) {
@@ -2351,6 +2580,16 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       for (const one of Array.isArray(mat) ? mat : [mat]) one.needsUpdate = true;
     }
   };
+  // the sky the glass and the wet streets mirror (owner: realistic, cinematic light on the buildings): the look's dome, prefiltered
+  const pmrem = new PMREMGenerator(renderer);
+  let envRT: WebGLRenderTarget | null = null;
+  const setEnvironment = (look: SkyLook) => {
+    const eq = skyTex(look);
+    const rt = pmrem.fromEquirectangular(eq);
+    eq.dispose();
+    envRT?.dispose(); envRT = rt;
+    scene.environment = rt.texture;
+  };
   let timeNow: TimeOfDay = 'night';
   let lookFrom: SkyLook = SKY.night, lookTo: SkyLook = SKY.night, lookNow: SkyLook = SKY.night, lookT = 1;
   const applyLook = (L: SkyLook) => {
@@ -2360,15 +2599,17 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     fog.color.set(L.fog.color); fogMul = L.fog.density; fog.density = TIERS[tier].fog * fogMul;
     renderer.toneMappingExposure = L.exposure;
     bloom.threshold = L.bloom;
-    for (const w of livingMats) {
-      w.mat.emissiveIntensity = w.base * L.windows;
-      (w.mat.userData.uLift as { value: number }).value = Math.max(1, w.lift * L.walls);
+    for (const m of skinMats) {
+      m.emissiveIntensity = (m.userData.base as number) * L.windows;
+      (m.userData.uLift as { value: number }).value = Math.max(1, (m.userData.lift as number) * L.walls);
     }
+    scene.environmentIntensity = L.reflect;
     wallBleach.value = L.bleach.amount; wallBleachCol.value.set(L.bleach.color); wallGlass.value.set(L.glass);
     dark.color.set(lerpHex('#22305a', L.bleach.color, L.bleach.amount)); // the roofs go with the walls
     const gm = ground.material as MeshLambertMaterial;
-    gm.color.setScalar(1 + 0.4 * L.bleach.amount); // the pavements lighten
-    gm.emissive.set(L.bleach.color); gm.emissiveIntensity = L.groundGlow; // and glow, so no patch of street falls to black
+    gm.color.setScalar(L.groundLift); // the streets' own brightness
+    gm.emissive.set(L.bleach.color); gm.emissiveIntensity = L.groundGlow; // and their glow, the paint brighter than the asphalt: no patch of street falls to black
+    for (const m of streetMats) { m.color.setScalar(L.groundLift); m.emissive.set(L.bleach.color); m.emissiveIntensity = L.groundGlow * 0.9; }
     // shadows: a sun casts them, the moon does not (owner: no patches of shadow by night) — within the tier's means
     const shadows = L.shadows && TIERS[tier].shadows;
     if (shadows !== renderer.shadowMap.enabled) { renderer.shadowMap.enabled = shadows; moonLight.castShadow = shadows; refreshMaterials(); }
@@ -2396,6 +2637,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     timeNow = t; lookFrom = lookNow; lookTo = SKY[t]; lookT = instant ? 1 : 0;
     const b = domeB.material as MeshBasicMaterial;
     b.map?.dispose(); b.map = skyTex(lookTo); b.needsUpdate = true; b.opacity = 0; domeB.visible = true;
+    setEnvironment(lookTo);
     if (instant) { finishDome(); lookNow = lookTo; applyLook(lookNow); }
   };
   const tendLook = () => {
@@ -2407,6 +2649,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     applyLook(lookNow);
     if (lookT >= 1) { finishDome(); lookNow = lookTo; }
   };
+  setEnvironment(SKY.night);
   applyLook(lookNow);
 
   const fit = () => {
