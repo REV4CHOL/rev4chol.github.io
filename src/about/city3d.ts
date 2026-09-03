@@ -1,19 +1,21 @@
 /** REVACHOL, TRAVERSABLE — the about page IS the city (owner decree,
- *  logartis.info model), graded to the reference plates: a blue night,
- *  wide tree-lined avenues and real streets (roads with lane paint and
- *  crosswalks, kerbs, lamp posts, kiosks, gantries), thousands of signs in
- *  the reference's red/yellow/cyan/white over the house neon, rivers of
- *  vehicles with head- and taillights, pedestrians on the pavements, birds
- *  over the rooftops; a star dome with no hole in it; two-tone cinematic
- *  facade shading; UnrealBloom halos; and the whole thing photographed
- *  through a 24mm with real glass (barrel, chromatic fringe, motion blur,
- *  vignette).
+ *  logartis.info model), graded to the reference plates and to Newport
+ *  City: a blue-green night, a canal avenue with boats and bridges, a
+ *  tree-lined avenue, an elevated highway on pillars, a diagonal boulevard,
+ *  alleys strung with lanterns and wires, blocks packed edge to edge with
+ *  jumbled tenements and towers, a stadium and a Ferris wheel, a stepped
+ *  megastructure under a giant hologram, pagodas, an industrial corner of
+ *  tanks and smoking stacks, skybridges, market stalls, rain; thousands of
+ *  signs in the reference's red/yellow/cyan/white over the house neon;
+ *  rivers of vehicles (cars, taxis, buses, weaving motorcycles, boats) with
+ *  head- and taillights; pedestrians on the pavements; birds over the
+ *  rooftops; a star dome with no hole in it; two-tone cinematic facade
+ *  shading; UnrealBloom halos; and the whole thing photographed through a
+ *  24mm with real glass (barrel, chromatic fringe, motion blur, vignette).
  *
- *  The city itself comes from the PLAN (city-plan.ts, pure and tested):
- *  twelve building archetypes across two downtowns and an old town, a
- *  finished outer ring past the fence, a sprawl for the fog, and a collision
- *  grid — buildings are solid, the camera can never pass through one in any
- *  mode.
+ *  The city itself comes from the PLAN (city-plan.ts, pure and tested) and
+ *  a collision grid — buildings are solid, the camera can never pass
+ *  through one in any mode.
  *
  *  Three flight modes (owner decree): TOUR — the page's native scroll flies
  *  the story route (the city was built around it); AUTO — an endless,
@@ -23,9 +25,10 @@
  *  still drives. */
 import {
   AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ConeGeometry,
-  CylinderGeometry, DoubleSide, FogExp2, Group, InstancedMesh, Material, Matrix4, Mesh, MeshBasicMaterial,
-  NearestFilter, Object3D, PerspectiveCamera, PlaneGeometry, Points, PointsMaterial, RepeatWrapping, Scene,
-  SphereGeometry, Sprite, SpriteMaterial, SRGBColorSpace, Vector2, Vector3, WebGLRenderer,
+  CylinderGeometry, DoubleSide, FogExp2, Group, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4,
+  Mesh, MeshBasicMaterial, NearestFilter, Object3D, PerspectiveCamera, PlaneGeometry, Points, PointsMaterial,
+  RepeatWrapping, Scene, SphereGeometry, Sprite, SpriteMaterial, SRGBColorSpace, TorusGeometry, Vector2, Vector3,
+  WebGLRenderer,
 } from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -34,8 +37,8 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { reducedMotion } from '../lib/env';
 import { mulberry32 } from '../lib/rng';
 import {
-  AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, EXT, FacadeStyle, G, MEDIAN, NEON, planCity, Poi,
-  ROAD, Sign, Solid, starPositions, STREET, Street, tourRoute,
+  AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, EXT, FacadeStyle, G, HIGHWAY, planCity, Poi, REACH,
+  ROAD, Sign, signColor, Solid, starPositions, STREET, Street, tourRoute,
 } from './city-plan';
 import { fov24, LensPass, lensTarget, MotionBlurPass } from './city-post';
 
@@ -268,8 +271,9 @@ function skyTexture(): CanvasTexture {
   g.addColorStop(0.34, '#060a22');
   g.addColorStop(0.44, '#141d4a');
   g.addColorStop(0.485, '#3b2f6b');
-  g.addColorStop(0.515, '#3f7b93');
-  g.addColorStop(0.54, '#a8dbe3');
+  g.addColorStop(0.515, '#3a6e88');
+  g.addColorStop(0.535, '#8fc4cf'); // the glow: thinner and softer than the plate's — it sits at eye level now, from any height
+  g.addColorStop(0.55, '#3f6a86');
   g.addColorStop(0.58, '#132347');
   g.addColorStop(1, '#070a1e');
   x.fillStyle = g; x.fillRect(0, 0, 4, 512);
@@ -321,13 +325,61 @@ function groundTexture(rand: () => number): CanvasTexture {
   return t;
 }
 
+/** A strip of carriageway for the highway deck and the diagonal boulevard:
+ *  dark asphalt, edge lines, a dashed centre. Repeats along u. */
+function roadStripTexture(): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 16;
+  const x = c.getContext('2d')!;
+  x.fillStyle = '#090b1c'; x.fillRect(0, 0, 64, 16);
+  x.fillStyle = '#2a2d44'; x.fillRect(0, 0, 64, 1); x.fillRect(0, 15, 64, 1);
+  x.fillStyle = '#3d3418';
+  for (let i = 0; i < 64; i += 16) x.fillRect(i, 7, 8, 2);
+  const t = asPixelTex(new CanvasTexture(c));
+  t.wrapS = RepeatWrapping;
+  return t;
+}
+
+/** The canal's mirror: vertical streaks of the city's colours, scrolled. */
+function waterTexture(rand: () => number): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 256;
+  const x = c.getContext('2d')!;
+  for (let i = 0; i < 120; i++) {
+    x.fillStyle = signColor(rand);
+    x.globalAlpha = 0.12 + rand() * 0.3;
+    x.fillRect(Math.floor(rand() * 64), Math.floor(rand() * 256), 1, 6 + Math.floor(rand() * 30));
+  }
+  x.globalAlpha = 1;
+  const t = asPixelTex(new CanvasTexture(c));
+  t.wrapS = t.wrapT = RepeatWrapping;
+  return t;
+}
+
 function paintScreen(x: CanvasRenderingContext2D, rand: () => number): void {
   x.fillStyle = '#05050c'; x.fillRect(0, 0, 32, 20);
   for (let i = 0; i < 40; i++) {
-    x.fillStyle = pick(rand, [...NEON, '#ffffff', '#ff9a4d', '#7de8ff', '#ff3b3b', '#ffd23f']);
+    x.fillStyle = pick(rand, ['#C8FF00', '#FF2E63', '#B79CFF', '#ffffff', '#ff9a4d', '#7de8ff', '#ff3b3b', '#ffd23f']);
     x.globalAlpha = 0.45 + rand() * 0.55;
     x.fillRect(Math.floor(rand() * 32), Math.floor(rand() * 20), 1 + Math.floor(rand() * 6), 1 + Math.floor(rand() * 4));
   }
+  x.globalAlpha = 1;
+}
+
+/** A hologram's frame: rows of glyph blocks in cyan and magenta over a
+ *  scanline veil, scrolling upward. */
+function paintHolo(x: CanvasRenderingContext2D, rand: () => number, tick: number): void {
+  x.clearRect(0, 0, 48, 72);
+  for (let r = 0; r < 12; r++) {
+    const y = (r * 6 + tick) % 72;
+    x.fillStyle = r % 3 === 0 ? '#ff4fd8' : '#5df2ff';
+    for (let cx = 2; cx < 46; cx += 4) {
+      if (rand() < 0.5) { x.globalAlpha = 0.5 + rand() * 0.5; x.fillRect(cx, y, 3, 3); }
+    }
+  }
+  x.globalAlpha = 0.25;
+  x.fillStyle = '#5df2ff';
+  for (let y = 0; y < 72; y += 2) x.fillRect(0, y, 48, 1);
   x.globalAlpha = 1;
 }
 
@@ -349,7 +401,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const rand = mulberry32(seed ^ 0x9e3779b9); // the renderer's own stream; the plan owns the seed
   const calm = reducedMotion();
   const scene = new Scene();
-  scene.fog = new FogExp2('#0d0d30', 0.0034);
+  scene.fog = new FogExp2('#0c1826', 0.0036);
 
   const camera = new PerspectiveCamera(fov24(1), 1, 0.1, 1400);
   const renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
@@ -428,13 +480,57 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     horizonRing.add(h);
   }
 
-  // -- the ground: streets with lane paint, kerbs and crosswalks --------------
+  // -- the ground: streets with lane paint, kerbs and crosswalks; the canal;
+  // the diagonal boulevard; the highway deck ---------------------------------
   const groundTex = groundTexture(rand);
   const GROUND = 106 * G; // a whole number of blocks: lot centres land on the tile corners
   groundTex.repeat.set(106, 106);
   const ground = new Mesh(new PlaneGeometry(GROUND, GROUND), new MeshBasicMaterial({ map: groundTex }));
   ground.rotation.x = -Math.PI / 2;
   scene.add(ground);
+  const water = new Mesh(new PlaneGeometry(CANAL.w, 2 * REACH), new MeshBasicMaterial({ color: '#040812' }));
+  water.rotation.x = -Math.PI / 2;
+  water.position.y = 0.06;
+  scene.add(water);
+  const waterTex = waterTexture(rand);
+  waterTex.repeat.set(1, 2 * REACH / 64);
+  const mirror = new Mesh(new PlaneGeometry(CANAL.w, 2 * REACH), new MeshBasicMaterial({
+    map: waterTex, transparent: true, opacity: 0.32, blending: AdditiveBlending, depthWrite: false,
+  }));
+  mirror.rotation.x = -Math.PI / 2;
+  mirror.position.y = 0.09;
+  scene.add(mirror);
+  const strip = roadStripTexture();
+  const laidRoad = (st: Street, y: number, width: number) => {
+    const tex = strip.clone();
+    tex.needsUpdate = true;
+    tex.repeat.set(st.len / 14, 1);
+    const m = new Mesh(new PlaneGeometry(st.len, width), new MeshBasicMaterial({ map: tex }));
+    m.position.set(st.x0 + st.dx * st.len / 2, y, st.z0 + st.dz * st.len / 2);
+    m.rotation.y = Math.atan2(-st.dz, st.dx);
+    m.rotateX(-Math.PI / 2);
+    scene.add(m);
+  };
+  const deckTex = strip.clone();
+  deckTex.needsUpdate = true;
+  for (const st of plan.streets) {
+    if (st.kind === 'diagonal') laidRoad(st, 0.05, st.width);
+    if (st.kind === 'highway') {
+      deckTex.repeat.set(st.len / 14, 1);
+      const dark = new MeshBasicMaterial({ color: '#0a0c1e' });
+      const deck = new Mesh(new BoxGeometry(st.len, 0.8, st.width), [dark, dark, new MeshBasicMaterial({ map: deckTex }), dark, dark, dark]);
+      deck.position.set(st.x0 + st.dx * st.len / 2, HIGHWAY.y, st.z0 + st.dz * st.len / 2);
+      deck.rotation.y = Math.atan2(-st.dz, st.dx);
+      scene.add(deck);
+      const edge: number[] = [];
+      for (let t = 0; t <= st.len; t += 3) {
+        for (const s of [-1, 1]) edge.push(st.x0 + st.dx * t - st.dz * s * 6.6, HIGHWAY.y + 0.9, st.z0 + st.dz * t + st.dx * s * 6.6);
+      }
+      const g = new BufferGeometry();
+      g.setAttribute('position', new BufferAttribute(new Float32Array(edge), 3));
+      scene.add(new Points(g, new PointsMaterial({ color: '#ffb347', size: 2.2, sizeAttenuation: true, transparent: true, opacity: 0.9, depthWrite: false })));
+    }
+  }
 
   // -- the city, from the plan ----------------------------------------------
   const geo = {
@@ -479,7 +575,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const dummy = new Object3D();
   const buckets = new Map<string, { kind: Solid['kind']; key: string; far: boolean; mats: Matrix4[] }>();
   const place = (s: Solid, far: boolean) => {
-    const key = (s.arch === 'bits' || s.arch === 'street') && s.kind !== 'facade' ? 'dark' : String(s.tex);
+    const key = (s.arch === 'bits' || s.arch === 'street' || s.arch === 'industry' || (s.arch === 'bridge' && s.kind !== 'facade')) && s.kind !== 'facade'
+      ? 'dark' : String(s.tex);
     const id = `${far ? 'f' : 'c'}:${s.kind}:${key}`;
     let b = buckets.get(id);
     if (!b) { b = { kind: s.kind, key, far, mats: [] }; buckets.set(id, b); }
@@ -504,9 +601,10 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   }
 
   // glowing bars: storefront strips at the pavement, LED edges up the needles
-  // (the LEDs run at half power — bloom does the rest, a full-white bar reads as a laser)
-  for (const [list, power] of [[plan.strips, 1], [plan.leds, 0.45]] as [typeof plan.strips, number][]) {
-    if (!list.length) continue;
+  // (the LEDs run at half power — bloom does the rest, a full-white bar reads
+  // as a laser), awnings dim over the shopfronts
+  const bars = (list: typeof plan.strips, power: number) => {
+    if (!list.length) return;
     const inst = new InstancedMesh(geo.box, new MeshBasicMaterial({ color: '#ffffff' }), list.length);
     list.forEach((s, j) => {
       dummy.position.set(s.x, s.y, s.z);
@@ -514,6 +612,22 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       dummy.updateMatrix();
       inst.setMatrixAt(j, dummy.matrix);
       inst.setColorAt(j, new Color(s.color).multiplyScalar(power));
+    });
+    inst.instanceMatrix.needsUpdate = true;
+    if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+    scene.add(inst);
+  };
+  bars(plan.strips, 1);
+  bars(plan.leds, 0.45);
+  bars(plan.awnings, 0.35);
+  { // the market's canopies
+    const inst = new InstancedMesh(geo.pyr, new MeshBasicMaterial({ color: '#ffffff' }), plan.stalls.length);
+    plan.stalls.forEach((s, j) => {
+      dummy.position.set(s.x, 2.9, s.z);
+      dummy.scale.set(3.2, 1.2, 2.6);
+      dummy.updateMatrix();
+      inst.setMatrixAt(j, dummy.matrix);
+      inst.setColorAt(j, new Color(s.color).multiplyScalar(0.5));
     });
     inst.instanceMatrix.needsUpdate = true;
     if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
@@ -533,8 +647,58 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   spire.position.set(lmx, 142, lmz);
   scene.add(spire);
 
+  // -- the stadium's bowl, pitch and floodlights; the Ferris wheel -------------
+  {
+    const st = plan.stadium;
+    const bowl = new Mesh(new CylinderGeometry(1, 0.86, 1, 28, 1, true), new MeshBasicMaterial({ color: '#101538', side: DoubleSide }));
+    bowl.position.set(st.x, st.h / 2, st.z);
+    bowl.scale.set(st.w / 2, st.h, st.d / 2);
+    scene.add(bowl);
+    const pitch = new Mesh(new CylinderGeometry(1, 1, 0.3, 28), new MeshBasicMaterial({ color: '#1c5a3c' }));
+    pitch.position.set(st.x, 2.2, st.z);
+    pitch.scale.set(st.w / 2 - 5, 1, st.d / 2 - 5);
+    scene.add(pitch);
+    const rim: number[] = [];
+    for (let i = 0; i < 40; i++) { const a = (i / 40) * Math.PI * 2; rim.push(st.x + Math.cos(a) * st.w / 2, st.h + 0.4, st.z + Math.sin(a) * st.d / 2); }
+    for (const m of st.masts) rim.push(m.x, m.h + 0.6, m.z);
+    const g = new BufferGeometry();
+    g.setAttribute('position', new BufferAttribute(new Float32Array(rim), 3));
+    scene.add(new Points(g, new PointsMaterial({ map: glowTexture('#ffffff'), color: '#e8f4ff', size: 7, sizeAttenuation: true, transparent: true, blending: AdditiveBlending, depthWrite: false })));
+  }
+  const wheel = new Group();
+  {
+    const w = plan.wheel;
+    wheel.position.set(w.x, w.y, w.z);
+    const rim = new Mesh(new TorusGeometry(w.r, 0.35, 6, 40), new MeshBasicMaterial({ color: '#2a2f55' }));
+    rim.rotation.y = Math.PI / 2;
+    wheel.add(rim);
+    const spokes: number[] = [];
+    const lights: number[] = [];
+    for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; spokes.push(0, 0, 0, 0, Math.sin(a) * w.r, Math.cos(a) * w.r); }
+    for (let i = 0; i < 40; i++) { const a = (i / 40) * Math.PI * 2; lights.push(0.6, Math.sin(a) * w.r, Math.cos(a) * w.r); }
+    const sg = new BufferGeometry();
+    sg.setAttribute('position', new BufferAttribute(new Float32Array(spokes), 3));
+    wheel.add(new LineSegments(sg, new LineBasicMaterial({ color: '#3a4070' })));
+    const lg = new BufferGeometry();
+    lg.setAttribute('position', new BufferAttribute(new Float32Array(lights), 3));
+    wheel.add(new Points(lg, new PointsMaterial({ color: '#ffd9a0', size: 2.4, sizeAttenuation: true, transparent: true, depthWrite: false })));
+    const cabins = new InstancedMesh(geo.box, new MeshBasicMaterial({ color: '#ffffff' }), 12);
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      dummy.position.set(0, Math.sin(a) * w.r, Math.cos(a) * w.r);
+      dummy.scale.set(1.8, 1.5, 1.8);
+      dummy.updateMatrix();
+      cabins.setMatrixAt(i, dummy.matrix);
+      cabins.setColorAt(i, new Color(signColor(rand)).multiplyScalar(0.7));
+    }
+    cabins.instanceMatrix.needsUpdate = true;
+    if (cabins.instanceColor) cabins.instanceColor.needsUpdate = true;
+    wheel.add(cabins);
+    scene.add(wheel);
+  }
+
   // -- SIGNAGE: thousands of instanced glyph planes, tinted per sign, a few
-  // always flickering; the giant screens repaint themselves ------------------
+  // always flickering; the giant screens and holograms repaint themselves ----
   const SIGN_SHAPES: Record<Exclude<Sign['kind'], 'screen'>, [number, number, number, boolean, boolean]> = {
     hang: [16, 64, 6, true, false], wall: [16, 64, 6, true, false], board: [64, 16, 7, false, true],
     tag: [32, 16, 3, false, true], roof: [64, 16, 7, false, true], gantry: [96, 24, 9, false, true],
@@ -603,9 +767,35 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       if (f.inst.instanceColor) f.inst.instanceColor.needsUpdate = true;
     }
   };
+  const holos: { mesh: Mesh; tex: CanvasTexture; ctx: CanvasRenderingContext2D }[] = [];
+  for (const h of plan.holos) {
+    const c = document.createElement('canvas');
+    c.width = 48; c.height = 72;
+    const ctx = c.getContext('2d')!;
+    paintHolo(ctx, rand, 0);
+    const tex = asPixelTex(new CanvasTexture(c));
+    const m = new Mesh(geo.plane, new MeshBasicMaterial({
+      map: tex, transparent: true, opacity: 0.3, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false,
+    }));
+    m.position.set(h.x, h.y, h.z);
+    m.scale.set(h.w, h.h, 1);
+    m.rotation.y = h.rotY;
+    scene.add(m);
+    holos.push({ mesh: m, tex, ctx });
+  }
 
-  // -- street furniture: lamp posts with glowing heads, the sprawl's lamps,
-  // the sprawl's neon specks, beacons -----------------------------------------
+  // -- street furniture: lamp posts with glowing heads, lanterns, wires,
+  // railings, the sprawl's lamps and neon specks, beacons -------------------
+  const glowPoints = (pos: number[] | Float32Array, color: string, size: number, opacity = 1) => {
+    const g = new BufferGeometry();
+    g.setAttribute('position', new BufferAttribute(pos instanceof Float32Array ? pos : new Float32Array(pos), 3));
+    const pts = new Points(g, new PointsMaterial({
+      map: glowTexture(color), color, size, sizeAttenuation: true, transparent: true, opacity,
+      blending: AdditiveBlending, depthWrite: false,
+    }));
+    scene.add(pts);
+    return pts;
+  };
   {
     const inst = new InstancedMesh(geo.box, new MeshBasicMaterial({ color: '#0c0d1a' }), plan.posts.length);
     const heads = new Float32Array(plan.posts.length * 3);
@@ -618,18 +808,17 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     });
     inst.instanceMatrix.needsUpdate = true;
     scene.add(inst);
+    glowPoints(heads, '#ffe9c9', 4.5);
+    glowPoints(plan.sprawlLamps, '#ffd9a0', 3);
+    glowPoints(plan.lanterns, '#ffb36b', 3);
+    const rail: number[] = [];
+    for (const b of plan.bridges) for (let x = -12; x <= 12; x += 2.4) for (const s of [-1, 1]) rail.push(x, 1.9, b.z + s * 5.4);
+    glowPoints(rail, '#ffd9a0', 2);
+  }
+  {
     const g = new BufferGeometry();
-    g.setAttribute('position', new BufferAttribute(heads, 3));
-    scene.add(new Points(g, new PointsMaterial({
-      map: glowTexture('#ffe9c9'), color: '#ffe9c9', size: 4.5, sizeAttenuation: true, transparent: true,
-      blending: AdditiveBlending, depthWrite: false,
-    })));
-    const g2 = new BufferGeometry();
-    g2.setAttribute('position', new BufferAttribute(new Float32Array(plan.sprawlLamps), 3));
-    scene.add(new Points(g2, new PointsMaterial({
-      map: glowTexture('#ffd9a0'), color: '#ffd9a0', size: 3, sizeAttenuation: true, transparent: true,
-      blending: AdditiveBlending, depthWrite: false,
-    })));
+    g.setAttribute('position', new BufferAttribute(new Float32Array(plan.wires), 3));
+    scene.add(new LineSegments(g, new LineBasicMaterial({ color: '#12162a' })));
   }
   {
     const g = new BufferGeometry();
@@ -650,29 +839,70 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     beacons.push(s);
     scene.add(s);
   }
+  // smoke over the stacks, steam from the vents: sprites cycling upward
+  interface Puff { s: Sprite; x: number; y0: number; z: number; t: number; rise: number; drift: number; base: number }
+  const puffs: Puff[] = [];
+  const puffMat = (color: string) => new SpriteMaterial({ map: glowTexture(color), transparent: true, opacity: 0.2, depthWrite: false });
+  for (const st of plan.stacks) {
+    for (let i = 0; i < 6; i++) {
+      const s = new Sprite(puffMat('#8a8fa8'));
+      scene.add(s);
+      puffs.push({ s, x: st.x, y0: st.top + 0.5, z: st.z, t: i / 6, rise: 26, drift: 9, base: 5 });
+    }
+  }
+  for (const v of plan.vents) {
+    for (let i = 0; i < 3; i++) {
+      const s = new Sprite(puffMat('#c8d0e8'));
+      scene.add(s);
+      puffs.push({ s, x: v.x, y0: 0.4, z: v.z, t: i / 3, rise: 7, drift: 1.2, base: 1.6 });
+    }
+  }
+  const breathe = () => {
+    for (const p of puffs) {
+      p.t = (p.t + 0.006) % 1;
+      p.s.position.set(p.x + p.drift * p.t, p.y0 + p.rise * p.t, p.z);
+      const sc = p.base * (0.6 + p.t * 2.2);
+      p.s.scale.set(sc, sc, 1);
+      (p.s.material as SpriteMaterial).opacity = 0.22 * (1 - p.t);
+    }
+  };
 
-  // -- LIVELY STREETS: vehicles with head- and taillights, pedestrians on the
-  // pavements, birds over the rooftops, aircraft crossing high ------------------
-  interface Vehicle { st: Street; lane: number; s: number; v: number; len: number; w: number; h: number }
+  // -- LIVELY STREETS: vehicles with head- and taillights (cars, taxis, buses,
+  // weaving motorcycles, boats on the canal), pedestrians on the pavements and
+  // in the alleys, birds over the rooftops, aircraft crossing high, rain -------
+  type VKind = 'car' | 'taxi' | 'bus' | 'moto' | 'boat';
+  interface Vehicle { st: Street; lane: number; t: number; v: number; len: number; w: number; h: number; kind: VKind; phase: number }
+  const roads = plan.streets.filter((s) => s.kind === 'road' || s.kind === 'highway' || s.kind === 'diagonal');
+  const canal = plan.streets.find((s) => s.kind === 'canal')!;
+  const roadTotal = roads.reduce((a, s) => a + s.len, 0);
+  const pickRoad = () => {
+    let r = rand() * roadTotal;
+    for (const s of roads) { r -= s.len; if (r <= 0) return s; }
+    return roads[roads.length - 1];
+  };
   const vehicles: Vehicle[] = [];
   const BODY = ['#141827', '#1a1f33', '#242a44', '#3a1f2a', '#2a2a30', '#1c2d3a', '#e8e0d0'];
-  const carCount = 420;
-  const carMesh = new InstancedMesh(geo.box, new MeshBasicMaterial({ color: '#ffffff' }), carCount);
-  for (let i = 0; i < carCount; i++) {
-    const st = pick(rand, plan.streets);
+  const colors: Color[] = [];
+  const spawn = (kind: VKind, st: Street) => {
     const dir: 1 | -1 = rand() < 0.5 ? 1 : -1;
-    const bus = rand() < 0.07;
-    const taxi = !bus && rand() < 0.15;
-    const v = (bus ? 0.09 : 0.1 + rand() * 0.1) * dir;
-    vehicles.push({
-      st, lane: st.at + dir * (rand() < 0.5 ? 1.7 : 4.2), s: st.from + rand() * (st.to - st.from), v,
-      len: bus ? 7 : 3.2, w: bus ? 2.2 : 1.4, h: bus ? 2.2 : 0.9,
-    });
-    carMesh.setColorAt(i, new Color(bus ? '#d9d2c4' : taxi ? '#ffd23f' : pick(rand, BODY)));
-  }
+    const fast = st.kind === 'highway' ? 1.9 : 1;
+    const spec: Record<VKind, [number, number, number, number]> = { // len, w, h, speed
+      car: [3.2, 1.4, 0.9, 0.1 + rand() * 0.1], taxi: [3.2, 1.4, 0.9, 0.12 + rand() * 0.1], bus: [7, 2.2, 2.2, 0.09],
+      moto: [1.6, 0.6, 0.8, 0.2 + rand() * 0.12], boat: [6, 2, 0.6, 0.03 + rand() * 0.02],
+    };
+    const [len, w, h, v] = spec[kind];
+    const lane = kind === 'boat' ? dir * 4 : dir * (rand() < 0.5 ? 1.7 : 4.2);
+    vehicles.push({ st, lane, t: rand() * st.len, v: v * fast * dir, len, w, h, kind, phase: rand() * 7 });
+    colors.push(new Color(kind === 'bus' ? '#d9d2c4' : kind === 'taxi' ? '#ffd23f' : kind === 'boat' ? '#1a1c2c' : pick(rand, BODY)));
+  };
+  for (let i = 0; i < 420; i++) { const r = rand(); spawn(r < 0.07 ? 'bus' : r < 0.22 ? 'taxi' : 'car', pickRoad()); }
+  for (let i = 0; i < 110; i++) spawn('moto', pickRoad());
+  for (let i = 0; i < 14; i++) spawn('boat', canal);
+  const carMesh = new InstancedMesh(geo.box, new MeshBasicMaterial({ color: '#ffffff' }), vehicles.length);
+  colors.forEach((c, i) => carMesh.setColorAt(i, c));
   scene.add(carMesh);
   const lightsOf = (color: string, size: number) => {
-    const arr = new Float32Array(carCount * 2 * 3);
+    const arr = new Float32Array(vehicles.length * 2 * 3);
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(arr, 3));
     const pts = new Points(g, new PointsMaterial({ color, size, sizeAttenuation: true, transparent: true, opacity: 0.95, depthWrite: false }));
@@ -684,22 +914,33 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const driveCars = () => {
     for (let i = 0; i < vehicles.length; i++) {
       const c = vehicles[i];
-      c.s += c.v;
-      if (c.s > c.st.to) c.s = c.st.from;
-      if (c.s < c.st.from) c.s = c.st.to;
-      const alongX = c.st.axis === 'x';
-      dummy.position.set(alongX ? c.s : c.lane, c.h / 2 + 0.05, alongX ? c.lane : c.s);
-      dummy.scale.set(alongX ? c.len : c.w, c.h, alongX ? c.w : c.len);
+      const st = c.st;
+      c.t += c.v;
+      if (c.t > st.len) c.t -= st.len;
+      if (c.t < 0) c.t += st.len;
+      let lane = c.lane;
+      if (c.kind === 'moto') lane += Math.sin(c.t * 0.05 + c.phase) * 1.6; // the weave
+      const px = st.x0 + st.dx * c.t - st.dz * lane, pz = st.z0 + st.dz * c.t + st.dx * lane;
+      let y = st.y + c.h / 2 + 0.05;
+      if (st.kind === 'road' && st.dz === 0) { // east–west roads climb the canal bridges
+        const ax = Math.abs(px);
+        if (ax < 13) y += 1.3; else if (ax < 17) y += 1.3 * (17 - ax) / 4;
+      }
+      dummy.position.set(px, y, pz);
+      dummy.rotation.set(0, Math.atan2(st.dx, st.dz), 0);
+      dummy.scale.set(c.w, c.h, c.len);
       dummy.updateMatrix();
       carMesh.setMatrixAt(i, dummy.matrix);
       const dir = c.v > 0 ? 1 : -1;
-      const front = c.s + dir * c.len / 2, rear = c.s - dir * c.len / 2;
-      for (const [k, side] of [[0, -0.45], [1, 0.45]] as [number, number][]) {
+      const front = c.t + dir * c.len / 2, rear = c.t - dir * c.len / 2;
+      const spread = c.kind === 'moto' ? 0 : 0.45;
+      for (const [k, side] of [[0, -spread], [1, spread]] as [number, number][]) {
         const j = (i * 2 + k) * 3;
-        heads.arr[j] = alongX ? front : c.lane + side; heads.arr[j + 1] = 0.55; heads.arr[j + 2] = alongX ? c.lane + side : front;
-        tails.arr[j] = alongX ? rear : c.lane + side; tails.arr[j + 1] = 0.55; tails.arr[j + 2] = alongX ? c.lane + side : rear;
+        heads.arr[j] = st.x0 + st.dx * front - st.dz * (lane + side); heads.arr[j + 1] = y + 0.1; heads.arr[j + 2] = st.z0 + st.dz * front + st.dx * (lane + side);
+        tails.arr[j] = st.x0 + st.dx * rear - st.dz * (lane + side); tails.arr[j + 1] = y + 0.1; tails.arr[j + 2] = st.z0 + st.dz * rear + st.dx * (lane + side);
       }
     }
+    dummy.rotation.set(0, 0, 0);
     carMesh.instanceMatrix.needsUpdate = true;
     if (carMesh.instanceColor) carMesh.instanceColor.needsUpdate = true;
     (heads.pts.geometry.getAttribute('position') as BufferAttribute).needsUpdate = true;
@@ -707,15 +948,17 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   };
 
   interface Walker { st: Street; off: number; t: number; v: number }
+  const walkable = plan.streets.filter((s) => s.kind === 'road' || s.kind === 'alley' || s.kind === 'diagonal');
+  const walkTotal = walkable.reduce((a, s) => a + (s.kind === 'alley' ? s.len * 3 : s.len), 0);
   const walkers: Walker[] = [];
-  const walkArr = new Float32Array(1600 * 3);
-  for (let i = 0; i < 1600; i++) {
-    const st = pick(rand, plan.streets);
-    const median = rand() < 0.14;
-    walkers.push({
-      st, off: median ? (st.at > 0 ? st.at : st.at) - (st.at > 0 ? 1 : -1) * (STREET / 2 + MEDIAN / 2) : st.at + (rand() < 0.5 ? 1 : -1) * (ROAD / 2 + 1),
-      t: st.from + rand() * (st.to - st.from), v: (0.018 + rand() * 0.022) * (rand() < 0.5 ? 1 : -1),
-    });
+  const WALKERS = 1800;
+  const walkArr = new Float32Array(WALKERS * 3);
+  for (let i = 0; i < WALKERS; i++) {
+    let r = rand() * walkTotal;
+    let st = walkable[walkable.length - 1];
+    for (const s of walkable) { r -= s.kind === 'alley' ? s.len * 3 : s.len; if (r <= 0) { st = s; break; } }
+    const off = st.kind === 'alley' ? (rand() - 0.5) * (st.width - 1.5) : (rand() < 0.5 ? 1 : -1) * (st.width / 2 - 1);
+    walkers.push({ st, off, t: rand() * st.len, v: (0.018 + rand() * 0.022) * (rand() < 0.5 ? 1 : -1) });
   }
   const walkGeo = new BufferGeometry();
   walkGeo.setAttribute('position', new BufferAttribute(walkArr, 3));
@@ -724,10 +967,12 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     for (let i = 0; i < walkers.length; i++) {
       const w = walkers[i];
       w.t += w.v;
-      if (w.t > w.st.to) w.t = w.st.from;
-      if (w.t < w.st.from) w.t = w.st.to;
+      if (w.t > w.st.len) w.t -= w.st.len;
+      if (w.t < 0) w.t += w.st.len;
       const j = i * 3;
-      walkArr[j] = w.st.axis === 'x' ? w.t : w.off; walkArr[j + 1] = 0.9; walkArr[j + 2] = w.st.axis === 'x' ? w.off : w.t;
+      walkArr[j] = w.st.x0 + w.st.dx * w.t - w.st.dz * w.off;
+      walkArr[j + 1] = 0.9;
+      walkArr[j + 2] = w.st.z0 + w.st.dz * w.t + w.st.dx * w.off;
     }
     (walkGeo.getAttribute('position') as BufferAttribute).needsUpdate = true;
   };
@@ -777,6 +1022,28 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     });
     (craftGeo.getAttribute('position') as BufferAttribute).needsUpdate = true;
   };
+  // rain: a box of falling streaks that travels with the camera
+  const RAIN = calm ? 0 : 1400;
+  const rainLocal = new Float32Array(RAIN * 3);
+  const rainArr = new Float32Array(RAIN * 6);
+  for (let i = 0; i < RAIN; i++) { rainLocal[i * 3] = (rand() - 0.5) * 70; rainLocal[i * 3 + 1] = (rand() - 0.5) * 44; rainLocal[i * 3 + 2] = (rand() - 0.5) * 70; }
+  const rainGeo = new BufferGeometry();
+  rainGeo.setAttribute('position', new BufferAttribute(rainArr, 3));
+  if (RAIN) scene.add(new LineSegments(rainGeo, new LineBasicMaterial({ color: '#9fb4d8', transparent: true, opacity: 0.26, fog: false, depthWrite: false })));
+  const pour = () => {
+    if (!RAIN) return;
+    const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z;
+    for (let i = 0; i < RAIN; i++) {
+      let y = rainLocal[i * 3 + 1] - 1.1;
+      if (y < -22) y += 44;
+      rainLocal[i * 3 + 1] = y;
+      const x = cx + rainLocal[i * 3], z = cz + rainLocal[i * 3 + 2];
+      const j = i * 6;
+      rainArr[j] = x; rainArr[j + 1] = cy + y; rainArr[j + 2] = z;
+      rainArr[j + 3] = x + 0.15; rainArr[j + 4] = cy + y + 1.6; rainArr[j + 5] = z;
+    }
+    (rainGeo.getAttribute('position') as BufferAttribute).needsUpdate = true;
+  };
 
   // -- flight ---------------------------------------------------------------
   const route = tourRoute();
@@ -794,8 +1061,9 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const fwd = new Vector3();
   const HEART = new Vector3(0.55 * G, 44, 0.55 * G);
   // the cinematographer: on each new leg, pick something worth looking at
-  // ahead (the landmark, the tallest towers, the screens) and ease the eye
-  // onto it; in the canyons, look down the street at the traffic
+  // ahead (the landmark, the tallest towers, the screens, the wheel, the
+  // holograms) and ease the eye onto it; in the canyons, look down the
+  // street at the traffic
   const gaze = { cur: new Vector3(), want: new Vector3(), poi: null as Poi | null, leg: -1 };
   const chooseGaze = (phase: string) => {
     gaze.poi = null;
@@ -880,6 +1148,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     }
     sky.position.copy(camera.position); // the dome is a skybox: infinitely far in every direction
     horizonRing.position.set(camera.position.x, 0, camera.position.z); // the far city stays on the ground
+    pour();
     composer.render();
   };
 
@@ -896,7 +1165,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     render();
   };
 
-  /** Everything that moves on its own: traffic, walkers, birds, signs. */
+  /** Everything that moves on its own: traffic, walkers, birds, signs,
+   *  screens, holograms, smoke, the wheel, the water. */
   const tickWorld = () => {
     tick += 1;
     if (calm) return;
@@ -913,13 +1183,19 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       for (const s of screens) { paintScreen(s.ctx, rand); s.tex.needsUpdate = true; }
       flicker();
     }
+    if (tick % 4 === 0) for (const h of holos) { paintHolo(h.ctx, rand, 72 - ((tick >> 2) % 72)); h.tex.needsUpdate = true; }
+    for (const h of holos) h.mesh.rotation.y += 0.0025;
+    wheel.rotation.x += 0.004;
+    waterTex.offset.y = (waterTex.offset.y + 0.0015) % 1;
+    (mirror.material as MeshBasicMaterial).opacity = 0.3 + Math.sin(tick * 0.03) * 0.06;
     craftMat.opacity = tick % 40 < 20 ? 1 : 0.15;
     driveCars();
     walk();
     fly();
     cruiseCraft();
+    breathe();
   };
-  driveCars(); walk(); fly(); cruiseCraft();
+  driveCars(); walk(); fly(); cruiseCraft(); breathe();
   fit();
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(canvas);
 
@@ -948,7 +1224,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
         camera.getWorldDirection(fwd);
         prevYaw = Math.atan2(fwd.x, fwd.z);
         bank = 0;
-        flight = new AutoFlight(plan.grid, mulberry32((Math.random() * 2 ** 32) >>> 0), camera.position, prevYaw);
+        flight = new AutoFlight(plan.grid, mulberry32((Math.random() * 2 ** 32) >>> 0), camera.position, prevYaw, plan.roomAhead);
         gaze.cur.copy(camera.position).addScaledVector(fwd, 30);
         gaze.leg = -1;
       }

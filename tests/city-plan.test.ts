@@ -45,45 +45,72 @@ describe('CollisionGrid', () => {
 describe('planCity', () => {
   const plan = planCity(SEED);
 
-  it('builds a dense main city, a finished outer ring and a sprawl, with a real spread of building kinds', () => {
-    expect(plan.core.length).toBeGreaterThan(900);
-    expect(plan.outer.length).toBeGreaterThan(400);
-    expect(plan.sprawl.length).toBeGreaterThan(1500);
+  it('packs a dense main city, a finished outer ring and a sprawl, with a real spread of building kinds', () => {
+    expect(plan.core.length).toBeGreaterThan(2500);
+    expect(plan.outer.length).toBeGreaterThan(1000);
+    expect(plan.sprawl.length).toBeGreaterThan(1800);
     const kinds = new Set<string>(plan.core.map((s) => s.kind));
     for (const k of ['facade', 'dark', 'cyl', 'pyr', 'spire', 'dome', 'tree']) expect(kinds.has(k), k).toBe(true);
     const archetypes = new Set(plan.core.map((s) => s.arch));
-    expect(archetypes.size).toBeGreaterThanOrEqual(10);
-    expect(plan.styles.length).toBeGreaterThanOrEqual(18);
+    for (const a of ['tower', 'slab', 'low', 'needle', 'bridge', 'temple', 'mega', 'landmark']) expect(archetypes.has(a as never), a).toBe(true);
+    expect(archetypes.size).toBeGreaterThanOrEqual(12);
+    expect(new Set(plan.outer.map((s) => s.arch)).has('industry')).toBe(true);
+    expect(plan.styles.length).toBeGreaterThanOrEqual(22);
     expect(new Set(plan.styles.map((s) => s.win)).size).toBe(6);
   });
 
-  it('dresses the streets: thousands of signs in every shape, lamp posts on every kerb, 44 drivable streets', () => {
-    expect(plan.signs.length).toBeGreaterThan(2500);
-    const kinds = new Set(plan.signs.map((s) => s.kind));
-    for (const k of ['hang', 'wall', 'board', 'tag', 'roof', 'gantry', 'screen']) expect(kinds.has(k as never), k).toBe(true);
-    expect(plan.posts.length).toBeGreaterThan(2000);
-    expect(plan.streets.length).toBe(44);
-    expect(plan.pois.length).toBeGreaterThan(10);
+  it('is Newport City: alleys, wires, closed segments, a canal, a highway, a diagonal, features', () => {
+    const kinds = new Set(plan.streets.map((s) => s.kind));
+    for (const k of ['road', 'highway', 'canal', 'alley', 'diagonal']) expect(kinds.has(k as never), k).toBe(true);
+    expect(plan.streets.filter((s) => s.kind === 'alley').length).toBeGreaterThan(120);
+    expect(plan.streets.filter((s) => s.kind === 'road').length).toBeGreaterThan(44); // closed segments split the runs
+    expect(plan.wires.length).toBeGreaterThan(1200);
+    expect(plan.wires.length % 12).toBe(0); // three segments per wire, two endpoints each
+    expect(plan.lanterns.length / 3).toBeGreaterThan(400);
+    expect(plan.vents.length).toBeGreaterThan(20);
+    expect(plan.holos.length).toBe(3);
+    expect(plan.stalls.length).toBeGreaterThan(15);
+    expect(plan.stacks.length).toBeGreaterThanOrEqual(2);
+    expect(plan.bridges.length).toBe(22);
+    expect(plan.stadium.masts.length).toBe(4);
+    expect(plan.wheel.r).toBe(11.5);
+    expect(plan.mega.top).toBeGreaterThan(100);
   });
 
-  it('keeps every street clear: nothing solid stands on a road or a pavement', () => {
-    // sample the core's street centre lines and kerbs at pedestrian height
-    for (let i = -7; i <= 6; i++) {
-      const at = streetAt(i);
-      for (let t = -EXT; t <= EXT; t += 3) {
+  it('dresses the streets: thousands of signs in every shape, lamp posts on every open kerb', () => {
+    expect(plan.signs.length).toBeGreaterThan(5000);
+    const kinds = new Set(plan.signs.map((s) => s.kind));
+    for (const k of ['hang', 'wall', 'board', 'tag', 'roof', 'gantry', 'screen']) expect(kinds.has(k as never), k).toBe(true);
+    expect(plan.posts.length).toBeGreaterThan(4000);
+    expect(plan.pois.length).toBeGreaterThan(14);
+  });
+
+  it('keeps every open road clear: nothing solid stands on a road or a pavement', () => {
+    for (const st of plan.streets) {
+      if (st.kind !== 'road') continue;
+      for (let t = 1; t < st.len; t += 3) {
         for (const off of [0, ROAD / 2 + 1, -(ROAD / 2 + 1)]) {
-          expect(plan.grid.hit(t, 2, at + off, 0.3), `x-street ${at} at t=${t} off=${off}`).toBeNull();
-          expect(plan.grid.hit(at + off, 2, t, 0.3), `z-street ${at} at t=${t} off=${off}`).toBeNull();
+          const x = st.x0 + st.dx * t - st.dz * off, z = st.z0 + st.dz * t + st.dx * off;
+          if (Math.abs(x) > EXT + 10 || Math.abs(z) > EXT + 10) continue;
+          expect(plan.grid.hit(x, 2, z, 0.3), `road at ${x.toFixed(1)},${z.toFixed(1)}`).toBeNull();
         }
       }
     }
   });
 
-  it('keeps the avenues open down the middle (trees and lamps aside)', () => {
+  it('knows how much open street lies ahead — closed segments end a dive early', () => {
+    // the stadium closes the east–west street at row 3 alongside columns −5 and −4
+    expect(plan.roomAhead('x', streetAt(3), -5 * G - 30, 1)).toBeCloseTo(11, 5);
+    expect(plan.roomAhead('x', streetAt(3), -100, -1)).toBeCloseTo(33, 5);
+    // an open street runs to the fence
+    expect(plan.roomAhead('z', streetAt(2), 0, 1)).toBeCloseTo(EXT - 24, 5);
+  });
+
+  it('keeps the avenues open down the middle (trees, lamps and bridges aside)', () => {
     for (let t = -EXT; t <= EXT; t += 5) {
       const a = plan.grid.hit(3, 12, t, 1);
       const b = plan.grid.hit(t, 12, 3, 1);
-      expect(a, `north-south avenue at z=${t}`).toBeNull();
+      expect(a, `canal avenue at z=${t}`).toBeNull();
       expect(b, `east-west avenue at x=${t}`).toBeNull();
     }
     expect(MEDIAN).toBe(12);
@@ -120,7 +147,7 @@ describe('AutoFlight', () => {
     const visited = new Set<string>();
     const firstPaths: string[] = [];
     for (const s of [1, 2, 3]) {
-      const flight = new AutoFlight(plan.grid, mulberry32(s), new Vector3(-130, 80, 160), 2.5);
+      const flight = new AutoFlight(plan.grid, mulberry32(s), new Vector3(-130, 80, 160), 2.5, plan.roomAhead);
       const pos = new Vector3();
       const look = new Vector3();
       let lowest = Infinity;
@@ -144,7 +171,7 @@ describe('AutoFlight', () => {
   });
 
   it('moves at the asked pace and reports its leg and phase', () => {
-    const flight = new AutoFlight(plan.grid, mulberry32(9), new Vector3(0, 90, 0), 0);
+    const flight = new AutoFlight(plan.grid, mulberry32(9), new Vector3(0, 90, 0), 0, plan.roomAhead);
     const a = new Vector3(); const b = new Vector3(); const l = new Vector3();
     flight.step(0.5, a, l);
     let travelled = 0;
