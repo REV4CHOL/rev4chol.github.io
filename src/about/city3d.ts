@@ -150,20 +150,29 @@ function facadeTexture(rand: () => number, s: FacadeStyle): CanvasTexture {
   x.fillStyle = s.tint;
   x.fillRect(0, 0, 64, 256);
   const core = s.core ? 8 + Math.floor(rand() * 40) : -99;
+  // THE SURFACE (owner: the walls read as cardboard by day): spandrel lines
+  // between the floors and mullions between the bays, under the windows
+  const [pitchX, , pitchY] = windowCells(s);
+  x.fillStyle = '#000000'; x.globalAlpha = 0.22;
+  for (let fy = pitchY - 1; fy < 256; fy += pitchY) x.fillRect(0, fy, 64, 1);
+  x.fillStyle = '#ffffff'; x.globalAlpha = 0.07;
+  for (let fy = pitchY - 2; fy < 256; fy += pitchY) x.fillRect(0, fy, 64, 1);
+  for (let fx = 0; fx < 64; fx += pitchX) x.fillRect(fx, 0, 1, 256);
+  x.globalAlpha = 1;
   const lit = (px: number, py: number, w: number, h: number, alpha: number, color?: string | null) => {
-    x.fillStyle = color ?? windowColor(rand, s.warm);
+    x.fillStyle = color ?? windowColor(rand, s.warm * 0.7);
     x.globalAlpha = alpha;
     x.fillRect(px, py, w, h);
   };
-  const mood = () => {
+  const mood = () => { // the reference is lit floor upon floor: about half the windows burn
     const m = rand();
-    return (m < 0.22 ? 0.04 : m < 0.6 ? 0.2 : m < 0.9 ? 0.45 : 0.9) * s.dim * s.density;
+    return Math.min(0.95, (m < 0.22 ? 0.1 : m < 0.6 ? 0.38 : m < 0.9 ? 0.7 : 0.95) * s.dim * s.density);
   };
   switch (s.win) {
     case 'grid':
       for (let fy = 4; fy < 250; fy += 5) {
         const p = mood();
-        const floor = rand() < 0.25 ? windowColor(rand, s.warm) : null;
+        const floor = rand() < 0.25 ? windowColor(rand, s.warm * 0.7) : null;
         for (let fx = 3; fx < 58; fx += 5) {
           if (Math.abs(fx - core) < 5) continue;
           if (rand() < p) lit(fx, fy, 3, 3, 0.45 + rand() * 0.55, floor);
@@ -185,7 +194,7 @@ function facadeTexture(rand: () => number, s: FacadeStyle): CanvasTexture {
     case 'ribbon':
       for (let fy = 4; fy < 250; fy += 5) {
         const p = mood() * 1.3;
-        const band = windowColor(rand, s.warm);
+        const band = windowColor(rand, s.warm * 0.7);
         for (let fx = 2; fx < 62; fx += 4) if (rand() < p) lit(fx, fy, 4, 2, 0.4 + rand() * 0.5, rand() < 0.7 ? band : null);
       }
       break;
@@ -193,7 +202,7 @@ function facadeTexture(rand: () => number, s: FacadeStyle): CanvasTexture {
       for (let fx = 3; fx < 60; fx += 6) {
         if (Math.abs(fx - core) < 5) continue;
         let run = false;
-        const col = windowColor(rand, s.warm);
+        const col = windowColor(rand, s.warm * 0.7);
         for (let fy = 2; fy < 254; fy += 2) {
           if (rand() < 0.06) run = !run;
           if (run && rand() < 0.9 * s.density * s.dim + 0.05) lit(fx, fy, 2, 2, 0.4 + rand() * 0.45, col);
@@ -202,13 +211,25 @@ function facadeTexture(rand: () => number, s: FacadeStyle): CanvasTexture {
       break;
     case 'curtain':
       for (let fy = 2; fy < 252; fy += 5) {
-        if (rand() < mood() * 1.5) lit(1, fy, 62, 4, 0.16 + rand() * 0.22, rand() < 0.5 ? windowColor(rand, s.warm) : null);
+        if (rand() < mood() * 1.5) lit(1, fy, 62, 4, 0.16 + rand() * 0.22, rand() < 0.5 ? windowColor(rand, s.warm * 0.7) : null);
       }
       x.globalAlpha = 1;
       x.fillStyle = s.tint;
       for (let fx = 0; fx < 64; fx += 8) x.fillRect(fx, 0, 1, 256);
       break;
   }
+  // concrete grain, grime running down from the sills, ledges at the setbacks, a darker plinth
+  for (let i = 0; i < 1100; i++) {
+    x.fillStyle = rand() < 0.5 ? '#000000' : '#ffffff'; x.globalAlpha = 0.05 + rand() * 0.09;
+    x.fillRect(Math.floor(rand() * 64), Math.floor(rand() * 256), 1, 1);
+  }
+  x.fillStyle = '#000000'; x.globalAlpha = 0.16;
+  for (let i = 0; i < 70; i++) x.fillRect(Math.floor(rand() * 64), Math.floor(rand() * 250), 1, 3 + Math.floor(rand() * 7));
+  x.fillStyle = '#ffffff'; x.globalAlpha = 0.12;
+  for (let fy = 40 + Math.floor(rand() * 20); fy < 240; fy += 50 + Math.floor(rand() * 30)) x.fillRect(0, fy, 64, 2);
+  x.fillStyle = '#000000'; x.globalAlpha = 0.28; x.fillRect(0, 244, 64, 12);
+  x.fillStyle = '#ffffff'; x.globalAlpha = 0.14; x.fillRect(0, 243, 64, 1);
+  x.globalAlpha = 1;
   if (s.crown) {
     lit(2, 2, 60, 12, 0.55, pick(rand, WARM));
     x.globalAlpha = 1;
@@ -238,16 +259,21 @@ function windowCells(s: FacadeStyle): [number, number, number, number] {
  *  each on its own long period, each building's phases its own. Injected
  *  into the material's map and emissive reads. */
 const winTime = { value: 0 };
+/** Shared, live: the look's pull of every wall toward one colour, and its dark glass (city-sky.ts). */
+const wallBleach = { value: 0 };
+const wallBleachCol = { value: new Color('#22376f') };
+const wallGlass = { value: new Color('#0e1630') };
 function livingFacade(mat: MeshLambertMaterial, cells: [number, number, number, number], wall: string, lift: number): MeshLambertMaterial {
   const uLift = { value: lift };
-  const uBleach = { value: 0 };
+  const wallCol = new Color(wall);
   mat.userData.uLift = uLift; // live: the time of day scales it (a sun needs far less lift than the lamps)
-  mat.userData.uBleach = uBleach; // live: by day the walls bleach toward pale concrete (owner: sun-bleached)
   mat.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
     shader.uniforms.uTime = winTime;
     shader.uniforms.uLift = uLift;
-    shader.uniforms.uBleach = uBleach;
-    shader.uniforms.uConcrete = { value: new Color('#cfc6b6') };
+    shader.uniforms.uBleach = wallBleach; // shared, live: the look's pull toward one colour
+    shader.uniforms.uBleachCol = wallBleachCol;
+    shader.uniforms.uGlass = wallGlass;
+    shader.uniforms.uWallLum = { value: wallCol.r * 0.3 + wallCol.g * 0.5 + wallCol.b * 0.2 };
     shader.uniforms.uPitch = { value: new Vector2(cells[0], cells[2]) };
     shader.uniforms.uOff = { value: new Vector2(cells[1], cells[3]) };
     shader.uniforms.uWall = { value: new Color(wall) };
@@ -261,7 +287,7 @@ function livingFacade(mat: MeshLambertMaterial, cells: [number, number, number, 
         #endif`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
-        uniform float uTime; uniform vec2 uPitch; uniform vec2 uOff; uniform vec3 uWall; uniform float uLift; uniform float uBleach; uniform vec3 uConcrete; varying float vInst;
+        uniform float uTime; uniform vec2 uPitch; uniform vec2 uOff; uniform vec3 uWall; uniform float uLift; uniform float uBleach; uniform vec3 uBleachCol; uniform vec3 uGlass; uniform float uWallLum; varying float vInst;
         float wHash( vec2 p ) { return fract( sin( dot( p, vec2( 127.1, 311.7 ) ) ) * 43758.5453 ); }
         float windowOff( vec2 uv ) {
           vec2 cell = floor( ( uv * vec2( 64.0, 256.0 ) - uOff ) / uPitch );
@@ -276,18 +302,20 @@ function livingFacade(mat: MeshLambertMaterial, cells: [number, number, number, 
         float wlum = dot( sampledDiffuseColor.rgb, vec3( 0.3, 0.5, 0.2 ) );
         float wmask = smoothstep( 0.12, 0.3, wlum );
         float woff = windowOff( vMapUv );
-        sampledDiffuseColor.rgb = mix( sampledDiffuseColor.rgb, uWall, wmask * woff );
-        // the WALL takes light (owner: lit by practicals): its albedo lifted, and by day BLEACHED toward
-        // pale concrete (owner: sun-bleached); a lit window is a SOURCE, not a reflector — its albedo is
-        // cut so a lamp beside it cannot burn it white over its own glow
-        float wallness = 1.0 - wmask * ( 1.0 - woff );
-        vec3 wallCol = mix( sampledDiffuseColor.rgb * uLift, uConcrete, uBleach );
-        sampledDiffuseColor.rgb = mix( sampledDiffuseColor.rgb * 0.3, wallCol, wallness );
+        float lit = wmask * ( 1.0 - woff );   // a burning window: a SOURCE, not a reflector — its albedo is cut
+        float glass = wmask * woff;           // a window gone dark: dark glass
+        float wall = 1.0 - wmask;
+        // the WALL takes light (owner: lit by practicals): its albedo lifted, then pulled toward the look's
+        // colour — midnight blue by night, pale concrete by day — with the texture's own shading (floor lines,
+        // grain, grime) carried through, so it never reads as cardboard
+        float detail = clamp( wlum / max( uWallLum, 0.002 ), 0.55, 1.6 );
+        vec3 wallCol = mix( sampledDiffuseColor.rgb * uLift, uBleachCol * detail, uBleach );
+        sampledDiffuseColor.rgb = sampledDiffuseColor.rgb * 0.3 * lit + uGlass * glass + wallCol * wall;
         diffuseColor *= sampledDiffuseColor;`)
       .replace('#include <emissivemap_fragment>', `
         vec4 emissiveColor = texture2D( emissiveMap, vEmissiveMapUv );
         float elum = dot( emissiveColor.rgb, vec3( 0.3, 0.5, 0.2 ) );
-        emissiveColor.rgb = mix( emissiveColor.rgb, uWall, smoothstep( 0.12, 0.3, elum ) * windowOff( vEmissiveMapUv ) );
+        emissiveColor.rgb *= 1.0 - smoothstep( 0.12, 0.3, elum ) * windowOff( vEmissiveMapUv ); // a window gone dark emits nothing
         totalEmissiveRadiance *= emissiveColor.rgb;`);
   };
   mat.customProgramCacheKey = () => 'living';
@@ -553,6 +581,66 @@ function glowTexture(color: string, soft = false): CanvasTexture {
   return asPixelTex(new CanvasTexture(c));
 }
 
+/** A roof, greyscale, tinted by the look: panel joints, a rim, plant boxes
+ *  and vents (owner: the roofs read as cardboard from the air by day). */
+function roofTexture(rand: () => number): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const x = c.getContext('2d')!;
+  x.fillStyle = '#9a9a9a'; x.fillRect(0, 0, 64, 64);
+  for (let i = 0; i < 700; i++) { x.fillStyle = rand() < 0.5 ? '#8a8a8a' : '#a8a8a8'; x.fillRect(Math.floor(rand() * 64), Math.floor(rand() * 64), 1, 1); }
+  x.fillStyle = '#7c7c7c';
+  for (let i = 16; i < 64; i += 16) { x.fillRect(i, 0, 1, 64); x.fillRect(0, i, 64, 1); }
+  x.fillStyle = '#6a6a6a'; x.fillRect(0, 0, 64, 2); x.fillRect(0, 62, 64, 2); x.fillRect(0, 0, 2, 64); x.fillRect(62, 0, 2, 64); // the rim
+  for (let i = 0, n = 3 + Math.floor(rand() * 4); i < n; i++) { // plant boxes with a shadow
+    const px = 6 + Math.floor(rand() * 46), py = 6 + Math.floor(rand() * 46), w = 4 + Math.floor(rand() * 6), h = 4 + Math.floor(rand() * 5);
+    x.fillStyle = '#585858'; x.fillRect(px + 1, py + 1, w, h);
+    x.fillStyle = '#c4c4c4'; x.fillRect(px, py, w, h);
+    x.fillStyle = '#8c8c8c'; x.fillRect(px + 1, py + 1, w - 2, 1);
+  }
+  for (let i = 0; i < 5; i++) { x.fillStyle = '#5a5a5a'; x.fillRect(4 + Math.floor(rand() * 56), 4 + Math.floor(rand() * 56), 2, 2); } // vents
+  return asPixelTex(new CanvasTexture(c));
+}
+
+/** A vehicle's wrap: a side (a window band, wheels), an end (windscreen,
+ *  lights, bumper) and a roof — white where the body colour goes (owner:
+ *  the vehicles read as cardboard boxes). */
+function carTextures(): { side: CanvasTexture; end: CanvasTexture; top: CanvasTexture } {
+  const make = (draw: (x: CanvasRenderingContext2D) => void) => {
+    const c = document.createElement('canvas');
+    c.width = 32; c.height = 16;
+    const x = c.getContext('2d')!;
+    x.fillStyle = '#ffffff'; x.fillRect(0, 0, 32, 16);
+    draw(x);
+    return asPixelTex(new CanvasTexture(c));
+  };
+  const side = make((x) => {
+    x.fillStyle = '#e8e8e8'; x.fillRect(0, 0, 32, 3); // the roof line
+    x.fillStyle = '#1c2436'; x.fillRect(5, 3, 22, 5); // the window band
+    x.fillStyle = '#ffffff'; for (let px = 11; px < 27; px += 7) x.fillRect(px, 3, 1, 5); // pillars
+    x.fillStyle = '#d0d0d0'; x.fillRect(0, 9, 32, 1); // a trim line
+    x.fillStyle = '#2a2a30'; x.fillRect(0, 14, 32, 2); // the skirt
+    for (const wx of [7, 25]) { // the wheels
+      x.fillStyle = '#0a0a0e'; x.fillRect(wx - 3, 10, 6, 6); x.fillRect(wx - 4, 11, 8, 4);
+      x.fillStyle = '#7a7a82'; x.fillRect(wx - 1, 12, 2, 2);
+    }
+  });
+  const end = make((x) => {
+    x.fillStyle = '#e8e8e8'; x.fillRect(0, 0, 32, 3);
+    x.fillStyle = '#1c2436'; x.fillRect(4, 3, 24, 5); // the screen
+    x.fillStyle = '#3a3a42'; x.fillRect(2, 9, 28, 1);
+    x.fillStyle = '#fff4d6'; x.fillRect(3, 10, 6, 3); x.fillRect(23, 10, 6, 3); // the lights
+    x.fillStyle = '#2a2a30'; x.fillRect(0, 13, 32, 3); // the bumper
+    x.fillStyle = '#4a4a52'; x.fillRect(12, 10, 8, 3); // the grille
+  });
+  const top = make((x) => {
+    x.fillStyle = '#f2f2f2'; x.fillRect(4, 3, 24, 10); // a lighter panel
+    x.fillStyle = '#1c2436'; x.fillRect(24, 2, 4, 12); x.fillRect(4, 3, 3, 10); // the screens, seen from above
+    x.fillStyle = '#d8d8d8'; x.fillRect(0, 7, 32, 1);
+  });
+  return { side, end, top };
+}
+
 /** A headlight's throw on the road: bright and narrow by the car (the top),
  *  widening and fading ahead. */
 function headlightTexture(): CanvasTexture {
@@ -668,6 +756,10 @@ function groundTexture(rand: () => number): CanvasTexture {
   x.globalAlpha = 0.5;
   x.fillStyle = '#0b0d1f'; // a little wear on the lot corners
   for (let i = 0; i < 90; i++) x.fillRect(Math.floor(rand() * T), Math.floor(rand() * T), 2, 1);
+  for (let i = 0; i < 1400; i++) { // asphalt and paving grain (owner: the streets read flat by day)
+    x.fillStyle = rand() < 0.5 ? '#000000' : '#ffffff'; x.globalAlpha = 0.04 + rand() * 0.08;
+    x.fillRect(Math.floor(rand() * T), Math.floor(rand() * T), 1 + Math.floor(rand() * 2), 1);
+  }
   x.globalAlpha = 1;
   const t = asPixelTex(new CanvasTexture(c));
   t.wrapS = t.wrapT = RepeatWrapping;
@@ -907,7 +999,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const GROUND = 106 * G; // a whole number of blocks: lot centres land on the tile corners
   groundTex.repeat.set(106, 106);
   const ground = new Mesh(new PlaneGeometry(GROUND, GROUND), new MeshLambertMaterial({
-    map: groundTex, emissive: '#ffffff', emissiveMap: groundTex, emissiveIntensity: 0.12, // the streets are LIT, not self-lit
+    map: groundTex, emissive: '#ffffff', emissiveMap: groundTex, emissiveIntensity: 0.2, // the streets are LIT, mostly: a little self-light
   }));
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
@@ -1026,13 +1118,13 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     c.needsUpdate = true;
     return c;
   });
-  const dark = new MeshLambertMaterial({ color: '#141830' });
+  const dark = new MeshLambertMaterial({ map: roofTexture(rand), color: '#22305a' }); // the roofs (and the undersides): panels, plant, a rim — tinted by the look
   // the moon lights the near faces and the roofs, the far faces sleep in the
   // hemisphere's blue, the shadows take the rest; the windows are emissive
   // (they are their own light) and LIVE — see livingFacade
   const livingMats: { mat: MeshLambertMaterial; base: number; lift: number }[] = []; // the windows' glow and the walls' lift, for the look to scale
   const facade = (map: CanvasTexture, style: FacadeStyle, far: boolean): MeshLambertMaterial => {
-    const base = far ? 0.8 : 0.75, lift = far ? 2.0 : 2.6;
+    const base = far ? 0.95 : 0.9, lift = far ? 2.0 : 2.6;
     const mat = livingFacade(new MeshLambertMaterial({
       map, emissive: '#ffffff', emissiveMap: map, emissiveIntensity: base, color: far ? '#9aa0c8' : '#ffffff',
     }), windowCells(style), style.tint, lift);
@@ -1559,7 +1651,11 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const BODY = ['#141827', '#1a1f33', '#242a44', '#3a1f2a', '#2a2a30', '#1c2d3a', '#e8e0d0'];
   const TRUCK = ['#3a3f55', '#5a2a2a', '#2a3a4a', '#c9c2b2', '#2f4a3a'];
   const total = cars.length + boats.length;
-  const carMesh = new InstancedMesh(geo.box, new MeshBasicMaterial({ color: '#ffffff' }), total);
+  const carWrap = carTextures();
+  const carMesh = new InstancedMesh(geo.box, [ // lit, wrapped: a side, a side, the roof, the underside, an end, an end
+    new MeshLambertMaterial({ map: carWrap.side }), new MeshLambertMaterial({ map: carWrap.side }), new MeshLambertMaterial({ map: carWrap.top }),
+    new MeshLambertMaterial({ color: '#0a0a10' }), new MeshLambertMaterial({ map: carWrap.end }), new MeshLambertMaterial({ map: carWrap.end }),
+  ], total);
   cars.forEach((c, i) => carMesh.setColorAt(i, new Color(
     c.kind === 'bus' ? '#d9d2c4' : c.kind === 'taxi' ? '#ffd23f' : c.kind === 'truck' ? pick(rand, TRUCK) : c.kind === 'moto' ? '#1a1a24' : pick(rand, BODY))));
   boats.forEach((_, k) => carMesh.setColorAt(cars.length + k, new Color('#1a1c2c')));
@@ -1577,7 +1673,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const heads = lightsOf('#fff2d8', 1.5, false);
   // and the headlights' throw: a cone of light on the road ahead (owner: lit by practicals)
   const throws = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), dim(new MeshBasicMaterial({
-    map: headlightTexture(), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.16, color: '#fff0cc',
+    map: headlightTexture(), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.22, color: '#fff0cc',
     polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2, // a decal: never z-fights the road it lies on
   })), total);
   throws.frustumCulled = false;
@@ -2151,8 +2247,13 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     for (let i = 0; i < plan.sprawlLamps.length; i += 3) pools.push({ x: plan.sprawlLamps[i], y: 0, z: plan.sprawlLamps[i + 2], r: 7, color: '#ffd9a0', a: 0.8 });
     for (let i = 0; i < plan.lanterns.length; i += 3) pools.push({ x: plan.lanterns[i], y: 0, z: plan.lanterns[i + 2], r: 3.2, color: '#ffb36b', a: 0.5 });
     for (const st of plan.stalls) pools.push({ x: st.x, y: 0, z: st.z, r: 4.5, color: st.color, a: 0.55 });
+    for (const sg of plan.signs) { // the street-level signs lay their colour on the pavement (the reference's glowing streets)
+      if (sg.y > 12 || !(sg.kind === 'hang' || sg.kind === 'wall' || sg.kind === 'board' || sg.kind === 'tag')) continue;
+      const nx = Math.sin(sg.rotY), nz = Math.cos(sg.rotY);
+      pools.push({ x: sg.x + nx * 2.4, y: 0, z: sg.z + nz * 2.4, r: 3 + Math.min(5, (sg.w + sg.h) * 0.4), color: sg.color, a: 0.42 });
+    }
     const inst = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), dim(new MeshBasicMaterial({
-      map: glowTexture('#ffffff', true), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.26,
+      map: glowTexture('#ffffff', true), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.36,
       polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2, // a decal: never z-fights the ground it lies on
     })), pools.length);
     dummy.rotation.set(0, 0, 0);
@@ -2171,7 +2272,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const practicals: Practical[] = [];
   {
     const LAMP = new Color('#ffe2b8');
-    for (const p of plan.posts) practicals.push({ x: p.x, y: (p.y ?? 0) + p.h + 0.2, z: p.z, color: LAMP, power: 45, reach: 32 });
+    for (const p of plan.posts) practicals.push({ x: p.x, y: (p.y ?? 0) + p.h + 0.2, z: p.z, color: LAMP, power: 55, reach: 34 });
     for (let i = 0; i < plan.sprawlLamps.length; i += 3) practicals.push({ x: plan.sprawlLamps[i], y: plan.sprawlLamps[i + 1], z: plan.sprawlLamps[i + 2], color: new Color('#ffd9a0'), power: 24, reach: 24 });
     for (let i = 0; i < plan.lanterns.length; i += 3) practicals.push({ x: plan.lanterns[i], y: plan.lanterns[i + 1], z: plan.lanterns[i + 2], color: new Color('#ffb36b'), power: 9, reach: 14 });
     for (const sg of plan.signs) {
@@ -2186,7 +2287,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       practicals.push({ x: m.x + (stadium.x - m.x) * 0.45, y: m.h * 0.6, z: m.z + (stadium.z - m.z) * 0.45, color: new Color('#eef4ff'), power: 380, reach: 110 });
     }
   }
-  const POOL = [0, 6, 12, 16]; // real point lights by tier
+  const POOL = [0, 8, 14, 18]; // real point lights by tier
   interface Slot { light: PointLight; src: Practical | null; level: number; on: boolean }
   const slots: Slot[] = [];
   const lightPool = new Group();
@@ -2255,10 +2356,10 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     for (const w of livingMats) {
       w.mat.emissiveIntensity = w.base * L.windows;
       (w.mat.userData.uLift as { value: number }).value = Math.max(1, w.lift * L.walls);
-      (w.mat.userData.uBleach as { value: number }).value = L.bleach;
     }
-    dark.color.set(lerpHex('#141830', '#8e8a7e', L.bleach)); // the roofs bleach with the walls
-    (ground.material as MeshLambertMaterial).color.setScalar(1 + 0.8 * L.bleach); // and the pavements lighten
+    wallBleach.value = L.bleach.amount; wallBleachCol.value.set(L.bleach.color); wallGlass.value.set(L.glass);
+    dark.color.set(lerpHex('#22305a', L.bleach.color, L.bleach.amount)); // the roofs go with the walls
+    (ground.material as MeshLambertMaterial).color.setScalar(1 + 0.8 * L.bleach.amount); // and the pavements lighten
     if (pitchMat) pitchMat.emissiveIntensity = 0.15 + 0.4 * L.lamps;
     lampLevel = L.lamps; starLevel = L.stars;
     for (const d of dimmables) d.m.opacity = d.base * (d.floor + (1 - d.floor) * (d.k === 'stars' ? L.stars : L.lamps));
@@ -2434,7 +2535,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     setTime: (t, instant = false) => { setTime(t, instant); render(); },
     time: () => timeNow,
     probe: () => ({
-      people: PEOPLE, cars: cars.length, flyers: FLYERS, look: lookNow.label, blend: lookT, bleach: (livingMats[0]?.mat.userData.uBleach as { value: number } | undefined)?.value ?? -1,
+      people: PEOPLE, cars: cars.length, flyers: FLYERS, look: lookNow.label, blend: lookT, bleach: wallBleach.value,
       knots: people.knots.filter((k) => k.members.length > 1).slice(0, 6).map((k) => [k.x, k.st.y, k.z, k.members.length]),
       air: flyers.slice(0, 6).map((fl) => [fl.x, fl.y, fl.z]),
       pads: flyers.filter((fl) => fl.pad).map((fl) => [fl.x, fl.y, fl.z, fl.stage === 'sit' ? 1 : 0]),
