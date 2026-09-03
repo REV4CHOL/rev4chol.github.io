@@ -48,7 +48,7 @@ import {
 import { fov24, LensPass, lensTarget, MotionBlurPass } from './city-post';
 import { CityAudio } from './city-audio';
 import { CAST, People, Zone } from './city-people';
-import { blendLooks, ease, Look as SkyLook, LOOKS as SKY, paintSky, TimeOfDay } from './city-sky';
+import { blendLooks, ease, lerpHex, Look as SkyLook, LOOKS as SKY, paintSky, TimeOfDay } from './city-sky';
 import { Traffic, DECK_KERB } from './city-traffic';
 
 /** THE FOG, rewritten for every material at once: three's exponential
@@ -240,10 +240,14 @@ function windowCells(s: FacadeStyle): [number, number, number, number] {
 const winTime = { value: 0 };
 function livingFacade(mat: MeshLambertMaterial, cells: [number, number, number, number], wall: string, lift: number): MeshLambertMaterial {
   const uLift = { value: lift };
+  const uBleach = { value: 0 };
   mat.userData.uLift = uLift; // live: the time of day scales it (a sun needs far less lift than the lamps)
+  mat.userData.uBleach = uBleach; // live: by day the walls bleach toward pale concrete (owner: sun-bleached)
   mat.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
     shader.uniforms.uTime = winTime;
     shader.uniforms.uLift = uLift;
+    shader.uniforms.uBleach = uBleach;
+    shader.uniforms.uConcrete = { value: new Color('#cfc6b6') };
     shader.uniforms.uPitch = { value: new Vector2(cells[0], cells[2]) };
     shader.uniforms.uOff = { value: new Vector2(cells[1], cells[3]) };
     shader.uniforms.uWall = { value: new Color(wall) };
@@ -257,7 +261,7 @@ function livingFacade(mat: MeshLambertMaterial, cells: [number, number, number, 
         #endif`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
-        uniform float uTime; uniform vec2 uPitch; uniform vec2 uOff; uniform vec3 uWall; uniform float uLift; varying float vInst;
+        uniform float uTime; uniform vec2 uPitch; uniform vec2 uOff; uniform vec3 uWall; uniform float uLift; uniform float uBleach; uniform vec3 uConcrete; varying float vInst;
         float wHash( vec2 p ) { return fract( sin( dot( p, vec2( 127.1, 311.7 ) ) ) * 43758.5453 ); }
         float windowOff( vec2 uv ) {
           vec2 cell = floor( ( uv * vec2( 64.0, 256.0 ) - uOff ) / uPitch );
@@ -273,9 +277,12 @@ function livingFacade(mat: MeshLambertMaterial, cells: [number, number, number, 
         float wmask = smoothstep( 0.12, 0.3, wlum );
         float woff = windowOff( vMapUv );
         sampledDiffuseColor.rgb = mix( sampledDiffuseColor.rgb, uWall, wmask * woff );
-        // the WALL takes light (owner: lit by practicals): its albedo lifted; a lit window is a SOURCE,
-        // not a reflector — its albedo is cut so a lamp beside it cannot burn it white over its own glow
-        sampledDiffuseColor.rgb *= mix( uLift, 0.3, wmask * ( 1.0 - woff ) );
+        // the WALL takes light (owner: lit by practicals): its albedo lifted, and by day BLEACHED toward
+        // pale concrete (owner: sun-bleached); a lit window is a SOURCE, not a reflector — its albedo is
+        // cut so a lamp beside it cannot burn it white over its own glow
+        float wallness = 1.0 - wmask * ( 1.0 - woff );
+        vec3 wallCol = mix( sampledDiffuseColor.rgb * uLift, uConcrete, uBleach );
+        sampledDiffuseColor.rgb = mix( sampledDiffuseColor.rgb * 0.3, wallCol, wallness );
         diffuseColor *= sampledDiffuseColor;`)
       .replace('#include <emissivemap_fragment>', `
         vec4 emissiveColor = texture2D( emissiveMap, vEmissiveMapUv );
@@ -743,7 +750,7 @@ export interface CityRide {
   /** The time of day (city-sky.ts): eased over a couple of seconds, or at once. */
   setTime(t: TimeOfDay, instant?: boolean): void;
   time(): TimeOfDay;
-  probe(): { people: number; cars: number; flyers: number; knots: number[][]; air: number[][]; pads: number[][]; kinds: number[]; lights: number[][]; look: string; blend: number };
+  probe(): { people: number; cars: number; flyers: number; knots: number[][]; air: number[][]; pads: number[][]; kinds: number[]; lights: number[][]; look: string; blend: number; bleach: number };
   /** The cast's sprite sheet, for inspection. */
   sheet(): HTMLCanvasElement;
 }
@@ -2248,7 +2255,10 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     for (const w of livingMats) {
       w.mat.emissiveIntensity = w.base * L.windows;
       (w.mat.userData.uLift as { value: number }).value = Math.max(1, w.lift * L.walls);
+      (w.mat.userData.uBleach as { value: number }).value = L.bleach;
     }
+    dark.color.set(lerpHex('#141830', '#8e8a7e', L.bleach)); // the roofs bleach with the walls
+    (ground.material as MeshLambertMaterial).color.setScalar(1 + 0.8 * L.bleach); // and the pavements lighten
     if (pitchMat) pitchMat.emissiveIntensity = 0.15 + 0.4 * L.lamps;
     lampLevel = L.lamps; starLevel = L.stars;
     for (const d of dimmables) d.m.opacity = d.base * (d.floor + (1 - d.floor) * (d.k === 'stars' ? L.stars : L.lamps));
@@ -2424,7 +2434,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     setTime: (t, instant = false) => { setTime(t, instant); render(); },
     time: () => timeNow,
     probe: () => ({
-      people: PEOPLE, cars: cars.length, flyers: FLYERS, look: lookNow.label, blend: lookT,
+      people: PEOPLE, cars: cars.length, flyers: FLYERS, look: lookNow.label, blend: lookT, bleach: (livingMats[0]?.mat.userData.uBleach as { value: number } | undefined)?.value ?? -1,
       knots: people.knots.filter((k) => k.members.length > 1).slice(0, 6).map((k) => [k.x, k.st.y, k.z, k.members.length]),
       air: flyers.slice(0, 6).map((fl) => [fl.x, fl.y, fl.z]),
       pads: flyers.filter((fl) => fl.pad).map((fl) => [fl.x, fl.y, fl.z, fl.stage === 'sit' ? 1 : 0]),

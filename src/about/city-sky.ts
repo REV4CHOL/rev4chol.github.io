@@ -29,6 +29,8 @@ export interface Look {
   lamps: number;
   /** How far the walls' albedo is lifted (1 = the night's lift, tuned for lamps; a sun needs far less). */
   walls: number;
+  /** How far the walls, roofs and pavements are BLEACHED toward pale concrete (owner: sun-bleached by day). */
+  bleach: number;
   stars: number;
   moon: number;
   /** The sun's disc in the sky (none at night), its colour and size. */
@@ -50,7 +52,7 @@ export const LOOKS: Record<TimeOfDay, Look> = {
     key: { dir: [110, 400, 380], color: '#c4d3ff', intensity: 0.75 },
     hemi: { sky: '#4a6ac8', ground: '#5a4030', intensity: 0.75 },
     fog: { color: '#101c30', density: 1 },
-    exposure: 1.15, bloom: 0.4, windows: 1, lamps: 1, walls: 1, stars: 1, moon: 1,
+    exposure: 1.15, bloom: 0.4, windows: 1, lamps: 1, walls: 1, bleach: 0, stars: 1, moon: 1,
     sun: { color: '#ffffff', size: 0, opacity: 0 },
     sky: {
       stops: [[0, '#020209'], [0.34, '#060a22'], [0.44, '#141d4a'], [0.485, '#3b2f6b'], [0.512, '#2f5a74'], [0.53, '#6fa8b8'], [0.555, '#2c4c66'], [0.61, '#132347'], [1, '#070a1e']],
@@ -65,7 +67,7 @@ export const LOOKS: Record<TimeOfDay, Look> = {
     key: { dir: [-420, 50, 300], color: '#ff9a5a', intensity: 0.55 },
     hemi: { sky: '#3d4f9e', ground: '#7a4a3a', intensity: 1.0 },
     fog: { color: '#34325e', density: 1.15 },
-    exposure: 1.1, bloom: 0.7, windows: 0.85, lamps: 0.85, walls: 0.8, stars: 0.25, moon: 0.5,
+    exposure: 1.1, bloom: 0.7, windows: 0.85, lamps: 0.85, walls: 0.8, bleach: 0.12, stars: 0.25, moon: 0.5,
     sun: { color: '#ffb070', size: 70, opacity: 0.9 },
     sky: {
       stops: [[0, '#0a1030'], [0.3, '#141c4c'], [0.44, '#3a2f6e'], [0.49, '#7a3f6a'], [0.51, '#d86a5a'], [0.53, '#ffae74'], [0.56, '#6a4a70'], [0.62, '#2a2a55'], [1, '#12122a']],
@@ -78,9 +80,9 @@ export const LOOKS: Record<TimeOfDay, Look> = {
   dawn: {
     label: 'DAWN',
     key: { dir: [-300, 110, -200], color: '#ffc890', intensity: 3.0 },
-    hemi: { sky: '#9db8f0', ground: '#a88860', intensity: 0.9 },
+    hemi: { sky: '#9db8f0', ground: '#a88860', intensity: 1.2 },
     fog: { color: '#dfe6f2', density: 0.9 },
-    exposure: 0.95, bloom: 1.1, windows: 0.2, lamps: 0.1, walls: 0.75, stars: 0, moon: 0,
+    exposure: 0.95, bloom: 1.1, windows: 0.2, lamps: 0.1, walls: 0.75, bleach: 0.7, stars: 0, moon: 0,
     sun: { color: '#fff0c8', size: 90, opacity: 1 },
     sky: {
       stops: [[0, '#6f9be0'], [0.3, '#a8c8f2'], [0.46, '#e6eefa'], [0.5, '#ffe9c8'], [0.53, '#ffd7a6'], [0.58, '#e8dcd0'], [1, '#c9d2e0']],
@@ -95,7 +97,7 @@ export const LOOKS: Record<TimeOfDay, Look> = {
     key: { dir: [-200, 200, -120], color: '#fff1de', intensity: 1.4 },
     hemi: { sky: '#dfe6f0', ground: '#c0b8aa', intensity: 1.25 },
     fog: { color: '#dde2ea', density: 1.9 },
-    exposure: 0.9, bloom: 1.15, windows: 0.25, lamps: 0.25, walls: 0.6, stars: 0, moon: 0,
+    exposure: 0.9, bloom: 1.15, windows: 0.25, lamps: 0.25, walls: 0.6, bleach: 0.65, stars: 0, moon: 0,
     sun: { color: '#fff8ee', size: 140, opacity: 0.8 },
     sky: {
       stops: [[0, '#c7d3e2'], [0.4, '#dfe6ee'], [0.5, '#eef0f2'], [0.56, '#e4e6ea'], [1, '#d6dae0']],
@@ -107,10 +109,10 @@ export const LOOKS: Record<TimeOfDay, Look> = {
   },
   day: {
     label: 'DAY',
-    key: { dir: [260, 320, -160], color: '#fff5e6', intensity: 3.2 },
-    hemi: { sky: '#7fa8f0', ground: '#7a6a50', intensity: 0.9 },
+    key: { dir: [-240, 330, -150], color: '#fff5e6', intensity: 3.2 },
+    hemi: { sky: '#8fb4f4', ground: '#9a8a70', intensity: 1.6 }, // a sunny sky is a strong fill: the shadow side of a wall is far from black
     fog: { color: '#c2d5ec', density: 0.55 },
-    exposure: 0.9, bloom: 1.1, windows: 0.08, lamps: 0, walls: 0.65, stars: 0, moon: 0,
+    exposure: 0.9, bloom: 1.1, windows: 0.08, lamps: 0, walls: 0.65, bleach: 0.78, stars: 0, moon: 0,
     sun: { color: '#fffaf0', size: 60, opacity: 1 },
     sky: {
       stops: [[0, '#3f7ad8'], [0.3, '#6fa2ea'], [0.47, '#b9d4f4'], [0.5, '#d9e8f8'], [0.54, '#c9d8ea'], [0.6, '#b8c8dc'], [1, '#a8b8cc']],
@@ -170,6 +172,7 @@ export function blendLooks(a: Look, b: Look, t: number): Look {
     windows: lerp(a.windows, b.windows, k),
     lamps: lerp(a.lamps, b.lamps, k),
     walls: lerp(a.walls, b.walls, k),
+    bleach: lerp(a.bleach, b.bleach, k),
     stars: lerp(a.stars, b.stars, k),
     moon: lerp(a.moon, b.moon, k),
     sun: { color: lerpHex(a.sun.color, b.sun.color, k), size: lerp(a.sun.size, b.sun.size, k), opacity: lerp(a.sun.opacity, b.sun.opacity, k) },
