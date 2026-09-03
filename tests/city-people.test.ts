@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EXT, G, HALF, OUTER, planCity, REACH, streetAt } from '../src/about/city-plan';
-import { People, Zone } from '../src/about/city-people';
+import { CAST, FRAME, KIND, People, Zone } from '../src/about/city-people';
 import { mulberry32 } from '../src/lib/rng';
 import { hashSlug } from '../src/project/dossier';
 
@@ -68,6 +68,23 @@ describe('People', () => {
     // the knots are kept up: someone arrives when someone leaves
     const filled = people.knots.filter((k) => k.members.length > 0).length;
     expect(filled / people.knots.length).toBeGreaterThan(0.6);
+  });
+
+  it('is a varied cast, each kind at its own pace, the vendors in their stalls, every pose used', () => {
+    const counts = new Array(CAST.length).fill(0);
+    for (const p of people.people) counts[p.kind] += 1;
+    for (let k = 0; k < CAST.length; k++) expect(counts[k], CAST[k].name).toBeGreaterThan(5);
+    for (const p of people.people.filter((q) => q.act === 'vend')) expect(p.kind).toBe(KIND.vendor);
+    const pace = (name: string) => {
+      const ps = people.people.filter((p) => CAST[p.kind].name === name);
+      return ps.reduce((a, p) => a + p.pace, 0) / ps.length;
+    };
+    expect(pace('elder')).toBeLessThan(pace('civ'));
+    expect(pace('civ')).toBeLessThan(pace('courier'));
+    const frames = new Set<number>();
+    for (let f = 0; f < 600; f++) { people.step(); for (const p of people.people) frames.add(p.frame); }
+    for (const [name, fr] of Object.entries(FRAME)) expect(frames.has(fr), name).toBe(true);
+    for (const p of people.people) { expect(p.frame).toBeGreaterThanOrEqual(0); expect(p.frame).toBeLessThan(8); }
   });
 
   it('is deterministic for a seed', () => {

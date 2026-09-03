@@ -5,7 +5,7 @@
  *  alleys strung with lanterns and wires, blocks packed edge to edge with
  *  jumbled tenements and towers, a stadium and a Ferris wheel, a stepped
  *  megastructure under a giant hologram, pagodas, an industrial corner of
- *  tanks and smoking stacks, skybridges, market stalls, rain; thousands of
+ *  tanks and smoking stacks, skybridges, market stalls; thousands of
  *  signs in the reference's red/yellow/cyan/white over the house neon;
  *  rivers of vehicles (cars, taxis, buses, weaving motorcycles, boats) with
  *  head- and taillights; pedestrians on the pavements; birds over the
@@ -27,10 +27,10 @@
  *  the visitor still drives. The streets run on a real traffic network
  *  (city-traffic.ts): lanes, lights, queues, turns, on- and off-ramps. */
 import {
-  AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ConeGeometry,
+  ACESFilmicToneMapping, AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ConeGeometry,
   CylinderGeometry, DirectionalLight, DoubleSide, FogExp2, Group, HemisphereLight, InstancedBufferAttribute,
   InstancedBufferGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial,
-  MeshLambertMaterial, NearestFilter, Object3D, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Points,
+  MeshLambertMaterial, NearestFilter, Object3D, PCFShadowMap, PerspectiveCamera, PlaneGeometry, PointLight, Points,
   PointsMaterial, RepeatWrapping, RingGeometry, Scene, ShaderChunk, SphereGeometry, Sprite, SpriteMaterial,
   SRGBColorSpace, TorusGeometry, Vector2, Vector3, WebGLRenderer,
 } from 'three';
@@ -47,8 +47,8 @@ import {
 } from './city-plan';
 import { fov24, LensPass, lensTarget, MotionBlurPass } from './city-post';
 import { CityAudio } from './city-audio';
-import { People, Zone } from './city-people';
-import { Traffic } from './city-traffic';
+import { CAST, People, Zone } from './city-people';
+import { Traffic, DECK_KERB } from './city-traffic';
 
 /** THE FOG, rewritten for every material at once: three's exponential
  *  distance fog, plus a HAZE that pools in the streets (denser low, only
@@ -236,9 +236,10 @@ function windowCells(s: FacadeStyle): [number, number, number, number] {
  *  each on its own long period, each building's phases its own. Injected
  *  into the material's map and emissive reads. */
 const winTime = { value: 0 };
-function livingFacade(mat: MeshLambertMaterial, cells: [number, number, number, number], wall: string): MeshLambertMaterial {
+function livingFacade(mat: MeshLambertMaterial, cells: [number, number, number, number], wall: string, lift: number): MeshLambertMaterial {
   mat.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
     shader.uniforms.uTime = winTime;
+    shader.uniforms.uLift = { value: lift };
     shader.uniforms.uPitch = { value: new Vector2(cells[0], cells[2]) };
     shader.uniforms.uOff = { value: new Vector2(cells[1], cells[3]) };
     shader.uniforms.uWall = { value: new Color(wall) };
@@ -252,7 +253,7 @@ function livingFacade(mat: MeshLambertMaterial, cells: [number, number, number, 
         #endif`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
-        uniform float uTime; uniform vec2 uPitch; uniform vec2 uOff; uniform vec3 uWall; varying float vInst;
+        uniform float uTime; uniform vec2 uPitch; uniform vec2 uOff; uniform vec3 uWall; uniform float uLift; varying float vInst;
         float wHash( vec2 p ) { return fract( sin( dot( p, vec2( 127.1, 311.7 ) ) ) * 43758.5453 ); }
         float windowOff( vec2 uv ) {
           vec2 cell = floor( ( uv * vec2( 64.0, 256.0 ) - uOff ) / uPitch );
@@ -265,7 +266,12 @@ function livingFacade(mat: MeshLambertMaterial, cells: [number, number, number, 
       .replace('#include <map_fragment>', `
         vec4 sampledDiffuseColor = texture2D( map, vMapUv );
         float wlum = dot( sampledDiffuseColor.rgb, vec3( 0.3, 0.5, 0.2 ) );
-        sampledDiffuseColor.rgb = mix( sampledDiffuseColor.rgb, uWall, smoothstep( 0.12, 0.3, wlum ) * windowOff( vMapUv ) );
+        float wmask = smoothstep( 0.12, 0.3, wlum );
+        float woff = windowOff( vMapUv );
+        sampledDiffuseColor.rgb = mix( sampledDiffuseColor.rgb, uWall, wmask * woff );
+        // the WALL takes light (owner: lit by practicals): its albedo lifted; a lit window is a SOURCE,
+        // not a reflector — its albedo is cut so a lamp beside it cannot burn it white over its own glow
+        sampledDiffuseColor.rgb *= mix( uLift, 0.3, wmask * ( 1.0 - woff ) );
         diffuseColor *= sampledDiffuseColor;`)
       .replace('#include <emissivemap_fragment>', `
         vec4 emissiveColor = texture2D( emissiveMap, vEmissiveMapUv );
@@ -277,31 +283,165 @@ function livingFacade(mat: MeshLambertMaterial, cells: [number, number, number, 
   return mat;
 }
 
-/** The people: eight 8×16 frames — walk A/B, stand, sit, and the same
- *  four under an umbrella. The body is pure white so the instance tint
- *  can own it; head, hair and legs keep their own colours. */
-function peopleTexture(): CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = 64; c.height = 16;
-  const x = c.getContext('2d')!;
-  const px = (fx: number, fy: number, w: number, h: number, col: string) => { x.fillStyle = col; x.fillRect(fx, fy, w, h); };
-  for (let f = 0; f < 8; f++) {
-    const o = f * 8, umb = f >= 4, k = f % 4; // k: 0 walk A, 1 walk B, 2 stand, 3 sit
-    const top = umb ? 3 : 1;
-    if (umb) { px(o, 0, 8, 1, '#fefefe'); px(o + 1, 1, 6, 1, '#fefefe'); px(o + 3, 2, 1, 4, '#3a3a44'); }
-    px(o + 3, top, 3, 1, '#2a1a10'); // hair
-    px(o + 3, top + 1, 3, 2, f % 2 ? '#d9a578' : '#b8865a'); // face
-    if (k === 3) { // sitting: a short body, legs out
-      px(o + 2, top + 3, 4, 4, '#ffffff'); px(o + 1, top + 7, 6, 2, '#20202e'); px(o + 1, top + 9, 2, 1, '#20202e'); px(o + 5, top + 9, 2, 1, '#20202e');
-      continue;
+/** THE CAST'S SPRITE SHEET (owner: NPCs with a lot of variety). For every
+ *  kind in the cast (city-people.ts) four looks — two hairstyles, each with
+ *  and without their thing (a bag, a briefcase, a cane, a backpack, an
+ *  apron) — and for every look eight 8×16 frames: walk A/B, stand, sit,
+ *  talk (a hand up), phone (lit, at the face), vend (arms on the counter),
+ *  sit with a phone. Composed from parts, not drawn by hand. MARKER colours
+ *  stand for the person's own palette, set per instance: white the top
+ *  garment, magenta the legs, cyan the hair (or hat, hood, helmet), yellow
+ *  the skin, green the glow (a visor, a phone, a hi-vis stripe, a badge, a
+ *  crest's tip — drawn unlit). Everything else is drawn as it is. */
+export const LOOKS_PER_KIND = 4;
+type Hair = 'short' | 'long' | 'bun' | 'bald' | 'cap' | 'capback' | 'helmet' | 'hat' | 'hardhat' | 'hood' | 'bandana' | 'mohawk' | 'spiky';
+interface Look {
+  h: number; wide?: boolean; slim?: boolean; coat?: 1 | 2; skirt?: boolean; shorts?: boolean; sleeves?: boolean;
+  hair: [Hair, Hair]; visor?: boolean; eyes?: boolean; trim?: boolean; hivis?: boolean; badge?: boolean; tie?: boolean;
+  metal?: boolean; stoop?: boolean; extra?: 'bag' | 'case' | 'cane' | 'apron' | 'pack';
+}
+const LOOKS: Record<string, Look> = {
+  civ: { h: 16, sleeves: true, hair: ['short', 'long'], extra: 'bag' },
+  coat: { h: 16, sleeves: true, coat: 1, hair: ['short', 'bun'], extra: 'bag' },
+  dress: { h: 16, skirt: true, hair: ['long', 'bun'], extra: 'bag' },
+  hood: { h: 16, sleeves: true, hair: ['hood', 'cap'], extra: 'pack' },
+  heavy: { h: 16, wide: true, sleeves: true, hair: ['short', 'bald'], extra: 'bag' },
+  kid: { h: 11, slim: true, hair: ['short', 'capback'], extra: 'pack' },
+  punk: { h: 16, hair: ['mohawk', 'spiky'], trim: true },
+  suit: { h: 16, sleeves: true, tie: true, hair: ['short', 'bald'], extra: 'case' },
+  elder: { h: 14, stoop: true, sleeves: true, coat: 1, hair: ['hat', 'bald'], extra: 'cane' },
+  cyber: { h: 16, sleeves: true, visor: true, trim: true, hair: ['short', 'long'] },
+  vendor: { h: 16, hair: ['cap', 'bandana'], extra: 'apron' },
+  courier: { h: 16, shorts: true, hair: ['helmet', 'capback'], extra: 'pack' },
+  android: { h: 16, metal: true, eyes: true, sleeves: true, trim: true, hair: ['bald', 'bald'] },
+  robe: { h: 16, coat: 2, hair: ['bald', 'hood'] },
+  worker: { h: 16, sleeves: true, hivis: true, hair: ['hardhat', 'hardhat'], extra: 'pack' },
+  cop: { h: 16, sleeves: true, badge: true, hair: ['cap', 'helmet'] },
+};
+const MK = { top: '#ffffff', bot: '#ff00ff', hair: '#00ffff', skin: '#ffff00', glow: '#00ff00' };
+const INK = { shoe: '#1a1a24', bag: '#4a3524', kase: '#2a2a34', cane: '#7a5a32', apron: '#cfc6b4', metal: '#9a9cae', belt: '#101018', shirt: '#d8d8e0', tie: '#8a1c2a', brim: '#1a1a24' };
+type Px = (fx: number, fy: number, w: number, h: number, col: string) => void;
+
+/** One frame of one look into an 8×16 cell (px clips to it). */
+function drawPerson(px: Px, L: Look, hair: Hair, extra: Look['extra'], f: number): void {
+  const sit = f === 3 || f === 7;
+  const skin = L.metal ? INK.metal : MK.skin;
+  const sleeve = L.sleeves || L.coat ? MK.top : skin;
+  const bodyW = L.wide ? 6 : L.slim ? 2 : 4;
+  const bx = L.wide ? 1 : L.slim ? 3 : 2;
+  const armL = bx - 1, armR = bx + bodyW;
+  const hx = L.stoop ? 4 : 3; // the head's left column (the stooped lean forward)
+  const crest = hair === 'mohawk' || hair === 'spiky' ? 2 : 0;
+  const headRows = hair === 'hat' || hair === 'hardhat' ? 4 : 3;
+  const TH = L.slim ? 4 : 6; // the torso
+  // the head: hair or hat over a face; returns the row under it
+  const head = (hy: number): number => {
+    const faceY = hy + (hair === 'bald' || hair === 'mohawk' ? 0 : headRows - 2);
+    switch (hair) {
+      case 'short': px(hx, hy, 3, 1, MK.hair); break;
+      case 'long': px(hx, hy, 3, 1, MK.hair); px(hx - 1, hy + 1, 1, 3, MK.hair); px(hx + 3, hy + 1, 1, 3, MK.hair); break;
+      case 'bun': px(hx, hy, 3, 1, MK.hair); px(hx + 3, hy, 1, 1, MK.hair); break;
+      case 'cap': px(hx, hy, 4, 1, MK.hair); break;
+      case 'capback': px(hx - 1, hy, 4, 1, MK.hair); break;
+      case 'helmet': px(hx, hy, 3, 1, MK.hair); px(hx, hy + 1, 1, 1, MK.hair); px(hx + 2, hy + 1, 1, 1, MK.hair); break;
+      case 'hat': px(hx, hy, 3, 1, MK.hair); px(hx - 1, hy + 1, 5, 1, INK.brim); break;
+      case 'hardhat': px(hx, hy, 3, 1, MK.hair); px(hx - 1, hy + 1, 5, 1, MK.hair); break;
+      case 'hood': px(hx - 1, hy, 5, 1, MK.top); px(hx - 1, hy + 1, 1, 2, MK.top); px(hx + 3, hy + 1, 1, 2, MK.top); break;
+      case 'bandana': px(hx, hy, 3, 1, MK.hair); px(hx + 3, hy + 1, 1, 1, MK.hair); break;
+      case 'mohawk': px(hx + 1, hy - 2, 1, 2, MK.hair); px(hx + 1, hy - 2, 1, 1, MK.glow); px(hx + 1, hy, 1, 1, MK.hair); break;
+      case 'spiky': px(hx, hy - 1, 1, 1, MK.hair); px(hx + 2, hy - 1, 1, 1, MK.hair); px(hx, hy, 3, 1, MK.hair); break;
+      case 'bald': break;
     }
-    px(o + 2, top + 3, 4, 6, '#ffffff'); // the body (tinted)
-    px(o + 1, top + 4, 1, 4, '#ffffff'); px(o + 6, top + 4, 1, 4, '#ffffff'); // arms
-    const legTop = top + 9, legH = 16 - legTop;
-    if (k === 1) { px(o + 1, legTop, 2, legH, '#20202e'); px(o + 5, legTop, 2, legH, '#20202e'); }
-    else if (k === 0) { px(o + 2, legTop, 2, legH, '#20202e'); px(o + 4, legTop, 2, legH, '#20202e'); }
-    else { px(o + 2, legTop, 2, legH, '#20202e'); px(o + 4, legTop, 2, legH, '#20202e'); }
+    px(hx, faceY, 3, hy + headRows - faceY, skin); // the face (a bald head is all face)
+    if (hair === 'mohawk') px(hx + 1, hy, 1, 1, MK.hair);
+    if (hair === 'helmet') px(hx + 1, hy + 1, 1, 1, skin);
+    if (L.visor) px(hx, faceY, 3, 1, MK.glow);
+    if (L.eyes) { px(hx, faceY, 1, 1, MK.glow); px(hx + 2, faceY, 1, 1, MK.glow); }
+    return hy + headRows;
+  };
+  if (sit) { // seated: a shorter figure, the legs out in front, the feet on the ground
+    const hy = 16 - (headRows + (TH - 2) + 2 + 1);
+    const ty = head(hy);
+    px(bx, ty, bodyW, TH - 2, MK.top);
+    px(armL, ty + 1, 1, TH - 3, sleeve); px(armR, ty + 1, 1, TH - 3, sleeve);
+    px(armL, ty + TH - 3, 1, 1, skin); px(armR, ty + TH - 3, 1, 1, skin);
+    if (L.tie) px(bx + 1, ty + 1, 1, 2, INK.tie);
+    px(bx, ty + TH - 2, bodyW + 2, 2, L.coat === 2 ? MK.top : MK.bot); // the thighs, out
+    px(bx + bodyW, 15, 2, 1, INK.shoe);
+    if (f === 7) px(armR - 1, ty + 1, 2, 1, MK.glow); // the phone, in the lap's light
+    return;
   }
+  const top = 16 - L.h;
+  const ty = head(top + crest);
+  const legsY = ty + TH;
+  px(bx, ty, bodyW, TH, MK.top); // the torso
+  if (L.tie) { px(bx + 1, ty, 2, 1, INK.shirt); px(bx + 2, ty + 1, 1, 3, INK.tie); }
+  if (L.trim) { px(bx, ty + 2, 1, 1, MK.glow); px(bx + bodyW - 1, ty + 4, 1, 1, MK.glow); }
+  if (L.eyes) px(bx + 1, ty + 2, 2, 1, MK.glow); // a chest light
+  if (L.hivis) { px(bx, ty + 1, bodyW, 1, MK.glow); px(bx, ty + 3, bodyW, 1, MK.glow); }
+  if (L.badge) { px(bx + 2, ty + 1, 1, 1, MK.glow); px(bx, ty + TH - 1, bodyW, 1, INK.belt); }
+  if (extra === 'apron') px(bx + 1, ty + 2, bodyW - 2, TH, INK.apron);
+  // the arms, by the pose
+  const arm = (col: number, y0: number, n: number) => { px(col, y0, 1, n - 1, sleeve); px(col, y0 + n - 1, 1, 1, skin); };
+  switch (f) {
+    case 0: arm(armL, ty + 2, 4); arm(armR, ty, 4); break; // walking: a swing
+    case 1: arm(armL, ty, 4); arm(armR, ty + 2, 4); break;
+    case 4: // talking: a hand up
+      arm(armL, ty + 1, 4);
+      if (armR + 1 <= 7) { px(armR, ty + 1, 1, 2, sleeve); px(armR + 1, ty - 1, 1, 2, skin); }
+      else { px(armR, ty - 2, 1, 4, sleeve); px(armR, ty - 2, 1, 1, skin); }
+      break;
+    case 5: // the phone, held up to the face, lit
+      arm(armL, ty + 1, 4);
+      px(armR, ty + 2, 1, 2, sleeve); px(armR - 1, ty + 1, 1, 1, skin); px(armR - 1, ty, 2, 1, MK.glow);
+      break;
+    case 6: // vending: both hands on the counter
+      px(armL, ty + 1, 1, 3, sleeve); px(armR, ty + 1, 1, 3, sleeve);
+      px(armL + 1, ty + 4, 1, 1, skin); px(armR - 1, ty + 4, 1, 1, skin);
+      break;
+    default: arm(armL, ty + 1, 4); arm(armR, ty + 1, 4); break; // standing
+  }
+  // the legs, by the pose: apart, one lifted, together; a coat or a skirt over the top of them
+  const legCol = L.shorts ? MK.skin : MK.bot;
+  const legW = L.slim ? 1 : L.wide ? 3 : 2;
+  const [lx, rx] = f === 0 ? [bx - 1, bx + bodyW - legW + 1] : [bx, bx + bodyW - legW];
+  const lift = f === 1 ? 1 : 0;
+  px(lx, legsY, legW, 15 - legsY - lift, legCol); px(rx, legsY, legW, 15 - legsY, legCol);
+  if (L.shorts) { px(lx, legsY, legW, 3, MK.bot); px(rx, legsY, legW, 3, MK.bot); }
+  if (L.coat === 1) px(bx, legsY, bodyW, 3, MK.top);
+  if (L.coat === 2) { px(bx, legsY, bodyW, 15 - legsY, MK.top); px(bx - 1, 13, bodyW + 2, 2, MK.top); }
+  if (L.skirt) { px(bx, legsY, bodyW, 1, MK.top); px(bx - 1, legsY + 1, bodyW + 2, 2, MK.top); }
+  px(lx, 15 - lift, legW, 1, INK.shoe); px(rx, 15, legW, 1, INK.shoe);
+  // their thing
+  switch (extra) {
+    case 'bag': px(Math.min(7, armR + 1), legsY - 2, 1, 2, INK.bag); break;
+    case 'case': px(armR, ty + 5, Math.min(2, 8 - armR), 3, INK.kase); break;
+    case 'cane': px(Math.min(7, armR + 1), ty + 4, 1, 11 - ty, INK.cane); px(Math.min(7, armR + 1), ty + 4, 1, 1, skin); break;
+    case 'pack': px(Math.max(0, armL - 1), ty, 1, 5, INK.bag); break;
+    default: break;
+  }
+}
+
+function peopleTexture(): CanvasTexture {
+  const ROWS = CAST.length * LOOKS_PER_KIND;
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = ROWS * 16;
+  const x = c.getContext('2d')!;
+  CAST.forEach((kind, ki) => {
+    const L = LOOKS[kind.name];
+    for (let v = 0; v < LOOKS_PER_KIND; v++) {
+      const hair = L.hair[v % 2], extra = v >= 2 ? L.extra : undefined;
+      for (let fr = 0; fr < 8; fr++) {
+        const ox = fr * 8, oy = (ki * LOOKS_PER_KIND + v) * 16;
+        const px: Px = (fx, fy, w, h, col) => { // clipped to the cell
+          const x0 = Math.max(0, fx), y0 = Math.max(0, fy), x1 = Math.min(8, fx + w), y1 = Math.min(16, fy + h);
+          if (x1 <= x0 || y1 <= y0) return;
+          x.fillStyle = col; x.fillRect(ox + x0, oy + y0, x1 - x0, y1 - y0);
+        };
+        drawPerson(px, L, hair, extra, fr);
+      }
+    }
+  });
   return asPixelTex(new CanvasTexture(c));
 }
 
@@ -310,7 +450,7 @@ function seatTexture(): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 128; c.height = 8;
   const x = c.getContext('2d')!;
-  const cols = ['#b8322c', '#e8e2d2', '#2e6fd0', '#e8e2d2'];
+  const cols = ['#8a2620', '#6e6a60', '#24589e', '#6e6a60']; // dim: a tier a few units off the deck once read as a white wall
   for (let i = 0; i < 16; i++) { x.fillStyle = cols[i % 4]; x.fillRect(i * 8, 0, 8, 8); }
   x.fillStyle = '#0d1020';
   for (let i = 0; i < 128; i += 2) x.fillRect(i, 3, 1, 1); // the seat rows' shadow
@@ -392,6 +532,22 @@ function glowTexture(color: string): CanvasTexture {
   g.addColorStop(1, 'rgba(0,0,0,0)');
   x.fillStyle = g; x.fillRect(0, 0, 32, 32);
   return asPixelTex(new CanvasTexture(c));
+}
+
+/** A headlight's throw on the road: bright and narrow by the car (the top),
+ *  widening and fading ahead. */
+function headlightTexture(): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 16; c.height = 32;
+  const x = c.getContext('2d')!;
+  for (let r = 0; r < 32; r++) {
+    const w = 5 + r * 0.32, a = Math.pow(1 - r / 32, 1.6);
+    x.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`;
+    x.fillRect(8 - w / 2, r, w, 1);
+  }
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace;
+  return t;
 }
 
 function moonTexture(): CanvasTexture {
@@ -485,15 +641,15 @@ function groundTexture(rand: () => number): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = c.height = T;
   const x = c.getContext('2d')!;
-  x.fillStyle = '#050512'; x.fillRect(0, 0, T, T);
+  x.fillStyle = '#171a2c'; x.fillRect(0, 0, T, T);
   const mid = T / 2, half = (STREET / 2) * S, road = (ROAD / 2) * S;
-  x.fillStyle = '#0e1022';
+  x.fillStyle = '#20233a';
   x.fillRect(mid - half, 0, half * 2, T); x.fillRect(0, mid - half, T, half * 2);
-  x.fillStyle = '#131630';
+  x.fillStyle = '#2b2f4a';
   for (let i = 0; i < T; i += 4) { // paving dots on the kerbs
     for (const k of [mid - half + 2, mid + half - 4]) { x.fillRect(i + (k % 8 ? 0 : 2), k, 1, 1); x.fillRect(k, i + (k % 8 ? 0 : 2), 1, 1); }
   }
-  x.fillStyle = '#07091a';
+  x.fillStyle = '#101326';
   x.fillRect(mid - road, 0, road * 2, T); x.fillRect(0, mid - road, T, road * 2);
   const dashes = (color: string, at: number, on: number, off: number, w: number) => {
     x.fillStyle = color;
@@ -594,7 +750,9 @@ export interface CityRide {
   quality(): { tier: string; far: number; fog: number; shadows: boolean; pix: number };
   setQuality(t: number): void;
   /** Verification: what lives where — knots of talk, flyers, counts. */
-  probe(): { people: number; cars: number; flyers: number; knots: number[][]; air: number[][]; pads: number[][] };
+  probe(): { people: number; cars: number; flyers: number; knots: number[][]; air: number[][]; pads: number[][]; kinds: number[]; lights: number[][] };
+  /** The cast's sprite sheet, for inspection. */
+  sheet(): HTMLCanvasElement;
 }
 
 export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
@@ -610,6 +768,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const camera = new PerspectiveCamera(fov24(1), 1, 0.1, TIERS[tier].far);
   const renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
   renderer.setPixelRatio(1);
+  renderer.toneMapping = ACESFilmicToneMapping; // filmic: the practicals' highlights roll off, the mids lift
+  renderer.toneMappingExposure = 1.3;
   renderer.shadowMap.enabled = TIERS[tier].shadows;
   renderer.shadowMap.type = PCFShadowMap;
   // CINEMATIC LIGHT (owner: contrast, shadow, highlights): a blue hemisphere
@@ -617,11 +777,11 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // CASTS SHADOWS — its shadow camera rides with the eye. The facades keep
   // their baked windows as emissive light; the walls between them take the
   // moon and lose it in shadow.
-  const hemi = new HemisphereLight('#3a58b0', '#3a2a16', 0.26);
+  const hemi = new HemisphereLight('#3f5cb8', '#5a3a1c', 0.42); // the sky above, the streets' sodium bounce below
   scene.add(hemi);
   const MOON = new Vector3(110, 300, 460);
   const moonDir = MOON.clone().normalize();
-  const moonLight = new DirectionalLight('#c4d3ff', 1.0); // strong enough that its shadows read on the streets
+  const moonLight = new DirectionalLight('#c4d3ff', 0.6); // enough that its shadows read on the streets; the practicals lead
   moonLight.castShadow = TIERS[tier].shadows;
   moonLight.shadow.mapSize.set(2048, 2048);
   moonLight.shadow.camera.left = -230; moonLight.shadow.camera.right = 230;
@@ -642,7 +802,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const lens = new LensPass();
   composer.addPass(new RenderPass(scene, camera));
   composer.addPass(blur);
-  composer.addPass(new UnrealBloomPass(new Vector2(2, 2), 0.62, 0.42, 0.32));
+  composer.addPass(new UnrealBloomPass(new Vector2(2, 2), 0.62, 0.42, 0.4));
   composer.addPass(lens);
   composer.addPass(new OutputPass());
 
@@ -716,7 +876,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const GROUND = 106 * G; // a whole number of blocks: lot centres land on the tile corners
   groundTex.repeat.set(106, 106);
   const ground = new Mesh(new PlaneGeometry(GROUND, GROUND), new MeshLambertMaterial({
-    map: groundTex, emissive: '#ffffff', emissiveMap: groundTex, emissiveIntensity: 0.4,
+    map: groundTex, emissive: '#ffffff', emissiveMap: groundTex, emissiveIntensity: 0.12, // the streets are LIT, not self-lit
   }));
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
@@ -756,8 +916,37 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       deck.position.set(st.x0 + st.dx * st.len / 2, HIGHWAY.y, st.z0 + st.dz * st.len / 2);
       deck.rotation.y = Math.atan2(-st.dz, st.dx);
       scene.add(deck);
-      for (let t = 0; t <= st.len; t += 3) {
-        for (const s of [-1, 1]) edge.push(st.x0 + st.dx * t - st.dz * s * 6.6, HIGHWAY.y + 0.9, st.z0 + st.dz * t + st.dx * s * 6.6);
+      // PARAPETS (owner: no vehicle through the outer barrier): a wall along
+      // each edge from the kerb (DECK_KERB, which the lanes respect) out to
+      // the deck's edge, broken only where a ramp mounts the deck; the amber
+      // lights ride the parapet tops
+      const yawH = Math.atan2(-st.dz, st.dx);
+      const rail = (st.width / 2 - DECK_KERB);
+      for (const side of [-1, 1] as const) {
+        const gaps: [number, number][] = [];
+        for (const r of plan.streets) {
+          if (r.kind !== 'ramp') continue;
+          const hi = r.y > (r.y1 ?? r.y) ? 0 : r.len; // the high end: where it meets the deck
+          const hx = r.x0 + r.dx * hi, hz = r.z0 + r.dz * hi;
+          const lat = (hx - st.x0) * -st.dz + (hz - st.z0) * st.dx;
+          if (Math.sign(lat) !== side) continue;
+          const t = (hx - st.x0) * st.dx + (hz - st.z0) * st.dz;
+          gaps.push([t - 15, t + 15]);
+        }
+        gaps.sort((a, b) => a[0] - b[0]);
+        const runs: [number, number][] = [];
+        let from = 0;
+        for (const [g0, g1] of gaps) { if (g0 > from) runs.push([from, g0]); from = Math.max(from, g1); }
+        if (from < st.len) runs.push([from, st.len]);
+        const lat = side * (DECK_KERB + rail / 2);
+        for (const [a, b] of runs) {
+          const wall = new Mesh(new BoxGeometry(b - a, 1.1, rail), deckDark);
+          const tm = (a + b) / 2;
+          wall.position.set(st.x0 + st.dx * tm - st.dz * lat, HIGHWAY.y + 0.95, st.z0 + st.dz * tm + st.dx * lat);
+          wall.rotation.y = yawH;
+          scene.add(wall);
+          for (let t = a; t <= b; t += 3) edge.push(st.x0 + st.dx * t - st.dz * lat, HIGHWAY.y + 1.6, st.z0 + st.dz * t + st.dx * lat);
+        }
       }
     }
     if (st.kind === 'ramp') { // a chain of tilted deck pieces down the ramp's ease
@@ -784,7 +973,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   {
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(new Float32Array(edge), 3));
-    scene.add(new Points(g, new PointsMaterial({ color: '#ffb347', size: 2.2, sizeAttenuation: true, transparent: true, opacity: 0.9, depthWrite: false })));
+    scene.add(new Points(g, new PointsMaterial({ color: '#ffb347', size: 1.5, sizeAttenuation: true, transparent: true, opacity: 0.8, depthWrite: false })));
   }
 
   // -- the city, from the plan ----------------------------------------------
@@ -805,14 +994,14 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     c.needsUpdate = true;
     return c;
   });
-  const dark = new MeshLambertMaterial({ color: '#0a0b16' });
+  const dark = new MeshLambertMaterial({ color: '#141830' });
   // the moon lights the near faces and the roofs, the far faces sleep in the
   // hemisphere's blue, the shadows take the rest; the windows are emissive
   // (they are their own light) and LIVE — see livingFacade
   const facade = (map: CanvasTexture, style: FacadeStyle, far: boolean): MeshLambertMaterial =>
     livingFacade(new MeshLambertMaterial({
-      map, emissive: '#ffffff', emissiveMap: map, emissiveIntensity: far ? 0.66 : 0.6, color: far ? '#9aa0c8' : '#ffffff',
-    }), windowCells(style), style.tint);
+      map, emissive: '#ffffff', emissiveMap: map, emissiveIntensity: far ? 0.8 : 0.75, color: far ? '#9aa0c8' : '#ffffff',
+    }), windowCells(style), style.tint, far ? 2.0 : 2.6);
   const facadeMats = (map: CanvasTexture, style: FacadeStyle, far: boolean): Material[] => {
     const lit = facade(map, style, far);
     return [lit, lit, dark, dark, lit, lit];
@@ -863,20 +1052,22 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // -- SEARCHLIGHTS: volumetric-looking beams (an additive cone, a brighter
   // core) sweeping from the stadium's masts, the megastructure's top, the
   // industrial cranes and the wheel — the night's light shafts ------------------
-  interface Beam { g: Group; phase: number; rate: number }
+  interface Beam { g: Group; phase: number; rate: number; mats: MeshBasicMaterial[]; ops: number[]; len: number }
   const beams: Beam[] = [];
   const beamAt = (x: number, y: number, z: number, len: number, color: string, phase: number) => {
     const g = new Group();
     g.position.set(x, y, z);
+    const mats: MeshBasicMaterial[] = [];
     for (const [r, op] of [[len * 0.075, 0.075], [len * 0.03, 0.12]] as [number, number][]) {
       const geoC = new ConeGeometry(r, len, 12, 1, true);
       geoC.translate(0, -len / 2, 0); // the apex at the lamp, the mouth far out
       const m = new Mesh(geoC, new MeshBasicMaterial({
         color, transparent: true, opacity: op, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false,
       }));
+      mats.push(m.material as MeshBasicMaterial);
       g.add(m);
     }
-    beams.push({ g, phase, rate: 0.0028 + (phase % 1) * 0.002 });
+    beams.push({ g, phase, rate: 0.0028 + (phase % 1) * 0.002, mats, ops: [0.075, 0.12], len });
     scene.add(g);
   };
   {
@@ -888,12 +1079,20 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     beamAt(plan.wheel.x, plan.wheel.y + plan.wheel.r + 1, plan.wheel.z, 120, '#fff0d0', 0.8);
     if (plan.stacks.length) beamAt(plan.stacks[0].x + 8, plan.stacks[0].top - 6, plan.stacks[0].z, 130, '#cfe6ff', 4.6);
   }
+  const beamDir = new Vector3(), beamTo = new Vector3();
   const sweep = () => {
     for (const b of beams) {
       const t = tick * b.rate + b.phase;
       b.g.rotation.order = 'YXZ';
       // the cone hangs down −y; pitch it up toward the sky, then sweep about the mast
       b.g.rotation.set(0, t, Math.PI - (0.55 + Math.sin(t * 0.7) * 0.35));
+      // a beam the eye is inside would wash the frame white: it thins as the eye nears its axis
+      beamDir.set(0, -1, 0).applyEuler(b.g.rotation);
+      beamTo.copy(camera.position).sub(b.g.position);
+      const along = clamp(beamTo.dot(beamDir), 0, b.len);
+      const d = beamTo.addScaledVector(beamDir, -along).length();
+      const k = clamp((d - 9) / 22, 0, 1);
+      b.mats.forEach((m, i) => { m.opacity = b.ops[i] * k * k; });
     }
   };
 
@@ -970,7 +1169,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       tex.needsUpdate = true;
       tex.repeat.set(Math.round(r0 * 20), 1);
       const ring = new Mesh(new CylinderGeometry(1, 0.9, 1, 32, 1, true), new MeshLambertMaterial({
-        map: tex, emissive: '#ffffff', emissiveMap: tex, emissiveIntensity: 0.3, side: DoubleSide,
+        map: tex, emissive: '#ffffff', emissiveMap: tex, emissiveIntensity: 0.18, side: DoubleSide,
       }));
       ring.position.set(st.x, y, st.z);
       ring.scale.set(st.w / 2 * r0, h, st.d / 2 * r0);
@@ -1026,7 +1225,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     for (const gt of st.gates) { rim.push(gt.x, 3.2, gt.z); }
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(new Float32Array(rim), 3));
-    scene.add(new Points(g, new PointsMaterial({ map: glowTexture('#ffffff'), color: '#e8f4ff', size: 7, sizeAttenuation: true, transparent: true, blending: AdditiveBlending, depthWrite: false })));
+    scene.add(new Points(g, new PointsMaterial({ map: glowTexture('#ffffff'), color: '#e8f4ff', size: 3.6, sizeAttenuation: true, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false }))); // small: seventy of them up close once walled the deck in white
     for (const gt of st.gates) { // a lit portal in the bowl's wall
       const m = new Mesh(new BoxGeometry(6, 4.6, 0.6), new MeshBasicMaterial({ color: '#ffd9a0' }));
       m.position.set(gt.x, 2.3, gt.z);
@@ -1331,10 +1530,18 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     return { arr, col, pts };
   };
   const heads = lightsOf('#fff2d8', 1.5, false);
+  // and the headlights' throw: a cone of light on the road ahead (owner: lit by practicals)
+  const throws = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new MeshBasicMaterial({
+    map: headlightTexture(), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.16, color: '#fff0cc',
+  }), total);
+  throws.frustumCulled = false;
+  scene.add(throws);
+  const throwTint = new Color();
   const tails = lightsOf('#ffffff', 1.3, true); // per vehicle: dim red, or bright when braking
   const TAIL = new Color('#ff3b2f').multiplyScalar(0.55), BRAKE = new Color('#ff5040').multiplyScalar(1.6);
   const placeVehicle = (
     i: number, x: number, y: number, z: number, yaw: number, pitch: number, w: number, h: number, len: number, weave: number, brake: boolean,
+    glow: number, // the headlights' throw, 0..1: a queue of stopped cars dips its beams (stacked throws once washed the deck white)
   ) => {
     const hx = Math.sin(yaw), hz = Math.cos(yaw); // the heading
     const lx = hz, lz = -hx; // and its lateral
@@ -1346,6 +1553,12 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     dummy.updateMatrix();
     carMesh.setMatrixAt(i, dummy.matrix);
     const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const ahead = len / 2 + 3;
+    dummy.position.set(x + hx * cp * ahead, y - h / 2 + sp * ahead + 0.01, z + hz * cp * ahead);
+    dummy.scale.set(w + 1.6, 1, 6);
+    dummy.updateMatrix();
+    throws.setMatrixAt(i, dummy.matrix);
+    throws.setColorAt(i, throwTint.setScalar(glow));
     const spread = w > 1 ? 0.45 : 0;
     for (const [k, side] of [[0, -spread], [1, spread]] as [number, number][]) {
       const j = (i * 2 + k) * 3;
@@ -1359,7 +1572,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     for (let i = 0; i < cars.length; i++) {
       const c = cars[i];
       const weave = c.kind === 'moto' ? Math.sin(traffic.tick * 0.05 + c.phase) * 0.7 : 0; // the weave, inside the lane
-      placeVehicle(i, c.x, c.y + c.h / 2 + 0.05, c.z, c.yaw, c.pitch, c.w, c.h, c.len, weave, c.brake || c.v < 0.01);
+      placeVehicle(i, c.x, c.y + c.h / 2 + 0.05, c.z, c.yaw, c.pitch, c.w, c.h, c.len, weave, c.brake || c.v < 0.01, 0.4 + 0.6 * Math.min(1, c.v / (c.vmax * 0.6)));
     }
     boats.forEach((b, k) => {
       b.t += b.v;
@@ -1367,11 +1580,13 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       if (b.t < 0) b.t += canal.len;
       const x = canal.x0 + canal.dx * b.t - canal.dz * b.lane, z = canal.z0 + canal.dz * b.t + canal.dx * b.lane;
       const yaw = b.v > 0 ? Math.atan2(canal.dx, canal.dz) : Math.atan2(-canal.dx, -canal.dz);
-      placeVehicle(cars.length + k, x, canal.y + 0.35, z, yaw, 0, 2, 0.6, 6, 0, false);
+      placeVehicle(cars.length + k, x, canal.y + 0.35, z, yaw, 0, 2, 0.6, 6, 0, false, 0.5);
     });
     dummy.rotation.set(0, 0, 0);
     dummy.rotation.order = 'XYZ';
     carMesh.instanceMatrix.needsUpdate = true;
+    throws.instanceMatrix.needsUpdate = true;
+    if (throws.instanceColor) throws.instanceColor.needsUpdate = true;
     if (carMesh.instanceColor) carMesh.instanceColor.needsUpdate = true;
     (heads.pts.geometry.getAttribute('position') as BufferAttribute).needsUpdate = true;
     (tails.pts.geometry.getAttribute('position') as BufferAttribute).needsUpdate = true;
@@ -1380,8 +1595,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
 
   // -- PEOPLE (owner: NPCs interacting, going about their business): pixel
   // sprites with lives (city-people.ts) — walking, stopping, talking in
-  // knots, browsing and vending at the markets, crossing on the red, sitting;
-  // umbrellas up when it rains ---------------------------------------------------
+  // knots, browsing and vending at the markets, crossing on the red, sitting ----
   const zones: Zone[] = [];
   for (const st of plan.stalls) {
     let z = zones.find((zn) => Math.abs(zn.x - st.x) < 30 && Math.abs(zn.z - st.z) < 30);
@@ -1405,6 +1619,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   for (let i = -HALF - OUTER - 1; i <= HALF + OUTER; i++) crossNodes.push(streetAt(i));
   const people = new People(plan.streets, zones, plan.stalls, mulberry32(seed ^ 0x7e0b1e), calm ? 1100 : 2200, crossOK, crossNodes);
   const PEOPLE = people.people.length;
+  const ROWS = CAST.length * LOOKS_PER_KIND;
   const peopleGeo = new InstancedBufferGeometry();
   {
     const plane = new PlaneGeometry(1, 1);
@@ -1412,44 +1627,99 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     peopleGeo.setAttribute('position', plane.getAttribute('position'));
     peopleGeo.setAttribute('uv', plane.getAttribute('uv'));
   }
-  const pPos = new Float32Array(PEOPLE * 3), pFrame = new Float32Array(PEOPLE), pYaw = new Float32Array(PEOPLE), pTint = new Float32Array(PEOPLE * 3);
-  const TINTS = ['#c8552c', '#2a5aa8', '#d9c26a', '#3f7f5a', '#7a3d8f', '#c9c2b2', '#b03a3a', '#1f2a44'].map((c) => new Color(c));
-  people.people.forEach((p, i) => TINTS[p.tint].toArray(pTint, i * 3));
+  const pPos = new Float32Array(PEOPLE * 3), pFrame = new Float32Array(PEOPLE), pYaw = new Float32Array(PEOPLE);
+  const pRow = new Float32Array(PEOPLE), pScale = new Float32Array(PEOPLE);
+  const pTop = new Float32Array(PEOPLE * 3), pBot = new Float32Array(PEOPLE * 3), pHair = new Float32Array(PEOPLE * 3);
+  const pSkin = new Float32Array(PEOPLE * 3), pGlow = new Float32Array(PEOPLE * 3);
+  // the palettes: the cast dresses itself
+  const SKINS = ['#f3d2b3', '#e6b48e', '#cf9466', '#a86f45', '#7e4d2b', '#5a3620'];
+  const HAIRS = ['#1a1410', '#2c1d12', '#4a3020', '#7a4a26', '#c9a15a', '#d9d3c7', '#8c2a1a', '#3a3a44'];
+  const NEON_HAIR = ['#ff2e63', '#7de8ff', '#c8ff00', '#b79cff', '#ff8c42'];
+  const TOPS = ['#c8552c', '#2a5aa8', '#d9c26a', '#3f7f5a', '#7a3d8f', '#c9c2b2', '#b03a3a', '#1f2a44', '#e8e2d2', '#1b1b22',
+    '#556b2f', '#8b4513', '#d2691e', '#4682b4', '#708090', '#ff8c42', '#2f4f4f', '#9b111e', '#f0e68c', '#6a5acd', '#20b2aa', '#a0522d', '#dcdcdc', '#3b3b3b'];
+  const BOTTOMS = ['#1f2a44', '#20202e', '#3a3a44', '#5a4a3a', '#2e3a5a', '#6b6b78', '#1a2a1a', '#8a8a94', '#3b2f2f', '#c9c2b2'];
+  const GLOWS = ['#7de8ff', '#ff2e63', '#c8ff00', '#ffb347', '#b79cff', '#ffffff', '#ff5e7a'];
+  const SUITS = ['#1b1b22', '#2a2a3a', '#2f2f3f', '#3b3b4b', '#1f2a44', '#3a2a2a'];
+  const MUTED = ['#5a4a3a', '#6b6b78', '#3a3a44', '#7a6a5a', '#8a8a94', '#4a5a6a'];
+  const ROBES = ['#7a3d1e', '#b04a1a', '#5a3a6a', '#d9c26a', '#3a3a44', '#e8e2d2', '#2a5aa8'];
+  const BRIGHT = ['#ff8c42', '#c8ff00', '#7de8ff', '#ff2e63', '#ffd23f', '#e8e2d2', '#4682b4'];
+  const palette = (list: string[]) => new Color(pick(rand, list));
+  people.people.forEach((p, i) => {
+    const name = CAST[p.kind].name;
+    pRow[i] = p.kind * LOOKS_PER_KIND + Math.floor(rand() * LOOKS_PER_KIND);
+    pScale[i] = name === 'heavy' ? 1.02 + rand() * 0.1 : name === 'kid' ? 1 : name === 'elder' ? 0.94 + rand() * 0.06 : 0.9 + rand() * 0.2;
+    let top = palette(TOPS), bot = palette(BOTTOMS), hair = palette(HAIRS), skin = palette(SKINS), glow = palette(GLOWS);
+    switch (name) {
+      case 'punk': case 'cyber': if (rand() < 0.7) hair = palette(NEON_HAIR); break;
+      case 'suit': top = palette(SUITS); bot = top.clone(); break;
+      case 'cop': top = new Color('#1c2340'); bot = new Color('#161c34'); hair = new Color('#1c2340'); glow = new Color('#ffd23f'); break;
+      case 'worker': top = palette(['#ff7a1a', '#ffb300', '#ff5a1a', '#3a5a8a']); hair = palette(['#ffcc22', '#ffffff', '#ff8c1a']); glow = new Color('#ffe066'); bot = palette(['#2e3a5a', '#5a4a3a', '#3a3a44']); break;
+      case 'android': skin = palette(['#9a9cae', '#7c8096', '#b0b4c4']); top = palette(['#3a4058', '#565c74', '#2a2e44', '#7a7e92']); bot = top.clone(); glow = palette(['#7de8ff', '#ff2e63', '#c8ff00']); break;
+      case 'elder': hair = palette(['#d9d3c7', '#bfb8ab', '#8a8a8a', '#3a3a44']); top = palette(MUTED); bot = palette(MUTED); break;
+      case 'robe': top = palette(ROBES); bot = top.clone(); break;
+      case 'courier': hair = palette(['#ff5e2a', '#e8e2d2', '#1a1a22', '#c8ff00', '#2a5aa8']); break;
+      case 'kid': top = palette(BRIGHT); break;
+      case 'dress': bot = rand() < 0.6 ? skin.clone() : palette(['#20202e', '#3a3a44', '#1f2a44']); break; // bare legs, or tights
+      default: break;
+    }
+    top.toArray(pTop, i * 3); bot.toArray(pBot, i * 3); hair.toArray(pHair, i * 3); skin.toArray(pSkin, i * 3); glow.toArray(pGlow, i * 3);
+  });
   peopleGeo.setAttribute('aPos', new InstancedBufferAttribute(pPos, 3));
   peopleGeo.setAttribute('aFrame', new InstancedBufferAttribute(pFrame, 1));
   peopleGeo.setAttribute('aYaw', new InstancedBufferAttribute(pYaw, 1));
-  peopleGeo.setAttribute('color', new InstancedBufferAttribute(pTint, 3)); // the tint rides three's own vertex-colour path
+  peopleGeo.setAttribute('aRow', new InstancedBufferAttribute(pRow, 1));
+  peopleGeo.setAttribute('aScale', new InstancedBufferAttribute(pScale, 1));
+  peopleGeo.setAttribute('aTop', new InstancedBufferAttribute(pTop, 3));
+  peopleGeo.setAttribute('aBot', new InstancedBufferAttribute(pBot, 3));
+  peopleGeo.setAttribute('aHair', new InstancedBufferAttribute(pHair, 3));
+  peopleGeo.setAttribute('aSkin', new InstancedBufferAttribute(pSkin, 3));
+  peopleGeo.setAttribute('aGlow', new InstancedBufferAttribute(pGlow, 3));
   peopleGeo.instanceCount = PEOPLE;
   // a basic material, patched: each instance's quad is billboarded at its
-  // person's feet, its frame picked from the sheet, its white body tinted;
-  // the map, the alpha test and the fog are three's own
-  const peopleMat = new MeshBasicMaterial({ map: peopleTexture(), alphaTest: 0.5, vertexColors: true, color: '#8a8a94', fog: true }); // under the bloom's threshold: people don't glow
+  // person's feet, its frame and look picked from the sheet, the marker
+  // colours swapped for the person's own palette (the glow left unlit); the
+  // map, the alpha test and the fog are three's own
+  const peopleMat = new MeshBasicMaterial({ map: peopleTexture(), alphaTest: 0.5, color: '#b4b4be', fog: true }); // the dim: under the bloom's threshold
   peopleMat.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute vec3 aPos; attribute float aFrame; attribute float aYaw;')
+      .replace('#include <common>', `#include <common>
+        attribute vec3 aPos; attribute float aFrame; attribute float aYaw; attribute float aRow; attribute float aScale;
+        attribute vec3 aTop; attribute vec3 aBot; attribute vec3 aHair; attribute vec3 aSkin; attribute vec3 aGlow;
+        varying vec3 vTop; varying vec3 vBot; varying vec3 vHair; varying vec3 vSkin; varying vec3 vGlow;`)
       .replace('#include <uv_vertex>', `
         vec3 bbRight = vec3( viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0] );
         float bbFlip = dot( bbRight, vec3( sin( aYaw ), 0.0, cos( aYaw ) ) ) < 0.0 ? 1.0 : 0.0;
-        vMapUv = vec2( ( mix( uv.x, 1.0 - uv.x, bbFlip ) + aFrame ) / 8.0, uv.y );`)
+        vMapUv = vec2( ( mix( uv.x, 1.0 - uv.x, bbFlip ) + aFrame ) / 8.0, 1.0 - ( aRow + 1.0 - uv.y ) / ${ROWS}.0 );
+        vTop = aTop; vBot = aBot; vHair = aHair; vSkin = aSkin; vGlow = aGlow;`)
       .replace('#include <begin_vertex>', `
-        vec3 transformed = aPos + bbRight * position.x * 0.9 + vec3( 0.0, position.y * 1.8 + 0.9, 0.0 );`);
+        vec3 transformed = aPos + bbRight * position.x * 0.9 * aScale + vec3( 0.0, ( position.y + 0.5 ) * 1.8 * aScale, 0.0 );`);
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <color_fragment>', `
-        float bbMask = step( 2.9, diffuseColor.r + diffuseColor.g + diffuseColor.b );
-        diffuseColor.rgb = mix( diffuseColor.rgb, vColor.rgb, bbMask );`);
+      .replace('#include <common>', `#include <common>
+        varying vec3 vTop; varying vec3 vBot; varying vec3 vHair; varying vec3 vSkin; varying vec3 vGlow;`)
+      .replace('#include <map_fragment>', `
+        vec4 pTex = texture2D( map, vMapUv );
+        vec3 pt = pTex.rgb;
+        float mTop = step( 2.9, pt.r + pt.g + pt.b );
+        float mBot = step( 1.9, pt.r + pt.b ) * step( pt.g, 0.1 );
+        float mHair = step( 1.9, pt.g + pt.b ) * step( pt.r, 0.1 );
+        float mSkin = step( 1.9, pt.r + pt.g ) * step( pt.b, 0.1 );
+        float mGlow = step( 0.9, pt.g ) * step( pt.r, 0.1 ) * step( pt.b, 0.1 );
+        vec3 pc = pt;
+        pc = mix( pc, vTop, mTop ); pc = mix( pc, vBot, mBot ); pc = mix( pc, vHair, mHair ); pc = mix( pc, vSkin, mSkin );
+        pc *= diffuse;
+        pc = mix( pc, vGlow, mGlow );
+        diffuseColor = vec4( pc, pTex.a );`);
   };
   peopleMat.customProgramCacheKey = () => 'people';
   const peopleMesh = new Mesh(peopleGeo, peopleMat);
   peopleMesh.frustumCulled = false;
   scene.add(peopleMesh);
   const walkPeople = () => {
-    people.rain = rainNow;
     people.step();
-    const umb = rainNow > 0.25;
     for (let i = 0; i < PEOPLE; i++) {
       const p = people.people[i];
       pPos[i * 3] = p.x; pPos[i * 3 + 1] = p.y; pPos[i * 3 + 2] = p.z;
-      pFrame[i] = p.frame + (umb && p.umbrella && p.act !== 'vend' ? 4 : 0);
+      pFrame[i] = p.frame;
       pYaw[i] = p.yaw;
     }
     (peopleGeo.getAttribute('aPos') as InstancedBufferAttribute).needsUpdate = true;
@@ -1664,7 +1934,6 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   let sm = 0;
   let tick = 0;
   let bank = 0;
-  let rainNow = 0;
   const keys = new Set<string>();
   // the free rig: position and velocity, a head with momentum, a throttle
   // that builds, a roll that leans into turns and strafes
@@ -1811,18 +2080,117 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     sky.position.copy(camera.position); // the dome is a skybox: infinitely far in every direction
     horizonRing.position.set(camera.position.x, 0, camera.position.z); // the far city stays on the ground
     aimMoon();
+    tendLights();
     audio.update({
-      y: camera.position.y, speed: camera.position.distanceTo(lastCam), rain: rainNow,
+      y: camera.position.y, speed: camera.position.distanceTo(lastCam),
       dStadium: Math.hypot(camera.position.x - stadium.x, camera.position.y - 8, camera.position.z - stadium.z),
       dMarket: zones.reduce((m, z) => Math.min(m, Math.hypot(camera.position.x - z.x, camera.position.y, camera.position.z - z.z)), 1e9),
       fireworks: fw.launched, dFireworks: Math.hypot(camera.position.x - stadium.x, camera.position.y - 40, camera.position.z - stadium.z),
     });
     lastCam.copy(camera.position);
-    // rain on the glass: down among the streets, none from the heights, none in calm
-    const wet = calm ? 0 : clamp((64 - camera.position.y) / 34, 0, 1);
-    rainNow = wet * wet * (3 - 2 * wet);
-    lens.setRain(rainNow * 0.42, tick / 60);
     composer.render();
+  };
+
+  // -- PRACTICALS (owner: brighter, but lit by practical lights): the lamps,
+  // the signs, the lanterns, the stalls' canopies, the holograms and the
+  // stadium's masts are the city's light sources. Every lamp lays a pool of
+  // light on the ground (cheap, everywhere, at any distance); the strongest
+  // sources near the eye are given to a pool of REAL point lights, faded in
+  // and out as the eye moves, so the walls, the road, the cars and the
+  // people near the camera take light from where the light is ----------------
+  {
+    const pools: { x: number; y: number; z: number; r: number; color: string; a: number }[] = [];
+    for (const p of plan.posts) pools.push({ x: p.x, y: p.y ?? 0, z: p.z, r: p.h * (1.3 + rand() * 0.5), color: '#ffe2b8', a: 1 });
+    for (let i = 0; i < plan.sprawlLamps.length; i += 3) pools.push({ x: plan.sprawlLamps[i], y: 0, z: plan.sprawlLamps[i + 2], r: 7, color: '#ffd9a0', a: 0.8 });
+    for (let i = 0; i < plan.lanterns.length; i += 3) pools.push({ x: plan.lanterns[i], y: 0, z: plan.lanterns[i + 2], r: 3.2, color: '#ffb36b', a: 0.5 });
+    for (const st of plan.stalls) pools.push({ x: st.x, y: 0, z: st.z, r: 4.5, color: st.color, a: 0.55 });
+    const inst = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new MeshBasicMaterial({
+      map: glowTexture('#ffffff'), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.26,
+    }), pools.length);
+    dummy.rotation.set(0, 0, 0);
+    pools.forEach((p, j) => {
+      dummy.position.set(p.x, p.y + 0.07, p.z);
+      dummy.scale.set(p.r * 2, 1, p.r * 2);
+      dummy.updateMatrix();
+      inst.setMatrixAt(j, dummy.matrix);
+      inst.setColorAt(j, new Color(p.color).multiplyScalar(p.a));
+    });
+    inst.instanceMatrix.needsUpdate = true;
+    if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+    scene.add(inst);
+  }
+  interface Practical { x: number; y: number; z: number; color: Color; power: number; reach: number }
+  const practicals: Practical[] = [];
+  {
+    const LAMP = new Color('#ffe2b8');
+    for (const p of plan.posts) practicals.push({ x: p.x, y: (p.y ?? 0) + p.h + 0.2, z: p.z, color: LAMP, power: 45, reach: 32 });
+    for (let i = 0; i < plan.sprawlLamps.length; i += 3) practicals.push({ x: plan.sprawlLamps[i], y: plan.sprawlLamps[i + 1], z: plan.sprawlLamps[i + 2], color: new Color('#ffd9a0'), power: 24, reach: 24 });
+    for (let i = 0; i < plan.lanterns.length; i += 3) practicals.push({ x: plan.lanterns[i], y: plan.lanterns[i + 1], z: plan.lanterns[i + 2], color: new Color('#ffb36b'), power: 9, reach: 14 });
+    for (const sg of plan.signs) {
+      if (sg.kind === 'gantry') continue;
+      const nx = Math.sin(sg.rotY), nz = Math.cos(sg.rotY);
+      practicals.push({ x: sg.x + nx * 1.2, y: sg.y, z: sg.z + nz * 1.2, color: new Color(sg.color), power: 6 + Math.min(80, sg.w * sg.h * 0.5), reach: 16 + Math.min(40, sg.w) });
+    }
+    for (const st of plan.stalls) practicals.push({ x: st.x, y: 3.4, z: st.z, color: new Color(st.color), power: 10, reach: 13 });
+    for (const h of plan.holos) practicals.push({ x: h.x, y: h.y, z: h.z, color: new Color('#7de8ff'), power: 80, reach: 50 });
+    // the floodlights are aimed into the bowl: their light sits between mast and pitch, not on the highway beside it
+    for (const m of stadium.masts) {
+      practicals.push({ x: m.x + (stadium.x - m.x) * 0.45, y: m.h * 0.6, z: m.z + (stadium.z - m.z) * 0.45, color: new Color('#eef4ff'), power: 380, reach: 110 });
+    }
+  }
+  const POOL = [0, 6, 12, 16]; // real point lights by tier
+  interface Slot { light: PointLight; src: Practical | null; level: number; on: boolean }
+  const slots: Slot[] = [];
+  const lightPool = new Group();
+  scene.add(lightPool);
+  const setPool = (n: number) => {
+    while (slots.length < n) {
+      const light = new PointLight('#ffffff', 0, 30, 2);
+      lightPool.add(light);
+      slots.push({ light, src: null, level: 0, on: false });
+    }
+    while (slots.length > n) lightPool.remove(slots.pop()!.light);
+  };
+  setPool(POOL[tier]);
+  const focus = new Vector3();
+  const scored: { p: Practical; s: number }[] = [];
+  let lightTick = 0;
+  let snapLights = true; // across a cut the pool is re-lit at once, no fade
+  const tendLights = () => {
+    if (!slots.length) return;
+    if (snapLights || lightTick++ % 10 === 0) { // the strongest sources near the eye's ground focus: distance over power
+      camera.getWorldDirection(fwd);
+      const ahead = clamp(camera.position.y * 0.8, 8, 60);
+      focus.set(camera.position.x + fwd.x * ahead, Math.min(camera.position.y, 12), camera.position.z + fwd.z * ahead);
+      scored.length = 0;
+      for (const p of practicals) {
+        const dx = p.x - focus.x, dz = p.z - focus.z;
+        if (Math.abs(dx) > 160 || Math.abs(dz) > 160) continue;
+        scored.push({ p, s: (dx * dx + (p.y - focus.y) ** 2 + dz * dz) / p.power });
+      }
+      scored.sort((a, b) => a.s - b.s);
+      const best = scored.slice(0, slots.length).map((e) => e.p);
+      for (const sl of slots) if (sl.src && !best.includes(sl.src)) sl.on = false;
+      for (const p of best) {
+        if (slots.some((sl) => sl.src === p)) continue;
+        const free = slots.find((sl) => !sl.src) ?? slots.filter((sl) => !sl.on).sort((a, b) => a.level - b.level)[0];
+        if (!free || (!snapLights && free.src && free.level > 0.05)) continue; // a slot still fading out waits for the next round
+        free.src = p; free.on = true; free.level = 0;
+        free.light.position.set(p.x, p.y, p.z);
+        free.light.color.copy(p.color);
+        free.light.distance = p.reach;
+      }
+      if (snapLights) {
+        for (const sl of slots) { if (sl.on) sl.level = 1; else { sl.src = null; sl.light.intensity = 0; } }
+        snapLights = false;
+      }
+    }
+    for (const sl of slots) {
+      if (!sl.src) continue;
+      sl.level += ((sl.on ? 1 : 0) - sl.level) * 0.12;
+      sl.light.intensity = sl.src.power * sl.level;
+      if (!sl.on && sl.level < 0.01) { sl.src = null; sl.light.intensity = 0; }
+    }
   };
 
   const fit = () => {
@@ -1834,7 +2202,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     camera.fov = fov24(camera.aspect); // a 24mm across the long edge
     camera.updateProjectionMatrix();
     lens.setAspect(camera.aspect);
-    blur.reset();
+    blur.reset(); snapLights = true;
     render();
   };
 
@@ -1881,6 +2249,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     camera.far = T.far;
     camera.updateProjectionMatrix();
     fog.density = T.fog;
+    setPool(POOL[tier]);
     renderer.shadowMap.enabled = T.shadows;
     moonLight.castShadow = T.shadows;
     if (PIX !== T.pix) { PIX = T.pix; fit(); }
@@ -1939,7 +2308,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
         gaze.leg = -1; gaze.poi = null; gaze.held = 0;
       }
       mode = m;
-      blur.reset();
+      blur.reset(); snapLights = true;
     },
     look: (dx, dy) => { free.lookX += dx; free.lookY += dy; }, // an impulse; the head carries it
     keys,
@@ -1949,7 +2318,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       free.yaw = yaw;
       free.pitch = pitch;
       free.vel.set(0, 0, 0); free.yawV = 0; free.pitchV = 0; free.roll = 0; free.throttle = 0;
-      blur.reset();
+      blur.reset(); snapLights = true;
       render();
     },
     tick: (n = 1) => { for (let i = 0; i < n; i++) { tickWorld(); render(); } },
@@ -1964,6 +2333,9 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       knots: people.knots.filter((k) => k.members.length > 1).slice(0, 6).map((k) => [k.x, k.st.y, k.z, k.members.length]),
       air: flyers.slice(0, 6).map((fl) => [fl.x, fl.y, fl.z]),
       pads: flyers.filter((fl) => fl.pad).map((fl) => [fl.x, fl.y, fl.z, fl.stage === 'sit' ? 1 : 0]),
+      kinds: CAST.map((_, k) => people.people.filter((p) => p.kind === k).length),
+      lights: slots.filter((sl) => sl.src).map((sl) => [sl.light.position.x, sl.light.position.y, sl.light.position.z, Math.round(sl.light.intensity)]),
     }),
+    sheet: () => peopleMat.map!.image as HTMLCanvasElement,
   };
 }

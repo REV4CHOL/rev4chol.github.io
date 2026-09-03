@@ -2,7 +2,7 @@
  *  audio bus (lib/sound.ts: unlocked by the first gesture, muted by the
  *  SND toggle), nothing loaded: a wind-and-hum bed that thickens with
  *  altitude and speed; the traffic's roar and tyre hiss, loud in the streets
- *  and faint from the heights; rain on the glass; the stadium's crowd,
+ *  and faint from the heights; the stadium's crowd,
  *  chanting, by distance; the market's murmur; the neon's buzz at kerb
  *  level; horns now and then down low; a siren passing every minute or
  *  two, panned across; a thump for every firework. Every level eases —
@@ -10,7 +10,7 @@
 import { sound } from '../lib/sound';
 
 export interface Ambience {
-  y: number; speed: number; rain: number; dStadium: number; dMarket: number;
+  y: number; speed: number; dStadium: number; dMarket: number;
   /** A counter: each increment is a firework launched, at this distance. */
   fireworks: number; dFireworks: number;
 }
@@ -80,7 +80,6 @@ export class CityAudio {
     this.bed('wind', false, 'bandpass', 420, 0.5, [0.17, 0.3]);
     this.bed('traffic', true, 'bandpass', 300, 0.8, [0.23, 0.25]);
     this.bed('tyres', false, 'bandpass', 1300, 1.0, [0.31, 0.4]);
-    this.bed('rain', false, 'highpass', 3200, 0.7);
     this.bed('crowd', false, 'bandpass', 900, 1.4, [3.9, 0.55]);
     this.bed('market', false, 'bandpass', 700, 1.1, [1.7, 0.35]);
     const ctx = this.ctx;
@@ -179,7 +178,6 @@ export class CityAudio {
     this.set('wind', 0.012 + 0.05 * high + 0.08 * rush, 0.4);
     this.set('traffic', 0.04 + 0.11 * low * low);
     this.set('tyres', 0.02 + 0.06 * low);
-    this.set('rain', 0.07 * a.rain, 1.2);
     this.set('crowd', 0.24 / (1 + (a.dStadium / 70) ** 2), 1);
     this.set('market', 0.1 / (1 + (a.dMarket / 26) ** 2) * low, 0.8);
     this.set('neon', 0.014 * clamp((22 - a.y) / 14, 0, 1), 0.8);

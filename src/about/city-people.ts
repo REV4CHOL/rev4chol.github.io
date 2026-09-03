@@ -6,17 +6,36 @@
  *  browsing a market stall; crossing a street at the crosswalk when the
  *  cars have the red; vending from inside a stall; sitting on a step. In a
  *  market zone (a flea lot, the night market's median) people mill between
- *  the stalls instead of following a kerb. A third carry umbrellas, opened
- *  when it rains. Pure: no DOM, no renderer; the renderer draws each
- *  person's position, heading and animation frame. */
+ *  the stalls instead of following a kerb. Everyone is someone from the
+ *  CAST — a kid, an elder with a cane, a courier, a suit, a punk, a cop, an
+ *  android — each kind at its own pace (owner: a lot of variety). Pure: no
+ *  DOM, no renderer; the renderer draws each person's position, heading,
+ *  kind and animation frame. */
 import { Stall, Street } from './city-plan';
 
 export type Act = 'walk' | 'stand' | 'talk' | 'browse' | 'cross' | 'vend' | 'sit' | 'mill';
-/** Animation frames in the sprite sheet: walk A/B, stand, sit. */
-export const FRAME = { walkA: 0, walkB: 1, stand: 2, sit: 3 } as const;
+/** Animation frames in the sprite sheet: walk A/B, stand, sit, talk (a hand
+ *  up), phone (lit, at the face), vend (arms on the counter), sit with a phone. */
+export const FRAME = { walkA: 0, walkB: 1, stand: 2, sit: 3, talk: 4, phone: 5, vend: 6, sitPhone: 7 } as const;
+/** The cast: who walks these streets, by weight, and their pace as a
+ *  multiple of a walker's (the elders slow, the couriers quick). The
+ *  renderer draws each kind its own way. */
+export const CAST = [
+  { name: 'civ', weight: 22, pace: 1 }, { name: 'coat', weight: 10, pace: 1 }, { name: 'dress', weight: 9, pace: 1 },
+  { name: 'hood', weight: 8, pace: 1.05 }, { name: 'heavy', weight: 5, pace: 0.85 }, { name: 'kid', weight: 6, pace: 0.95 },
+  { name: 'punk', weight: 4, pace: 1 }, { name: 'suit', weight: 6, pace: 1.12 }, { name: 'elder', weight: 5, pace: 0.55 },
+  { name: 'cyber', weight: 6, pace: 1 }, { name: 'vendor', weight: 1, pace: 0.9 }, { name: 'courier', weight: 3, pace: 1.4 },
+  { name: 'android', weight: 3, pace: 1 }, { name: 'robe', weight: 3, pace: 0.8 }, { name: 'worker', weight: 4, pace: 0.95 },
+  { name: 'cop', weight: 2, pace: 0.9 },
+] as const;
+export type KindName = (typeof CAST)[number]['name'];
+export const KIND = Object.fromEntries(CAST.map((c, i) => [c.name, i])) as Record<KindName, number>;
+const CAST_TOTAL = CAST.reduce((a, c) => a + c.weight, 0);
 export interface Person {
   x: number; y: number; z: number; yaw: number;
-  act: Act; frame: number; tint: number; umbrella: boolean;
+  act: Act; frame: number;
+  /** Who this is (an index into CAST) and their pace, a multiple of a walker's. */
+  kind: number; pace: number;
   /** The pavement being walked, the offset from its axis, the parameter along it, the pace. */
   st: Street | null; off: number; t: number; v: number;
   timer: number; phase: number;
@@ -41,8 +60,6 @@ export class People {
   private readonly weights: number[];
   private readonly total: number;
   tick = 0;
-  /** How wet the streets are (0..1) — with rain, the umbrellas open. */
-  rain = 0;
   /** Crossings made, for the record. */
   crossings = 0;
 
@@ -56,7 +73,8 @@ export class People {
     const r = rand;
     for (const st of stalls) { // a vendor in every stall
       const p = this.person();
-      p.act = 'vend'; p.stall = st; p.x = st.x; p.z = st.z + 0.3; p.yaw = r() < 0.5 ? 0 : Math.PI; p.frame = FRAME.stand;
+      p.kind = KIND.vendor; p.pace = 0.9;
+      p.act = 'vend'; p.stall = st; p.x = st.x; p.z = st.z + 0.3; p.yaw = r() < 0.5 ? 0 : Math.PI; p.frame = FRAME.vend;
     }
     for (let i = 0, knots = Math.max(8, Math.floor(n / 45)); i < knots; i++) { // knots of talk on the pavements
       const st = this.pickStreet();
@@ -74,22 +92,24 @@ export class People {
         this.placeInZone(p);
         const a = r() * Math.PI * 2;
         p.hx = Math.sin(a); p.hz = Math.cos(a); p.yaw = a;
-        p.v = 0.012 + r() * 0.014;
+        p.v = (0.012 + r() * 0.014) * p.pace;
       }
     }
     while (this.people.length < n) { // and the walkers
       const p = this.person();
       const st = this.pickStreet();
       this.walkOn(p, st, this.kerb(st), r() * st.len, r() < 0.5 ? 1 : -1);
-      if (r() < 0.08) { p.act = 'stand'; p.timer = 100 + r() * 300; p.frame = FRAME.stand; }
-      else if (r() < 0.05 && st.kind !== 'alley') { p.act = 'sit'; p.frame = FRAME.sit; p.timer = 400 + r() * 900; p.off *= 1.15; }
+      if (r() < 0.08) { p.act = 'stand'; p.timer = 100 + r() * 300; p.frame = this.idleFrame(); }
+      else if (r() < 0.05 && st.kind !== 'alley') { p.act = 'sit'; p.frame = this.sitFrame(); p.timer = 400 + r() * 900; p.off *= 1.15; }
     }
     for (const p of this.people) this.place(p);
   }
 
   private person(): Person {
+    let pick = this.rand() * CAST_TOTAL, kind = 0;
+    for (let i = 0; i < CAST.length; i++) { pick -= CAST[i].weight; if (pick <= 0) { kind = i; break; } }
     const p: Person = {
-      x: 0, y: 0, z: 0, yaw: 0, act: 'walk', frame: 0, tint: Math.floor(this.rand() * 8), umbrella: this.rand() < 0.35,
+      x: 0, y: 0, z: 0, yaw: 0, act: 'walk', frame: 0, kind, pace: CAST[kind].pace * (0.85 + this.rand() * 0.3),
       st: null, off: 0, t: 0, v: 0, timer: 0, phase: Math.floor(this.rand() * 40), knot: null, goal: null, stall: null,
       zone: null, hx: 0, hz: 1, offTo: 0,
     };
@@ -111,10 +131,14 @@ export class People {
 
   private walkOn(p: Person, st: Street, off: number, t: number, dir: 1 | -1): void {
     p.st = st; p.off = off; p.t = clamp(t, 0, st.len);
-    p.v = (0.016 + this.rand() * 0.02) * dir;
+    p.v = (0.016 + this.rand() * 0.02) * p.pace * dir;
     p.act = 'walk'; p.knot = null; p.goal = null; p.stall = null; p.zone = null;
     p.timer = 400 + this.rand() * 1800; // until the next pause
   }
+
+  /** Standing about: most just stand, a third look at their phone. */
+  private idleFrame(): number { return this.rand() < 0.35 ? FRAME.phone : FRAME.stand; }
+  private sitFrame(): number { return this.rand() < 0.4 ? FRAME.sitPhone : FRAME.sit; }
 
   private join(p: Person, k: Knot): void {
     p.act = 'talk'; p.knot = k; p.goal = null; p.st = k.st; p.off = k.off; p.t = k.t; p.v = 0;
@@ -198,7 +222,10 @@ export class People {
           if (--p.timer <= 0) {
             const a = r();
             const here = p.st!;
-            if (a < 0.45) { p.act = 'stand'; p.timer = 90 + r() * 360; p.frame = FRAME.stand; p.yaw += (r() - 0.5) * 2; }
+            if (a < 0.45) { // a pause: a sit on the kerb (the elders often), or a stand
+              if (here.kind !== 'alley' && r() < (CAST[p.kind].name === 'elder' ? 0.35 : 0.1)) { p.act = 'sit'; p.frame = this.sitFrame(); p.timer = 400 + r() * 900; p.off *= 1.15; }
+              else { p.act = 'stand'; p.timer = 90 + r() * 360; p.frame = this.idleFrame(); p.yaw += (r() - 0.5) * 2; }
+            }
             else if (a < 0.7 && here.kind === 'road') { // cross at the crosswalk, when the cars have the red
               const node = this.nearestCrossing(here, p.t);
               const nx = here.dx ? here.x0 + here.dx * (node ?? 0) : here.x0, nz = here.dz ? here.z0 + here.dz * (node ?? 0) : here.z0;
@@ -231,7 +258,7 @@ export class People {
           const a = (i / n) * Math.PI * 2;
           p.x = k.x + Math.sin(a) * 0.75; p.z = k.z + Math.cos(a) * 0.75;
           p.yaw = Math.atan2(k.x - p.x, k.z - p.z);
-          p.frame = FRAME.stand;
+          p.frame = ((this.tick + p.phase * 3) >> 5) % 3 === 0 ? FRAME.talk : FRAME.stand; // a hand up now and then
           if (--p.timer <= 0) { // leave along the pavement
             k.members.splice(i, 1);
             this.walkOn(p, k.st, k.off, k.t, r() < 0.5 ? 1 : -1);
@@ -243,7 +270,7 @@ export class People {
           const nx = p.x + p.hx * p.v, nz = p.z + p.hz * p.v;
           const hit = this.inStall(z, nx, nz);
           if (hit) {
-            if (r() < 0.4) { p.act = 'browse'; p.stall = hit; p.timer = 150 + r() * 400; p.yaw = Math.atan2(hit.x - p.x, hit.z - p.z); p.frame = FRAME.stand; break; }
+            if (r() < 0.4) { p.act = 'browse'; p.stall = hit; p.timer = 150 + r() * 400; p.yaw = Math.atan2(hit.x - p.x, hit.z - p.z); p.frame = this.idleFrame(); break; }
             const a = Math.atan2(p.hx, p.hz) + (Math.PI / 2) * (r() < 0.5 ? 1 : -1);
             p.hx = Math.sin(a); p.hz = Math.cos(a);
           } else if (Math.abs(nx - z.x) > z.w / 2 - 1 || Math.abs(nz - z.z) > z.d / 2 - 1) {
@@ -260,7 +287,7 @@ export class People {
           break;
         }
         case 'vend': {
-          p.frame = FRAME.stand;
+          p.frame = FRAME.vend;
           if (((this.tick + p.phase) >> 6) & 1) p.yaw += 0.01; // turning to a customer
           break;
         }

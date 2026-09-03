@@ -23,7 +23,11 @@
 import { Street } from './city-plan';
 
 export type VKind = 'car' | 'taxi' | 'bus' | 'truck' | 'moto';
-const OFFSETS: Record<string, number[]> = { road: [1.7, 4.2], diagonal: [1.7, 4.2], highway: [1.5, 3.7, 5.9], ramp: [0] };
+/** The highway's parapets stand from here out to the deck's edge (7): no
+ *  lane puts any vehicle past it (owner: cars rode through the outer
+ *  barrier). Three lanes a side fit inside it with the widest vehicle. */
+export const DECK_KERB = 6.5;
+export const OFFSETS: Record<string, number[]> = { road: [1.7, 4.2], diagonal: [1.7, 4.2], highway: [1.3, 3.25, 5.2], ramp: [0] };
 const SPEED: Record<string, number> = { highway: 1.9, ramp: 1.3 };
 export const GREEN = 300;
 export const CLEAR = 120; // all red: whoever is in the box gets out
@@ -34,7 +38,7 @@ const G0 = 1.6; // bumper to bumper, a queue settles here
 const K = 0.12; // the following gain: the equilibrium gap is G0 + v / K
 const ACC = 0.0035;
 const LOOK = 18; // a yielding turn waits for anything this close to the box
-const SPEC: Record<VKind, [number, number, number, number, number]> = { // len, w, h, base speed, spread
+export const SPEC: Record<VKind, [number, number, number, number, number]> = { // len, w, h, base speed, spread
   car: [3.2, 1.4, 0.9, 0.1, 0.06], taxi: [3.2, 1.4, 0.9, 0.12, 0.05], bus: [7, 2.2, 2.2, 0.085, 0.01],
   truck: [5.6, 2.1, 2.0, 0.09, 0.02], moto: [1.6, 0.6, 0.8, 0.15, 0.08],
 };

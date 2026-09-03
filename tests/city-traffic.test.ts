@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EXT, G, planCity } from '../src/about/city-plan';
-import { GREEN, PHASE, Traffic } from '../src/about/city-traffic';
+import { DECK_KERB, GREEN, OFFSETS, PHASE, SPEC, Traffic } from '../src/about/city-traffic';
 import { mulberry32 } from '../src/lib/rng';
 import { hashSlug } from '../src/project/dossier';
 
@@ -15,6 +15,14 @@ const weight = (lane: { len: number; link: { street: { kind: string; x0: number;
 describe('Traffic', () => {
   const traffic = new Traffic(plan.streets, mulberry32(11));
   traffic.populate(1400, weight);
+
+  it('keeps every highway lane, with the widest vehicle in it, inside the parapets', () => {
+    const widest = Math.max(...Object.values(SPEC).map((v) => v[1]));
+    for (const off of OFFSETS.highway) expect(off + widest / 2).toBeLessThanOrEqual(DECK_KERB - 0.1);
+    const hw = traffic.lanes.filter((l) => l.link.street.kind === 'highway');
+    expect(hw.length).toBeGreaterThan(20);
+    for (const lane of hw) expect(Math.abs(lane.offset) + widest / 2).toBeLessThanOrEqual(DECK_KERB - 0.1);
+  });
 
   it('cuts the carriageways into a graph: crossings, ramp merges, lit intersections, no dangling lane', () => {
     expect(traffic.nodes.length).toBeGreaterThan(400);

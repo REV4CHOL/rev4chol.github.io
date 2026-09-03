@@ -10,11 +10,7 @@
  *  LensPass — barrel distortion (the centre magnified, the corners pinned so
  *  no black edges), lateral chromatic aberration (red and blue bend by
  *  different amounts, growing with radius), field softness toward the
- *  corners and a cos⁴-style optical vignette — and the RAIN, on the glass:
- *  two layers of falling streaks in screen space, so it reads everywhere at
- *  once and never as a box of lines hanging over one patch of the city
- *  (owner). Its strength is the renderer's to set (none up high, none in
- *  calm mode). */
+ *  corners and a cos⁴-style optical vignette. */
 import {
   DepthTexture, HalfFloatType, Matrix4, PerspectiveCamera, ShaderMaterial, WebGLRenderTarget, WebGLRenderer,
 } from 'three';
@@ -99,23 +95,7 @@ const LENS_FRAG = /* glsl */ `
   uniform float ca;
   uniform float vig;
   uniform float soft;
-  uniform float rain;
-  uniform float time;
   varying vec2 vUv;
-  float hash(float n) { return fract(sin(n) * 43758.5453); }
-  // a column of drops: each column has its own phase and density; a drop is
-  // a short bright head with a fading tail above it
-  float streaks(vec2 uv, float cols, float speed, float rows) {
-    float col = floor(uv.x * cols);
-    float h = hash(col * 7.13 + 1.7);
-    float p = uv.y * rows + time * speed + h * 9.0;
-    float cell = floor(p);
-    float y = fract(p);
-    float x = fract(uv.x * cols) - 0.5 - (hash(col * 3.1 + cell * 0.61) - 0.5) * 0.5;
-    float w = 0.04 + h * 0.04;
-    float d = smoothstep(w, 0.0, abs(x)) * smoothstep(0.0, 0.05, y) * smoothstep(0.42, 0.12, y); // a short head, a shorter tail
-    return d * step(0.7, hash(col * 5.7 + cell * 1.31));
-  }
   vec3 fetch(vec2 uv, vec2 d, float r2) {
     vec2 off = d * (ca * r2);
     return vec3(texture2D(tDiffuse, uv + off).r, texture2D(tDiffuse, uv).g, texture2D(tDiffuse, uv - off).b);
@@ -137,11 +117,6 @@ const LENS_FRAG = /* glsl */ `
     col = (col - 0.5) * 1.1 + 0.5;
     col += vec3(-0.012, 0.0, 0.024) * (1.0 - clamp(luma * 3.0, 0.0, 1.0)) + vec3(0.02, 0.008, -0.012) * clamp(luma - 0.4, 0.0, 1.0);
     col = max(col, 0.0);
-    if (rain > 0.0) {
-      vec2 ru = vec2(vUv.x * aspect + vUv.y * 0.06, vUv.y); // a slight slant: the rig is moving
-      float r = streaks(ru, 70.0, 1.6, 9.0) * 0.5 + streaks(ru + vec2(0.37, 0.11), 130.0, 2.4, 15.0) * 0.3;
-      col += vec3(0.55, 0.66, 0.82) * r * rain;
-    }
     gl_FragColor = vec4(col, 1.0);
   }
 `;
@@ -157,7 +132,6 @@ export class LensPass extends Pass {
         tDiffuse: { value: null }, aspect: { value: 1 },
         k: { value: opts.k ?? 0.11 }, ca: { value: opts.ca ?? 0.005 },
         vig: { value: opts.vig ?? 0.3 }, soft: { value: opts.soft ?? 0.0022 },
-        rain: { value: 0 }, time: { value: 0 },
       },
       vertexShader: VERT, fragmentShader: LENS_FRAG, depthTest: false, depthWrite: false,
     });
@@ -165,8 +139,6 @@ export class LensPass extends Pass {
   }
 
   setAspect(aspect: number): void { this.mat.uniforms.aspect.value = aspect; }
-  /** How much rain is on the glass (0..1) and the clock that drives it. */
-  setRain(amount: number, time: number): void { this.mat.uniforms.rain.value = amount; this.mat.uniforms.time.value = time; }
 
   render(renderer: WebGLRenderer, writeBuffer: WebGLRenderTarget, readBuffer: WebGLRenderTarget): void {
     this.mat.uniforms.tDiffuse.value = readBuffer.texture;
