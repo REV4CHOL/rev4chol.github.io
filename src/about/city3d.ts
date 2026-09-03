@@ -726,15 +726,15 @@ function groundTexture(rand: () => number): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = c.height = T;
   const x = c.getContext('2d')!;
-  x.fillStyle = '#171a2c'; x.fillRect(0, 0, T, T);
+  x.fillStyle = '#3a3e52'; x.fillRect(0, 0, T, T); // a mid stone: dark enough for night, an albedo the sun can show
   const mid = T / 2, half = (STREET / 2) * S, road = (ROAD / 2) * S;
-  x.fillStyle = '#20233a';
+  x.fillStyle = '#484c66';
   x.fillRect(mid - half, 0, half * 2, T); x.fillRect(0, mid - half, T, half * 2);
-  x.fillStyle = '#2b2f4a';
+  x.fillStyle = '#5a5e78';
   for (let i = 0; i < T; i += 4) { // paving dots on the kerbs
     for (const k of [mid - half + 2, mid + half - 4]) { x.fillRect(i + (k % 8 ? 0 : 2), k, 1, 1); x.fillRect(k, i + (k % 8 ? 0 : 2), 1, 1); }
   }
-  x.fillStyle = '#101326';
+  x.fillStyle = '#2a2d40';
   x.fillRect(mid - road, 0, road * 2, T); x.fillRect(0, mid - road, T, road * 2);
   const dashes = (color: string, at: number, on: number, off: number, w: number) => {
     x.fillStyle = color;
@@ -772,8 +772,8 @@ function roadStripTexture(): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 64; c.height = 16;
   const x = c.getContext('2d')!;
-  x.fillStyle = '#090b1c'; x.fillRect(0, 0, 64, 16);
-  x.fillStyle = '#2a2d44'; x.fillRect(0, 0, 64, 1); x.fillRect(0, 15, 64, 1);
+  x.fillStyle = '#1e2236'; x.fillRect(0, 0, 64, 16);
+  x.fillStyle = '#4a4e66'; x.fillRect(0, 0, 64, 1); x.fillRect(0, 15, 64, 1);
   x.fillStyle = '#3d3418';
   for (let i = 0; i < 64; i += 16) x.fillRect(i, 7, 8, 2);
   const t = asPixelTex(new CanvasTexture(c));
@@ -999,7 +999,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const GROUND = 106 * G; // a whole number of blocks: lot centres land on the tile corners
   groundTex.repeat.set(106, 106);
   const ground = new Mesh(new PlaneGeometry(GROUND, GROUND), new MeshLambertMaterial({
-    map: groundTex, emissive: '#ffffff', emissiveMap: groundTex, emissiveIntensity: 0.2, // the streets are LIT, mostly: a little self-light
+    map: groundTex, emissive: '#22376f', emissiveIntensity: 0.5, // its own glow, in the look's colour: the streets never fall to black
   }));
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
@@ -2344,6 +2344,13 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // -- TIME OF DAY (owner: a changing time-of-day system): a LOOK (city-sky.ts)
   // is applied to everything light-shaped; a change eases from the look in
   // force to the next over ~2.5 s, the dome crossfading behind it ------------
+  const refreshMaterials = () => { // shadow defines: every material, arrays included
+    for (const m of scene.children) {
+      const mat = (m as Mesh).material as Material | Material[] | undefined;
+      if (!mat) continue;
+      for (const one of Array.isArray(mat) ? mat : [mat]) one.needsUpdate = true;
+    }
+  };
   let timeNow: TimeOfDay = 'night';
   let lookFrom: SkyLook = SKY.night, lookTo: SkyLook = SKY.night, lookNow: SkyLook = SKY.night, lookT = 1;
   const applyLook = (L: SkyLook) => {
@@ -2359,7 +2366,12 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     }
     wallBleach.value = L.bleach.amount; wallBleachCol.value.set(L.bleach.color); wallGlass.value.set(L.glass);
     dark.color.set(lerpHex('#22305a', L.bleach.color, L.bleach.amount)); // the roofs go with the walls
-    (ground.material as MeshLambertMaterial).color.setScalar(1 + 0.8 * L.bleach.amount); // and the pavements lighten
+    const gm = ground.material as MeshLambertMaterial;
+    gm.color.setScalar(1 + 0.4 * L.bleach.amount); // the pavements lighten
+    gm.emissive.set(L.bleach.color); gm.emissiveIntensity = L.groundGlow; // and glow, so no patch of street falls to black
+    // shadows: a sun casts them, the moon does not (owner: no patches of shadow by night) — within the tier's means
+    const shadows = L.shadows && TIERS[tier].shadows;
+    if (shadows !== renderer.shadowMap.enabled) { renderer.shadowMap.enabled = shadows; moonLight.castShadow = shadows; refreshMaterials(); }
     if (pitchMat) pitchMat.emissiveIntensity = 0.15 + 0.4 * L.lamps;
     lampLevel = L.lamps; starLevel = L.stars;
     for (const d of dimmables) d.m.opacity = d.base * (d.floor + (1 - d.floor) * (d.k === 'stars' ? L.stars : L.lamps));
@@ -2454,14 +2466,10 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     camera.updateProjectionMatrix();
     fog.density = T.fog * fogMul;
     setPool(POOL[tier]);
-    renderer.shadowMap.enabled = T.shadows;
-    moonLight.castShadow = T.shadows;
+    renderer.shadowMap.enabled = T.shadows && lookNow.shadows;
+    moonLight.castShadow = renderer.shadowMap.enabled;
     if (PIX !== T.pix) { PIX = T.pix; fit(); }
-    for (const m of scene.children) { // shadow defines: every material, arrays included
-      const mat = (m as Mesh).material as Material | Material[] | undefined;
-      if (!mat) continue;
-      for (const one of Array.isArray(mat) ? mat : [mat]) one.needsUpdate = true;
-    }
+    refreshMaterials();
   };
   // the frame clock: long frames step the tier down, short ones (for a
   // while) step it back up; the first seconds and hidden tabs don't count

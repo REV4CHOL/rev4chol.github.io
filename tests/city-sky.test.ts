@@ -11,7 +11,7 @@ describe('Time of day', () => {
       expect(L.label.length).toBeGreaterThan(2);
       for (const c of [L.key.color, L.hemi.sky, L.hemi.ground, L.fog.color, L.sun.color, L.clouds.high, L.clouds.low, L.water, L.sky.lobe.color, L.bleach.color, L.glass]) expect(c).toMatch(HEX);
       for (const [p, c] of L.sky.stops) { expect(p).toBeGreaterThanOrEqual(0); expect(p).toBeLessThanOrEqual(1); expect(c).toMatch(HEX); }
-      for (const v of [L.windows, L.lamps, L.walls, L.bleach.amount, L.stars, L.moon, L.horizon, L.sun.opacity]) { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(1); }
+      for (const v of [L.windows, L.lamps, L.walls, L.bleach.amount, L.groundGlow, L.stars, L.moon, L.horizon, L.sun.opacity]) { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(1); }
       expect(L.exposure).toBeGreaterThan(0.5); expect(L.exposure).toBeLessThan(2);
       expect(L.key.intensity).toBeGreaterThan(0); expect(L.hemi.intensity).toBeGreaterThan(0);
       expect(L.fog.density).toBeGreaterThan(0.5);
@@ -25,6 +25,7 @@ describe('Time of day', () => {
     expect(LOOKS.haze.fog.density).toBeGreaterThan(LOOKS.dawn.fog.density);
     expect(LOOKS.day.walls).toBeLessThan(LOOKS.night.walls); // a sun needs far less lift than the lamps
     expect(LOOKS.day.bleach.amount).toBeGreaterThan(0.6); // sun-bleached by day
+    expect(LOOKS.night.shadows).toBe(false); expect(LOOKS.dusk.shadows).toBe(false); expect(LOOKS.day.shadows).toBe(true); // no patches of shadow by night
     expect(hexToRgb(LOOKS.night.bleach.color)[2]).toBeGreaterThan(hexToRgb(LOOKS.night.bleach.color)[0] + 40); // and blue by night, never black
     expect(LOOKS.day.fog.density).toBeLessThan(LOOKS.dawn.fog.density);
   });
