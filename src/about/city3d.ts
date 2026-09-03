@@ -271,10 +271,10 @@ function skyTexture(): CanvasTexture {
   g.addColorStop(0.34, '#060a22');
   g.addColorStop(0.44, '#141d4a');
   g.addColorStop(0.485, '#3b2f6b');
-  g.addColorStop(0.515, '#3a6e88');
-  g.addColorStop(0.535, '#8fc4cf'); // the glow: thinner and softer than the plate's — it sits at eye level now, from any height
-  g.addColorStop(0.55, '#3f6a86');
-  g.addColorStop(0.58, '#132347');
+  g.addColorStop(0.512, '#2f5a74');
+  g.addColorStop(0.53, '#6fa8b8'); // the glow: dimmer than the plate's and under the bloom threshold — it sits at eye level now, from any height
+  g.addColorStop(0.555, '#2c4c66');
+  g.addColorStop(0.61, '#132347');
   g.addColorStop(1, '#070a1e');
   x.fillStyle = g; x.fillRect(0, 0, 4, 512);
   return asPixelTex(new CanvasTexture(c));
