@@ -90,6 +90,23 @@
 .a3-fly button:hover { color: var(--bone); }
 .a3-fly button.on { color: var(--signal); }
 .a3-fly button.on::before { content: '▸ '; }
+/* the clock: the time of day, bottom right */
+.a3-tod {
+  position: fixed; right: 28px; bottom: 16px; z-index: 3;
+  display: flex; gap: 16px;
+}
+.a3-tod button {
+  font-family: var(--f-micro); font-size: var(--t-2xs); letter-spacing: 0.22em;
+  text-transform: uppercase; color: color-mix(in srgb, var(--bone) 45%, transparent);
+  text-shadow: 0 0 8px rgba(6, 6, 6, 0.95); cursor: pointer; padding: 3px 2px;
+}
+.a3-tod button:hover { color: var(--bone); }
+.a3-tod button.on { color: var(--signal); }
+.a3-tod button.on::before { content: '◐ '; }
+@media (max-width: 720px) {
+  .a3-tod { right: 50%; translate: 50% 0; bottom: 40px; gap: 12px; }
+  .a3-hint { bottom: 64px; }
+}
 .a3-hint {
   position: fixed; left: 50%; translate: -50% 0; bottom: 42px; z-index: 3;
   color: color-mix(in srgb, var(--bone) 70%, transparent); letter-spacing: 0.2em;

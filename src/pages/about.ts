@@ -1,6 +1,7 @@
 import { AboutContent, loadAbout, SiteContent } from '../lib/content';
 import { escapeHtml } from '../lib/escape';
 import { armPosterLock } from '../lib/poster-lock';
+import { LOOKS, nextTime, parseTime, TimeOfDay, TIMES } from '../about/city-sky';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { capabilitiesFromTagline, portraitCandidates } from '../about/operator';
@@ -30,17 +31,24 @@ startPage(
     });
     const about = await loadAbout();
     render(site, about);
-    await armFlight();
+    await armFlight(site);
   },
   [{ label: 'LOAD OPERATOR FILE', run: () => loadAbout() }],
 );
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
+/** The time of day in force: the address first (?tod=dawn), then what was chosen last, else the night. */
+function storedTime(): TimeOfDay {
+  const fromUrl = new URLSearchParams(location.search).get('tod');
+  if (fromUrl) return parseTime(fromUrl);
+  try { return parseTime(localStorage.getItem('rvl-tod')); } catch { return 'night'; }
+}
+
 /** The city mounts lazily (three.js is the about page's private cargo);
  *  scroll drives the camera, and the stations light as their waypoints
  *  come into range. */
-async function armFlight(): Promise<void> {
+async function armFlight(site: SiteContent): Promise<void> {
   const canvas = document.getElementById('a3c') as HTMLCanvasElement | null;
   if (!canvas) return;
   const { mountCity3D } = await import('../about/city3d');
@@ -70,6 +78,24 @@ async function armFlight(): Promise<void> {
     const b = (e.target as Element).closest('button');
     if (b) setMode(b.dataset.m as Mode);
   });
+  // -- the clock: NIGHT / DUSK / DAWN / HAZE / DAY (owner: a time-of-day
+  // system) — remembered, settable from the address (?tod=dawn), T cycles it
+  const clock = document.getElementById('a3-tod')!;
+  clock.innerHTML = TIMES.map((t) => `<button type="button" data-t="${t}">${LOOKS[t].label}</button>`).join('');
+  const status = document.getElementById('a-status-line');
+  let tod = storedTime();
+  const setTime = (t: TimeOfDay, instant = false) => {
+    tod = t;
+    ride.setTime(t, instant);
+    for (const b of clock.querySelectorAll('button')) b.classList.toggle('on', b.dataset.t === t);
+    try { localStorage.setItem('rvl-tod', t); } catch { /* private mode */ }
+    if (status && !instant) void scrambleEl(status, `SIGNAL :: LIVE FROM ${site.name.toUpperCase()} // ${LOOKS[t].label} FEED`, 700);
+  };
+  setTime(tod, true);
+  clock.addEventListener('click', (e) => {
+    const b = (e.target as Element).closest('button');
+    if (b) { setTime(b.dataset.t as TimeOfDay); sound.click(); }
+  });
   // free flight: drag anywhere to look (the stations are inert in solo
   // modes, so the whole page is the windshield), WASD/arrows to move
   let dragging = false;
@@ -87,6 +113,7 @@ async function armFlight(): Promise<void> {
   window.addEventListener('pointerup', () => { dragging = false; });
   window.addEventListener('keydown', (e) => {
     ride.keys.add(e.key.toLowerCase());
+    if (e.key.toLowerCase() === 't' && !e.repeat && !(e.target as Element).closest?.('input, textarea')) { setTime(nextTime(tod)); sound.click(); }
     // the windshield owns these keys mid-flight — the page must not scroll
     if (mode === 'free' && ['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) {
       e.preventDefault();
@@ -145,7 +172,7 @@ async function armFlight(): Promise<void> {
 
 function render(site: SiteContent, about: AboutContent): void {
   // -- station 00: the signal -------------------------------------------
-  void scrambleEl(document.getElementById('a-status-line')!, `SIGNAL :: LIVE FROM ${site.name.toUpperCase()} // NIGHT FEED`, 900);
+  void scrambleEl(document.getElementById('a-status-line')!, `SIGNAL :: LIVE FROM ${site.name.toUpperCase()} // ${LOOKS[storedTime()].label} FEED`, 900);
   const nameEl = document.getElementById('a-name')!;
   const fullName = site.name.toUpperCase();
   nameEl.dataset.text = fullName;

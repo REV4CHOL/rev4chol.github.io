@@ -12,7 +12,7 @@
  *  different amounts, growing with radius), field softness toward the
  *  corners and a cos⁴-style optical vignette. */
 import {
-  DepthTexture, HalfFloatType, Matrix4, PerspectiveCamera, ShaderMaterial, WebGLRenderTarget, WebGLRenderer,
+  DepthTexture, HalfFloatType, Matrix4, PerspectiveCamera, ShaderMaterial, Vector3, WebGLRenderTarget, WebGLRenderer,
 } from 'three';
 import { FullScreenQuad, Pass } from 'three/addons/postprocessing/Pass.js';
 
@@ -95,6 +95,9 @@ const LENS_FRAG = /* glsl */ `
   uniform float ca;
   uniform float vig;
   uniform float soft;
+  uniform vec3 gLow;
+  uniform vec3 gHigh;
+  uniform float gContrast;
   varying vec2 vUv;
   vec3 fetch(vec2 uv, vec2 d, float r2) {
     vec2 off = d * (ca * r2);
@@ -112,10 +115,10 @@ const LENS_FRAG = /* glsl */ `
       fetch(uv + vec2(s, 0.0), d, r2) + fetch(uv - vec2(s, 0.0), d, r2) +
       fetch(uv + vec2(0.0, s), d, r2) + fetch(uv - vec2(0.0, s), d, r2));
     col *= 1.0 - vig * pow(r2, 1.15);
-    // the grade: a touch more contrast, cool shadows, warm highlights
+    // the grade (the time of day sets it): contrast about the mids, a tint for the shadows, a tint for the highlights
     float luma = dot(col, vec3(0.299, 0.587, 0.114));
-    col = (col - 0.5) * 1.1 + 0.5;
-    col += vec3(-0.012, 0.0, 0.024) * (1.0 - clamp(luma * 3.0, 0.0, 1.0)) + vec3(0.02, 0.008, -0.012) * clamp(luma - 0.4, 0.0, 1.0);
+    col = (col - 0.4) * gContrast + 0.4;
+    col += gLow * (1.0 - clamp(luma * 3.0, 0.0, 1.0)) + gHigh * clamp(luma - 0.4, 0.0, 1.0);
     col = max(col, 0.0);
     gl_FragColor = vec4(col, 1.0);
   }
@@ -132,6 +135,7 @@ export class LensPass extends Pass {
         tDiffuse: { value: null }, aspect: { value: 1 },
         k: { value: opts.k ?? 0.11 }, ca: { value: opts.ca ?? 0.005 },
         vig: { value: opts.vig ?? 0.3 }, soft: { value: opts.soft ?? 0.0022 },
+        gLow: { value: new Vector3(-0.012, 0, 0.024) }, gHigh: { value: new Vector3(0.02, 0.008, -0.012) }, gContrast: { value: 1.06 },
       },
       vertexShader: VERT, fragmentShader: LENS_FRAG, depthTest: false, depthWrite: false,
     });
@@ -139,6 +143,12 @@ export class LensPass extends Pass {
   }
 
   setAspect(aspect: number): void { this.mat.uniforms.aspect.value = aspect; }
+  /** The grade: a tint for the shadows, a tint for the highlights, the contrast about the mids. */
+  setGrade(low: [number, number, number], high: [number, number, number], contrast: number): void {
+    (this.mat.uniforms.gLow.value as Vector3).set(low[0], low[1], low[2]);
+    (this.mat.uniforms.gHigh.value as Vector3).set(high[0], high[1], high[2]);
+    this.mat.uniforms.gContrast.value = contrast;
+  }
 
   render(renderer: WebGLRenderer, writeBuffer: WebGLRenderTarget, readBuffer: WebGLRenderTarget): void {
     this.mat.uniforms.tDiffuse.value = readBuffer.texture;

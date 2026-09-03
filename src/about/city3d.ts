@@ -27,11 +27,11 @@
  *  the visitor still drives. The streets run on a real traffic network
  *  (city-traffic.ts): lanes, lights, queues, turns, on- and off-ramps. */
 import {
-  ACESFilmicToneMapping, AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ConeGeometry,
+  AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, Color, ConeGeometry, DataTexture,
   CylinderGeometry, DirectionalLight, DoubleSide, FogExp2, Group, HemisphereLight, InstancedBufferAttribute,
-  InstancedBufferGeometry, InstancedMesh, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial,
-  MeshLambertMaterial, NearestFilter, Object3D, PCFShadowMap, PerspectiveCamera, PlaneGeometry, PointLight, Points,
-  PointsMaterial, RepeatWrapping, RingGeometry, Scene, ShaderChunk, SphereGeometry, Sprite, SpriteMaterial,
+  InstancedBufferGeometry, InstancedMesh, LinearFilter, LinearMipmapLinearFilter, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial,
+  MeshLambertMaterial, NearestFilter, NeutralToneMapping, Object3D, PCFShadowMap, PerspectiveCamera, PlaneGeometry, PointLight, Points,
+  PointsMaterial, RepeatWrapping, RGBAFormat, RingGeometry, Scene, ShaderChunk, SphereGeometry, Sprite, SpriteMaterial,
   SRGBColorSpace, TorusGeometry, Vector2, Vector3, WebGLRenderer,
 } from 'three';
 import type { WebGLProgramParametersWithUniforms } from 'three';
@@ -48,6 +48,7 @@ import {
 import { fov24, LensPass, lensTarget, MotionBlurPass } from './city-post';
 import { CityAudio } from './city-audio';
 import { CAST, People, Zone } from './city-people';
+import { blendLooks, ease, Look as SkyLook, LOOKS as SKY, paintSky, TimeOfDay } from './city-sky';
 import { Traffic, DECK_KERB } from './city-traffic';
 
 /** THE FOG, rewritten for every material at once: three's exponential
@@ -87,8 +88,9 @@ ShaderChunk.fog_fragment = /* glsl */ `
   #else
     float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
   #endif
-  float haze = 0.42 * exp( - max( vFogWorld.y, 0.0 ) * 0.03 ) * ( 1.0 - exp( - vFogDepth * 0.011 ) );
-  fogFactor = 1.0 - ( 1.0 - fogFactor ) * ( 1.0 - haze );
+  // the near-ground haze thickens with the fog's density (the hazy morning's is thick)
+  float haze = 0.42 * clamp( fogDensity / 0.0026, 0.6, 2.4 ) * exp( - max( vFogWorld.y, 0.0 ) * 0.03 ) * ( 1.0 - exp( - vFogDepth * 0.011 ) );
+  fogFactor = min( 0.985, 1.0 - ( 1.0 - fogFactor ) * ( 1.0 - min( haze, 0.95 ) ) );
   float edge = max( abs( vFogWorld.x ), abs( vFogWorld.z ) );
   fogFactor = max( fogFactor, smoothstep( 272.0, 440.0, edge ) * 0.93 );
   gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );
@@ -237,9 +239,11 @@ function windowCells(s: FacadeStyle): [number, number, number, number] {
  *  into the material's map and emissive reads. */
 const winTime = { value: 0 };
 function livingFacade(mat: MeshLambertMaterial, cells: [number, number, number, number], wall: string, lift: number): MeshLambertMaterial {
+  const uLift = { value: lift };
+  mat.userData.uLift = uLift; // live: the time of day scales it (a sun needs far less lift than the lamps)
   mat.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
     shader.uniforms.uTime = winTime;
-    shader.uniforms.uLift = { value: lift };
+    shader.uniforms.uLift = uLift;
     shader.uniforms.uPitch = { value: new Vector2(cells[0], cells[2]) };
     shader.uniforms.uOff = { value: new Vector2(cells[1], cells[3]) };
     shader.uniforms.uWall = { value: new Color(wall) };
@@ -523,14 +527,22 @@ function glyphTexture(rand: () => number, w: number, h: number, n: number, verti
   return asPixelTex(new CanvasTexture(c));
 }
 
-function glowTexture(color: string): CanvasTexture {
+function glowTexture(color: string, soft = false): CanvasTexture {
   const c = document.createElement('canvas');
-  c.width = c.height = 32;
+  const S = soft ? 64 : 32, h = S / 2;
+  c.width = c.height = S;
   const x = c.getContext('2d')!;
-  const g = x.createRadialGradient(16, 16, 1, 16, 16, 15);
+  const g = x.createRadialGradient(h, h, 1, h, h, h - 1);
   g.addColorStop(0, color);
   g.addColorStop(1, 'rgba(0,0,0,0)');
-  x.fillStyle = g; x.fillRect(0, 0, 32, 32);
+  x.fillStyle = g; x.fillRect(0, 0, S, S);
+  if (soft) { // filtered and mipmapped: a decal on the ground far off must not sparkle (owner: the street lights flickered)
+    const t = new CanvasTexture(c);
+    t.colorSpace = SRGBColorSpace;
+    t.minFilter = LinearMipmapLinearFilter;
+    t.magFilter = LinearFilter;
+    return t;
+  }
   return asPixelTex(new CanvasTexture(c));
 }
 
@@ -567,8 +579,8 @@ function cloudTexture(rand: () => number, low: boolean): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 128; c.height = 40;
   const x = c.getContext('2d')!;
-  const body = low ? '#151839' : '#303763';
-  const top = low ? '#2a3060' : '#5a639e';
+  const body = low ? '#8a8a8a' : '#9a9a9a'; // greyscale: the look tints them (city-sky.ts)
+  const top = '#ffffff';
   const blobs = 4 + Math.floor(rand() * 4);
   for (let b = 0; b < blobs; b++) {
     const bx = 10 + rand() * 100, by = 14 + rand() * 16, bw = 26 + rand() * 52, bh = 5 + rand() * 9;
@@ -607,28 +619,6 @@ function horizonTexture(rand: () => number): CanvasTexture {
     const w = 6 + rand() * 22, h = 6 + rand() * 16;
     x.fillRect(rand() * 1024, 96 - h, w, h);
   }
-  return asPixelTex(new CanvasTexture(c));
-}
-
-/** The reference's sky: black-indigo above, then violet, then the teal-cyan
- *  glow band RIGHT at the visible horizon (the sphere's equator — put the
- *  band anywhere else and it hides below the skyline, which is exactly the
- *  flat-navy bug the first pass shipped). */
-function skyTexture(): CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = 4; c.height = 512;
-  const x = c.getContext('2d')!;
-  const g = x.createLinearGradient(0, 0, 0, 512);
-  g.addColorStop(0, '#020209');
-  g.addColorStop(0.34, '#060a22');
-  g.addColorStop(0.44, '#141d4a');
-  g.addColorStop(0.485, '#3b2f6b');
-  g.addColorStop(0.512, '#2f5a74');
-  g.addColorStop(0.53, '#6fa8b8'); // the glow: dimmer than the plate's and under the bloom threshold — it sits at eye level now, from any height
-  g.addColorStop(0.555, '#2c4c66');
-  g.addColorStop(0.61, '#132347');
-  g.addColorStop(1, '#070a1e');
-  x.fillStyle = g; x.fillRect(0, 0, 4, 512);
   return asPixelTex(new CanvasTexture(c));
 }
 
@@ -750,7 +740,10 @@ export interface CityRide {
   quality(): { tier: string; far: number; fog: number; shadows: boolean; pix: number };
   setQuality(t: number): void;
   /** Verification: what lives where — knots of talk, flyers, counts. */
-  probe(): { people: number; cars: number; flyers: number; knots: number[][]; air: number[][]; pads: number[][]; kinds: number[]; lights: number[][] };
+  /** The time of day (city-sky.ts): eased over a couple of seconds, or at once. */
+  setTime(t: TimeOfDay, instant?: boolean): void;
+  time(): TimeOfDay;
+  probe(): { people: number; cars: number; flyers: number; knots: number[][]; air: number[][]; pads: number[][]; kinds: number[]; lights: number[][]; look: string; blend: number };
   /** The cast's sprite sheet, for inspection. */
   sheet(): HTMLCanvasElement;
 }
@@ -760,16 +753,23 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const rand = mulberry32(seed ^ 0x9e3779b9); // the renderer's own stream; the plan owns the seed
   const calm = reducedMotion();
   const scene = new Scene();
+  // what a LOOK (city-sky.ts) dims or scales: the lamps' glow, the neon, the stars, the point lights
+  const dimmables: { m: { opacity: number }; base: number; floor: number; k: 'lamps' | 'stars' }[] = [];
+  const scalables: { m: MeshBasicMaterial; floor: number }[] = [];
+  const dim = <T extends { opacity: number }>(m: T, k: 'lamps' | 'stars' = 'lamps', floor = 0): T => { dimmables.push({ m, base: m.opacity, floor, k }); return m; };
+  let lampLevel = 1;
+  let starLevel = 1;
+  let fogMul = 1;
   let tier = startTier();
   let PIX = TIERS[tier].pix;
   const fog = new FogExp2('#0c1826', TIERS[tier].fog);
   scene.fog = fog;
 
-  const camera = new PerspectiveCamera(fov24(1), 1, 0.1, TIERS[tier].far);
+  const camera = new PerspectiveCamera(fov24(1), 1, 0.5, TIERS[tier].far); // near 0.5: depth precision for the decals far down the street
   const renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: 'low-power' });
   renderer.setPixelRatio(1);
-  renderer.toneMapping = ACESFilmicToneMapping; // filmic: the practicals' highlights roll off, the mids lift
-  renderer.toneMappingExposure = 1.3;
+  renderer.toneMapping = NeutralToneMapping; // a soft shoulder and NO toe: the shadows keep what light they have (owner: the city was in darkness)
+  renderer.toneMappingExposure = 1.15;
   renderer.shadowMap.enabled = TIERS[tier].shadows;
   renderer.shadowMap.type = PCFShadowMap;
   // CINEMATIC LIGHT (owner: contrast, shadow, highlights): a blue hemisphere
@@ -777,11 +777,11 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // CASTS SHADOWS — its shadow camera rides with the eye. The facades keep
   // their baked windows as emissive light; the walls between them take the
   // moon and lose it in shadow.
-  const hemi = new HemisphereLight('#3f5cb8', '#5a3a1c', 0.42); // the sky above, the streets' sodium bounce below
+  const hemi = new HemisphereLight('#4a6ac8', '#5a4030', 0.75); // the fill: the sky above, the streets' sodium bounce below (the look sets it)
   scene.add(hemi);
-  const MOON = new Vector3(110, 300, 460);
-  const moonDir = MOON.clone().normalize();
-  const moonLight = new DirectionalLight('#c4d3ff', 0.6); // enough that its shadows read on the streets; the practicals lead
+  const MOON = new Vector3(110, 400, 380); // higher than it was: a low moon laid every street in a tower's shadow
+  const keyDir = MOON.clone().normalize(); // the key light's direction: the moon's, or a look's sun
+  const moonLight = new DirectionalLight('#c4d3ff', 0.75); // the key: the moon by night, the sun by day (the look sets it)
   moonLight.castShadow = TIERS[tier].shadows;
   moonLight.shadow.mapSize.set(2048, 2048);
   moonLight.shadow.camera.left = -230; moonLight.shadow.camera.right = 230;
@@ -795,14 +795,15 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     camera.getWorldDirection(fwd);
     const fx = camera.position.x + fwd.x * 70, fz = camera.position.z + fwd.z * 70;
     moonLight.target.position.set(fx, 0, fz);
-    moonLight.position.set(fx + moonDir.x * 340, moonDir.y * 340, fz + moonDir.z * 340);
+    moonLight.position.set(fx + keyDir.x * 340, keyDir.y * 340, fz + keyDir.z * 340);
   };
   const composer = new EffectComposer(renderer, lensTarget(2, 2));
   const blur = new MotionBlurPass(camera, calm ? 0.35 : 0.6);
   const lens = new LensPass();
   composer.addPass(new RenderPass(scene, camera));
   composer.addPass(blur);
-  composer.addPass(new UnrealBloomPass(new Vector2(2, 2), 0.62, 0.42, 0.4));
+  const bloom = new UnrealBloomPass(new Vector2(2, 2), 0.62, 0.42, 0.4);
+  composer.addPass(bloom);
   composer.addPass(lens);
   composer.addPass(new OutputPass());
 
@@ -811,10 +812,22 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // ring stays at ground level and follows x/z only --------------------------
   const sky = new Group();
   scene.add(sky);
-  sky.add(new Mesh(
-    new SphereGeometry(640, 24, 20),
-    new MeshBasicMaterial({ map: skyTexture(), side: BackSide, fog: false, depthWrite: false }),
-  ));
+  // the dome is painted from the look (city-sky.ts); two domes crossfade when the time changes
+  const skyTex = (look: SkyLook) => {
+    const size = 256;
+    const t = new DataTexture(paintSky(look, size), size, size, RGBAFormat);
+    t.colorSpace = SRGBColorSpace;
+    t.flipY = true;
+    t.magFilter = LinearFilter; t.minFilter = LinearFilter; t.generateMipmaps = false;
+    t.needsUpdate = true;
+    return t;
+  };
+  const domeGeo = new SphereGeometry(640, 24, 20);
+  const domeA = new Mesh(domeGeo, new MeshBasicMaterial({ map: skyTex(SKY.night), side: BackSide, fog: false, depthWrite: false }));
+  const domeB = new Mesh(domeGeo, new MeshBasicMaterial({ map: null, side: BackSide, fog: false, depthWrite: false, transparent: true, opacity: 0 }));
+  domeB.visible = false;
+  sky.add(domeA, domeB);
+  const nebulae: Sprite[] = [];
   const starsOf = (pos: Float32Array, size: number, tint: string, opacity = 1): Points => {
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(pos, 3));
@@ -833,13 +846,23 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     }));
     s.position.copy(p);
     s.scale.set(sc, sc * 0.6, 1);
+    dim(s.material, 'stars');
+    nebulae.push(s);
     sky.add(s);
   }
+  dim(starsC.material as PointsMaterial, 'stars');
+  dim(band.material as PointsMaterial, 'stars');
   const moon = new Sprite(new SpriteMaterial({ map: moonTexture(), transparent: true, fog: false, depthWrite: false }));
   moon.position.copy(MOON);
   moon.scale.set(46, 46, 1);
   sky.add(moon);
+  const moonMat = moon.material as SpriteMaterial;
+  // the sun: a soft disc at the key's direction, shown by the day looks
+  const sun = new Sprite(new SpriteMaterial({ map: glowTexture('#ffffff', true), transparent: true, opacity: 0, fog: false, depthWrite: false }));
+  sky.add(sun);
+  const sunMat = sun.material as SpriteMaterial;
   const clouds: Sprite[] = [];
+  const lowCloud: boolean[] = [];
   const cloudAt = (low: boolean) => {
     const s = new Sprite(new SpriteMaterial({
       map: cloudTexture(rand, low), transparent: true,
@@ -849,7 +872,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     const r = 480 + rand() * 300;
     s.position.set(Math.cos(a) * r, low ? 70 + rand() * 70 : 170 + rand() * 220, Math.sin(a) * r);
     s.scale.set(low ? 300 + rand() * 200 : 190 + rand() * 160, low ? 42 + rand() * 20 : 58 + rand() * 30, 1);
-    clouds.push(s);
+    clouds.push(s); lowCloud.push(low);
     sky.add(s);
   };
   for (let i = 0; i < 8; i++) cloudAt(false);
@@ -861,6 +884,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     new PlaneGeometry(1, 1),
     new MeshBasicMaterial({ map: horizonTexture(rand), transparent: true, fog: false, depthWrite: false, side: DoubleSide }),
   );
+  const horizonMat = horizon.material as MeshBasicMaterial; // the clones share it
   for (let i = 0; i < 4; i++) {
     const h = horizon.clone();
     const a = (i / 4) * Math.PI * 2;
@@ -885,6 +909,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   water.rotation.x = -Math.PI / 2;
   water.position.y = 0.06;
   scene.add(water);
+  const waterMat = water.material as MeshBasicMaterial;
   const waterTex = waterTexture(rand);
   waterTex.repeat.set(1, 2 * REACH / 64);
   const mirror = new Mesh(new PlaneGeometry(CANAL.w, 2 * REACH), new MeshBasicMaterial({
@@ -973,7 +998,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   {
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(new Float32Array(edge), 3));
-    scene.add(new Points(g, new PointsMaterial({ color: '#ffb347', size: 1.5, sizeAttenuation: true, transparent: true, opacity: 0.8, depthWrite: false })));
+    scene.add(new Points(g, dim(new PointsMaterial({ color: '#ffb347', size: 1.5, sizeAttenuation: true, transparent: true, opacity: 0.8, depthWrite: false }))));
   }
 
   // -- the city, from the plan ----------------------------------------------
@@ -998,10 +1023,15 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // the moon lights the near faces and the roofs, the far faces sleep in the
   // hemisphere's blue, the shadows take the rest; the windows are emissive
   // (they are their own light) and LIVE — see livingFacade
-  const facade = (map: CanvasTexture, style: FacadeStyle, far: boolean): MeshLambertMaterial =>
-    livingFacade(new MeshLambertMaterial({
-      map, emissive: '#ffffff', emissiveMap: map, emissiveIntensity: far ? 0.8 : 0.75, color: far ? '#9aa0c8' : '#ffffff',
-    }), windowCells(style), style.tint, far ? 2.0 : 2.6);
+  const livingMats: { mat: MeshLambertMaterial; base: number; lift: number }[] = []; // the windows' glow and the walls' lift, for the look to scale
+  const facade = (map: CanvasTexture, style: FacadeStyle, far: boolean): MeshLambertMaterial => {
+    const base = far ? 0.8 : 0.75, lift = far ? 2.0 : 2.6;
+    const mat = livingFacade(new MeshLambertMaterial({
+      map, emissive: '#ffffff', emissiveMap: map, emissiveIntensity: base, color: far ? '#9aa0c8' : '#ffffff',
+    }), windowCells(style), style.tint, lift);
+    livingMats.push({ mat, base, lift });
+    return mat;
+  };
   const facadeMats = (map: CanvasTexture, style: FacadeStyle, far: boolean): Material[] => {
     const lit = facade(map, style, far);
     return [lit, lit, dark, dark, lit, lit];
@@ -1092,7 +1122,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       const along = clamp(beamTo.dot(beamDir), 0, b.len);
       const d = beamTo.addScaledVector(beamDir, -along).length();
       const k = clamp((d - 9) / 22, 0, 1);
-      b.mats.forEach((m, i) => { m.opacity = b.ops[i] * k * k; });
+      b.mats.forEach((m, i) => { m.opacity = b.ops[i] * k * k * lampLevel; });
     }
   };
 
@@ -1101,7 +1131,9 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // as a laser), awnings dim over the shopfronts
   const bars = (list: typeof plan.strips, power: number) => {
     if (!list.length) return;
-    const inst = new InstancedMesh(geo.box, new MeshBasicMaterial({ color: '#ffffff' }), list.length);
+    const mat = new MeshBasicMaterial({ color: '#ffffff' });
+    scalables.push({ m: mat, floor: 0.35 });
+    const inst = new InstancedMesh(geo.box, mat, list.length);
     list.forEach((s, j) => {
       dummy.position.set(s.x, s.y, s.z);
       dummy.scale.set(s.w, s.h, s.d);
@@ -1118,7 +1150,9 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   bars(plan.awnings, 0.35);
   bars(plan.tarps, 0.5); // the tarps over the shacks and the stalls
   { // the market's canopies
-    const inst = new InstancedMesh(geo.pyr, new MeshBasicMaterial({ color: '#ffffff' }), plan.stalls.length);
+    const canopyMat = new MeshBasicMaterial({ color: '#ffffff' });
+    scalables.push({ m: canopyMat, floor: 0.5 });
+    const inst = new InstancedMesh(geo.pyr, canopyMat, plan.stalls.length);
     plan.stalls.forEach((s, j) => {
       dummy.position.set(s.x, 2.9, s.z);
       dummy.scale.set(3.2, 1.2, 2.6);
@@ -1150,6 +1184,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // played, floodlights, lit gates, two screens, fireworks now and then; the
   // Ferris wheel beside it --------------------------------------------------------
   const stadium = plan.stadium;
+  let pitchMat: MeshLambertMaterial | null = null; // the floodlit pitch: its glow follows the lamps
   const crowdGeo = new BufferGeometry();
   const crowdCol = new Float32Array(4200 * 3);
   const matchArr = new Float32Array(23 * 3);
@@ -1182,6 +1217,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     scene.add(roof);
     const pitchTex = pitchTexture();
     const pitch = new Mesh(new PlaneGeometry(38, 24), new MeshLambertMaterial({ map: pitchTex, emissive: '#ffffff', emissiveMap: pitchTex, emissiveIntensity: 0.55 }));
+    pitchMat = pitch.material as MeshLambertMaterial;
     pitch.rotation.x = -Math.PI / 2;
     pitch.position.set(st.x, 0.36, st.z);
     scene.add(pitch);
@@ -1225,7 +1261,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     for (const gt of st.gates) { rim.push(gt.x, 3.2, gt.z); }
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(new Float32Array(rim), 3));
-    scene.add(new Points(g, new PointsMaterial({ map: glowTexture('#ffffff'), color: '#e8f4ff', size: 3.6, sizeAttenuation: true, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false }))); // small: seventy of them up close once walled the deck in white
+    scene.add(new Points(g, dim(new PointsMaterial({ map: glowTexture('#ffffff'), color: '#e8f4ff', size: 3.6, sizeAttenuation: true, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false })))); // small: seventy of them up close once walled the deck in white
     for (const gt of st.gates) { // a lit portal in the bowl's wall
       const m = new Mesh(new BoxGeometry(6, 4.6, 0.6), new MeshBasicMaterial({ color: '#ffd9a0' }));
       m.position.set(gt.x, 2.3, gt.z);
@@ -1356,9 +1392,11 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   }
   const flickers: { inst: InstancedMesh; base: Float32Array; lit: number[] }[] = [];
   for (const grp of signGroups.values()) {
-    const inst = new InstancedMesh(geo.plane, new MeshBasicMaterial({
+    const signMat = new MeshBasicMaterial({
       map: grp.tex, color: '#ffffff', transparent: true, blending: AdditiveBlending, depthWrite: false, side: DoubleSide,
-    }), grp.sign.length);
+    });
+    scalables.push({ m: signMat, floor: 0.45 });
+    const inst = new InstancedMesh(geo.plane, signMat, grp.sign.length);
     const base = new Float32Array(grp.sign.length * 3);
     grp.sign.forEach((sg, j) => {
       dummy.position.set(sg.x, sg.y, sg.z);
@@ -1413,10 +1451,10 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const glowPoints = (pos: number[] | Float32Array, color: string, size: number, opacity = 1) => {
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(pos instanceof Float32Array ? pos : new Float32Array(pos), 3));
-    const pts = new Points(g, new PointsMaterial({
+    const pts = new Points(g, dim(new PointsMaterial({
       map: glowTexture(color), color, size, sizeAttenuation: true, transparent: true, opacity,
       blending: AdditiveBlending, depthWrite: false,
-    }));
+    })));
     scene.add(pts);
     return pts;
   };
@@ -1451,10 +1489,10 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     const cols = new Float32Array(plan.neon.col.length * 3);
     plan.neon.col.forEach((c, i) => new Color(c).toArray(cols, i * 3));
     g.setAttribute('color', new BufferAttribute(cols, 3));
-    scene.add(new Points(g, new PointsMaterial({
+    scene.add(new Points(g, dim(new PointsMaterial({
       vertexColors: true, size: 2.6, sizeAttenuation: true, transparent: true, opacity: 0.9,
       blending: AdditiveBlending, depthWrite: false,
-    })));
+    }), 'lamps', 0.35)));
   }
   const beacons: Sprite[] = [];
   for (const b of plan.beacons) {
@@ -1531,9 +1569,10 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   };
   const heads = lightsOf('#fff2d8', 1.5, false);
   // and the headlights' throw: a cone of light on the road ahead (owner: lit by practicals)
-  const throws = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new MeshBasicMaterial({
+  const throws = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), dim(new MeshBasicMaterial({
     map: headlightTexture(), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.16, color: '#fff0cc',
-  }), total);
+    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2, // a decal: never z-fights the road it lies on
+  })), total);
   throws.frustumCulled = false;
   scene.add(throws);
   const throwTint = new Color();
@@ -1554,7 +1593,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     carMesh.setMatrixAt(i, dummy.matrix);
     const cp = Math.cos(pitch), sp = Math.sin(pitch);
     const ahead = len / 2 + 3;
-    dummy.position.set(x + hx * cp * ahead, y - h / 2 + sp * ahead + 0.01, z + hz * cp * ahead);
+    dummy.position.set(x + hx * cp * ahead, y - h / 2 + sp * ahead + 0.06, z + hz * cp * ahead);
     dummy.scale.set(w + 1.6, 1, 6);
     dummy.updateMatrix();
     throws.setMatrixAt(i, dummy.matrix);
@@ -2079,6 +2118,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     }
     sky.position.copy(camera.position); // the dome is a skybox: infinitely far in every direction
     horizonRing.position.set(camera.position.x, 0, camera.position.z); // the far city stays on the ground
+    tendLook();
     aimMoon();
     tendLights();
     audio.update({
@@ -2104,12 +2144,13 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     for (let i = 0; i < plan.sprawlLamps.length; i += 3) pools.push({ x: plan.sprawlLamps[i], y: 0, z: plan.sprawlLamps[i + 2], r: 7, color: '#ffd9a0', a: 0.8 });
     for (let i = 0; i < plan.lanterns.length; i += 3) pools.push({ x: plan.lanterns[i], y: 0, z: plan.lanterns[i + 2], r: 3.2, color: '#ffb36b', a: 0.5 });
     for (const st of plan.stalls) pools.push({ x: st.x, y: 0, z: st.z, r: 4.5, color: st.color, a: 0.55 });
-    const inst = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new MeshBasicMaterial({
-      map: glowTexture('#ffffff'), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.26,
-    }), pools.length);
+    const inst = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), dim(new MeshBasicMaterial({
+      map: glowTexture('#ffffff', true), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.26,
+      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2, // a decal: never z-fights the ground it lies on
+    })), pools.length);
     dummy.rotation.set(0, 0, 0);
     pools.forEach((p, j) => {
-      dummy.position.set(p.x, p.y + 0.07, p.z);
+      dummy.position.set(p.x, p.y + 0.1, p.z);
       dummy.scale.set(p.r * 2, 1, p.r * 2);
       dummy.updateMatrix();
       inst.setMatrixAt(j, dummy.matrix);
@@ -2158,10 +2199,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   let snapLights = true; // across a cut the pool is re-lit at once, no fade
   const tendLights = () => {
     if (!slots.length) return;
-    if (snapLights || lightTick++ % 10 === 0) { // the strongest sources near the eye's ground focus: distance over power
-      camera.getWorldDirection(fwd);
-      const ahead = clamp(camera.position.y * 0.8, 8, 60);
-      focus.set(camera.position.x + fwd.x * ahead, Math.min(camera.position.y, 12), camera.position.z + fwd.z * ahead);
+    if (snapLights || lightTick++ % 12 === 0) { // the strongest sources about the eye's POSITION (never its gaze: a glance must not re-deal the lights): distance over power
+      focus.set(camera.position.x, Math.min(camera.position.y, 12), camera.position.z);
       scored.length = 0;
       for (const p of practicals) {
         const dx = p.x - focus.x, dz = p.z - focus.z;
@@ -2170,7 +2209,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       }
       scored.sort((a, b) => a.s - b.s);
       const best = scored.slice(0, slots.length).map((e) => e.p);
-      for (const sl of slots) if (sl.src && !best.includes(sl.src)) sl.on = false;
+      const keep = scored.slice(0, slots.length * 2).map((e) => e.p); // hysteresis: a lit source stays until it falls well down the list
+      for (const sl of slots) if (sl.src && !keep.includes(sl.src)) sl.on = false;
       for (const p of best) {
         if (slots.some((sl) => sl.src === p)) continue;
         const free = slots.find((sl) => !sl.src) ?? slots.filter((sl) => !sl.on).sort((a, b) => a.level - b.level)[0];
@@ -2187,11 +2227,64 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     }
     for (const sl of slots) {
       if (!sl.src) continue;
-      sl.level += ((sl.on ? 1 : 0) - sl.level) * 0.12;
-      sl.light.intensity = sl.src.power * sl.level;
+      sl.level += ((sl.on ? 1 : 0) - sl.level) * 0.07;
+      sl.light.intensity = sl.src.power * sl.level * lampLevel;
       if (!sl.on && sl.level < 0.01) { sl.src = null; sl.light.intensity = 0; }
     }
   };
+
+  // -- TIME OF DAY (owner: a changing time-of-day system): a LOOK (city-sky.ts)
+  // is applied to everything light-shaped; a change eases from the look in
+  // force to the next over ~2.5 s, the dome crossfading behind it ------------
+  let timeNow: TimeOfDay = 'night';
+  let lookFrom: SkyLook = SKY.night, lookTo: SkyLook = SKY.night, lookNow: SkyLook = SKY.night, lookT = 1;
+  const applyLook = (L: SkyLook) => {
+    keyDir.set(L.key.dir[0], L.key.dir[1], L.key.dir[2]).normalize();
+    moonLight.color.set(L.key.color); moonLight.intensity = L.key.intensity;
+    hemi.color.set(L.hemi.sky); hemi.groundColor.set(L.hemi.ground); hemi.intensity = L.hemi.intensity;
+    fog.color.set(L.fog.color); fogMul = L.fog.density; fog.density = TIERS[tier].fog * fogMul;
+    renderer.toneMappingExposure = L.exposure;
+    bloom.threshold = L.bloom;
+    for (const w of livingMats) {
+      w.mat.emissiveIntensity = w.base * L.windows;
+      (w.mat.userData.uLift as { value: number }).value = Math.max(1, w.lift * L.walls);
+    }
+    if (pitchMat) pitchMat.emissiveIntensity = 0.15 + 0.4 * L.lamps;
+    lampLevel = L.lamps; starLevel = L.stars;
+    for (const d of dimmables) d.m.opacity = d.base * (d.floor + (1 - d.floor) * (d.k === 'stars' ? L.stars : L.lamps));
+    for (const sc of scalables) sc.m.color.setScalar(sc.floor + (1 - sc.floor) * L.lamps);
+    moonMat.opacity = L.moon;
+    sunMat.opacity = L.sun.opacity; sunMat.color.set(L.sun.color);
+    sun.scale.set(L.sun.size, L.sun.size, 1);
+    sun.position.copy(keyDir).multiplyScalar(600);
+    clouds.forEach((c, i) => (c.material as SpriteMaterial).color.set(lowCloud[i] ? L.clouds.low : L.clouds.high));
+    waterMat.color.set(L.water);
+    horizonMat.opacity = L.horizon;
+    peopleMat.color.setScalar(L.people);
+    lens.setGrade(L.grade.low, L.grade.high, L.grade.contrast);
+  };
+  const finishDome = () => {
+    const a = domeA.material as MeshBasicMaterial, b = domeB.material as MeshBasicMaterial;
+    a.map?.dispose(); a.map = b.map; a.needsUpdate = true;
+    b.map = null; domeB.visible = false;
+  };
+  const setTime = (t: TimeOfDay, instant: boolean) => {
+    if (t === timeNow && lookT >= 1) return;
+    timeNow = t; lookFrom = lookNow; lookTo = SKY[t]; lookT = instant ? 1 : 0;
+    const b = domeB.material as MeshBasicMaterial;
+    b.map?.dispose(); b.map = skyTex(lookTo); b.needsUpdate = true; b.opacity = 0; domeB.visible = true;
+    if (instant) { finishDome(); lookNow = lookTo; applyLook(lookNow); }
+  };
+  const tendLook = () => {
+    if (lookT >= 1) return;
+    lookT = Math.min(1, lookT + 1 / 150);
+    const k = ease(lookT);
+    lookNow = blendLooks(lookFrom, lookTo, k);
+    (domeB.material as MeshBasicMaterial).opacity = k;
+    applyLook(lookNow);
+    if (lookT >= 1) { finishDome(); lookNow = lookTo; }
+  };
+  applyLook(lookNow);
 
   const fit = () => {
     const w = Math.max(1, canvas.clientWidth);
@@ -2213,8 +2306,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     if (calm) return;
     winTime.value = tick / 60;
     sweep();
-    (starsA.material as PointsMaterial).opacity = 0.7 + Math.sin(tick * 0.05) * 0.3;
-    (starsB.material as PointsMaterial).opacity = 0.55 + Math.cos(tick * 0.033) * 0.35;
+    (starsA.material as PointsMaterial).opacity = (0.7 + Math.sin(tick * 0.05) * 0.3) * starLevel;
+    (starsB.material as PointsMaterial).opacity = (0.55 + Math.cos(tick * 0.033) * 0.35) * starLevel;
     for (let i = 0; i < beacons.length; i++) {
       (beacons[i].material as SpriteMaterial).opacity = ((tick >> 4) + i) % 2 ? 0.95 : 0.12;
     }
@@ -2248,7 +2341,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     const T = TIERS[tier];
     camera.far = T.far;
     camera.updateProjectionMatrix();
-    fog.density = T.fog;
+    fog.density = T.fog * fogMul;
     setPool(POOL[tier]);
     renderer.shadowMap.enabled = T.shadows;
     moonLight.castShadow = T.shadows;
@@ -2328,8 +2421,10 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     },
     quality: () => ({ tier: TIERS[tier].label, far: camera.far, fog: fog.density, shadows: renderer.shadowMap.enabled, pix: PIX }),
     setQuality: (t) => { tier = Math.max(0, Math.min(TIERS.length - 1, Math.round(t))); applyTier(); lastChange = performance.now() + 30000; render(); },
+    setTime: (t, instant = false) => { setTime(t, instant); render(); },
+    time: () => timeNow,
     probe: () => ({
-      people: PEOPLE, cars: cars.length, flyers: FLYERS,
+      people: PEOPLE, cars: cars.length, flyers: FLYERS, look: lookNow.label, blend: lookT,
       knots: people.knots.filter((k) => k.members.length > 1).slice(0, 6).map((k) => [k.x, k.st.y, k.z, k.members.length]),
       air: flyers.slice(0, 6).map((fl) => [fl.x, fl.y, fl.z]),
       pads: flyers.filter((fl) => fl.pad).map((fl) => [fl.x, fl.y, fl.z, fl.stage === 'sit' ? 1 : 0]),
