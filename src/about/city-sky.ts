@@ -64,7 +64,7 @@ export const LOOKS: Record<TimeOfDay, Look> = {
     hemi: { sky: '#6a84e6', ground: '#2c3e88', intensity: 1.75 }, // a BLUE night, brightly filled (owner: lit like a city at night): the shadows deep blue, never black
     fog: { color: '#1e2f5e', density: 1 },
     // (bloom above 0.55 only: a lit street under a lower threshold bloomed whole, a veil over the frame, measured)
-    exposure: 1.28, bloom: 0.55, windows: 1, lamps: 1, walls: 1, bleach: { color: '#2c4a8e', amount: 0.3 }, glass: '#101a36', shadows: false, groundGlow: 1.2, groundLift: 1.05, reflect: 0.5, stars: 1, moon: 1,
+    exposure: 1.28, bloom: 0.55, windows: 1, lamps: 1, walls: 1, bleach: { color: '#2c4a8e', amount: 0.3 }, glass: '#070a14', shadows: false, groundGlow: 1.2, groundLift: 1.05, reflect: 0.25, stars: 1, moon: 1,
     sun: { color: '#ffffff', size: 0, opacity: 0 },
     sky: {
       stops: [[0, '#0b1538'], [0.3, '#122250'], [0.44, '#1d3470'], [0.485, '#3b4f9a'], [0.512, '#4f7ab8'], [0.53, '#7fb0cc'], [0.555, '#3a5a90'], [0.61, '#24397a'], [1, '#152550']],
@@ -79,7 +79,7 @@ export const LOOKS: Record<TimeOfDay, Look> = {
     key: { dir: [-420, 50, 300], color: '#ff9a5a', intensity: 0.55 },
     hemi: { sky: '#5a6ccc', ground: '#5c4a74', intensity: 1.8 },
     fog: { color: '#3a3870', density: 1.1 },
-    exposure: 1.3, bloom: 0.6, windows: 0.85, lamps: 0.85, walls: 0.8, bleach: { color: '#343a7a', amount: 0.3 }, glass: '#141a3a', shadows: false, groundGlow: 1.2, groundLift: 1.0, reflect: 0.7, stars: 0.25, moon: 0.5,
+    exposure: 1.3, bloom: 0.6, windows: 0.85, lamps: 0.85, walls: 0.8, bleach: { color: '#343a7a', amount: 0.3 }, glass: '#0a0d1c', shadows: false, groundGlow: 1.2, groundLift: 1.0, reflect: 0.4, stars: 0.25, moon: 0.5,
     sun: { color: '#ffb070', size: 70, opacity: 0.9 },
     sky: {
       stops: [[0, '#0a1030'], [0.3, '#141c4c'], [0.44, '#3a2f6e'], [0.49, '#7a3f6a'], [0.51, '#d86a5a'], [0.53, '#ffae74'], [0.56, '#6a4a70'], [0.62, '#2a2a55'], [1, '#12122a']],

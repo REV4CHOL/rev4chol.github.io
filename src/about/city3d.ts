@@ -235,6 +235,10 @@ function skinAtlas(rand: () => number): SkinAtlas {
         break;
       default: break; // flush: a seamless skin
     }
+    // -- grime running down the wall, weather, grain — on the WALL only: the windows are painted over it after
+    // (owner: speckle on the panes read as TV static — a lit window is one flat light)
+    for (let i = 0; i < 40; i++) put(ox + ri(cw), oy + ri(UPPER), 1, 3 + ri(8), '#000000', 0.12);
+    for (let i = 0; i < 300; i++) put(ox + ri(cw), oy + ri(ch), 1, 1, rand() < 0.5 ? '#000000' : '#ffffff', 0.04 + rand() * 0.06);
     // -- the floors: a floor line, a sill, the windows in the family's rhythm (about half of them burning, floor by floor)
     const mood = () => { const m = rand(); return Math.min(0.97, (m < 0.2 ? 0.15 : m < 0.6 ? 0.6 : m < 0.9 ? 1 : 1.3) * v.lit); };
     for (let k = 0; k < UPPER / FLOOR; k++) {
@@ -249,7 +253,6 @@ function skinAtlas(rand: () => number): SkinAtlas {
         const col = on ? (floorCol ?? windowColor(rand, v.warm)) : v.glass;
         put(wx - 1, wTop - 1, fam.ww + 2, fam.wh + 2, v.frame, 1, 0.15, false); // the frame, a shade proud
         put(wx, wTop, fam.ww, fam.wh, col, on ? 0.75 + rand() * 0.25 : 1, curtain ? -0.1 : -1, true); // the glass, recessed
-        if (on && rand() < 0.5) put(wx + ri(Math.max(1, Math.floor(fam.ww * 0.6))), wTop + 1, Math.max(1, Math.floor(fam.ww * 0.3)), Math.max(1, fam.wh - 2), '#000000', 0.25 + rand() * 0.3); // a curtain, a figure, a shade
         if (!curtain) put(wx - 1, wTop + fam.wh, fam.ww + 2, 1, '#ffffff', 0.35, 0.45); // the sill, proud
         if (fam.win === 'strip') { // the piers between the strips stand proud, floor through floor
           put(ox + bx, fb, fam.wx - 1, FLOOR, v.wall, 1, 1.2, false);
@@ -264,9 +267,6 @@ function skinAtlas(rand: () => number): SkinAtlas {
       }
       if (fam.win === 'ribbon') for (let bx = 0; bx < cw; bx += fam.bay) put(ox + bx, wTop, 1, fam.wh, v.frame, 1, 0.1, false); // the band's mullions
     }
-    // -- grime running from the sills, weather, grain
-    for (let i = 0; i < 40; i++) put(ox + ri(cw), oy + ri(UPPER), 1, 3 + ri(8), '#000000', 0.12);
-    for (let i = 0; i < 300; i++) put(ox + ri(cw), oy + ri(ch), 1, 1, rand() < 0.5 ? '#000000' : '#ffffff', 0.04 + rand() * 0.06);
     // -- the shopfront strip: the tile's bottom texels, the ground floor of a building that has one
     const sy = oy + UPPER;
     put(ox, sy, cw, SHOP, v.wall, 1, 0, false);
@@ -285,7 +285,6 @@ function skinAtlas(rand: () => number): SkinAtlas {
       put(sx + (rand() < 0.5 ? 3 : 22), sy + 5, 5, SHOP - 7, '#3a2a20', 1, -0.6, false); // the door
       put(sx + 2, sy + 4, 28, 1, v.frame, 1, 0, false); // the frame's head
       for (let m = sx + 9; m < sx + 28; m += 7) put(m, sy + 4, 1, SHOP - 6, v.frame, 1, 0, false); // mullions
-      for (let i = 0; i < 3; i++) put(sx + 4 + ri(22), sy + 6 + ri(5), 2, 2 + ri(3), '#000000', 0.3); // the goods in the window
     }
   }
   x.globalAlpha = 1;
