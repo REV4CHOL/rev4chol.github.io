@@ -126,4 +126,31 @@ describe('Traffic', () => {
     expect(a.cars[17].x).toBe(b.cars[17].x);
     expect(a.cars[17].z).toBe(b.cars[17].z);
   });
+
+  it('keeps flowing for 40,000 frames: the boxes stay clear, most of the city moves, nothing meets inside a box', () => {
+    // owner: the traffic ground to a halt in jams until nothing moved — vehicles entered the boxes without
+    // room to clear them, stalled mid-crossing, and every stalled box held the cross street too
+    const t = new Traffic(plan.streets, mulberry32(SEED ^ 0x51f15e));
+    t.populate(1500, weight);
+    const cars = t.cars;
+    let worstStopped = 0, worstInBox = 0, meetings = 0;
+    for (let f = 1; f <= 40000; f++) {
+      t.step();
+      if (f % 2000 !== 0) continue;
+      worstStopped = Math.max(worstStopped, cars.filter((c) => c.v < 0.001).length / cars.length);
+      let inBox = 0;
+      for (const n of t.nodes) {
+        for (const c of n.transit) if (c.v < 0.001) inBox += 1;
+        for (let i = 0; i < n.transit.length; i++) for (let j = i + 1; j < n.transit.length; j++) {
+          const a = n.transit[i], b = n.transit[j];
+          if (Math.hypot(a.x - b.x, a.z - b.z) < 1.2) meetings += 1;
+        }
+      }
+      worstInBox = Math.max(worstInBox, inBox);
+    }
+    expect(worstStopped).toBeLessThan(0.5);
+    expect(worstInBox).toBeLessThan(40);
+    expect(meetings).toBe(0);
+    expect(t.hops).toBeGreaterThan(60000); // a living network: far above the jammed 49k
+  }, 120000);
 });

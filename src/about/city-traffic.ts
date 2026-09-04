@@ -195,7 +195,10 @@ export class Traffic {
     // merge on the highway yields)
     for (const n of this.nodes) {
       n.box = n.streets.reduce((m, s) => Math.max(m, s.width / 2), 0) + KERB;
-      const lit = n.streets.length >= 2 && n.ports.length >= 3 && !n.streets.some((s) => s.kind === 'highway' || s.kind === 'ramp');
+      // lights only where two streets CROSS; a T-junction runs on priority — the through road flows, the ending
+      // road yields (owner: the city jammed solid — the rim roads, a T at every block, stopped for two thirds of
+      // every cycle and became the sink every straight-driving vehicle ended in)
+      const lit = n.streets.length >= 2 && n.ports.length >= 4 && !n.streets.some((s) => s.kind === 'highway' || s.kind === 'ramp');
       if (lit) n.signal = { offset: Math.floor(this.rand() * CYCLE) };
     }
     // lanes: each direction of each link, trimmed to the boxes at its ends
@@ -248,8 +251,15 @@ export class Traffic {
       if (!straight && !uturn) { if (crossing ? lane.index !== 0 : !outermost) return; }
       const to = w.kind === 'highway' && st.kind === 'ramp' ? lanes[lanes.length - 1] : lanes[Math.min(lane.index, lanes.length - 1)];
       lanePoint(to, 0, Q);
-      const weight = uturn ? 0.001 : w.kind === 'ramp' ? (st.kind === 'highway' ? 2 : 4) : straight ? (w === st ? 6 : 3) : crossing ? 1 : 1.5;
+      // at a T the through road is no highway: carrying on and turning in weigh about the same, so the rim roads
+      // drain back into the grid instead of collecting every straight-driving vehicle in the city
+      const tee = n.ports.length === 3 && st.kind === 'road';
+      const weight = uturn ? 0.001 : w.kind === 'ramp' ? (st.kind === 'highway' ? 1.2 : 2) : straight ? (tee ? 2 : w === st ? 6 : 3) : crossing ? 1 : 1.5;
       let cx = (P.x + Q.x) / 2, cz = (P.z + Q.z) / 2;
+      if (uturn) { // a loop out past the dead end, wider from the outer lane, so the lanes' U-turns nest instead of crossing
+        const k = 1 + Math.abs(lane.offset) * 1.6;
+        cx += ux * k; cz += uz * k;
+      }
       if (!straight && !uturn) { // the corner where the two lane lines meet
         const den = ux * wz - uz * wx;
         if (Math.abs(den) > 0.2) {
@@ -372,9 +382,27 @@ export class Traffic {
     let gap = 1e9;
     const room = this.entryRoom(ex, n); // from the stop line, along the path, to the first rear bumper
     if (room < 1e8) gap = ahead + room - c.len / 2;
-    if (ahead > 0.3) { // not yet committed to the box
+    // committed once the nose is over the line — unless the lane is too short to have stopped in (a ramp's foot a
+    // few units from a crossing leaves lanes of two or three units: a vehicle lands in one already over the line
+    // and used to sail through red, turners and full lanes alike)
+    if (ahead > 0.3 || lane.len < c.len + G0 + 0.3) {
       let wait = n.signal !== null && (!this.green(n, lane.group, tick) || this.boxBusy(n, lane.group));
       if (!wait && ex.crossing) wait = this.yieldBusy(lane);
+      // DON'T BLOCK THE BOX (owner: the city jammed solid, then nothing moved — vehicles entered the boxes
+      // without room to clear them, stalled mid-crossing, and every stalled box held its cross street):
+      // no room past the box for the whole vehicle → hold at the line
+      if (!wait && ex.S >= 0.4 && room < ex.S + c.len + G0) {
+        // a driver facing a full lane takes another exit if one has room (the highway's edge lane used to park
+        // behind exiters waiting on a full ramp); else hold
+        const alt = this.detour(c, lane, n, ex);
+        if (alt) { c.exit = alt; return this.frontGap(c, lane, tick); }
+        wait = true;
+      }
+      // a turn across the oncoming holds through the green for a gap the dense hour never gives; it may complete at
+      // the start of its own all-red — the oncoming is held, the box is watched by everyone who follows
+      if (wait && ex.crossing && n.signal && this.lateTurn(n, lane.group, tick) && !this.boxBusy(n, lane.group) && !this.yieldBusy(lane)) wait = false;
+      // someone is turning across this path: they went first; this one holds until they are through
+      if (!wait && !ex.crossing) wait = this.turnerCrossing(n, lane);
       if (wait) gap = Math.min(gap, ahead);
     }
     return gap;
@@ -431,7 +459,9 @@ export class Traffic {
           if (l.end === n) {
             const f = l.cars[l.cars.length - 1];
             if (!f || f.s <= l.len - LOOK) continue;
-            if (f.v < 0.005 && f.exit?.crossing && L.id < l.link.id) continue;
+            // a stopped vehicle holds at its line (it never enters a box it cannot clear) — not a gap-breaker;
+            // two turners facing each other: the lower link goes first
+            if (f.v < 0.005 && (!f.exit?.crossing || L.id < l.link.id)) continue;
             return true;
           } else {
             const r = l.cars[0];
@@ -440,6 +470,34 @@ export class Traffic {
         }
       }
     }
+    return false;
+  }
+
+  /** Another exit of the lane with room past the box, by weight — or null. */
+  private detour(c: Car, lane: Lane, n: Node, not: Exit): Exit | null {
+    let total = 0;
+    const ok: Exit[] = [];
+    for (const e of lane.exits) {
+      if (e === not || e.weight < 0.01) continue;
+      if (e.S >= 0.4 && this.entryRoom(e, n) < e.S + c.len + G0) continue;
+      ok.push(e); total += e.weight;
+    }
+    if (!ok.length) return null;
+    let pick = this.rand() * total;
+    for (const e of ok) { pick -= e.weight; if (pick <= 0) return e; }
+    return ok[ok.length - 1];
+  }
+
+  /** The first stretch of a group's own all-red: a waiting turn may complete in it. */
+  lateTurn(n: Node, group: number, tick = this.tick): boolean {
+    if (!n.signal) return false;
+    const c = (tick + n.signal.offset) % (n.streets.length * PHASE);
+    return Math.floor(c / PHASE) === group && c % PHASE >= GREEN && c % PHASE < GREEN + 70;
+  }
+
+  /** A turn across other traffic is under way in the box, from another link: it went first. */
+  private turnerCrossing(n: Node, lane: Lane): boolean {
+    for (const t of n.transit) if (t.transit && t.transit.ex.crossing && t.transit.from.link !== lane.link) return true;
     return false;
   }
 
@@ -458,7 +516,7 @@ export class Traffic {
     const ex = c.exit ?? this.choose(lane);
     const n = lane.end;
     if (!ex) { c.s = lane.len - 0.01; lane.cars.push(c); return; }
-    if (n.signal && !this.green(n, lane.group, tick) && c.s - c.v + c.len / 2 < lane.len - 0.5) this.violations += 1;
+    if (n.signal && !this.green(n, lane.group, tick) && !(ex.crossing && this.lateTurn(n, lane.group, tick)) && c.s - c.v + c.len / 2 < lane.len - 0.5) this.violations += 1;
     const over = c.s - lane.len;
     c.lane = null;
     this.hops += 1; c.hops += 1;
@@ -476,12 +534,16 @@ export class Traffic {
       if (c.moved === this.tick) continue;
       c.moved = this.tick;
       let gap = 1e9;
-      for (let k = i - 1; k >= 0; k--) { // the vehicle ahead on the same path
+      for (let k = i - 1; k >= 0; k--) { // the vehicle ahead on the same path — or one that left the same lane and is still
+        // at the box's mouth, where the two paths have not yet parted (a turner slowing into its arc, a straight follower
+        // on its heels: they used to drive through each other)
         const o = list[k];
-        if (o.transit && o.transit.ex.to === t.ex.to) {
-          gap = (t.ex.S - t.s) - (o.transit.ex.S - o.transit.s) - (o.len + c.len) / 2;
+        if (!o.transit) continue;
+        if (o.transit.ex.to === t.ex.to) {
+          gap = Math.min(gap, (t.ex.S - t.s) - (o.transit.ex.S - o.transit.s) - (o.len + c.len) / 2);
           break;
         }
+        if (o.transit.from === t.from && o.transit.s < 8) gap = Math.min(gap, o.transit.s - t.s - (o.len + c.len) / 2);
       }
       if (gap > 1e8) {
         const r = t.ex.to.cars[0];

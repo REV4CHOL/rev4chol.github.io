@@ -290,6 +290,7 @@ function skinAtlas(rand: () => number): SkinAtlas {
   }
   x.globalAlpha = 1;
   const map = asPixelTex(new CanvasTexture(c));
+  map.minFilter = LinearMipmapLinearFilter; map.generateMipmaps = true; map.anisotropy = 4; // crisp up close (nearest), averaged into the distance: no shimmer
   const n = document.createElement('canvas');
   n.width = W; n.height = H;
   const nx = n.getContext('2d')!;
@@ -298,7 +299,7 @@ function skinAtlas(rand: () => number): SkinAtlas {
   nx.putImageData(img, 0, 0);
   const normal = new CanvasTexture(n);
   normal.colorSpace = NoColorSpace;
-  normal.magFilter = NearestFilter; normal.minFilter = NearestFilter; normal.generateMipmaps = false;
+  normal.magFilter = NearestFilter; normal.minFilter = LinearMipmapLinearFilter; normal.generateMipmaps = true; normal.anisotropy = 4;
   return { map, normal };
 }
 
@@ -378,14 +379,16 @@ function skinMaterial(atlas: SkinAtlas, cyl: boolean, far: boolean): MeshStandar
           if ( h < 0.55 ) return 0.0;
           float period = 50.0 + 90.0 * wHash( cell * 1.7 + vInst * 11.0 );
           float w = fract( uTime / period + h * 7.0 );
-          return smoothstep( 0.0, 0.035, w ) * smoothstep( 0.3, 0.26, w );
+          return smoothstep( 0.0, 0.006, w ) * smoothstep( 0.3, 0.294, w ); // a SWITCH: on or off inside a second, not a slow dimmer
         }`)
       .replace('#include <map_fragment>', `
         float skinCell = floor( vSkin.x + 0.5 );
         int skinFam = int( floor( skinCell / ${VARIANTS}.0 + 0.001 ) );
         vec2 skinUv = atlasUv( skinCell, skinTexel( vSkin.z ) );
-        vec4 sampledDiffuseColor = texture2D( map, skinUv );
-        vec4 skinN = texture2D( normalMap, skinUv );
+        vec2 skinDx = dFdx( vTile ) / vec2( ${ATLAS.cols * ATLAS.w}.0, ${ATLAS.rows * ATLAS.h}.0 ); // the tile's own gradients: continuous across the wrap, where the atlas uv's are not
+        vec2 skinDy = dFdy( vTile ) / vec2( ${ATLAS.cols * ATLAS.w}.0, ${ATLAS.rows * ATLAS.h}.0 );
+        vec4 sampledDiffuseColor = textureGrad( map, skinUv, skinDx, skinDy );
+        vec4 skinN = textureGrad( normalMap, skinUv, skinDx, skinDy );
         float wmask = skinN.a;
         float wlum = dot( sampledDiffuseColor.rgb, vec3( 0.3, 0.5, 0.2 ) );
         float litness = smoothstep( 0.12, 0.3, wlum );
@@ -408,7 +411,7 @@ function skinMaterial(atlas: SkinAtlas, cyl: boolean, far: boolean): MeshStandar
         mapN.xy *= normalScale;
         normal = normalize( skinTbn * mapN );`)
       .replace('#include <emissivemap_fragment>', `
-        vec4 emissiveColor = texture2D( emissiveMap, skinUv );
+        vec4 emissiveColor = textureGrad( emissiveMap, skinUv, skinDx, skinDy );
         totalEmissiveRadiance = totalEmissiveRadiance.r * ( emissiveColor.rgb * litF + vec3( 1.0, 0.62, 0.3 ) * crown * 0.7 );`);
   };
   mat.customProgramCacheKey = () => (cyl ? 'skin-cyl' : 'skin');
@@ -1027,6 +1030,9 @@ export interface CityRide {
   pose(): { x: number; y: number; z: number; yaw: number; pitch: number; mode: FlyMode; dir: number[] };
   /** The quality tier in force (far plane, fog, shadows, pixel size) — and a way to force one. */
   quality(): { tier: string; far: number; fog: number; shadows: boolean; pix: number };
+  /** Verification: one frame rendered at a fixed size and read back as luma per pixel, row-major from the bottom
+   *  (the pane may be hidden, which gives the canvas no size). */
+  frame(w?: number, h?: number): number[];
   setQuality(t: number): void;
   /** Verification: what lives where — knots of talk, flyers, counts. */
   /** The time of day (city-sky.ts): eased over a couple of seconds, or at once. */
@@ -2782,6 +2788,18 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       return { x: camera.position.x, y: camera.position.y, z: camera.position.z, yaw: free.yaw, pitch: free.pitch, mode, dir: [fwd.x, fwd.y, fwd.z] };
     },
     quality: () => ({ tier: TIERS[tier].label, far: camera.far, fog: fog.density, shadows: renderer.shadowMap.enabled, pix: PIX }),
+    frame: (w = 240, h = 150) => {
+      renderer.setSize(w, h, false); composer.setSize(w, h);
+      camera.aspect = w / h; camera.fov = fov24(camera.aspect); camera.updateProjectionMatrix(); lens.setAspect(camera.aspect);
+      render();
+      const gl = renderer.getContext();
+      const px = new Uint8Array(w * h * 4);
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      fit();
+      const out: number[] = [];
+      for (let i = 0; i < w * h; i++) out.push(Math.round(px[i * 4] * 0.3 + px[i * 4 + 1] * 0.5 + px[i * 4 + 2] * 0.2));
+      return out;
+    },
     setQuality: (t) => { tier = Math.max(0, Math.min(TIERS.length - 1, Math.round(t))); applyTier(); lastChange = performance.now() + 30000; render(); },
     setTime: (t, instant = false) => { setTime(t, instant); render(); },
     time: () => timeNow,
