@@ -164,7 +164,7 @@ export const DISTRICTS: Record<District, Profile> = {
   walled: { name: 'walled', lo: 44, hi: 80, fuse: 0.9, stack: 3, kit: 1.0, signs: 1.0, over: 1.0, arcade: 0.35, min: 6, max: 14 }, // tall enough for the overbuilds to roof its streets
   strip: { name: 'strip', lo: 20, hi: 70, fuse: 0.5, stack: 2, kit: 0.7, signs: 1.2, over: 0.35, arcade: 0.3, min: 5, max: 16 },
   old: { name: 'old', lo: 8, hi: 24, fuse: 0.6, stack: 1, kit: 0.5, signs: 0.5, over: 0, arcade: 0.15, min: 4, max: 9 },
-  mid: { name: 'mid', lo: 16, hi: 60, fuse: 0.5, stack: 2, kit: 0.6, signs: 0.8, over: 0.2, arcade: 0.2, min: 5, max: 16 },
+  mid: { name: 'mid', lo: 16, hi: 66, fuse: 0.5, stack: 2, kit: 0.6, signs: 0.8, over: 0.32, arcade: 0.2, min: 5, max: 16 }, // (owner: less uniform — more spans, taller spikes)
 };
 export function districtOf(bx: number, bz: number): District {
   if (Math.abs(bx) === 1 || Math.abs(bz) === 1) return 'strip'; // about the plaza and along both avenues
@@ -250,7 +250,7 @@ export interface Plan {
   stacks: { x: number; z: number; top: number }[];
   /** The canal's bridges: the east–west roads' (yaw 0, 12 wide, spanning the water) and the arterial's skewed one (its
    *  whole right of way wide). Decks flush with the streets. */
-  bridges: { x: number; z: number; yaw: number; w: number; span: number }[];
+  bridges: { x: number; z: number; yaw: number; w: number; span: number; kind: number }[];
   /** The deck's piers: a column in the arterial's median (the renderer sets the hammerhead cap on each). */
   piers: { x: number; z: number }[];
   /** Ground patches in the lots' stone over closed street bands, so the ground tile's paint never reads as a ghost road. */
@@ -793,6 +793,17 @@ export function planCity(seed: number): Plan {
    *  route stays bare. */
   const roofKit = (x: number, z: number, w: number, d: number, top: number, capped: boolean) => {
     if (capped) return;
+    if (w >= 7 && d >= 7 && rand() < 0.15) { // a cooling tower (owner: rooftop infrastructure, cyberpunk)
+      const cx = x + (rand() - 0.5) * (w - 5), cz = z + (rand() - 0.5) * (d - 5);
+      solid(bucket, 'cyl', 'industry', 0, cx, top + 2.1, cz, 3.6, 4.2, 3.6);
+      solid(bucket, 'cyl', 'industry', 0, cx, top + 4.4, cz, 2.6, 0.5, 2.6);
+      grid.add({ x: cx, y: top + 2.3, z: cz, w: 3.6, h: 4.6, d: 3.6 });
+    } else if (w >= 10 && d >= 8 && rand() < 0.1) { // a greenhouse, glass, lit from inside
+      const gw = Math.min(6, w - 3), gd = Math.min(3.4, d - 3), cx = x + (rand() - 0.5) * (w - gw - 1), cz = z + (rand() - 0.5) * (d - gd - 1);
+      solid(bucket, 'facade', 'bits', texOf((q) => q.win === 'curtain'), cx, top + 1.3, cz, gw, 2.6, gd);
+      grid.add({ x: cx, y: top + 1.3, z: cz, w: gw, h: 2.6, d: gd });
+      lantern(cx, top + 2.2, cz);
+    }
     const P = bucket === core ? 1 : 0.4;
     const spot = (mw: number, md: number): [number, number] => [x + (rand() - 0.5) * Math.max(0, w - mw - 0.6), z + (rand() - 0.5) * Math.max(0, d - md - 0.6)];
     if (w > 4 && d > 4 && rand() < 0.45 * P) { // a water tank on four legs
@@ -1028,7 +1039,7 @@ export function planCity(seed: number): Plan {
     const x = c.x, z = c.z;
     const jt = prof.name === 'walled' ? 1 + (jit - 1) * 0.4 : jit; // the walled city keeps its height whatever the block: its streets are roofed over
     let h = (prof.lo + Math.pow(rand(), prof.name === 'walled' ? 1 : 1.3) * (prof.hi - prof.lo)) * jt;
-    if (rand() < 0.08) h *= 1.6; // the odd spike
+    if (rand() < (prof.name === 'mid' ? 0.13 : 0.08)) h *= 1.6; // the odd spike (the mid district more often: owner, less uniform blocks)
     h = Math.min(h, 128);
     const m = Math.min(w, d), M = Math.max(w, d);
     const a = rand();
@@ -1320,12 +1331,39 @@ export function planCity(seed: number): Plan {
   for (const i of severed) { const zAt = arterialZ(streetAt(i)); closeRows(i, zAt, 1, true); closeRows(i, zAt, -1, true); }
   for (const [i, st] of stubs) { if (severed.has(i)) continue; closeRows(i, st.zAt, st.side, false); cuts.set(i, st); }
   const ARTERIAL_PAD = (ARTERIAL_ROW - ARTERIAL.walk / 2) / Math.abs(hdx); // along a north–south street, from the axis to the arterial's pavement
+  // -- MARKET STREETS (owner: more chaos, more life): three street segments closed to traffic and given to the
+  // walkers — a 14-wide alley with stalls down the middle under canopies and lanterns; their flanking blocks stay
+  // whole (a merge would build over them); the band is patched and the stalls' zone draws the crowd
+  const markets: { axis: 'x' | 'z'; i: number; j: number }[] = [{ axis: 'x', i: -2, j: 3 }, { axis: 'z', i: 4, j: -3 }, { axis: 'x', i: 1, j: -4 }]; // (the second in the megastructure's shadow; none where the arterial cuts a street)
+  for (const m of markets) {
+    const at = streetAt(m.i), from = (m.j - 0.5) * G, to = (m.j + 0.5) * G;
+    if (m.axis === 'x') { closedX.add(`${m.i}:${m.j}`); noMerge.add(key(m.j, m.i)); noMerge.add(key(m.j, m.i + 1)); }
+    else { closedZ.add(`${m.i}:${m.j}`); noMerge.add(key(m.i, m.j)); noMerge.add(key(m.i + 1, m.j)); }
+    streets.push(m.axis === 'x'
+      ? { x0: from + 7, z0: at, dx: 1, dz: 0, len: to - from - 14, y: 0, kind: 'alley', width: STREET - 1 }
+      : { x0: at, z0: from + 7, dx: 0, dz: 1, len: to - from - 14, y: 0, kind: 'alley', width: STREET - 1 });
+    patches.push(m.axis === 'x' ? { x: (from + to) / 2, z: at, w: to - from - 14, d: STREET } : { x: at, z: (from + to) / 2, w: STREET, d: to - from - 14 });
+    for (let t = from + 10; t <= to - 10; t += 5.2) { // the stalls, two rows
+      for (const s of [-1, 1]) {
+        const x = m.axis === 'x' ? t : at + s * 2.4, z = m.axis === 'x' ? at + s * 2.4 : t;
+        stalls.push({ x, z, color: signColor(rand) });
+        for (const [ox, oz] of [[-1.3, -1.1], [1.3, -1.1], [-1.3, 1.1], [1.3, 1.1]]) solid(core, 'dark', 'street', 0, x + ox, 1.2, z + oz, 0.14, 2.4, 0.14);
+        grid.add({ x, y: 2.9, z, w: 3.2, h: 1.2, d: 2.6 });
+      }
+      lantern(m.axis === 'x' ? t : at, 4.6, m.axis === 'x' ? at : t);
+    }
+    for (let t = from + 8; t <= to - 8; t += 6) { // the canopy's lines across, with paper lanterns
+      const a = m.axis === 'x' ? [t, -6.4] : [-6.4, t], b = m.axis === 'x' ? [t, 6.4] : [6.4, t];
+      const ax = m.axis === 'x' ? a[0] : at + a[0], az = m.axis === 'x' ? at + a[1] : a[1], bx = m.axis === 'x' ? b[0] : at + b[0], bz = m.axis === 'x' ? at + b[1] : b[1];
+      wires.push(ax, 5.2, az, (ax + bx) / 2, 4.7, (az + bz) / 2, (ax + bx) / 2, 4.7, (az + bz) / 2, bx, 5.2, bz);
+    }
+  }
   for (let bx = -HALF; bx <= HALF; bx++) {
     for (let bz = -HALF; bz <= HALF; bz++) {
       if (!ordinary(bx, bz)) continue;
-      if (bx + 1 !== 0 && ordinary(bx + 1, bz) && rand() < 0.13) {
+      if (bx + 1 !== 0 && ordinary(bx + 1, bz) && rand() < 0.19) { // (owner: less uniform blocks — more superblocks)
         merged.set(key(bx, bz), 'x'); swallowed.add(key(bx + 1, bz)); closedZ.add(`${bx}:${bz}`);
-      } else if (bz + 1 !== 0 && ordinary(bx, bz + 1) && rand() < 0.1) {
+      } else if (bz + 1 !== 0 && ordinary(bx, bz + 1) && rand() < 0.15) {
         merged.set(key(bx, bz), 'z'); swallowed.add(key(bx, bz + 1)); closedX.add(`${bz}:${bx}`);
       }
     }
@@ -1479,10 +1517,34 @@ export function planCity(seed: number): Plan {
   for (let j = -HALF - OUTER - 1; j <= HALF + OUTER; j++) {
     const z = streetAt(j);
     if (!openX(j, 0)) continue; // the arterial took this crossing: its own bridge carries the road
-    bridges.push({ x: 0, z, yaw: 0, w: 12, span: CANAL.w + 2 });
+    bridges.push({ x: 0, z, yaw: 0, w: 12, span: CANAL.w + 2, kind: Math.abs(j) % 5 }); // five builds, by position (owner: the stretch looked copycat)
     solid(core, 'dark', 'bridge', 0, 0, CANAL.deck - 0.25, z, CANAL.w, 0.5, STREET); // over the water alone, the street's full width: its pavements cross on it
   }
-  bridges.push({ x: 0, z: arterialZ(0), yaw: Math.atan2(-hdz, hdx), w: 2 * ARTERIAL_ROW, span: CANAL.w / Math.abs(hdx) + 2 }); // the arterial's: flush, skewed, its whole right of way wide
+  bridges.push({ x: 0, z: arterialZ(0), yaw: Math.atan2(-hdz, hdx), w: 2 * ARTERIAL_ROW, span: CANAL.w / Math.abs(hdx) + 2, kind: 1 }); // the arterial's: flush, skewed, its whole right of way wide
+  // THE QUAYS (owner: distinct canal infrastructure): stairs down to the water at landings between the bridges, boats
+  // moored at them, a pump house with its pipe into the canal
+  for (let j = -HALF; j <= HALF; j++) {
+    if (j === 0 || Math.abs(j) === 4 || Math.abs(j) % 2 === 1) continue; // every other block, not at the plaza, not under the arterial's bridge
+    for (const side of [-1, 1]) {
+      const zq = j * G + side * 4, xw = side * (CANAL.w / 2 - 0.9); // the stair hangs on the wall's inner face
+      for (let k = 0; k < 4; k++) solid(core, 'dark', 'street', 0, xw, -0.35 - k * 0.6, zq + k * 0.7 * side, 1.6, 0.3, 0.7); // the steps, down
+      solid(core, 'dark', 'street', 0, xw - side * 0.3, CANAL.water + 0.45, zq + side * 3.6, 2.2, 0.3, 2.4); // the landing
+      lantern(side * (CANAL.w / 2 - 0.3), 1.1, zq - side * 0.6);
+      if (Math.abs(j) % 4 === 2) { // a boat moored at the landing
+        const bx = side * (CANAL.w / 2 - 3.4), bz = zq + side * 6.5;
+        solid(core, 'dark', 'street', 0, bx, CANAL.water + 0.25, bz, 2.2, 0.5, 7);
+        solid(core, 'facade', 'shanty', SHANTY_TEX[0], bx, CANAL.water + 0.85, bz - 1.4, 1.5, 0.7, 2.4);
+        lantern(bx, CANAL.water + 1.6, bz + 2.8);
+      }
+    }
+  }
+  { // the pump house on the east quay's water side (not walked), slim enough for the quay, its pipe down into the water
+    const px = CANAL.w / 2 + 1.0, pz = -2 * G - 8;
+    solid(core, 'facade', 'industry', SHANTY_TEX[1], px, 1.5, pz, 1.6, 3.0, 3.2);
+    solid(core, 'cyl', 'industry', 0, px - 1.5, -0.4, pz, 0.6, 3.6, 0.6); // the standpipe, into the water
+    solid(core, 'dark', 'industry', 0, px - 0.75, 1.2, pz, 1.5, 0.5, 0.5); // the run from the house to it
+    lantern(px, 3.4, pz + 1.8);
+  }
   for (let t = -REACH; t <= REACH; t += 9) {
     if (Math.abs(t) < 30 || onStreet(t)) continue;
     if (Math.abs(arterialLat(0, t)) < ARTERIAL_ROW + 3) continue; // the arterial's bridge
@@ -1522,7 +1584,7 @@ export function planCity(seed: number): Plan {
   // paving on a thick slab the boats pass under), the STALLION rearing on a plinth at its heart under four spots,
   // planters and benches round its rim, its ring of lamps; a crowd mills on it (the renderer's zone)
   grid.add({ x: 0, y: -0.2, z: 0, w: 30, h: 0.6, d: 30 });
-  grid.add({ x: 0, y: 5, z: 0, w: 6, h: 10, d: 6 }); // the statue and its plinth (its ears top out near 9.4)
+  grid.add({ x: 0, y: 5.6, z: 0, w: 7, h: 11.2, d: 4.4 }); // the statue and its plinth (its ears top out near 11)
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2;
     posts.push({ x: Math.cos(a) * 17, z: Math.sin(a) * 17, h: 7 });
@@ -1853,6 +1915,35 @@ export function planCity(seed: number): Plan {
       if (lineDist(x, z, DIAGONAL.x0, DIAGONAL.z0, DIAGONAL.x1, DIAGONAL.z1) < 9) continue;
       solid(core, 'dark', 'street', 0, x, 1.2, z, 2.2, 2.4, 1.6);
       signs.push({ x, y: 1.5, z: z - sz * 0.85, rotY: sz > 0 ? Math.PI : 0, w: 1.8, h: 1.3, color: signColor(rand), kind: 'tag' });
+    }
+  }
+  // -- CONDUITS (owner: more infrastructure, cyberpunk): bundles of three pipes bridging a street between two masses
+  // that face each other, at 12–17.5 (under the flight's canyon band), brackets at both walls
+  {
+    let conduits = 0;
+    for (const r of roads) {
+      if (conduits >= 44) break;
+      const i = Math.round(r.at / G - 0.5);
+      if (i === -1 || i === 0 || Math.abs(Math.abs(r.at) - RAIL.at) < 1) continue;
+      const j0 = Math.round(r.from / G + 0.5), j1 = Math.round(r.to / G - 0.5);
+      for (let j = j0; j <= j1; j++) {
+        if (rand() > 0.22) continue;
+        const ba = r.axis === 'x' ? [j, i, 0] : [i, j, 2], bb = r.axis === 'x' ? [j, i + 1, 1] : [i + 1, j, 3];
+        const fa = faces.get(key3(ba)), fb = faces.get(key3(bb));
+        if (!fa || !fb) continue;
+        const y = 12 + rand() * 5.5;
+        const A = fa.find((s) => s.y + s.h / 2 > y + 2), B = fb.find((s) => s.y + s.h / 2 > y + 2);
+        if (!A || !B) continue;
+        const t = r.axis === 'x' ? Math.max(A.x - A.w / 2, B.x - B.w / 2) + 2 + rand() * Math.max(1, Math.min(A.w, B.w) - 4) : Math.max(A.z - A.d / 2, B.z - B.d / 2) + 2 + rand() * Math.max(1, Math.min(A.d, B.d) - 4);
+        if (Math.abs(arterialLat(r.axis === 'x' ? t : r.at, r.axis === 'x' ? r.at : t)) < ARTERIAL_ROW + 4) continue;
+        const span = STREET + 2.4;
+        for (let k = -1; k <= 1; k++) {
+          const off = k * 0.55;
+          if (r.axis === 'x') solid(core, 'dark', 'bits', 0, t + off, y, r.at, 0.42, 0.42, span); else solid(core, 'dark', 'bits', 0, r.at, y, t + off, span, 0.42, 0.42);
+        }
+        for (const s of [-1, 1]) { if (r.axis === 'x') solid(core, 'dark', 'bits', 0, t, y, r.at + s * (STREET / 2 + 0.6), 1.8, 0.7, 0.5); else solid(core, 'dark', 'bits', 0, r.at + s * (STREET / 2 + 0.6), y, t, 0.5, 0.7, 1.8); } // the brackets
+        conduits += 1;
+      }
     }
   }
   // -- ROOFTOP PARTIES (owner: NPCs having parties on civilian roofs): eight flat roofs off the route, string lights

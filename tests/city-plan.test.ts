@@ -154,8 +154,8 @@ describe('planCity', () => {
 
   it('keeps the avenues open down the middle (trees, lamps and bridges aside)', () => {
     for (let t = -EXT; t <= EXT; t += 5) {
-      const a = Math.abs(arterialLat(3, t)) < HIGHWAY.width / 2 + 4 ? null : plan.grid.hit(3, 12, t, 1); // (the deck bridges the canal)
-      const b = plan.grid.hit(t, 12, 3, 1);
+      const a = Math.abs(arterialLat(3, t)) < HIGHWAY.width / 2 + 4 || Math.abs(t) < 9 ? null : plan.grid.hit(3, 12, t, 1); // (the deck bridges the canal; the stallion stands on the plaza)
+      const b = Math.abs(t) < 9 ? null : plan.grid.hit(t, 12, 3, 1);
       expect(a, `canal avenue at z=${t}`).toBeNull();
       expect(b, `east-west avenue at x=${t}`).toBeNull();
     }
@@ -424,6 +424,20 @@ describe('The viaduct over its arterial (owner: roads that exist in real life)',
     expect(plan.stages.length).toBe(2);
     expect(plan.core.some((s) => s.kind === 'cyl' && s.w === 30), 'the dark disc is gone').toBe(false);
     expect(plan.grid.hit(0, 6, 0, 0.5), 'the statue is solid to the flight').not.toBeNull();
+  });
+
+  it('varies the canal and breaks the blocks: five bridge builds, quay stairs, market streets, conduits, rooftop plant', () => {
+    expect(new Set(plan.bridges.filter((b) => b.yaw === 0).map((b) => b.kind)).size).toBe(5);
+    const markets = plan.streets.filter((s) => s.kind === 'alley' && s.width === STREET - 1);
+    expect(markets.length).toBe(3);
+    for (const m of markets) expect(plan.stalls.filter((st) => Math.abs(-(st.x - m.x0) * m.dz + (st.z - m.z0) * m.dx) < 3 && (st.x - m.x0) * m.dx + (st.z - m.z0) * m.dz > -1 && (st.x - m.x0) * m.dx + (st.z - m.z0) * m.dz < m.len + 1).length).toBeGreaterThan(6);
+    const conduits = plan.core.filter((s) => s.kind === 'dark' && s.arch === 'bits' && Math.abs(s.w - 0.42) < 0.01 && Math.abs(s.h - 0.42) < 0.01 || s.kind === 'dark' && s.arch === 'bits' && Math.abs(s.d - 0.42) < 0.01 && Math.abs(s.h - 0.42) < 0.01);
+    expect(conduits.length).toBeGreaterThan(60); // three pipes a bridge
+    for (const c of conduits) { expect(c.y).toBeGreaterThan(11.5); expect(c.y).toBeLessThan(18); }
+    const towers = plan.core.filter((s) => s.kind === 'cyl' && s.arch === 'industry' && Math.abs(s.w - 3.6) < 0.01).length, glass = plan.core.filter((s) => s.kind === 'facade' && s.arch === 'bits' && Math.abs(s.h - 2.6) < 0.01).length;
+    expect(towers + glass, 'rooftop plant: cooling towers and greenhouses').toBeGreaterThan(12);
+    const stairs = plan.core.filter((s) => s.arch === 'street' && s.kind === 'dark' && Math.abs(s.w - 1.6) < 0.01 && Math.abs(s.h - 0.3) < 0.01 && s.y < 0);
+    expect(stairs.length).toBeGreaterThan(20); // the quay stairs' steps
   });
 
   it('dresses the aprons: parked vehicles, stalls and shanties, none on the carriageway', () => {

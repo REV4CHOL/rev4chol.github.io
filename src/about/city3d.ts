@@ -1467,6 +1467,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     scene.add(m);
   };
   const deckDark = new MeshBasicMaterial({ color: '#0a0c1e' });
+  const bridgeLamps: number[] = []; // the canal bridges' lamp poles and lanterns, lit below with the rail's lights
   const edge: number[] = []; // amber lights along every deck edge — the highway's and the ramps'
   const deckLights: number[] = []; // cold tubes under the deck, over the arterial
   for (const st of plan.streets) {
@@ -1690,24 +1691,57 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     const put = (inst: InstancedMesh, j: number, x: number, y: number, z: number, w: number, h: number, d: number, rz = 0) => {
       dummy.position.set(x, y, z); dummy.rotation.set(0, 0, rz); dummy.scale.set(w, h, d); dummy.updateMatrix(); inst.setMatrixAt(j, dummy.matrix);
     };
+    // FIVE BUILDS (owner: the stretch of bridges looked copycat): the bowstring arch, a plain girder with lamp poles, a
+    // cable-stayed span from a pylon, a steel truss, a stone-parapet bridge with lanterns — by position along the canal
+    const stoneMat = new MeshLambertMaterial({ color: '#5d5a66' });
+    const cableMat = new MeshLambertMaterial({ color: '#c8ccd6' });
     for (const b of ews) {
-      const deck = new Mesh(new BoxGeometry(2 * HALF_SPAN + 2, 0.6, STREET), [concrete, concrete, streetMat(bridgeStrip, (2 * HALF_SPAN + 2) / 12), concrete, concrete, concrete]);
-      deck.position.set(b.x, DECK_Y - 0.3, b.z);
+      const deck = new Mesh(new BoxGeometry(2 * HALF_SPAN + 2, b.kind === 4 ? 1.2 : 0.6, STREET), [concrete, concrete, streetMat(bridgeStrip, (2 * HALF_SPAN + 2) / 12), concrete, concrete, concrete]);
+      deck.position.set(b.x, DECK_Y - (b.kind === 4 ? 0.6 : 0.3), b.z);
       deck.receiveShadow = true; deck.castShadow = true;
       scene.add(deck);
       for (const side of [-1, 1]) {
         const zs = b.z + side * (STREET / 2 + 0.1); // the arches outside the pavements
-        for (let i = 0; i < SEG; i++) { // the arch, in segments
-          const x0 = -HALF_SPAN + (2 * HALF_SPAN * i) / SEG, x1 = -HALF_SPAN + (2 * HALF_SPAN * (i + 1)) / SEG;
-          const y0 = archY(x0), y1 = archY(x1);
-          put(arches, ia++, (x0 + x1) / 2, (y0 + y1) / 2, zs, Math.hypot(x1 - x0, y1 - y0) + 0.1, 0.36, 0.3, Math.atan2(y1 - y0, x1 - x0));
+        if (b.kind === 0) {
+          for (let i = 0; i < SEG; i++) { // the arch, in segments
+            const x0 = -HALF_SPAN + (2 * HALF_SPAN * i) / SEG, x1 = -HALF_SPAN + (2 * HALF_SPAN * (i + 1)) / SEG;
+            const y0 = archY(x0), y1 = archY(x1);
+            put(arches, ia++, (x0 + x1) / 2, (y0 + y1) / 2, zs, Math.hypot(x1 - x0, y1 - y0) + 0.1, 0.36, 0.3, Math.atan2(y1 - y0, x1 - x0));
+          }
+          for (const hx of HANG) put(arches, ia++, hx, (DECK_Y + 0.3 + archY(hx)) / 2, zs, 0.16, archY(hx) - DECK_Y - 0.3, 0.16); // the hangers
+        } else if (b.kind === 1) { // a girder: a parapet wall and three lamp poles a side
+          const wall = new Mesh(new BoxGeometry(2 * HALF_SPAN + 2, 0.9, 0.3), concrete); wall.position.set(b.x, DECK_Y + 0.45, zs); scene.add(wall);
+          for (const px of [-8, 0, 8]) { const pole = new Mesh(new BoxGeometry(0.16, 4.2, 0.16), cableMat); pole.position.set(b.x + px, DECK_Y + 2.1, zs); scene.add(pole); bridgeLamps.push(b.x + px, DECK_Y + 4.3, zs); }
+        } else if (b.kind === 2) { // cable-stayed: a pylon at the far bank, stays fanning to the deck
+          if (side > 0) {
+            const pylon = new Mesh(new BoxGeometry(0.9, 15, 0.9), cableMat); pylon.position.set(b.x + HALF_SPAN - 1, DECK_Y + 7.5, b.z + STREET / 2 + 0.4); scene.add(pylon);
+            const pylon2 = pylon.clone(); pylon2.position.z = b.z - STREET / 2 - 0.4; scene.add(pylon2);
+            for (const s2 of [-1, 1]) for (const hx of [-9, -5, -1, 3]) {
+              const x0 = b.x + HALF_SPAN - 1, y0 = DECK_Y + 14, x1 = b.x + hx, y1 = DECK_Y + 0.4;
+              const stay = new Mesh(new BoxGeometry(Math.hypot(x1 - x0, y1 - y0), 0.1, 0.1), cableMat);
+              stay.position.set((x0 + x1) / 2, (y0 + y1) / 2, b.z + s2 * (STREET / 2 + 0.4)); stay.rotation.z = Math.atan2(y1 - y0, x1 - x0); scene.add(stay);
+            }
+            bridgeLamps.push(b.x + HALF_SPAN - 1, DECK_Y + 15.2, b.z + STREET / 2 + 0.4, b.x + HALF_SPAN - 1, DECK_Y + 15.2, b.z - STREET / 2 - 0.4);
+          }
+        } else if (b.kind === 3) { // a truss: top chord and diagonals a side
+          put(arches, ia++, 0, DECK_Y + 3.2, zs, 2 * HALF_SPAN + 2, 0.3, 0.3);
+          for (let i = 0; i < 6; i++) {
+            const x0 = -HALF_SPAN + (2 * HALF_SPAN * i) / 6, x1 = x0 + (2 * HALF_SPAN) / 6;
+            put(arches, ia++, (x0 + x1) / 2, DECK_Y + 1.75, zs, Math.hypot(x1 - x0, 2.9), 0.16, 0.16, Math.atan2(2.9, x1 - x0) * (i % 2 ? -1 : 1));
+            put(arches, ia++, x0, DECK_Y + 1.75, zs, 0.16, 2.9, 0.16);
+          }
+        } else { // a stone bridge: a thick parapet with lanterns on piers
+          const wall = new Mesh(new BoxGeometry(2 * HALF_SPAN + 2, 1.1, 0.5), stoneMat); wall.position.set(b.x, DECK_Y + 0.55, zs); scene.add(wall);
+          for (const px of [-11, -5.5, 0, 5.5, 11]) { const pier = new Mesh(new BoxGeometry(0.8, 1.6, 0.8), stoneMat); pier.position.set(b.x + px, DECK_Y + 0.8, zs); scene.add(pier); if (px !== 0) bridgeLamps.push(b.x + px, DECK_Y + 2.0, zs); }
         }
-        for (const hx of HANG) put(arches, ia++, hx, (DECK_Y + 0.3 + archY(hx)) / 2, zs, 0.16, archY(hx) - DECK_Y - 0.3, 0.16); // the hangers
-        put(rails, ir++, 0, DECK_Y + 1.35, b.z + side * (STREET / 2 - 0.15), 2 * HALF_SPAN + 2, 0.1, 0.1); // the handrail, at the pavement's edge
-        for (let i = 0; i < BAL; i++) put(rails, ir++, -HALF_SPAN + (2 * HALF_SPAN * i) / (BAL - 1), DECK_Y + 0.85, b.z + side * (STREET / 2 - 0.15), 0.08, 1.0, 0.08);
+        if (b.kind !== 4) {
+          put(rails, ir++, 0, DECK_Y + 1.35, b.z + side * (STREET / 2 - 0.15), 2 * HALF_SPAN + 2, 0.1, 0.1); // the handrail, at the pavement's edge
+          for (let i = 0; i < BAL; i++) put(rails, ir++, -HALF_SPAN + (2 * HALF_SPAN * i) / (BAL - 1), DECK_Y + 0.85, b.z + side * (STREET / 2 - 0.15), 0.08, 1.0, 0.08);
+        }
       }
-      for (const px of [-3, 0, 3]) put(arches, ia++, px, archY(px), b.z, 0.26, 0.26, STREET + 0.4); // portal braces
+      if (b.kind === 0) for (const px of [-3, 0, 3]) put(arches, ia++, px, archY(px), b.z, 0.26, 0.26, STREET + 0.4); // portal braces
     }
+    arches.count = ia; rails.count = ir;
     for (const inst of [arches, rails]) { inst.instanceMatrix.needsUpdate = true; inst.castShadow = true; inst.receiveShadow = true; scene.add(inst); }
     for (const b of plan.bridges.filter((b) => b.yaw !== 0)) { // the arterial's: a flush girder deck the width of its right of way, balustrades along both edges
       const deck = new Mesh(new BoxGeometry(b.span, 0.6, b.w), concrete);
@@ -1732,24 +1766,37 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     const rim = new Mesh(new CylinderGeometry(15.3, 15.3, 0.16, 48, 1, true), new MeshLambertMaterial({ color: '#8e92a6', side: DoubleSide }));
     rim.position.set(0, 0.0, 0);
     scene.add(rim);
-    const bronze = new MeshStandardMaterial({ color: '#5a4a2e', metalness: 0.7, roughness: 0.45 });
+    // THE STALLION (owner: a big statue of a stallion): rearing, facing east along the boulevard. Hind legs planted on the
+    // cap, the haunches over them, the barrel tilted up at 40 degrees, a deep chest, the neck arched forward, the head
+    // down toward the muzzle, ears pricked, a stepped mane, the forelegs drawn up and pawing, the tail flying back.
+    // Lit bronze (a warm emissive so it never falls to a silhouette), spots at its feet.
+    const bronze = new MeshStandardMaterial({ color: '#7a5c30', metalness: 0.55, roughness: 0.5, emissive: '#2c1c08', emissiveIntensity: 0.55 });
     const stone = new MeshLambertMaterial({ color: '#4a4e5c' });
     const horse = new Group();
-    const box = (x: number, y: number, z: number, w: number, h: number, d: number, m: Material, rz = 0, rx = 0) => {
-      const b = new Mesh(new BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.rotation.set(rx, 0, rz); b.castShadow = true; b.receiveShadow = true; horse.add(b); return b;
+    const box = (x: number, y: number, z: number, w: number, h: number, d: number, m: Material, rz = 0) => {
+      const bx = new Mesh(new BoxGeometry(w, h, d), m); bx.position.set(x, y, z); bx.rotation.z = rz; bx.castShadow = true; bx.receiveShadow = true; horse.add(bx); return bx;
     };
-    box(0, 1.25, 0, 5.2, 2.5, 3.6, stone); // the plinth
-    box(0, 2.62, 0, 4.2, 0.24, 2.8, stone); // its cap
-    // the stallion rears: hind legs planted, body up at 40°, forelegs pawing, the neck arched, the tail flying
-    box(-0.4, 5.6, 0, 3.6, 1.7, 1.3, bronze, 0.7); // the body, tilted up toward the head (+x)
-    box(1.6, 7.1, 0, 1.5, 2.1, 0.9, bronze, 0.25); // the neck
-    box(2.35, 8.55, 0, 1.6, 0.8, 0.8, bronze, -0.15); // the head
-    box(3.1, 8.35, 0, 0.5, 0.45, 0.6, bronze); // the muzzle
-    for (const s of [-1, 1]) box(2.05, 9.1, s * 0.25, 0.28, 0.5, 0.2, bronze, -0.2); // the ears
-    box(1.2, 8.2, 0, 1.2, 0.35, 0.5, bronze, 0.6); // the mane
-    for (const s of [-1, 1]) box(1.3, 6.1, s * 0.5, 0.45, 2.2, 0.42, bronze, -0.75); // the forelegs, pawing
-    for (const s of [-1, 1]) { box(-1.7, 3.85, s * 0.5, 0.5, 2.5, 0.45, bronze, 0.12); box(-1.55, 5.0, s * 0.5, 0.9, 0.8, 0.6, bronze, 0.5); } // the hind legs and haunches
-    box(-2.5, 6.0, 0, 1.4, 0.4, 0.45, bronze, -0.5); // the tail, flying back
+    box(0, 1.3, 0, 5.8, 2.6, 4.2, stone); // the plinth
+    box(0, 2.72, 0, 4.8, 0.24, 3.2, stone); // its cap
+    for (const z of [-0.55, 0.55]) { // the hind legs, planted: hooves, cannons, hocks up to the haunches
+      box(-1.15, 2.98, z, 0.78, 0.44, 0.62, bronze);
+      box(-1.2, 3.85, z, 0.52, 1.5, 0.48, bronze);
+      box(-1.45, 4.95, z, 0.72, 1.3, 0.6, bronze, 0.35);
+    }
+    box(-1.55, 6.05, 0, 2.0, 1.75, 1.6, bronze, 0.5); // the haunches
+    box(-0.15, 6.75, 0, 3.9, 1.65, 1.35, bronze, 0.7); // the barrel, tilted up toward the head
+    box(1.3, 7.75, 0, 1.6, 1.7, 1.4, bronze, 0.7); // the chest
+    box(2.2, 9.1, 0, 1.05, 2.6, 0.9, bronze, 0.32); // the neck, arched forward
+    for (let k = 0; k < 5; k++) box(1.62 + k * 0.28, 8.55 + k * 0.52, 0, 0.5, 0.6, 0.36, bronze, 0.32); // the mane, stepped along the crest
+    box(3.15, 10.2, 0, 1.6, 0.82, 0.74, bronze, -0.32); // the head, down toward the muzzle
+    box(3.95, 9.88, 0, 0.6, 0.52, 0.56, bronze, -0.32); // the muzzle
+    box(3.05, 9.72, 0, 0.9, 0.36, 0.62, bronze, -0.32); // the jaw
+    for (const z of [-0.24, 0.24]) box(2.62, 10.85, z, 0.2, 0.46, 0.15, bronze, -0.15); // the ears, pricked
+    // the forelegs, drawn up and pawing: one higher than the other
+    box(1.95, 6.5, 0.5, 0.5, 1.6, 0.46, bronze, -0.8); box(2.55, 5.7, 0.5, 0.44, 1.35, 0.42, bronze, 0.55); box(2.35, 5.05, 0.5, 0.56, 0.4, 0.5, bronze, 0.55);
+    box(1.9, 6.25, -0.5, 0.5, 1.7, 0.46, bronze, -0.45); box(2.25, 5.0, -0.5, 0.44, 1.4, 0.42, bronze, 0.2); box(2.15, 4.3, -0.5, 0.56, 0.4, 0.5, bronze, 0.2);
+    box(-2.55, 6.4, 0, 1.5, 0.5, 0.42, bronze, -0.6); box(-3.3, 5.5, 0, 1.1, 0.42, 0.36, bronze, -1.0); // the tail, flying back and down
+    horse.rotation.y = 0; // facing +x: east, down the boulevard
     scene.add(horse);
     lampHeads.push(paving);
   }
@@ -2396,6 +2443,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     for (const inst of [deck, rails3]) { inst.instanceMatrix.needsUpdate = true; inst.castShadow = true; inst.receiveShadow = true; scene.add(inst); }
     glowPoints(railLights, '#ffb347', 2.0, 0.8);
     glowPoints(deckLights, '#dfe6ff', 2.4, 0.7); // the cold tubes under the deck
+    glowPoints(bridgeLamps, '#ffe9c9', 3.0, 0.9); // the bridges' lamp poles and lanterns
     for (const st of plan.rail.stations) {
       const along = Math.abs(st.dx) > 0.5;
       const canopy = new Mesh(new BoxGeometry(along ? 22 : 9.4, 0.4, along ? 9.4 : 22), canopyMat);
@@ -3374,6 +3422,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       practicals.push({ x: sg.x + nx * 1.2, y: sg.y, z: sg.z + nz * 1.2, color: new Color(sg.color), power: 6 + Math.min(80, sg.w * sg.h * 0.5), reach: 16 + Math.min(40, sg.w) });
     }
     for (const st of plan.stalls) practicals.push({ x: st.x, y: 3.4, z: st.z, color: new Color(st.color), power: 10, reach: 13 });
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) practicals.push({ x: sx * 4.6, y: 1.0, z: sz * 4.6, color: new Color('#ffd9a0'), power: 30, reach: 22 }); // the stallion's spots
     for (const b of plan.billboards) {
       if (!b.lit) continue;
       const nx = Math.sin(b.rotY), nz = Math.cos(b.rotY);
