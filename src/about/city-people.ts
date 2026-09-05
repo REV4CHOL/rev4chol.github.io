@@ -385,10 +385,11 @@ export class People {
           p.t += p.v;
           if (this.solid) { // never through a wall, a kiosk, a stall's leg (owner: they walked through buildings): step in toward the kerb, else turn about
             const x = st.x0 + st.dx * p.t - st.dz * p.off, z = st.z0 + st.dz * p.t + st.dx * p.off;
-            if (this.solid(x, 0.9, z)) {
+            const solid = this.solid;
+            if (solid(x, 0.9, z)) {
               const [lo, hi] = this.band(st), sg = Math.sign(p.off || 1);
               const tryOff = [sg * Math.max(lo, Math.abs(p.off) - 0.7), sg * Math.min(hi, Math.abs(p.off) + 0.7)] // toward the kerb (a vending machine at the wall), toward the wall (a leg at the kerb)
-                .find((o) => Math.abs(Math.abs(o) - Math.abs(p.off)) > 0.05 && !this.solid(st.x0 + st.dx * p.t - st.dz * o, 0.9, st.z0 + st.dz * p.t + st.dx * o));
+                .find((o) => Math.abs(Math.abs(o) - Math.abs(p.off)) > 0.05 && !solid(st.x0 + st.dx * p.t - st.dz * o, 0.9, st.z0 + st.dz * p.t + st.dx * o));
               if (tryOff !== undefined) p.off = tryOff;
               else { p.t -= p.v; p.v = -p.v; p.goal = null; }
             }
