@@ -416,6 +416,16 @@ describe('The viaduct over its arterial (owner: roads that exist in real life)',
     }
   });
 
+  it('throws parties on the roofs, puts people on the balconies, builds the festival and the plaza', () => {
+    expect(plan.parties.length).toBe(8);
+    for (const p of plan.parties) { expect(p.y).toBeGreaterThan(22); expect(p.y).toBeLessThan(83); expect(Math.min(p.w, p.d)).toBeGreaterThan(4.9); }
+    expect(plan.perches.length).toBeGreaterThan(200);
+    for (const p of plan.perches.slice(0, 50)) expect(p.y).toBeGreaterThan(3);
+    expect(plan.stages.length).toBe(2);
+    expect(plan.core.some((s) => s.kind === 'cyl' && s.w === 30), 'the dark disc is gone').toBe(false);
+    expect(plan.grid.hit(0, 6, 0, 0.5), 'the statue is solid to the flight').not.toBeNull();
+  });
+
   it('dresses the aprons: parked vehicles, stalls and shanties, none on the carriageway', () => {
     expect(plan.parked.length).toBeGreaterThan(10);
     for (const p of plan.parked) {

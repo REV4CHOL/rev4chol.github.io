@@ -1135,6 +1135,22 @@ function stairsTexture(): CanvasTexture {
   t.magFilter = NearestFilter; t.minFilter = LinearMipmapLinearFilter;
   return t;
 }
+/** The plaza's paving: light stone flags with a radial pattern, seamed. */
+function pavingTexture(aniso: number): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const x = c.getContext('2d')!;
+  x.fillStyle = '#8a8ea0'; x.fillRect(0, 0, 256, 256);
+  x.fillStyle = '#767a8c';
+  for (let i = 0; i < 256; i += 16) { x.fillRect(i, 0, 1, 256); x.fillRect(0, i, 256, 1); }
+  x.fillStyle = '#9ea2b4';
+  for (let i = 0; i < 300; i++) { x.globalAlpha = 0.25; x.fillRect((i * 37) % 256, (i * 53) % 256, 6, 6); }
+  x.globalAlpha = 1;
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace; t.wrapS = t.wrapT = RepeatWrapping; t.repeat.set(4, 4);
+  t.magFilter = NearestFilter; t.minFilter = LinearMipmapLinearFilter; t.anisotropy = Math.min(4, aniso);
+  return t;
+}
 /** A zebra crossing: white bars across u, clear between them. */
 function zebraTexture(): CanvasTexture {
   const c = document.createElement('canvas');
@@ -1704,6 +1720,38 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       }
     }
     dummy.rotation.set(0, 0, 0);
+  }
+  // -- THE PLAZA AND THE STALLION (owner: a big statue of a stallion; the dark circle made no sense): a thick paved
+  // disc spanning the canal (the boats pass under), a kerb ring, and at its heart a voxel stallion rearing on a
+  // plinth — body, neck, head, mane, four legs, the tail — in bronze, lit from its feet -----------------------------
+  {
+    const paving = new MeshLambertMaterial({ map: pavingTexture(aniso), emissive: '#2c4a8e', emissiveIntensity: 0.7 });
+    const disc = new Mesh(new CylinderGeometry(15, 15, 0.6, 48), paving);
+    disc.position.set(0, -0.25, 0); disc.receiveShadow = true; disc.castShadow = true;
+    scene.add(disc);
+    const rim = new Mesh(new CylinderGeometry(15.3, 15.3, 0.16, 48, 1, true), new MeshLambertMaterial({ color: '#8e92a6', side: DoubleSide }));
+    rim.position.set(0, 0.0, 0);
+    scene.add(rim);
+    const bronze = new MeshStandardMaterial({ color: '#5a4a2e', metalness: 0.7, roughness: 0.45 });
+    const stone = new MeshLambertMaterial({ color: '#4a4e5c' });
+    const horse = new Group();
+    const box = (x: number, y: number, z: number, w: number, h: number, d: number, m: Material, rz = 0, rx = 0) => {
+      const b = new Mesh(new BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.rotation.set(rx, 0, rz); b.castShadow = true; b.receiveShadow = true; horse.add(b); return b;
+    };
+    box(0, 1.25, 0, 5.2, 2.5, 3.6, stone); // the plinth
+    box(0, 2.62, 0, 4.2, 0.24, 2.8, stone); // its cap
+    // the stallion rears: hind legs planted, body up at 40°, forelegs pawing, the neck arched, the tail flying
+    box(-0.4, 5.6, 0, 3.6, 1.7, 1.3, bronze, 0.7); // the body, tilted up toward the head (+x)
+    box(1.6, 7.1, 0, 1.5, 2.1, 0.9, bronze, 0.25); // the neck
+    box(2.35, 8.55, 0, 1.6, 0.8, 0.8, bronze, -0.15); // the head
+    box(3.1, 8.35, 0, 0.5, 0.45, 0.6, bronze); // the muzzle
+    for (const s of [-1, 1]) box(2.05, 9.1, s * 0.25, 0.28, 0.5, 0.2, bronze, -0.2); // the ears
+    box(1.2, 8.2, 0, 1.2, 0.35, 0.5, bronze, 0.6); // the mane
+    for (const s of [-1, 1]) box(1.3, 6.1, s * 0.5, 0.45, 2.2, 0.42, bronze, -0.75); // the forelegs, pawing
+    for (const s of [-1, 1]) { box(-1.7, 3.85, s * 0.5, 0.5, 2.5, 0.45, bronze, 0.12); box(-1.55, 5.0, s * 0.5, 0.9, 0.8, 0.6, bronze, 0.5); } // the hind legs and haunches
+    box(-2.5, 6.0, 0, 1.4, 0.4, 0.45, bronze, -0.5); // the tail, flying back
+    scene.add(horse);
+    lampHeads.push(paving);
   }
   // -- SHOP LIGHT ON THE PAVEMENT (owner: the street level lit like a city at night): every
   // shopfront lays a wash of its light on the ground before it, on all four sides ---------------
@@ -2771,10 +2819,15 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   for (let i = -HALF - OUTER - 1; i <= HALF + OUTER; i++) crossNodes.push(streetAt(i));
   // the two sims speak: the walkers ask whether a crosswalk is clear of vehicles and where the walls are; the traffic
   // asks who is in its crosswalks (owner: pedestrians clipped through vehicles, vehicles drove through pedestrians)
+  // the plaza's crowd (about the statue, which they browse like a stall), the stages' crowds, the rooftop parties
+  zones.push({ x: 0, z: 0, w: 22, d: 22, stalls: [{ x: 0, z: 0, color: '#ffffff' }] });
+  for (const st of plan.stages) zones.push({ x: st.x + Math.sign(st.x) * (st.w / 2 + 6.5), z: st.z, w: 9, d: 16, stalls: [] });
+  for (const pt of plan.parties) zones.push({ x: pt.x, y: pt.y, z: pt.z, w: pt.w, d: pt.d, stalls: [] });
   const people = new People(plan.streets, zones, plan.stalls, mulberry32(seed ^ 0x7e0b1e), calm ? 1100 : 2200, crossOK, crossNodes, {
     solid: (x, y, z) => plan.grid.hit(x, y, z, 0.3) !== null,
     roadClear: (x, z) => traffic.clearAt(x, z),
     doors: plan.doors,
+    perches: plan.perches,
   });
   traffic.peds = (x, z, axis) => people.walkersIn(x, z, axis) > 0;
   const PEOPLE = people.people.length;

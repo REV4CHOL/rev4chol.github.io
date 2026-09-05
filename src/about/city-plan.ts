@@ -209,6 +209,12 @@ export interface Plan {
   /** The underground stations' entrances: a stairwell going down at (x, z), its long side along yaw (the renderer paints
    *  the steps), the door at its street end. */
   subways: { x: number; z: number; rotY: number }[];
+  /** Rooftop parties: a crowd mills on each roof at `y` under string lights (the renderer makes them people zones). */
+  parties: { x: number; y: number; z: number; w: number; d: number }[];
+  /** Balcony perches: someone stands, sits or leans here, facing out along yaw. */
+  perches: { x: number; y: number; z: number; yaw: number }[];
+  /** The festival stages on the boulevard's median: a crowd gathers before each. */
+  stages: { x: number; z: number; w: number; d: number }[];
   leds: Strip[];
   awnings: Strip[];
   /** Tarpaulins over the shacks and the stalls, the washing on the balconies — lit dim, in their own colours. */
@@ -446,6 +452,9 @@ export function planCity(seed: number): Plan {
   const ramps: Street[] = []; // planned before any lot is built — they cap what stands under them
   const doors: { x: number; z: number }[] = [];
   const lifts: { x: number; z: number; top: number }[] = [];
+  const parties: Plan['parties'] = [];
+  const perches: Plan['perches'] = [];
+  const stages: Plan['stages'] = [];
   const subways: { x: number; z: number; rotY: number }[] = [];
   const piers: { x: number; z: number }[] = [];
   const stacks: { x: number; z: number; top: number }[] = [];
@@ -628,6 +637,11 @@ export function planCity(seed: number): Plan {
       for (let y = 3.8; y < h - 1.5; y += 3.6) {
         solid(bucket, 'dark', 'bits', 0, f.x, y, f.z, s < 2 ? len : 0.9, 0.22, s < 2 ? 0.9 : len);
         clutter.push({ kind: 'rail', x: fr.x, y: y + 0.55, z: fr.z, w: len, h: 0.85, d: 0.05, rotY: fr.rot });
+        if (bucket === core && rand() < 0.28) { // someone on the balcony (owner: NPCs doing things on the balconies), facing out
+          const u = (rand() - 0.5) * (len - 1.6);
+          perches.push({ x: f.x + (s < 2 ? u : 0), y: y + 0.11, z: f.z + (s >= 2 ? u : 0), yaw: [0, Math.PI, Math.PI / 2, -Math.PI / 2][s] });
+          if (len > 4 && rand() < 0.35) perches.push({ x: f.x + (s < 2 ? u + 1.3 : 0), y: y + 0.11, z: f.z + (s >= 2 ? u + 1.3 : 0), yaw: [0, Math.PI, Math.PI / 2, -Math.PI / 2][s] }); // two, talking
+        }
         for (let k = 0, n = rand() < 0.45 ? 1 + Math.floor(rand() * 3) : 0; k < n; k++) { // the washing
           const u = (rand() - 0.5) * (len - 1);
           tarps.push({ x: fr.x + (s < 2 ? u : 0), y: y + 0.45, z: fr.z + (s >= 2 ? u : 0), w: s < 2 ? 0.45 : 0.06, h: 0.55, d: s < 2 ? 0.06 : 0.45, color: pick(rand, TARP) });
@@ -1504,10 +1518,37 @@ export function planCity(seed: number): Plan {
     for (const [ox, oz] of [[-1.2, -1.2], [1.2, -1.2], [-1.2, 1.2], [1.2, 1.2]]) solid(core, 'dark', 'street', 0, x + ox, (CANAL.water + floor) / 2 - 0.1, z + oz, 0.16, floor - CANAL.water + 0.2, 0.16);
     lantern(x - side * 1.9, floor + 1.9, z);
   }
-  solid(core, 'cyl', 'street', 0, 0, 0.25, 0, 30, 0.5, 30); // the plaza's disc
+  // THE PLAZA (owner: the big dark circle made no sense): a paved circle spanning the canal (the renderer lays it, light
+  // paving on a thick slab the boats pass under), the STALLION rearing on a plinth at its heart under four spots,
+  // planters and benches round its rim, its ring of lamps; a crowd mills on it (the renderer's zone)
+  grid.add({ x: 0, y: -0.2, z: 0, w: 30, h: 0.6, d: 30 });
+  grid.add({ x: 0, y: 5, z: 0, w: 6, h: 10, d: 6 }); // the statue and its plinth (its ears top out near 9.4)
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2;
     posts.push({ x: Math.cos(a) * 17, z: Math.sin(a) * 17, h: 7 });
+    const r = 12.6, px = Math.cos(a + Math.PI / 12) * r, pz = Math.sin(a + Math.PI / 12) * r;
+    if (i % 2 === 0) { // a planter with a small tree
+      solid(core, 'dark', 'street', 0, px, 0.45, pz, 1.6, 0.9, 1.6);
+      solid(core, 'tree', 'street', 0, px, 2.4, pz, 2.0, 3.0, 2.0);
+    } else solid(core, 'dark', 'street', 0, px, 0.3, pz, 1.8, 0.6, 0.6); // a bench
+  }
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) spots.push(sx * 4.6, 0.6, sz * 4.6); // the statue's spots, at its feet
+  // THE FESTIVAL on the boulevard's median (owner: gatherings, festivals, a lively boulevard): bunting strung between the
+  // trees with paper lanterns, two stages with screens and a crowd before each, more stalls
+  for (let t = -EXT + 14; t <= EXT - 14; t += 14) {
+    if (Math.abs(t) < 34 || onStreet(t)) continue;
+    wires.push(t, 4.9, -7.5, t, 4.4, 0, t, 4.4, 0, t, 4.9, 7.5); // the bunting's line, sagging to the middle
+    for (const u of [-5, -2.5, 0, 2.5, 5]) lantern(t, 4.55 - Math.abs(u) * 0.06 + 0.0, u);
+  }
+  for (const sx of [-1, 1]) { // a stage each side of the plaza, its back to the plaza, its crowd toward the avenue's end
+    const x = sx * (3 * G + 6), w = 9, d = 7;
+    stages.push({ x, z: 0, w, d });
+    solid(core, 'dark', 'street', 0, x, 0.55, 0, w, 1.1, d); // the stage
+    solid(core, 'dark', 'street', 0, x - sx * (w / 2 - 0.5), 4.2, 0, 1.0, 6.2, d); // the backdrop wall
+    signs.push({ x: x - sx * (w / 2 - 1.05), y: 4.4, z: 0, rotY: sx > 0 ? Math.PI / 2 : -Math.PI / 2, w: 6.2, h: 3.4, color: sx > 0 ? '#ff4fd8' : '#5df2ff', kind: 'screen' }); // the screen
+    for (const s of [-1, 1]) { solid(core, 'dark', 'street', 0, x + sx * (w / 2 - 0.8), 1.9, s * (d / 2 + 0.9), 1.0, 1.6, 0.9); lantern(x + sx * (w / 2 - 0.8), 3.0, s * (d / 2 + 0.9)); } // the speaker stacks
+    for (const s of [-1, 1]) spots.push(x + sx * (w / 2 + 3), 6.8, s * 3); // the stage's spots
+    for (const s of [-1, 1]) solid(core, 'dark', 'street', 0, x + sx * (w / 2 + 3), 3.4, s * 3, 0.14, 6.8, 0.14); // on masts
   }
   // the night market: two rows of stalls down the tree-lined avenue's
   // median either side of the plaza (never on a road, never on the water)
@@ -1814,6 +1855,21 @@ export function planCity(seed: number): Plan {
       signs.push({ x, y: 1.5, z: z - sz * 0.85, rotY: sz > 0 ? Math.PI : 0, w: 1.8, h: 1.3, color: signColor(rand), kind: 'tag' });
     }
   }
+  // -- ROOFTOP PARTIES (owner: NPCs having parties on civilian roofs): eight flat roofs off the route, string lights
+  // round the edge, a DJ box with a glowing strip, a crowd milling at roof height (the renderer's zone)
+  for (const t of tall.filter((q) => q.flat && q.top > 22 && q.top < 82 && q.w >= 8 && q.d >= 8 && allowedTop(q.x, q.z, q.w + 8, q.d + 8) === Infinity).slice(0, 8)) {
+    parties.push({ x: t.x, y: t.top + 0.05, z: t.z, w: t.w - 3, d: t.d - 3 });
+    for (let k = 0; k < 4; k++) { // the string lights round the edge
+      const along = k < 2 ? t.w : t.d, n = Math.max(3, Math.floor(along / 2.2));
+      for (let i = 0; i <= n; i++) {
+        const u = -along / 2 + (along * i) / n, edge = k % 2 ? 1 : -1;
+        lantern(t.x + (k < 2 ? u : edge * (t.w / 2 - 0.4)), t.top + 2.3 - 0.25 * Math.sin((i / n) * Math.PI), t.z + (k < 2 ? edge * (t.d / 2 - 0.4) : u));
+      }
+    }
+    solid(core, 'dark', 'street', 0, t.x - t.w / 2 + 1.6, t.top + 0.5, t.z, 2.2, 1.0, 1.2); // the DJ's box
+    leds.push({ x: t.x - t.w / 2 + 1.6, y: t.top + 1.05, z: t.z, w: 2.2, h: 0.12, d: 0.12, color: pick(rand, ['#ff4fd8', '#5df2ff', '#C8FF00']) });
+    pois.push({ x: t.x, y: t.top + 2, z: t.z, w: 1.4 }); // the auto flight looks at the parties
+  }
   // -- UNDERGROUND STATIONS (owner: I want underground train stations): eight entrances — a stairwell going down
   // (a dark inset the renderer paints steps into), railings along it, a canopy on two posts, a lit sign block, a
   // lantern — four in the tree-lined avenue's median beside its roads' pavements, four on the arterial's aprons;
@@ -2083,6 +2139,7 @@ export function planCity(seed: number): Plan {
   return {
     core, outer, sprawl, strips, leds, awnings, tarps, clutter, billboards, spots, signs, posts, lanterns, wires, vents, holos, stalls, sprawlLamps, neon,
     beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead, air, pads, rail, piers, patches, parked, doors, lifts, subways,
+    parties, perches, stages,
   };
 }
 

@@ -169,6 +169,18 @@ describe('People', () => {
     expect(closed.people.filter((p) => p.act === 'inside' || p.act === 'enter').length).toBe(0);
   }, 90000);
 
+  it('perches people on the balconies and mills the parties at roof height', () => {
+    const party = { x: 100, y: 40, z: 100, w: 10, d: 10, stalls: [] };
+    const crowd = new People(plan.streets, [party], [], mulberry32(8), 400, () => true, nodes, { perches: plan.perches });
+    for (let f = 0; f < 600; f++) crowd.step();
+    const up = crowd.people.filter((p) => p.zone === party);
+    expect(up.length).toBeGreaterThan(3);
+    for (const p of up) { expect(p.y).toBe(40); expect(Math.abs(p.x - 100)).toBeLessThanOrEqual(5.5); }
+    const perched = crowd.people.filter((p) => p.act === 'perch');
+    expect(perched.length).toBeGreaterThan(100);
+    for (const p of perched.slice(0, 40)) { expect(p.y).toBeGreaterThan(3); expect([FRAME.stand, FRAME.sit, FRAME.phone, FRAME.sitPhone, FRAME.talk]).toContain(p.frame); }
+  });
+
   it('is deterministic for a seed', () => {
     const a = new People(plan.streets, zones, plan.stalls, mulberry32(9), 400, () => true, nodes);
     const b = new People(plan.streets, zones, plan.stalls, mulberry32(9), 400, () => true, nodes);

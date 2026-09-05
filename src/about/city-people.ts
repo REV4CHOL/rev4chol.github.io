@@ -15,7 +15,7 @@ import { ARTERIAL, ARTERIAL_ROW, CANAL, Stall, Street } from './city-plan';
 
 /** Walking, or paused, or talking in a knot, or browsing a stall, or crossing a road, or vending, or sitting,
  *  or milling in a market — or going in at a door (enter), gone a while (inside), coming out (exit). */
-export type Act = 'walk' | 'stand' | 'talk' | 'browse' | 'cross' | 'vend' | 'sit' | 'mill' | 'enter' | 'inside' | 'exit' | 'wait';
+export type Act = 'walk' | 'stand' | 'talk' | 'browse' | 'cross' | 'vend' | 'sit' | 'mill' | 'enter' | 'inside' | 'exit' | 'wait' | 'perch';
 /** The water's edge either side of the canal: no pavement crosses it (the bridges carry the road alone; their decks are
  *  flush with the quays, whose coping is walked). */
 const QUAY = CANAL.w / 2 + 0.5;
@@ -57,7 +57,8 @@ export interface Person {
   cross: Crossing | null;
 }
 interface Knot { x: number; z: number; st: Street; off: number; t: number; members: Person[]; want: number }
-export interface Zone { x: number; z: number; w: number; d: number; stalls: Stall[] }
+/** A place people mill about in: a market, the plaza, a stage's crowd — or a rooftop party, at `y`. */
+export interface Zone { x: number; z: number; w: number; d: number; stalls: Stall[]; y?: number }
 /** Where a pavement runs through another street's carriageway: its centre along the pavement's street, half its
  *  reach along it, the node, and the axes of the streets crossed there ('d' the boulevard). */
 export interface Crossing { tc: number; half: number; nx: number; nz: number; axes: Axis[]; tNear: number; tFar: number }
@@ -71,6 +72,8 @@ export interface PeopleOpts {
   roadClear?: (x: number, z: number) => boolean;
   /** The doors of the city (lit shopfronts, station entrances): the only places anyone goes in or comes out. */
   doors?: { x: number; z: number }[];
+  /** Balcony perches: someone stands, sits, leans on the phone or talks here, facing out along yaw. */
+  perches?: { x: number; y: number; z: number; yaw: number }[];
 }
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
@@ -145,12 +148,18 @@ export class People {
     }
     for (let i = 0, knots = Math.max(8, Math.floor(n / 45)); i < knots; i++) { // knots of talk on the pavements (never on the water)
       let st = this.pickStreet();
-      let t = 6 + r() * Math.max(1, st.len - 12);
-      while (this.overWater(st, t)) { st = this.pickStreet(); t = 6 + r() * Math.max(1, st.len - 12); }
+      const spot = (s: Street) => { const a = this.endOf(s, 'a'), b = this.endOf(s, 'b'); return a + r() * Math.max(0.5, s.len - a - b); }; // within the pavement's run (owner: a knot stood past a short catwalk's end)
+      let t = spot(st);
+      while (this.overWater(st, t)) { st = this.pickStreet(); t = spot(st); }
       const off = this.kerb(st);
       const k: Knot = { x: st.x0 + st.dx * t - st.dz * off, z: st.z0 + st.dz * t + st.dx * off, st, off, t, members: [], want: 2 + Math.floor(r() * 2) };
       this.knots.push(k);
       for (let m = 0; m < k.want; m++) this.join(this.person(), k);
+    }
+    for (const q of opts.perches ?? []) { // the balconies' people
+      if (r() < 0.3) continue;
+      const p = this.person();
+      p.act = 'perch'; p.x = q.x; p.y = q.y; p.z = q.z; p.yaw = q.yaw + (r() - 0.5) * 0.5; p.frame = this.perchFrame(); p.timer = 200 + r() * 1200;
     }
     for (const zone of zones) { // the markets' crowds
       const count = Math.max(6, Math.floor(zone.w * zone.d / 28));
@@ -229,6 +238,8 @@ export class People {
   walkersIn(x: number, z: number, axis: Axis): number {
     return this.crossers.get(`${Math.round(x)}:${Math.round(z)}:${axis}`) ?? 0;
   }
+  /** What someone on a balcony does: leans and looks (stand), sits, is on the phone, sits with the phone. */
+  private perchFrame(): number { const a = this.rand(); return a < 0.4 ? FRAME.stand : a < 0.6 ? FRAME.sit : a < 0.85 ? FRAME.phone : FRAME.sitPhone; }
   /** Where a street's walkers belong: the |offset| band of its pavement — a road's pavement inside its width (the lamp
    *  posts stand at the kerb), the boulevard's past its edge lines, the arterial's beyond its apron (16.9–17.7 from its
    *  axis: the lamps stand at 16.4, the building line at 18.5); an alley or a catwalk is walked anywhere across. */
@@ -317,7 +328,9 @@ export class People {
 
   /** The kerb point of the street being walked (the market people keep their own x, z); someone inside a building is out of sight. */
   private place(p: Person): void {
-    if (p.act === 'mill' || p.act === 'browse' || p.act === 'vend' || p.act === 'talk') { p.y = p.st?.y ?? 0; return; }
+    if (p.act === 'perch') return; // where they were put, at their balcony's height
+    if (p.act === 'mill' || p.act === 'browse') { p.y = p.zone?.y ?? 0; return; } // (a rooftop party mills at roof height)
+    if (p.act === 'vend' || p.act === 'talk') { p.y = p.st?.y ?? 0; return; }
     const st = p.st;
     if (!st) return;
     p.x = st.x0 + st.dx * p.t - st.dz * p.off;
@@ -451,6 +464,15 @@ export class People {
         }
         case 'stand': case 'sit': {
           if (--p.timer <= 0) { const st = p.st!; this.walkOn(p, st, p.act === 'sit' ? this.sameSide(p, st) : p.off, p.t, r() < 0.5 ? 1 : -1); }
+          break;
+        }
+        case 'perch': { // on a balcony: a new pose now and then, a glance along the street, a word to the neighbour
+          if (--p.timer <= 0) {
+            p.timer = 300 + r() * 1500;
+            const mate = this.people.find((q) => q !== p && q.act === 'perch' && Math.abs(q.y - p.y) < 0.2 && Math.hypot(q.x - p.x, q.z - p.z) < 2.2);
+            if (mate && r() < 0.5) { p.frame = FRAME.talk; p.yaw = Math.atan2(mate.x - p.x, mate.z - p.z); mate.frame = r() < 0.5 ? FRAME.talk : FRAME.stand; mate.yaw = Math.atan2(p.x - mate.x, p.z - mate.z); }
+            else { p.frame = this.perchFrame(); p.yaw += (r() - 0.5) * 0.6; }
+          } else if (p.frame === FRAME.talk && (this.tick + p.phase) % 64 < 8) p.frame = FRAME.stand; // a hand up now and then
           break;
         }
         case 'wait': { // at the kerb: look again every so often
