@@ -16,21 +16,21 @@
 ---
 
 ### Task A: Quick fixes — commit `fix(site): the homepage phrase, motorcycles, night by default, the mobile pad`
-- [ ] index.html CTA row removed; weave 0; default 'night'; pad right / lift left / x negated.
+- [x] index.html CTA row removed; weave 0; default 'night'; pad right / lift left / x negated.
 
 ### Task B: Furniture audit and six-way boxes — commit `fix(about): nothing stands in a carriageway; six-way crossings drawn as one box`
-- [ ] Plan post-pass over posts/kiosks/stalls/trees vs every carriageway; deck lamps to the parapets; test.
-- [ ] Renderer: box polygons with zebras and stop lines at the boulevard's crossings.
+- [x] Plan post-pass over posts/kiosks/stalls/trees vs every carriageway; deck lamps to the parapets; test.
+- [x] Renderer: box polygons with zebras and stop lines at the boulevard's crossings.
 
 ### Task C: People and vehicles — commit `feat(about): walkers who wait, vehicles who yield, doors, no one under the bridges`
-- [ ] Grid collision for walkers; street kit in the grid; crossing waits with `roadClear`; `walkersIn` hook in traffic; quay water side closed; bridges 14 wide; doors from shopfronts. Tests.
-- [ ] Deploy.
+- [x] Grid collision for walkers; street kit in the grid; crossing waits with `roadClear`; `walkersIn` hook in traffic; quay water side closed; bridges 14 wide; doors from shopfronts. Tests.
+- [x] Deploy.
 
 ### Task D: Stations — commit `feat(about): stair and lift towers at the stations, eight underground entrances`
-- [ ] Plan towers/entrances (+ doors); renderer (lift cabs ride); tests.
+- [x] Plan towers/entrances (+ doors); renderer (lift cabs ride); tests.
 
 ### Task E: Life and variety — commits per subject (plaza and stallion; parties and perches; canal kinds; chaos)
-- [ ] Plaza + stallion + festival; party zones with y; perches; bridge kinds + quay stairs + moored boats; market streets + conduits + merges + spikes.
+- [x] Plaza + stallion + festival; party zones with y; perches; bridge kinds + quay stairs + moored boats; market streets + conduits + merges + spikes.
 
 ### Task F: Shimmer — commit `fix(about): shadow texel snapping, mipmapped pixel textures`
 ### Task G: Zen camera — commit `feat(about): a zen auto camera`

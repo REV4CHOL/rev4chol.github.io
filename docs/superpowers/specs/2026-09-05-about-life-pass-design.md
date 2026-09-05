@@ -82,3 +82,33 @@ subway entrances 8, market streets 3 walkable, bridge kinds ≥ 5. People tests:
 a pavement, crossers only on red/clear, nobody on the quay's water side, entries only at doors. Traffic: a
 lane facing an occupied crosswalk holds. Pane: photos 1–5 retaken, night, auto flight smoothness numbers.
 Commits per group; deploy after C and at the end.
+
+## As built (2026-09-06)
+
+- **A** as designed. The address may still ask for a time (`?tod=dawn`); nothing is remembered.
+- **B**: the post-pass also drops a removed kiosk's tag sign; `carriagewayAt` treats a ramp's carriageway as inside its
+  parapets and the deck's as inside its kerbs, so the lamps on both stand. The six-way boxes are three overlapping
+  asphalt quads a hair apart in height (no z-fight), zebras at every arm, stop lines only for the boulevard (the tile
+  paints the roads').
+- **C**: the crosswalk census is taken at the end of the people's step; the traffic reads it next frame. A blocked
+  walker sidesteps 0.7 or 1.2 either way (kit stands at the wall, portal legs at the kerb). A run ending at a quay
+  road no longer flips its walkers to the far quay: the water band is 12.5 (the coping is walked) and quay roads are
+  never crossed. Doors carry their own offset; the exit returns to the walker's pavement band. The knots of talk are
+  placed inside a street's walkable run (one stood past a short catwalk's end).
+- **D**: the stair cores are slim (1.0 across) on the pavement's wall side so the kerb side stays walked; a core the
+  boulevard's crossing would take slides toward the platform's middle; the lift shaft stands inboard. The underground
+  entrances sit mid-block in the avenue's median (stairs along the road) and on the arterial's aprons where no ramp
+  comes down; the arterial's door band reaches from the apron to the building line.
+- **E**: the stallion is thirty boxes in a lit bronze (an emissive floor, four practicals at its feet); its collision
+  box is exempted where the avenue-open test samples the plaza's centre. Party roofs: eight of top 22–82, at least 8
+  wide, off the route. Bridges: five builds by |block index| mod 5; the arterial's is the girder build. Market
+  streets at (line −2, col 3), (line 4, row −3, in the megastructure's shadow) and (line 1, col −4). Conduits are
+  three 0.42 pipes on brackets, 44 of them, at 12–17.5, never within the arterial's right of way. The pump house is
+  slim (1.6) on the east quay's water side. Cooling towers on roofs ≥ 7, greenhouses on roofs ≥ 10 × 8.
+- **F**: `asPixelTex` minifies through mipmaps with anisotropy 4; the shadow focus snaps in the light's frame (a
+  texel sideways, a texel over the elevation's sine along the light); normal bias 0.8.
+- **G**: auto speed 0.18 (0.11 calm); the eye's target slews at 0.012 a frame; yaw capped at 0.0035 rad a frame
+  (12°/s) and pitch at 0.0025 (8.6°/s) with gain 0.00045 and damping 0.042; bank capped at 0.05 rad and eased at
+  0.03; the body follows the flight's point through a 0.1 lerp and is kept out of solids.
+- Not done: a pedestrian phase at the lights (walkers cross on their pavement line inside the box, as everywhere);
+  the market streets' vendors mill as at any market; the lift cabs ride on a fixed cycle.

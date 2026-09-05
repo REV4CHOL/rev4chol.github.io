@@ -167,8 +167,8 @@ const windowColor = (rand: () => number, warm = 0.6) => (rand() < 0.06 ? pick(ra
  *  gamma-lifts the night into a grey wash (measured). */
 function asPixelTex(t: CanvasTexture): CanvasTexture {
   t.colorSpace = SRGBColorSpace;
-  t.magFilter = NearestFilter;
-  t.minFilter = NearestFilter;
+  t.magFilter = NearestFilter; // crisp up close
+  t.minFilter = LinearMipmapLinearFilter; t.generateMipmaps = true; t.anisotropy = 4; // averaged into the distance: no shimmer (owner: textures glitched and jittered)
   return t;
 }
 
@@ -1283,12 +1283,21 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   moonLight.shadow.camera.top = 230; moonLight.shadow.camera.bottom = -230;
   moonLight.shadow.camera.near = 20; moonLight.shadow.camera.far = 900;
   moonLight.shadow.bias = -0.0005;
-  moonLight.shadow.normalBias = 0.5;
+  moonLight.shadow.normalBias = 0.8; // (no acne on the facades' fine relief)
   moonLight.shadow.radius = 2;
   scene.add(moonLight, moonLight.target);
-  const aimMoon = () => { // the shadow frustum follows the eye's ground focus
+  const aimMoon = () => { // the shadow frustum follows the eye's ground focus — in whole texels of its own map
+    // (owner: the "glitching windows" — every shadow edge on every facade crawled as the eye moved, because the map's
+    // texel grid slid with it; the focus is snapped in the light's frame: sideways by a texel, along the light by a
+    // texel over the sine of its elevation)
     camera.getWorldDirection(fwd);
-    const fx = camera.position.x + fwd.x * 70, fz = camera.position.z + fwd.z * 70;
+    let fx = camera.position.x + fwd.x * 70, fz = camera.position.z + fwd.z * 70;
+    const texel = 460 / 2048;
+    const h = Math.hypot(keyDir.x, keyDir.z) || 1, ax = keyDir.x / h, az = keyDir.z / h; // the light's ground direction
+    const u = fx * az - fz * ax, w = fx * ax + fz * az;
+    const wt = texel / Math.max(0.2, Math.abs(keyDir.y));
+    const su = Math.round(u / texel) * texel, sw = Math.round(w / wt) * wt;
+    fx = su * az + sw * ax; fz = -su * ax + sw * az;
     moonLight.target.position.set(fx, 0, fz);
     moonLight.position.set(fx + keyDir.x * 340, keyDir.y * 340, fz + keyDir.z * 340);
   };
@@ -3216,7 +3225,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // ahead (the landmark, the tallest towers, the screens, the wheel, the
   // holograms) and ease the eye onto it; in the canyons, look down the
   // street at the traffic
-  const gaze = { want: new Vector3(), poi: null as Poi | null, leg: -1, held: 0 };
+  const gaze = { want: new Vector3(), aim: new Vector3(), aimed: false, poi: null as Poi | null, leg: -1, held: 0 };
+  const body = new Vector3(); let bodied = false; // the camera's body follows the flight's point through a short lag
   const chooseGaze = (phase: string) => {
     if (gaze.poi && gaze.held < 240) return; // a subject is held for a few seconds at least
     gaze.poi = null; gaze.held = 0;
@@ -3304,9 +3314,10 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     if (mode === 'free') {
       applyFree();
     } else if (mode === 'auto' && flight) {
-      flight.step(calm ? 0.13 : 0.26, pos, look);
-      plan.grid.resolve(pos, CAM_R);
-      camera.position.copy(pos);
+      flight.step(calm ? 0.11 : 0.18, pos, look); // (owner: zen — a third slower)
+      if (!bodied) { body.copy(pos); bodied = true; } else body.lerp(pos, 0.1); // the body rounds every knot
+      plan.grid.resolve(body, CAM_R);
+      camera.position.copy(body);
       if (flight.legId !== gaze.leg) { gaze.leg = flight.legId; chooseGaze(flight.phase); }
       gaze.held += 1;
       // the eye: an orbit's centre; else the chosen subject while it stays
@@ -3321,20 +3332,21 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       if (focus) gaze.want.set(focus.x, focus.y, focus.z);
       else if (gaze.poi) gaze.want.set(gaze.poi.x, gaze.poi.y, gaze.poi.z);
       else gaze.want.copy(look).setY(look.y - (flight.phase === 'canyon' ? 4 : 0));
-      // a critically damped pan with a ceiling on its rate — never a whip,
-      // never a jolt (owner: no sudden pans)
-      const dx = gaze.want.x - pos.x, dy = gaze.want.y - pos.y, dz = gaze.want.z - pos.z;
+      // the eye's target slews (a subject chosen or let go is a glide, never a step), then a critically damped pan
+      // with a low ceiling on its rate — 12°/s of yaw, 8°/s of pitch (owner: zen, a cup of coffee)
+      if (!gaze.aimed) { gaze.aim.copy(gaze.want); gaze.aimed = true; } else gaze.aim.lerp(gaze.want, 0.012);
+      const dx = gaze.aim.x - body.x, dy = gaze.aim.y - body.y, dz = gaze.aim.z - body.z;
       const ey = wrap(Math.atan2(dx, dz) - cam.yaw);
       const ep = Math.atan2(dy, Math.hypot(dx, dz)) - cam.pitch;
-      cam.yawV = clamp(cam.yawV + ey * 0.0011 - cam.yawV * 0.066, -0.009, 0.009);
-      cam.pitchV = clamp(cam.pitchV + ep * 0.0011 - cam.pitchV * 0.066, -0.006, 0.006);
+      cam.yawV = clamp(cam.yawV + ey * 0.00045 - cam.yawV * 0.042, -0.0035, 0.0035);
+      cam.pitchV = clamp(cam.pitchV + ep * 0.00045 - cam.pitchV * 0.042, -0.0025, 0.0025);
       cam.yaw += cam.yawV;
       cam.pitch = clamp(cam.pitch + cam.pitchV, -1.2, 1.2);
       fwd.set(Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch));
-      camera.lookAt(pos.x + fwd.x, pos.y + fwd.y, pos.z + fwd.z);
-      // a gentle bank into the pans, and the slow breath of a handheld rig
-      bank += (clamp(-cam.yawV * 18, -0.16, 0.16) - bank) * 0.05;
-      camera.rotateZ(bank + (calm ? 0 : Math.sin(tick * 0.011) * 0.005));
+      camera.lookAt(body.x + fwd.x, body.y + fwd.y, body.z + fwd.z);
+      // the faintest bank into the pans, and the slow breath of a handheld rig
+      bank += (clamp(-cam.yawV * 14, -0.05, 0.05) - bank) * 0.03;
+      camera.rotateZ(bank + (calm ? 0 : Math.sin(tick * 0.011) * 0.003));
     } else {
       sm += (target - sm) * (calm ? 0.16 : 0.07);
       const t = Math.min(0.999, Math.max(0, sm)) * 0.985;
