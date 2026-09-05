@@ -875,7 +875,7 @@ function cloudTexture(rand: () => number, low: boolean): CanvasTexture {
   c.width = 160; c.height = 48;
   const x = c.getContext('2d')!;
   x.clearRect(0, 0, 160, 48);
-  const body = low ? 138 : 154, crown = low ? 190 : 255, belly = low ? 96 : 118;
+  const body = low ? 138 : 224, crown = low ? 190 : 255, belly = low ? 96 : 168; // the high tier bright: a cloud, not smoke
   const grey = (v: number, a: number) => `rgba(${v},${v},${v},${a})`;
   const blobs = 6 + Math.floor(rand() * 5);
   for (let b = 0; b < blobs; b++) {
