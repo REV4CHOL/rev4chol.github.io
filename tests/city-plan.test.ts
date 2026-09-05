@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
 import {
-  AutoFlight, BOUND, CAM_R, CollisionGrid, EXT, G, MEDIAN, planCity, ROAD, starPositions, STREET, streetAt, tourRoute,
+  AutoFlight, BOUND, CAM_R, CollisionGrid, districtOf, EXT, G, MEDIAN, planCity, ROAD, starPositions, STREET, streetAt, tourRoute,
 } from '../src/about/city-plan';
 import { mulberry32 } from '../src/lib/rng';
 import { hashSlug } from '../src/project/dossier';
@@ -123,11 +123,18 @@ describe('planCity', () => {
     // the stadium closes the east–west street at row 3 alongside columns −5 and −4
     expect(plan.roomAhead('x', streetAt(3), -5 * G - 30, 1)).toBeCloseTo(11, 5);
     expect(plan.roomAhead('x', streetAt(3), -100, -1)).toBeCloseTo(33, 5);
-    // a street runs to the fence, or to a closed segment — which always sits on a block boundary
+    // a street runs to the fence, to a closed segment, or to a span roofing it
     const room = plan.roomAhead('z', streetAt(2), 0, 1);
-    expect(room).toBeGreaterThan(50);
+    expect(room).toBeGreaterThan(20);
     expect(room).toBeLessThanOrEqual(EXT - 24);
-    expect(Math.abs(room - (EXT - 24)) < 1e-6 || Math.abs(((room + G / 2) % G + G) % G) < 1e-6).toBe(true);
+    // the spans over the streets end the open street for the flight: no dive runs under a roof
+    for (const o of plan.core.filter((s) => s.arch === 'over')) {
+      const onLine = (v: number) => Math.abs((((v / G) % 1) + 1) % 1 - 0.5) < 0.05; // a street line sits at (i + ½)·G
+      const axis = onLine(o.z) ? 'x' : 'z'; // an east–west road (travelled along x) lies on a z street line
+      const at = axis === 'x' ? o.z : o.x, t = axis === 'x' ? o.x : o.z, half = (axis === 'x' ? o.w : o.d) / 2;
+      expect(plan.roomAhead(axis, at, t - half - 30, 1)).toBeLessThanOrEqual(30.01);
+      expect(plan.roomAhead(axis, at, t + half + 30, -1)).toBeLessThanOrEqual(30.01);
+    }
   });
 
   it('keeps the avenues open down the middle (trees, lamps and bridges aside)', () => {
@@ -161,6 +168,62 @@ describe('planCity', () => {
     expect(again.core.length).toBe(plan.core.length);
     expect(again.core[7]).toEqual(plan.core[7]);
     expect(again.signs.length).toBe(plan.signs.length);
+  });
+});
+
+describe('Newport City, layered (owner: messy, overlapping, Ghost in the Shell)', () => {
+  const plan = planCity(SEED);
+
+  it('has districts where the spec puts them', () => {
+    expect(districtOf(3, -5)).toBe('walled');
+    expect(districtOf(4, -2)).toBe('heights');
+    expect(districtOf(-5, 5)).toBe('old');
+    expect(districtOf(1, -1)).toBe('strip');
+    expect(districtOf(-7, 1)).toBe('strip');
+    expect(districtOf(-4, -4)).toBe('strip'); // on the diagonal boulevard
+    expect(districtOf(6, 5)).toBe('mid');
+  });
+
+  it('crusts the facades and the roofs with the kit of a lived-in city', () => {
+    expect(plan.clutter.length).toBeGreaterThan(8000);
+    const kinds = new Set(plan.clutter.map((c) => c.kind));
+    for (const k of ['ac', 'pipe', 'duct', 'dish', 'rail', 'escape', 'tank', 'beam', 'vend', 'bin', 'plant', 'booth', 'crate']) expect(kinds.has(k as never), k).toBe(true);
+    for (const c of plan.clutter) { expect(Number.isFinite(c.x + c.y + c.z + c.w + c.h + c.d + c.rotY)).toBe(true); expect(c.w).toBeGreaterThan(0); }
+  });
+
+  it('fuses the lots into masses and stacks additions on the roofs and the walls', () => {
+    const fac = plan.core.filter((s) => s.kind === 'facade' && (s.arch === 'block' || s.arch === 'tower' || s.arch === 'slab' || s.arch === 'low') && s.y - s.h / 2 < 0.5);
+    let seams = 0;
+    for (let i = 0; i < fac.length; i++) {
+      const a = fac[i];
+      for (let j = i + 1; j < fac.length; j++) {
+        const b = fac[j];
+        if (Math.abs(a.x - b.x) > 40 || Math.abs(a.z - b.z) > 40) continue;
+        const gx = Math.abs(a.x - b.x) - (a.w + b.w) / 2, gz = Math.abs(a.z - b.z) - (a.d + b.d) / 2;
+        if ((gx > 0 && gx < 0.2 && gz < 0) || (gz > 0 && gz < 0.2 && gx < 0)) seams += 1;
+      }
+    }
+    expect(seams).toBeGreaterThan(300);
+    expect(plan.core.filter((s) => s.arch === 'annex').length).toBeGreaterThan(400);
+    expect(plan.core.filter((s) => s.arch === 'block').length).toBeGreaterThan(150);
+  });
+
+  it('bridges the streets with overbuilds above the flight band, never over an avenue', () => {
+    const overs = plan.core.filter((s) => s.arch === 'over');
+    expect(overs.length).toBeGreaterThan(30);
+    for (const o of overs) {
+      expect(o.y - o.h / 2, 'underside').toBeGreaterThanOrEqual(35); // the canyon band's top plus the flight's pad is 34.6
+      expect(Math.abs(o.x) < 26 || Math.abs(o.z) < 26, 'over an avenue').toBe(false);
+      expect(Math.max(o.w, o.d)).toBeGreaterThan(8); // it spans a street
+    }
+  });
+
+  it('strings catwalks across the alleys and arcades along the facades, every one at its own height', () => {
+    const cats = plan.streets.filter((s) => s.kind === 'catwalk');
+    expect(cats.length).toBeGreaterThan(150);
+    for (const c of cats) { expect(Number.isFinite(c.y)).toBe(true); expect(c.y).toBeGreaterThanOrEqual(4); expect(c.width).toBeGreaterThan(1); }
+    expect(cats.filter((c) => c.width === 1.6).length).toBeGreaterThan(30); // the arcades along the facades
+    expect(cats.filter((c) => c.width === 1.4).length).toBeGreaterThan(80); // across the alleys
   });
 });
 

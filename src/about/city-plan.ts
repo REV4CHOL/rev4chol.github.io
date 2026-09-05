@@ -49,15 +49,18 @@ export const streetAt = (i: number): number => (i + 0.5) * G;
 export interface Box { x: number; y: number; z: number; w: number; h: number; d: number }
 export type Kind = 'facade' | 'dark' | 'cyl' | 'pyr' | 'spire' | 'dome' | 'tree' | 'canopy';
 export type Arch =
-  | 'tower' | 'slab' | 'cyl' | 'ziggurat' | 'twin' | 'cross' | 'needle' | 'podium' | 'low'
-  | 'oldtown' | 'landmark' | 'sprawl' | 'bits' | 'street' | 'bridge' | 'temple' | 'industry' | 'mega' | 'shanty';
+  | 'tower' | 'slab' | 'cyl' | 'ziggurat' | 'twin' | 'cross' | 'needle' | 'podium' | 'low' | 'block'
+  | 'oldtown' | 'landmark' | 'sprawl' | 'bits' | 'street' | 'bridge' | 'temple' | 'industry' | 'mega' | 'shanty'
+  | 'annex' | 'over';
 export interface Solid extends Box { kind: Kind; tex: number; arch: Arch }
 export interface Strip extends Box { color: string }
 export type SignKind = 'hang' | 'wall' | 'board' | 'tag' | 'roof' | 'gantry' | 'screen';
 export interface Sign {
   x: number; y: number; z: number; rotY: number; w: number; h: number; color: string; kind: SignKind;
 }
-export type StreetKind = 'road' | 'highway' | 'canal' | 'alley' | 'diagonal' | 'ramp';
+/** A catwalk is a raised walk (across an alley, along a facade as an arcade, a station platform): it carries
+ *  its own `y`, only pedestrians use it. */
+export type StreetKind = 'road' | 'highway' | 'canal' | 'alley' | 'diagonal' | 'ramp' | 'catwalk';
 /** A straight run: p(t) = (x0 + dx·t, z0 + dz·t) for t in [0, len]; lanes sit
  *  along the left normal (−dz, dx). A ramp climbs (or falls) from y to y1
  *  along its length and is driven one way, from t = 0. */
@@ -74,6 +77,50 @@ export const rampY = (st: Street, t: number): number => {
 export interface Poi { x: number; y: number; z: number; w: number }
 export interface Holo { x: number; y: number; z: number; w: number; h: number; rotY: number }
 export interface Stall { x: number; z: number; color: string }
+/** THE KIT (owner: a lived-in city, Ghost in the Shell): the small things crusted on every wall and roof — AC
+ *  units, pipes, ducts, dishes, balcony rails, fire-escape ladders, water tanks and their legs, sign brackets,
+ *  vending machines, bins, crates, phone booths, vent stacks, billboard frames. A box (w along the wall, h up,
+ *  d out of it) turned by rotY, whose local +z is the wall's outward normal. Not solid to the camera (only
+ *  the tanks are registered in the grid) — the walls they hang on are. */
+export type ClutterKind = 'ac' | 'pipe' | 'duct' | 'dish' | 'rail' | 'escape' | 'tank' | 'bracket' | 'vend' | 'bin' | 'crate' | 'booth' | 'plant' | 'frame' | 'beam';
+export interface Clutter { kind: ClutterKind; x: number; y: number; z: number; w: number; h: number; d: number; rotY: number; color?: string }
+/** THE DISTRICTS (owner: not uniform): the HEIGHTS of slender supertalls beside the megastructure; the WALLED
+ *  city south of it, fused into masses and bridged over its streets; the STRIP about the plaza, the avenues and
+ *  the boulevard, where the signage is thickest; the OLD town in the north-west, low under pitched roofs and
+ *  lanterns; MID everywhere else. */
+export type District = 'heights' | 'walled' | 'strip' | 'old' | 'mid';
+export interface Profile {
+  name: District;
+  /** The heights, before the block's jitter and the odd spike. */
+  lo: number; hi: number;
+  /** The odds a lot fuses its buildings into one mass (a seam, not a gutter); how many additions stack on a
+   *  building; how thick the kit, the signage, the overbuilds over its streets, the arcades along its walls. */
+  fuse: number; stack: number; kit: number; signs: number; over: number; arcade: number;
+  /** The cell sizes a lot is cut into. */
+  min: number; max: number;
+}
+export const DISTRICTS: Record<District, Profile> = {
+  heights: { name: 'heights', lo: 50, hi: 125, fuse: 0.3, stack: 2, kit: 0.25, signs: 0.6, over: 0.1, arcade: 0.05, min: 6, max: 12 },
+  walled: { name: 'walled', lo: 44, hi: 80, fuse: 0.9, stack: 3, kit: 1.0, signs: 1.0, over: 0.9, arcade: 0.35, min: 6, max: 14 }, // tall enough for the overbuilds to roof its streets
+  strip: { name: 'strip', lo: 20, hi: 70, fuse: 0.5, stack: 2, kit: 0.7, signs: 1.2, over: 0.25, arcade: 0.3, min: 5, max: 16 },
+  old: { name: 'old', lo: 8, hi: 24, fuse: 0.6, stack: 1, kit: 0.5, signs: 0.5, over: 0, arcade: 0.15, min: 4, max: 9 },
+  mid: { name: 'mid', lo: 16, hi: 60, fuse: 0.5, stack: 2, kit: 0.6, signs: 0.8, over: 0.15, arcade: 0.2, min: 5, max: 16 },
+};
+export function districtOf(bx: number, bz: number): District {
+  if (Math.abs(bx) === 1 || Math.abs(bz) === 1) return 'strip'; // about the plaza and along both avenues
+  if (bx < 0 && bz < 0 && Math.abs(bx + bz + 7) <= 1) return 'strip'; // along the diagonal boulevard (x + z = −266: seven blocks)
+  if (bx >= 2 && bx <= 6 && bz >= -3 && bz <= -2) return 'heights';
+  if (bx >= 1 && bx <= 6 && bz >= -7 && bz <= -4) return 'walled';
+  if (bx <= -2 && bz >= 2) return 'old';
+  return 'mid';
+}
+/** A block's own hand in the heights: 0.7–1.3, from its coordinates alone. */
+export function blockJitter(bx: number, bz: number): number {
+  let h = ((bx + 64) * 73856093) ^ ((bz + 64) * 19349663);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h = (h ^ (h >>> 16)) >>> 0;
+  return 0.7 + ((h % 1000) / 1000) * 0.6;
+}
 /** A corridor for the flying traffic: a polyline (closed when `loop`),
  *  every point lifted clear of the skyline under the legs it joins. */
 export interface AirLane { pts: [number, number, number][]; loop: boolean; speed: number; kind: 'avenue' | 'ring' | 'patrol' }
@@ -88,8 +135,10 @@ export interface Plan {
   strips: Strip[];
   leds: Strip[];
   awnings: Strip[];
-  /** Tarpaulins over the shacks and the stalls — lit dim, in their own colours. */
+  /** Tarpaulins over the shacks and the stalls, the washing on the balconies — lit dim, in their own colours. */
   tarps: Strip[];
+  /** The kit on the walls and the roofs (see Clutter). */
+  clutter: Clutter[];
   signs: Sign[];
   posts: { x: number; z: number; h: number; y?: number }[];
   lanterns: number[];
@@ -276,6 +325,8 @@ export const LANDMARK_TEX = 20;
 export const MEGA_TEX = 21;
 export const SHANTY_TEX: [number, number] = [22, 23];
 const TARP = ['#2a5aa8', '#c8552c', '#3f7f5a', '#d9c26a', '#7a3d8f', '#c9c2b2', '#b03a3a'];
+const VEND = ['#ff3b3b', '#5df2ff', '#ffd23f', '#ff4fd8', '#3dff8f', '#f4f1e8'];
+const OUTER_PROFILE: Profile = { ...DISTRICTS.mid, lo: 6, hi: 24, stack: 1, kit: 0.3, signs: 0.3, over: 0, arcade: 0 };
 
 interface Rect { x: number; z: number; w: number; d: number }
 
@@ -292,6 +343,7 @@ export function planCity(seed: number): Plan {
   const leds: Strip[] = [];
   const awnings: Strip[] = [];
   const tarps: Strip[] = [];
+  const clutter: Clutter[] = [];
   const signs: Sign[] = [];
   const pois: Poi[] = [];
   const posts: { x: number; z: number; h: number; y?: number }[] = [];
@@ -303,7 +355,7 @@ export function planCity(seed: number): Plan {
   const streets: Street[] = [];
   const ramps: Street[] = []; // planned before any lot is built — they cap what stands under them
   const stacks: { x: number; z: number; top: number }[] = [];
-  const tall: { x: number; z: number; top: number; w: number; d: number; bridges: number }[] = [];
+  const tall: { x: number; z: number; top: number; w: number; d: number; bridges: number; flat: boolean }[] = [];
   let bucket: Solid[] = core; // which ring the archetypes write into
   let rich = true; // signage density: the main city is lavish, the outer ring modest
 
@@ -372,7 +424,7 @@ export function planCity(seed: number): Plan {
   };
   /** Dress a building: a lit storefront board, hanging signs sticking out
    *  over the pavement, a flat wall sign, small tags, a roof billboard. */
-  const dress = (fp: NonNullable<Foot>, h: number, top: number, capped: boolean) => {
+  const dress = (fp: NonNullable<Foot>, h: number, top: number, capped: boolean, lowY: number[] = [0, 0, 0, 0]) => {
     if (rand() < (rich ? 0.85 : 0.5)) {
       const s = Math.floor(rand() * 4);
       const len = (s < 2 ? fp.w : fp.d) * (0.5 + rand() * 0.3);
@@ -383,8 +435,11 @@ export function planCity(seed: number): Plan {
       const s = Math.floor(rand() * 4);
       const big = rand() < 0.6;
       const sw = big ? 2 : 1.5, sh = big ? 8 : 5;
-      if (h < sh + 6) continue;
-      const y = 5 + sh / 2 + rand() * Math.min(h - sh - 4, 26);
+      const lo = Math.max(5, lowY[s]);
+      if (h < sh + lo + 1) continue;
+      let y = lo + sh / 2 + rand() * Math.min(h - sh - lo + 1, 26);
+      const b = bctx.bustle;
+      if (b && b.side === s) for (let k = 0; k < 3 && y + sh / 2 > b.y0 - 1 && y - sh / 2 < b.y1 + 1; k++) y = lo + sh / 2 + rand() * Math.min(h - sh - lo + 1, 26); // not through the bustle
       put(fp, s, sw / 2 + 0.3, y, sw, sh, 'hang', true, along(fp, s, 1));
     }
     if (h > 14 && rand() < (rich ? 0.35 : 0.15)) {
@@ -400,15 +455,20 @@ export function planCity(seed: number): Plan {
       signs.push({ x: fp.x, y: top + 1.7, z: fp.z, rotY: rand() < 0.5 ? 0 : Math.PI / 2, w: Math.min(fp.w, fp.d) * 0.8, h: 2.2, color: signColor(rand), kind: 'roof' });
     }
   };
-  /** The mess of a lived-in facade: balconies stacked up a face, an awning
-   *  over the shopfront, a pipe run, a steam vent at the kerb. */
-  const clutter = (fp: NonNullable<Foot>, h: number) => {
-    if (rand() < 0.55 && h > 8) {
+  /** The mess of a lived-in facade: balconies stacked up a face with rails and the washing hung out, an
+   *  awning over the shopfront, a steam vent at the kerb. */
+  const balconies = (fp: NonNullable<Foot>, h: number) => {
+    if (!bctx.round && rand() < 0.55 && h > 8) {
       const s = Math.floor(rand() * 4);
-      const f = face(fp, s, 0.45);
+      const f = face(fp, s, 0.45), fr = face(fp, s, 0.88);
       const len = (s < 2 ? fp.w : fp.d) * 0.7;
       for (let y = 3.8; y < h - 1.5; y += 3.6) {
         solid(bucket, 'dark', 'bits', 0, f.x, y, f.z, s < 2 ? len : 0.9, 0.22, s < 2 ? 0.9 : len);
+        clutter.push({ kind: 'rail', x: fr.x, y: y + 0.55, z: fr.z, w: len, h: 0.85, d: 0.05, rotY: fr.rot });
+        for (let k = 0, n = rand() < 0.45 ? 1 + Math.floor(rand() * 3) : 0; k < n; k++) { // the washing
+          const u = (rand() - 0.5) * (len - 1);
+          tarps.push({ x: fr.x + (s < 2 ? u : 0), y: y + 0.45, z: fr.z + (s >= 2 ? u : 0), w: s < 2 ? 0.45 : 0.06, h: 0.55, d: s < 2 ? 0.06 : 0.45, color: pick(rand, TARP) });
+        }
       }
     }
     if (rand() < 0.4) {
@@ -417,25 +477,170 @@ export function planCity(seed: number): Plan {
       const len = (s < 2 ? fp.w : fp.d) * 0.6;
       awnings.push({ x: f.x, y: 3.1, z: f.z, w: s < 2 ? len : 1.4, h: 0.16, d: s < 2 ? 1.4 : len, color: signColor(rand) });
     }
-    if (rand() < 0.3) {
-      const s = Math.floor(rand() * 4);
-      const f = face(fp, s, 0.2);
-      solid(bucket, 'dark', 'bits', 0, f.x + (s < 2 ? along(fp, s, 0.4) : 0), h / 2, f.z + (s >= 2 ? along(fp, s, 0.4) : 0), 0.3, h * 0.96, 0.3);
-    }
     if (rand() < 0.06) vents.push({ x: fp.x + (rand() < 0.5 ? -1 : 1) * (fp.w / 2 + 1.2), z: fp.z + (rand() - 0.5) * fp.d });
   };
 
-  // -- archetypes -----------------------------------------------------------
-  const roofBits = (x: number, z: number, w: number, d: number, top: number, capped: boolean) => {
-    if (capped) return;
-    const bits = 1 + Math.floor(rand() * 3);
-    for (let i = 0; i < bits; i++) {
-      solid(bucket, 'dark', 'bits', 0,
-        x + (rand() - 0.5) * w * 0.5, top + 0.7, z + (rand() - 0.5) * d * 0.5,
-        0.8 + rand() * 1.4, 1.4, 0.8 + rand() * 1.4);
+  // -- the building at hand: which of its walls face a street, its district, its gutter, whether it is round,
+  // the bustle hung on it (so the signs keep clear); and the register of street-facing walls, by block and
+  // side, that the overbuilds span between ---------------------------------------------------------------
+  let bctx: { outer: boolean[]; prof: Profile; g: number; round: boolean; bustle: { side: number; y0: number; y1: number } | null } =
+    { outer: [true, true, true, true], prof: DISTRICTS.mid, g: 0.5, round: false, bustle: null };
+  const faces = new Map<string, Solid[]>();
+  const noteFace = (s: Solid, lot: Rect) => {
+    const bx = Math.round(s.x / G), bz = Math.round(s.z / G);
+    const on = [s.z + s.d / 2 > lot.z + lot.d / 2 - 1.6, s.z - s.d / 2 < lot.z - lot.d / 2 + 1.6, s.x + s.w / 2 > lot.x + lot.w / 2 - 1.6, s.x - s.w / 2 < lot.x - lot.w / 2 + 1.6];
+    for (let k = 0; k < 4; k++) {
+      if (!on[k]) continue;
+      const key = `${bx}:${bz}:${k}`;
+      const l = faces.get(key);
+      if (l) l.push(s); else faces.set(key, [s]);
     }
-    if (rand() < 0.2) solid(bucket, 'dark', 'bits', 0, x + (rand() - 0.5) * w * 0.4, top + 2.4, z + (rand() - 0.5) * d * 0.4, 0.22, 4.8, 0.22);
-    if (rand() < 0.1) solid(bucket, 'cyl', 'bits', 0, x + (rand() - 0.5) * w * 0.4, top + 1.9, z + (rand() - 0.5) * d * 0.4, 1.6, 2.2, 1.6);
+  };
+  /** ARCADES (owner: layered walkways): a covered walk along a long street face at first-floor height, over the
+   *  pavement, with rails and lanterns (drawn by the renderer); people walk it. Returns, per side, the height
+   *  the hanging signs must start above. */
+  const arcades = (fp: NonNullable<Foot>, h: number): number[] => {
+    const lowY = [0, 0, 0, 0];
+    if (bctx.round || bucket !== core) return lowY;
+    for (let s = 0; s < 4; s++) {
+      const along = s < 2 ? fp.w : fp.d;
+      if (!bctx.outer[s] || along < 8 || h < 9 || rand() >= bctx.prof.arcade) continue;
+      const f = face(fp, s, 0.8);
+      streets.push({ x0: s < 2 ? f.x - along / 2 : f.x, z0: s < 2 ? f.z : f.z - along / 2, dx: s < 2 ? 1 : 0, dz: s < 2 ? 0 : 1, len: along, y: 5.5, kind: 'catwalk', width: 1.6 });
+      grid.add({ x: f.x, y: 5.5, z: f.z, w: s < 2 ? along : 1.6, h: 0.3, d: s < 2 ? 1.6 : along });
+      lowY[s] = 9;
+    }
+    return lowY;
+  };
+  /** STACKED ADDITIONS (owner: messy, overlapping): an annex on the roof, now and then cantilevered out over
+   *  the street; a shack on the annex in the poorest quarter; a bustle hung on a street wall. Every one checks
+   *  the route's ceiling for its own box. Returns the new top. */
+  const stackOn = (fp: NonNullable<Foot>, h: number, top: number, flat: boolean): number => {
+    const { outer, prof } = bctx;
+    let t = top;
+    const sides = [0, 1, 2, 3].filter((s) => outer[s]);
+    if (flat && prof.stack >= 1 && rand() < 0.65) {
+      const aw = fp.w * (0.3 + rand() * 0.3), ad = fp.d * (0.3 + rand() * 0.3), ah = 3 + rand() * 6;
+      let ax = fp.x + (rand() - 0.5) * (fp.w - aw) * 0.9, az = fp.z + (rand() - 0.5) * (fp.d - ad) * 0.9;
+      if (!bctx.round && sides.length && h >= 5 && rand() < 0.4) { // out over the street, its underside clear of the street's life
+        const s = pick(rand, sides), o = 0.6 + rand() * 0.9;
+        if (s === 0) az = fp.z + fp.d / 2 - ad / 2 + o; else if (s === 1) az = fp.z - fp.d / 2 + ad / 2 - o; else if (s === 2) ax = fp.x + fp.w / 2 - aw / 2 + o; else ax = fp.x - fp.w / 2 + aw / 2 - o;
+      }
+      if (h + ah <= allowedTop(ax, az, aw, ad) && !grid.hit(ax, h + ah / 2, az, 0)) {
+        solid(bucket, 'facade', 'annex', anyTex(), ax, h + ah / 2, az, aw, ah, ad);
+        t = Math.max(t, h + ah);
+        if (prof.stack >= 3 && rand() < 0.5 && h + ah + 2.6 <= allowedTop(ax, az, aw, ad)) { // a shack on the annex
+          const sw = aw * 0.6, sd = ad * 0.6, sh = 2 + rand();
+          const sx = ax + (rand() - 0.5) * (aw - sw), sz = az + (rand() - 0.5) * (ad - sd);
+          solid(bucket, 'facade', 'shanty', SHANTY_TEX[rand() < 0.6 ? 0 : 1], sx, h + ah + sh / 2, sz, sw, sh, sd);
+          tarps.push({ x: sx, y: h + ah + sh + 0.08, z: sz, w: sw + 0.6, h: 0.12, d: sd + 0.6, color: pick(rand, TARP) });
+          t = Math.max(t, h + ah + sh);
+        }
+      }
+    }
+    if (prof.stack >= 2 && !bctx.round && sides.length && h >= 10 && rand() < 0.45) { // the bustle
+      const s = pick(rand, sides), f = face(fp, s, 0);
+      const along = s < 2 ? fp.w : fp.d, len = along * (0.4 + rand() * 0.3), dep = 1.2 + rand() * 0.6, bh = h * (0.3 + rand() * 0.4);
+      const y0 = 5 + rand() * Math.max(0, h - bh - 6), slide = (rand() - 0.5) * (along - len);
+      const bx = f.x + (s < 2 ? slide : s === 2 ? dep / 2 : -dep / 2), bz = f.z + (s >= 2 ? slide : s === 0 ? dep / 2 : -dep / 2);
+      const bw = s < 2 ? len : dep, bd = s < 2 ? dep : len;
+      if (y0 + bh <= allowedTop(bx, bz, bw, bd)) {
+        solid(bucket, 'facade', 'annex', anyTex(), bx, y0 + bh / 2, bz, bw, bh, bd);
+        bctx.bustle = { side: s, y0, y1: y0 + bh };
+      }
+    }
+    return t;
+  };
+  /** THE FACADE KIT (owner: a lived-in city): on every street face, by the district's thickness — AC units in
+   *  rows under the windows, a pipe run or two, a duct, a dish, a fire escape (its platforms solid), cables
+   *  along the second floor, and at the kerb, where the gutter is wide enough that the pavement's walkers pass
+   *  clear, a vending machine, a phone booth, a bin, a crate. */
+  const facadeKit = (fp: NonNullable<Foot>, h: number) => {
+    if (bctx.round) return;
+    const K = bctx.prof.kit * (bucket === core ? 1 : 0.4);
+    const floors = Math.floor((h - 3) / 3);
+    for (let s = 0; s < 4; s++) {
+      if (!bctx.outer[s] && rand() < 0.7) continue; // the inner faces (seams, alleys) take a little
+      const along = s < 2 ? fp.w : fp.d;
+      const f = face(fp, s, 0), rot = f.rot;
+      const nx = Math.sin(rot), nz = Math.cos(rot); // the wall's outward normal
+      const at = (u: number, y: number, out: number) => ({ x: f.x + (s < 2 ? u : 0) + nx * out, y, z: f.z + (s >= 2 ? u : 0) + nz * out });
+      if (rand() < 0.75 * K && floors > 1) { // condensers under the windows, on alternate floors
+        const n = Math.max(1, Math.floor(along / 2.4));
+        for (let k = 1; k < floors; k += 1 + Math.floor(rand() * 2)) {
+          for (let i = 0; i < n; i++) {
+            if (rand() >= 0.35 * K) continue;
+            const p = at(-along / 2 + (i + 0.5) * (along / n) + (rand() - 0.5) * 0.4, 3 * k + 1.7, 0.28);
+            clutter.push({ kind: 'ac', x: p.x, y: p.y, z: p.z, w: 0.62, h: 0.55, d: 0.5, rotY: rot });
+          }
+        }
+      }
+      if (rand() < 0.6 * K) { const p = at((rand() - 0.5) * (along - 1), h * 0.48, 0.14); clutter.push({ kind: 'pipe', x: p.x, y: p.y, z: p.z, w: 0.2, h: h * 0.94, d: 0.2, rotY: rot }); }
+      if (rand() < 0.3 * K && floors > 1) { const y = 3 * (1 + Math.floor(rand() * (floors - 1))) + 0.4; const p = at(0, y, 0.16); clutter.push({ kind: 'pipe', x: p.x, y, z: p.z, w: along * (0.6 + rand() * 0.35), h: 0.16, d: 0.16, rotY: rot }); }
+      if (rand() < 0.25 * K && h > 8) { const p = at((rand() - 0.5) * (along - 1.5), h * 0.5, 0.3); clutter.push({ kind: 'duct', x: p.x, y: p.y, z: p.z, w: 0.55, h: h * 0.8, d: 0.55, rotY: rot }); }
+      if (rand() < 0.2 * K) { const p = at((rand() - 0.5) * (along - 1.5), 4 + rand() * Math.max(1, h - 6), 0.5); clutter.push({ kind: 'dish', x: p.x, y: p.y, z: p.z, w: 0.9, h: 0.9, d: 0.2, rotY: rot + (rand() - 0.5) * 1.2 }); }
+      if (bctx.outer[s] && along >= 6 && h >= 12 && rand() < 0.12 * K) { // the fire escape
+        const u = (rand() - 0.5) * (along - 4), len = 3.2;
+        for (let y = 4; y < h - 2; y += 3) {
+          const p = at(u, y, 0.5);
+          solid(bucket, 'dark', 'bits', 0, p.x, y, p.z, s < 2 ? len : 0.9, 0.12, s < 2 ? 0.9 : len); // the platform
+          const rp = at(u, y + 0.5, 0.95);
+          clutter.push({ kind: 'rail', x: rp.x, y: rp.y, z: rp.z, w: len, h: 0.9, d: 0.05, rotY: rot });
+          const lp = at(u + 1.2, y + 1.5, 0.7);
+          clutter.push({ kind: 'escape', x: lp.x, y: lp.y, z: lp.z, w: 0.5, h: 2.9, d: 0.1, rotY: rot }); // the ladder
+        }
+      }
+      if (rand() < 0.5 * K && h > 7) { // cables along the second floor
+        const a = at(-along / 2, 6.2 + rand() * 0.6, 0.12), b = at(along / 2, 6.2 + rand() * 0.6, 0.12), m = at(0, 6.0, 0.4);
+        wires.push(a.x, a.y, a.z, m.x, m.y, m.z, m.x, m.y, m.z, b.x, b.y, b.z);
+      }
+      if (bctx.outer[s] && bctx.g >= 0.7 && h >= 5) { // the street kit, in a gutter wide enough for it
+        if (rand() < 0.3 * K) { const p = at((rand() - 0.5) * (along - 2), 0.95, 0.42); clutter.push({ kind: 'vend', x: p.x, y: p.y, z: p.z, w: 0.95, h: 1.9, d: 0.8, rotY: rot, color: pick(rand, VEND) }); }
+        if (rand() < 0.12 * K) { const p = at((rand() - 0.5) * (along - 2), 1.15, 0.5); clutter.push({ kind: 'booth', x: p.x, y: p.y, z: p.z, w: 1.0, h: 2.3, d: 1.0, rotY: rot }); }
+        if (rand() < 0.2 * K) { const p = at((rand() - 0.5) * (along - 2), 0.55, 0.5); clutter.push({ kind: 'bin', x: p.x, y: p.y, z: p.z, w: 1.6, h: 1.1, d: 0.9, rotY: rot }); }
+        if (rand() < 0.15 * K) { const p = at((rand() - 0.5) * (along - 2), 0.4, 0.4); clutter.push({ kind: 'crate', x: p.x, y: p.y, z: p.z, w: 0.8, h: 0.8, d: 0.8, rotY: rot + (rand() - 0.5) * 0.6 }); }
+      }
+    }
+  };
+
+  // -- archetypes -----------------------------------------------------------
+  /** THE ROOFTOP KIT (owner: a lived-in city): a water tank on legs, a row of condensers, a stair bulkhead,
+   *  a vent stack, a dish, a skylight ridge, an aerial — the outer ring gets a lighter kit; a roof under the
+   *  route stays bare. */
+  const roofKit = (x: number, z: number, w: number, d: number, top: number, capped: boolean) => {
+    if (capped) return;
+    const P = bucket === core ? 1 : 0.4;
+    const spot = (mw: number, md: number): [number, number] => [x + (rand() - 0.5) * Math.max(0, w - mw - 0.6), z + (rand() - 0.5) * Math.max(0, d - md - 0.6)];
+    if (w > 4 && d > 4 && rand() < 0.45 * P) { // a water tank on four legs
+      const r = 0.7 + rand() * 0.4, th = 1.6 + rand(), legs = 1.1;
+      const [tx, tz] = spot(2 * r, 2 * r);
+      clutter.push({ kind: 'tank', x: tx, y: top + legs + th / 2, z: tz, w: 2 * r, h: th, d: 2 * r, rotY: 0 });
+      grid.add({ x: tx, y: top + legs + th / 2, z: tz, w: 2 * r, h: th, d: 2 * r });
+      for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) clutter.push({ kind: 'beam', x: tx + sx * r * 0.6, y: top + legs / 2, z: tz + sz * r * 0.6, w: 0.12, h: legs, d: 0.12, rotY: 0 });
+    }
+    if (rand() < 0.6 * P) { // a row of condensers
+      const n = 2 + Math.floor(rand() * 5), alongX = rand() < 0.5;
+      const [ax, az] = spot(alongX ? n * 1.1 : 0.9, alongX ? 0.9 : n * 1.1);
+      for (let i = 0; i < n; i++) clutter.push({ kind: 'ac', x: ax + (alongX ? (i - (n - 1) / 2) * 1.1 : 0), y: top + 0.42, z: az + (alongX ? 0 : (i - (n - 1) / 2) * 1.1), w: 0.9, h: 0.8, d: 0.9, rotY: 0 });
+    }
+    if (w > 5 && d > 5 && rand() < 0.5 * P) { const [bx, bz] = spot(2.2, 2.4); solid(bucket, 'dark', 'bits', 0, bx, top + 1.2, bz, 2.2, 2.4, 2.4); } // the stair bulkhead
+    if (rand() < 0.4 * P) { const [vx, vz] = spot(0.7, 0.7); clutter.push({ kind: 'plant', x: vx, y: top + 0.55, z: vz, w: 0.7, h: 1.1, d: 0.7, rotY: 0 }); } // a vent stack
+    if (rand() < 0.3 * P) { const [dx, dz] = spot(1.1, 1.1); clutter.push({ kind: 'dish', x: dx, y: top + 0.8, z: dz, w: 1.1, h: 1.1, d: 0.15, rotY: rand() * Math.PI * 2 }); }
+    if (w > 6 && rand() < 0.25 * P) { const [sx, sz] = spot(0.7, d * 0.5); clutter.push({ kind: 'duct', x: sx, y: top + 0.3, z: sz, w: 0.7, h: 0.6, d: d * 0.5, rotY: 0 }); } // a skylight ridge
+    if (rand() < 0.2 * P) solid(bucket, 'dark', 'bits', 0, x + (rand() - 0.5) * w * 0.4, top + 2.4, z + (rand() - 0.5) * d * 0.4, 0.22, 4.8, 0.22); // an aerial
+  };
+  /** ROOFTOP SHANTIES (owner: the poor build where they can): shacks under tarps on a flat roof, a water
+   *  tank, a lantern. */
+  const roofShanties = (x: number, z: number, w: number, d: number, h: number) => {
+    const n = 2 + Math.floor(rand() * 3);
+    for (let i = 0; i < n; i++) {
+      const sw = 1.6 + rand() * 1.4, sd = 1.6 + rand() * 1.4, sh = 1.6 + rand() * 1.2;
+      const sx = x + (rand() - 0.5) * (w - sw - 0.6), sz = z + (rand() - 0.5) * (d - sd - 0.6);
+      solid(bucket, 'facade', 'shanty', SHANTY_TEX[rand() < 0.6 ? 0 : 1], sx, h + sh / 2, sz, sw, sh, sd);
+      tarps.push({ x: sx, y: h + sh + 0.08, z: sz, w: sw + 0.6, h: 0.12, d: sd + 0.6, color: pick(rand, TARP) });
+    }
+    if (rand() < 0.5) solid(bucket, 'cyl', 'bits', 0, x + (rand() - 0.5) * w * 0.5, h + 1.1, z + (rand() - 0.5) * d * 0.5, 1.4, 2.2, 1.4);
+    lantern(x + (rand() - 0.5) * w * 0.6, h + 2.2, z + (rand() - 0.5) * d * 0.6);
   };
   /** A crown for a tower's top tier: pyramid, spire or dome. */
   const crown = (x: number, z: number, wTop: number, top: number, allowed: number): number => {
@@ -454,12 +659,18 @@ export function planCity(seed: number): Plan {
     }
     return top;
   };
-  const noteTall = (x: number, z: number, top: number, w: number, d: number) => {
-    if (top > 40 && bucket === core) tall.push({ x, z, top, w, d, bridges: 0 });
+  const noteTall = (x: number, z: number, top: number, w: number, d: number, flat = false) => {
+    if (top > 40 && bucket === core) tall.push({ x, z, top, w, d, bridges: 0, flat });
   };
-  const finish = (fp: NonNullable<Foot>, h: number, top: number, capped: boolean) => {
-    dress(fp, h, top, capped);
-    clutter(fp, h);
+  /** Every building ends here: an arcade along it perhaps, additions stacked on it, its signs, its balconies,
+   *  its kit. `flat` says the roof at `h` is a flat roof an annex can stand on. */
+  const finish = (fp: NonNullable<Foot>, h: number, top: number, capped: boolean, flat = true) => {
+    const lowY = arcades(fp, h);
+    const top2 = stackOn(fp, h, top, flat);
+    dress(fp, h, top2, capped, lowY);
+    balconies(fp, h);
+    facadeKit(fp, h);
+    bctx.bustle = null;
     return fp;
   };
 
@@ -482,28 +693,29 @@ export function planCity(seed: number): Plan {
       }
     }
     if (h > 26) top = crown(x, z, Math.min(wTop, d * (wTop / w)), top, allowed);
-    else roofBits(x, z, w, d, top, capped);
+    else roofKit(x, z, w, d, top, capped);
     noteTall(x, z, top, w, d);
-    return finish({ x, z, w, d }, h, top, capped);
+    return finish({ x, z, w, d }, h, top, capped, true);
   };
   const slab = (x: number, z: number, w: number, d: number, h0: number): Foot => {
     const allowed = allowedTop(x, z, w, d);
     const h = fitH(h0, 1, 0, allowed);
     if (!h) return null;
     solid(bucket, 'facade', 'slab', texOf((s) => s.win === 'ribbon' || s.win === 'curtain'), x, h / 2, z, w, h, d);
-    roofBits(x, z, w, d, h, allowed < Infinity);
-    noteTall(x, z, h, w, d);
-    return finish({ x, z, w, d }, h, h, allowed < Infinity);
+    roofKit(x, z, w, d, h, allowed < Infinity);
+    noteTall(x, z, h, w, d, true);
+    return finish({ x, z, w, d }, h, h, allowed < Infinity, true);
   };
   const cylinder = (x: number, z: number, r: number, h0: number): Foot => {
     const allowed = allowedTop(x, z, r * 2, r * 2);
     const h = fitH(h0, 1, r, allowed); // the dome is r tall — reserve all of it
     if (!h) return null;
+    bctx.round = true;
     solid(bucket, 'cyl', 'cyl', texOf((s) => s.win === 'strip' || s.win === 'grid' || s.win === 'wide'), x, h / 2, z, r * 2, h, r * 2);
     let top = h;
     if (rand() < 0.45) { solid(bucket, 'dome', 'cyl', 0, x, h + r / 2, z, r * 2, r, r * 2); top = h + r; }
     noteTall(x, z, top, r * 2, r * 2);
-    return finish({ x, z, w: r * 2, d: r * 2 }, h, top, allowed < Infinity);
+    return finish({ x, z, w: r * 2, d: r * 2 }, h, top, allowed < Infinity, false);
   };
   const ziggurat = (x: number, z: number, w: number, d: number, h0: number): Foot => {
     const allowed = allowedTop(x, z, w, d);
@@ -520,7 +732,7 @@ export function planCity(seed: number): Plan {
       ox += (rand() - 0.5) * w * 0.12; oz += (rand() - 0.5) * d * 0.12;
     }
     noteTall(x, z, y, w, d);
-    return finish({ x, z, w, d }, h * shares[0], y, allowed < Infinity);
+    return finish({ x, z, w, d }, h * shares[0], y, allowed < Infinity, false);
   };
   const twin = (x: number, z: number, w: number, d: number, h0: number): Foot => {
     const allowed = allowedTop(x, z, w, d);
@@ -531,9 +743,9 @@ export function planCity(seed: number): Plan {
     solid(bucket, 'facade', 'twin', tex, x - gap / 2, h / 2, z, tw, h, d);
     solid(bucket, 'facade', 'twin', tex, x + gap / 2, (h * (0.7 + rand() * 0.3)) / 2, z, tw, h * (0.7 + rand() * 0.3), d);
     solid(bucket, 'facade', 'twin', tex, x, h * 0.5, z, gap, 2.2, d * 0.6); // the sky bridge
-    roofBits(x - gap / 2, z, tw, d, h, allowed < Infinity);
+    roofKit(x - gap / 2, z, tw, d, h, allowed < Infinity);
     noteTall(x, z, h, w, d);
-    return finish({ x, z, w, d }, h, h, allowed < Infinity);
+    return finish({ x, z, w, d }, h, h, allowed < Infinity, false);
   };
   const cross = (x: number, z: number, w: number, d: number, h0: number): Foot => {
     const allowed = allowedTop(x, z, w, d);
@@ -542,9 +754,9 @@ export function planCity(seed: number): Plan {
     const tex = anyTex();
     solid(bucket, 'facade', 'cross', tex, x, h / 2, z, w, h, d * 0.5);
     solid(bucket, 'facade', 'cross', tex, x, h / 2, z, w * 0.5, h, d);
-    roofBits(x, z, w * 0.5, d * 0.5, h, allowed < Infinity);
-    noteTall(x, z, h, w, d);
-    return finish({ x, z, w, d }, h, h, allowed < Infinity);
+    roofKit(x, z, w * 0.5, d * 0.5, h, allowed < Infinity);
+    noteTall(x, z, h, w, d, true);
+    return finish({ x, z, w, d }, h, h, allowed < Infinity, false);
   };
   const needle = (x: number, z: number, h0: number): Foot => {
     const w = 3.4 + rand() * 1.6;
@@ -558,7 +770,7 @@ export function planCity(seed: number): Plan {
     leds.push({ x: x + sx * w / 2, y: h / 2, z: z + sz * w / 2, w: 0.2, h: h * 0.94, d: 0.2, color });
     leds.push({ x: x - sx * w / 2, y: h / 2, z: z - sz * w / 2, w: 0.2, h: h * 0.94, d: 0.2, color });
     noteTall(x, z, h + 10, w, w);
-    return finish({ x, z, w, d: w }, h, h + 10, allowed < Infinity);
+    return finish({ x, z, w, d: w }, h, h + 10, allowed < Infinity, false);
   };
   const podium = (x: number, z: number, w: number, d: number, h0: number): Foot => {
     const allowed = allowedTop(x, z, w, d);
@@ -570,7 +782,7 @@ export function planCity(seed: number): Plan {
     solid(bucket, 'facade', 'podium', anyTex(), x + ox, ph + (h - ph) / 2, z + oz, w * 0.52, h - ph, d * 0.52);
     const top = crown(x + ox, z + oz, Math.min(w, d) * 0.52, h, allowed);
     noteTall(x, z, top, w, d);
-    return finish({ x, z, w, d }, ph, top, allowed < Infinity);
+    return finish({ x, z, w, d }, ph, top, allowed < Infinity, false);
   };
   /** The low-rise stack: a tenement of small floors, balconies, a pitched
    *  or flat roof, sometimes a rooftop shed — Newport City's old quarter. */
@@ -584,21 +796,22 @@ export function planCity(seed: number): Plan {
     const roof = rand();
     if (roof < 0.35) { solid(bucket, 'pyr', 'low', 0, x, h + 1.2, z, w, 2.4, d); top = h + 2.4; }
     else if (roof < 0.55) { solid(bucket, 'facade', 'low', tex, x + (rand() - 0.5) * w * 0.3, h + 1.4, z + (rand() - 0.5) * d * 0.3, w * 0.5, 2.8, d * 0.5); top = h + 2.8; }
-    else if (roof < 0.85 && w > 5 && d > 5 && h + 3 <= allowed) {
-      // ROOFTOP SHANTIES (owner: the poor build where they can): shacks under
-      // tarps on the flat roofs, a water tank, a lantern
-      const n = 2 + Math.floor(rand() * 3);
-      for (let i = 0; i < n; i++) {
-        const sw = 1.6 + rand() * 1.4, sd = 1.6 + rand() * 1.4, sh = 1.6 + rand() * 1.2;
-        const sx = x + (rand() - 0.5) * (w - sw - 0.6), sz = z + (rand() - 0.5) * (d - sd - 0.6);
-        solid(bucket, 'facade', 'shanty', SHANTY_TEX[rand() < 0.6 ? 0 : 1], sx, h + sh / 2, sz, sw, sh, sd);
-        tarps.push({ x: sx, y: h + sh + 0.08, z: sz, w: sw + 0.6, h: 0.12, d: sd + 0.6, color: pick(rand, TARP) });
-      }
-      if (rand() < 0.5) solid(bucket, 'cyl', 'bits', 0, x + (rand() - 0.5) * w * 0.5, h + 1.1, z + (rand() - 0.5) * d * 0.5, 1.4, 2.2, 1.4);
-      lantern(x + (rand() - 0.5) * w * 0.6, h + 2.2, z + (rand() - 0.5) * d * 0.6);
-      top = h + 3;
-    }
-    return finish({ x, z, w, d }, h, top, allowed < Infinity);
+    else if (roof < 0.85 && w > 5 && d > 5 && h + 3 <= allowed) { roofShanties(x, z, w, d, h); top = h + 3; }
+    else roofKit(x, z, w, d, h, allowed < Infinity);
+    return finish({ x, z, w, d }, h, top, allowed < Infinity, roof >= 0.85);
+  };
+  /** THE BLOCK (owner: Kowloon): a plain box of flats jumbled against its neighbours, shanties or the kit on
+   *  its roof, additions stacked on it by `finish`. */
+  const block = (x: number, z: number, w: number, d: number, h0: number): Foot => {
+    const allowed = allowedTop(x, z, w, d);
+    const h = fitH(h0, 1, 0, allowed);
+    if (!h) return null;
+    solid(bucket, 'facade', 'block', texOf((s) => s.win === 'grid' || s.win === 'tiny' || s.win === 'strip'), x, h / 2, z, w, h, d);
+    let top = h, flat = true;
+    if (w > 5 && d > 5 && h + 3 <= allowed && rand() < 0.4) { roofShanties(x, z, w, d, h); top = h + 3; flat = false; }
+    else roofKit(x, z, w, d, h, allowed < Infinity);
+    noteTall(x, z, top, w, d, flat);
+    return finish({ x, z, w, d }, h, top, allowed < Infinity, flat);
   };
 
   /** Recursive partition of a rectangle into building cells between min and
@@ -619,28 +832,46 @@ export function planCity(seed: number): Plan {
     } else out.push(r);
   };
 
-  /** One cell of a lot becomes one building, by size class and height. */
-  const building = (c: Rect, pull: number, storefronts: boolean) => {
+  /** One cell of a lot becomes one building: its district's heights (jittered per block, the odd spike), a
+   *  seam or a gutter about it, an archetype by district and size class; its street-facing walls are
+   *  remembered for the overbuilds. */
+  const building = (c: Rect, lot: Rect, prof: Profile, seam: number | null, storefronts: boolean, jit: number) => {
     if (lineDist(c.x, c.z, DIAGONAL.x0, DIAGONAL.z0, DIAGONAL.x1, DIAGONAL.z1) < DIAGONAL.width / 2 + Math.max(c.w, c.d) / 2 + 1) return; // the boulevard's right of way
-    const g = 0.3 + rand() * 0.8;
+    const g = seam ?? 0.3 + rand() * 0.8;
     const w = c.w - 2 * g, d = c.d - 2 * g;
     if (w < 3 || d < 3) return;
     const x = c.x, z = c.z;
-    const base = 10 + pull * 44;
-    const h = base * (0.45 + rand() * 1.15) * (rand() < 0.08 ? 1.6 : 1); // jumbled, with the odd spike
+    const jt = prof.name === 'walled' ? 1 + (jit - 1) * 0.4 : jit; // the walled city keeps its height whatever the block: its streets are roofed over
+    let h = (prof.lo + Math.pow(rand(), prof.name === 'walled' ? 1 : 1.3) * (prof.hi - prof.lo)) * jt;
+    if (rand() < 0.08) h *= 1.6; // the odd spike
+    h = Math.min(h, 128);
     const m = Math.min(w, d), M = Math.max(w, d);
     const a = rand();
-    const fp =
-      m < 5.5 ? (h > 34 && rand() < 0.25 ? needle(x, z, h) : low(x, z, w, d, Math.min(h, 16)))
-      : M / m > 2.2 ? slab(x, z, w, d, h)
-      : h > 30 && a < 0.08 ? needle(x, z, h)
-      : h > 24 && a < 0.18 ? ziggurat(x, z, w, d, h)
-      : h > 22 && w > 9 && a < 0.25 ? twin(x, z, w, d, h)
-      : h > 20 && a < 0.32 ? cross(x, z, w, d, h)
-      : a < 0.4 && m >= 6 ? cylinder(x, z, (m / 2) * 0.95, h)
-      : a < 0.5 ? podium(x, z, w, d, h)
-      : h < 14 ? low(x, z, w, d, h)
-      : tower(x, z, w, d, h, anyTex());
+    const outer = [c.z + c.d / 2 > lot.z + lot.d / 2 - 1, c.z - c.d / 2 < lot.z - lot.d / 2 + 1, c.x + c.w / 2 > lot.x + lot.w / 2 - 1, c.x - c.w / 2 < lot.x - lot.w / 2 + 1];
+    bctx = { outer, prof, g, round: false, bustle: null };
+    const i0 = bucket.length;
+    let fp: Foot;
+    if (m < 5.5) fp = prof.name === 'walled' ? block(x, z, w, d, Math.min(h, 44)) : h > 34 && rand() < 0.25 && prof.name !== 'old' ? needle(x, z, h) : low(x, z, w, d, Math.min(h, 16));
+    else if (M / m > 2.2) fp = slab(x, z, w, d, h);
+    else if (prof.name === 'heights') {
+      fp = a < 0.34 ? tower(x, z, w, d, h, anyTex()) : a < 0.52 ? podium(x, z, w, d, h) : a < 0.66 && w > 9 ? twin(x, z, w, d, h) : a < 0.8 ? cross(x, z, w, d, h)
+        : a < 0.9 && m >= 6 ? cylinder(x, z, (m / 2) * 0.95, h) : needle(x, z, h);
+    } else if (prof.name === 'walled') {
+      fp = a < 0.68 ? block(x, z, w, d, h) : a < 0.82 ? tower(x, z, w, d, h, anyTex()) : a < 0.92 ? ziggurat(x, z, w, d, h) : cross(x, z, w, d, h);
+    } else if (prof.name === 'old') {
+      fp = a < 0.7 || h < 14 ? low(x, z, w, d, Math.min(h, 24)) : block(x, z, w, d, h);
+    } else {
+      fp = h > 30 && a < 0.06 ? needle(x, z, h)
+        : h > 24 && a < 0.14 ? ziggurat(x, z, w, d, h)
+        : h > 22 && w > 9 && a < 0.2 ? twin(x, z, w, d, h)
+        : h > 20 && a < 0.27 ? cross(x, z, w, d, h)
+        : a < 0.34 && m >= 6 ? cylinder(x, z, (m / 2) * 0.95, h)
+        : a < 0.44 ? podium(x, z, w, d, h)
+        : a < 0.66 ? block(x, z, w, d, h)
+        : h < 14 ? low(x, z, w, d, h)
+        : tower(x, z, w, d, h, anyTex());
+    }
+    for (let i = i0; i < bucket.length; i++) { const s = bucket[i]; if (s.kind === 'facade' && s.arch !== 'shanty' && s.arch !== 'annex') noteFace(s, lot); }
     // LIVELY STREETS: storefront light spilling onto the pavement
     if (fp && storefronts && rand() < 0.8) {
       const side = Math.floor(rand() * 4);
@@ -655,10 +886,15 @@ export function planCity(seed: number): Plan {
 
   /** An alley cut through a lot: a narrow walkway strung with lanterns,
    *  banners and wires between the buildings either side. */
+  const pendingCats: { x: number; z: number; alongX: boolean; aw: number }[] = [];
   const alley = (r: Rect, alongX: boolean, at: number, aw: number) => {
     const len = alongX ? r.w : r.d;
     const x0 = alongX ? r.x - r.w / 2 : at, z0 = alongX ? at : r.z - r.d / 2;
     streets.push({ x0, z0, dx: alongX ? 1 : 0, dz: alongX ? 0 : 1, len, y: 0, kind: 'alley', width: aw });
+    for (let k = 0, n = 1 + (rand() < 0.5 ? 1 : 0); k < n; k++) { // catwalks across it, hung once the walls stand
+      const t = 3 + rand() * (len - 6);
+      pendingCats.push({ x: alongX ? x0 + t : at, z: alongX ? at : z0 + t, alongX, aw });
+    }
     for (let t = 3; t < len - 2; t += 6) {
       const side = rand() < 0.5 ? -1 : 1;
       lantern(alongX ? x0 + t : at + side * (aw / 2 - 0.4), 3.6 + rand() * 1.5, alongX ? at + side * (aw / 2 - 0.4) : z0 + t);
@@ -678,10 +914,12 @@ export function planCity(seed: number): Plan {
     if (rand() < 0.5) vents.push({ x: alongX ? x0 + rand() * len : at + (rand() - 0.5) * 1.5, z: alongX ? at + (rand() - 0.5) * 1.5 : z0 + rand() * len });
   };
 
-  /** Pack a lot (or a merged superblock) edge to edge, half the time cut by an alley. */
-  const buildLot = (r: Rect, pull: number, storefronts: boolean) => {
+  /** Pack a lot (or a merged superblock) edge to edge by its district's profile — fused into one mass or
+   *  gutters between — often cut by an alley with catwalks across it. */
+  const buildLot = (r: Rect, prof: Profile, storefronts: boolean, jit: number) => {
     const parts: Rect[] = [];
-    if (r.w >= 20 && r.d >= 20 && rand() < 0.5) {
+    const alleyOdds = prof.name === 'old' ? 0.6 : prof.name === 'walled' ? 0.3 : 0.5;
+    if (r.w >= 20 && r.d >= 20 && rand() < alleyOdds) {
       const alongX = rand() < 0.5;
       const aw = 3.5 + rand() * 1.5;
       if (alongX) {
@@ -698,10 +936,23 @@ export function planCity(seed: number): Plan {
         alley(r, false, at, aw);
       }
     } else parts.push(r);
+    const seam = rand() < prof.fuse ? 0.08 : null;
     for (const part of parts) {
       const cells: Rect[] = [];
-      partition(part, 5, 11 + rand() * 5, cells);
-      for (const c of cells) building(c, pull, storefronts);
+      partition(part, prof.min, prof.min + 2 + rand() * (prof.max - prof.min - 2), cells);
+      for (const c of cells) building(c, r, prof, seam, storefronts, jit);
+    }
+    for (const c of pendingCats.splice(0)) { // catwalks across the alley, between walls that are really there
+      const nx = c.alongX ? 0 : 1, nz = c.alongX ? 1 : 0; // across the alley
+      const e = c.aw / 2 + 1.3; // into the walls either side
+      for (let tries = 0; tries < 4; tries++) {
+        const y = 4.5 + rand() * 13.5;
+        if (!grid.hit(c.x + nx * e, y, c.z + nz * e, 0.1) || !grid.hit(c.x - nx * e, y, c.z - nz * e, 0.1)) continue;
+        streets.push({ x0: c.x - nx * e, z0: c.z - nz * e, dx: nx, dz: nz, len: 2 * e, y, kind: 'catwalk', width: 1.4 });
+        grid.add({ x: c.x, y, z: c.z, w: c.alongX ? 1.4 : 2 * e, h: 0.3, d: c.alongX ? 2 * e : 1.4 });
+        lantern(c.x - nx * (e - 1.6), y + 1.5, c.z - nz * (e - 1.6)); lantern(c.x + nx * (e - 1.6), y + 1.5, c.z + nz * (e - 1.6));
+        break;
+      }
     }
   };
 
@@ -837,10 +1088,7 @@ export function planCity(seed: number): Plan {
       }
     }
   }
-  const pullAt = (bx: number, bz: number) =>
-    Math.max(0, 1 - (Math.abs(bx) + Math.abs(bz)) / (HALF * 1.5)) + 0.75 * Math.exp(-(((bx - 4) ** 2 + (bz + 4) ** 2) / 5));
-
-  // -- the main city ---------------------------------------------------------
+  // -- the main city, by district ---------------------------------------------
   for (let bx = -HALF; bx <= HALF; bx++) {
     for (let bz = -HALF; bz <= HALF; bz++) {
       if (bx === 0 || bz === 0) continue; // the avenues
@@ -854,7 +1102,7 @@ export function planCity(seed: number): Plan {
         ? { x: bx * G + G / 2, z: bz * G, w: 2 * LOT + STREET, d: LOT }
         : m === 'z' ? { x: bx * G, z: bz * G + G / 2, w: LOT, d: 2 * LOT + STREET }
         : { x: bx * G, z: bz * G, w: LOT, d: LOT };
-      buildLot(rect, pullAt(bx, bz), true);
+      buildLot(rect, DISTRICTS[districtOf(bx, bz)], true, blockJitter(bx, bz));
     }
   }
   // -- the outer ring: past the fence, still finished ------------------------
@@ -864,7 +1112,7 @@ export function planCity(seed: number): Plan {
       if (Math.max(Math.abs(bx), Math.abs(bz)) <= HALF) continue;
       if (bx === 0 || bz === 0) continue; // the avenues run on out of town
       if (reserved.has(key(bx, bz))) continue;
-      buildLot({ x: bx * G, z: bz * G, w: LOT, d: LOT }, 0.05 + rand() * 0.1, false);
+      buildLot({ x: bx * G, z: bz * G, w: LOT, d: LOT }, OUTER_PROFILE, false, blockJitter(bx, bz));
     }
   }
   bucket = core; rich = true;
@@ -1098,6 +1346,79 @@ export function planCity(seed: number): Plan {
       }
     }
   }
+  // -- OVERBUILDS (owner: overlapping structures, buildings over the streets): blocks of flats bridging a
+  // street between two masses that face each other, above the auto-flight's canyon band (20–32, a 2.6 pad)
+  // and under the route (the underside at 35+); the walled city is mostly roofed over this way, a screen looks
+  // down the street ------------------------------------------------------------------------------------------
+  const roofed: { axis: 'x' | 'z'; at: number; t: number; half: number }[] = []; // where a span roofs a street: the auto-flight treats it as a closure
+  const key3 = (b: number[]) => `${b[0]}:${b[1]}:${b[2]}`;
+  for (const r of roads) {
+    const i = Math.round(r.at / G - 0.5);
+    if (i === -1 || i === 0) continue; // the avenues' own carriageways
+    const j0 = Math.round(r.from / G + 0.5), j1 = Math.round(r.to / G - 0.5);
+    for (let j = j0; j <= j1; j++) {
+      const ba = r.axis === 'x' ? [j, i, 0] : [i, j, 2], bb = r.axis === 'x' ? [j, i + 1, 1] : [i + 1, j, 3]; // (bx, bz, side) either side of the road
+      if ([ba, bb].some((b) => Math.abs(b[0]) > HALF || Math.abs(b[1]) > HALF)) continue;
+      const A = faces.get(key3(ba)), B = faces.get(key3(bb));
+      if (!A || !B) continue;
+      const odds = DISTRICTS[districtOf(ba[0], ba[1])].over;
+      if (rand() >= odds) continue;
+      // the masses either side, read along the street: a span lands wherever both carry at least 43
+      const ext = (q: Solid): [number, number] => (r.axis === 'x' ? [q.x - q.w / 2, q.x + q.w / 2] : [q.z - q.d / 2, q.z + q.d / 2]);
+      const topAt = (list: Solid[], u: number) => { let t = 0; for (const q of list) { const [q0, q1] = ext(q); if (u >= q0 && u <= q1) t = Math.max(t, q.y + q.h / 2); } return t; };
+      const u0 = j * G - LOT / 2, u1 = j * G + LOT / 2;
+      const runs: [number, number][] = [];
+      let run: number | null = null;
+      for (let u = u0; u <= u1 + 0.25; u += 0.5) {
+        const ok = u <= u1 && Math.min(topAt(A, u), topAt(B, u)) >= 41;
+        if (ok && run === null) run = u;
+        if (!ok && run !== null) { if (u - 0.5 - run >= 4.5) runs.push([run, u - 0.5]); run = null; }
+      }
+      for (const [r0, r1] of runs) {
+        let u = r0; // spans laid along the run, end to end with a breath between
+        for (let n = 0; n < 3 && r1 - u >= 4.5; n++) {
+          const dep = Math.min(r1 - u, 8 + rand() * 8), c = u + dep / 2;
+          u += dep + 1 + rand() * 6;
+          let lowTop = Infinity, fa = -Infinity, fb = Infinity;
+          for (const u of [c - dep / 2 + 0.1, c, c + dep / 2 - 0.1]) lowTop = Math.min(lowTop, topAt(A, u), topAt(B, u));
+          for (const q of A) { const [q0, q1] = ext(q); if (q1 > c - dep / 2 && q0 < c + dep / 2) fa = Math.max(fa, r.axis === 'x' ? q.z + q.d / 2 : q.x + q.w / 2); }
+          for (const q of B) { const [q0, q1] = ext(q); if (q1 > c - dep / 2 && q0 < c + dep / 2) fb = Math.min(fb, r.axis === 'x' ? q.z - q.d / 2 : q.x - q.w / 2); }
+          const across = fb - fa;
+          if (!(across >= 8 && across <= 30)) continue;
+          const y0 = 35 + rand() * 3, hb = Math.min(5 + rand() * 7, lowTop - 2 - y0); // the underside above the canyon band and its pad (34.6); as thick as the lower mass allows
+          if (hb < 4) continue;
+          const x = r.axis === 'x' ? c : (fa + fb) / 2, z = r.axis === 'x' ? (fa + fb) / 2 : c;
+          const w = r.axis === 'x' ? dep : across + 0.4, d = r.axis === 'x' ? across + 0.4 : dep;
+          if (Math.abs(x) < 26 || Math.abs(z) < 26) continue; // never over an avenue
+          if (y0 + hb > allowedTop(x, z, w, d)) continue; // the route flies over
+          if (grid.hit(x, y0 + hb / 2, z, 1)) continue; // something already fills that air
+          solid(core, 'facade', 'over', anyTex(), x, y0 + hb / 2, z, w, hb, d);
+          roofed.push({ axis: r.axis, at: r.at, t: c, half: dep / 2 });
+          if (rand() < 0.35) { // a screen on the face that looks down the street
+            const sgn = rand() < 0.5 ? 1 : -1;
+            signs.push({
+              x: x + (r.axis === 'x' ? sgn * (dep / 2 + 0.2) : 0), y: y0 + hb / 2, z: z + (r.axis === 'x' ? 0 : sgn * (dep / 2 + 0.2)),
+              rotY: r.axis === 'x' ? sgn * Math.PI / 2 : sgn > 0 ? 0 : Math.PI, w: across * 0.6, h: hb * 0.6, color: '#ffffff', kind: 'screen',
+            });
+          }
+        }
+      }
+    }
+  }
+  // -- TOWER CRANES (owner: a city still building itself): three, on flat roofs at mid height, clear of the
+  // route and the highway, a red lamp on the mast, a lantern at the jib's tip ------------------------------
+  const extraBeacons: { x: number; y: number; z: number }[] = [];
+  for (const t of tall.filter((q) => q.flat && q.top > 40 && q.top < 90 && allowedTop(q.x, q.z, q.w + 40, q.d + 40) === Infinity).slice(0, 3)) {
+    const alongX = rand() < 0.5, dir = rand() < 0.5 ? 1 : -1;
+    const mx = t.x + (rand() - 0.5) * t.w * 0.4, mz = t.z + (rand() - 0.5) * t.d * 0.4, mt = t.top + 22;
+    solid(core, 'dark', 'street', 0, mx, (t.top + mt) / 2, mz, 1.1, mt - t.top, 1.1); // the mast
+    solid(core, 'dark', 'street', 0, mx + (alongX ? dir * 3 : 0), mt + 0.5, mz + (alongX ? 0 : dir * 3), alongX ? 14 : 0.9, 0.9, alongX ? 0.9 : 14); // the jib and the counter-jib, over the lot
+    solid(core, 'dark', 'street', 0, mx, mt - 0.6, mz, 1.6, 1.4, 1.6); // the cab
+    const tx = mx + (alongX ? dir * 9.5 : 0), tz = mz + (alongX ? 0 : dir * 9.5);
+    wires.push(tx, mt, tz, tx, mt - 4, tz, tx, mt - 4, tz, tx, mt - 8, tz); // the hook's cable
+    lantern(tx, mt + 0.3, tz);
+    extraBeacons.push({ x: mx, y: mt + 1.6, z: mz });
+  }
   streets.push({ x0: 0, z0: -REACH, dx: 0, dz: 1, len: 2 * REACH, y: 0.3, kind: 'canal', width: CANAL.w });
   for (let i = -HALF - 1; i <= HALF; i++) {
     for (let j = -HALF - 1; j <= HALF; j++) {
@@ -1128,9 +1449,13 @@ export function planCity(seed: number): Plan {
     }
   }
   tall.sort((a, b) => b.top - a.top);
-  let bridged = 0;
-  for (let i = 0; i < tall.length && bridged < 44; i++) {
-    for (let j = i + 1; j < tall.length && bridged < 44; j++) {
+  let bridged = 0, overStreets = 0; // the spans over streets close them to the flight: not too many
+  const airFull = (x: number, y: number, z: number, wx: number, wz: number): boolean => { // an overbuild or a cantilever already there
+    for (let k = -2; k <= 2; k++) if (grid.hit(x + wx * k / 5, y, z + wz * k / 5, 1)) return true;
+    return false;
+  };
+  for (let i = 0; i < tall.length && bridged < 90; i++) {
+    for (let j = i + 1; j < tall.length && bridged < 90; j++) {
       const a = tall[i], b = tall[j];
       if (a.bridges > 1 || b.bridges > 1) continue;
       const gx = Math.abs(a.x - b.x) - (a.w + b.w) / 2, gz = Math.abs(a.z - b.z) - (a.d + b.d) / 2;
@@ -1138,20 +1463,37 @@ export function planCity(seed: number): Plan {
       let y = lowTop * (0.42 + rand() * 0.3);
       const acrossX = gx >= 4 && gx <= 16 && Math.abs(a.z - b.z) < (a.d + b.d) / 2 - 3;
       const acrossZ = !acrossX && gz >= 4 && gz <= 16 && Math.abs(a.x - b.x) < (a.w + b.w) / 2 - 3;
-      if ((acrossX ? gx : acrossZ ? gz : 0) >= 12) { // spanning a street: above the auto-flight's canyon band
+      if ((acrossX ? gx : acrossZ ? gz : 0) >= 12) { // spanning a street: above the auto-flight's canyon band, and not too many of them
         y = Math.max(y, 36);
-        if (y > lowTop - 5) continue;
+        if (y > lowTop - 5 || overStreets >= 30) continue;
       }
+      // two builds: an enclosed glass tube, or an open catwalk with rails and a string of lanterns
       if (acrossX) {
         const x = (a.x + b.x) / 2 + (a.x < b.x ? (a.w - b.w) / 4 : (b.w - a.w) / 4);
         const z = (a.z + b.z) / 2;
-        solid(core, 'facade', 'bridge', texOf((s) => s.win === 'curtain'), x, y, z, gx + 0.6, 2.4, 3);
-        strips.push({ x, y: y + 1.35, z, w: gx, h: 0.16, d: 0.16, color: '#7de8ff' });
+        if (airFull(x, y, z, gx, 0)) continue;
+        if (gx >= 12) { roofed.push({ axis: 'z', at: x, t: z, half: 4 }); overStreets += 1; } // over a north–south street: the flight sees a closure
+        if (rand() < 0.55) {
+          solid(core, 'facade', 'bridge', texOf((s) => s.win === 'curtain'), x, y, z, gx + 0.6, 2.4, 3);
+          strips.push({ x, y: y + 1.35, z, w: gx, h: 0.16, d: 0.16, color: '#7de8ff' });
+        } else {
+          solid(core, 'dark', 'bridge', 0, x, y - 0.9, z, gx + 0.6, 0.3, 2.2);
+          for (const s of [-1, 1]) clutter.push({ kind: 'rail', x, y: y - 0.3, z: z + s * 1.05, w: gx + 0.6, h: 0.9, d: 0.05, rotY: 0 });
+          for (let u = -gx / 2 + 2; u < gx / 2; u += 4) lantern(x + u, y + 0.6, z);
+        }
       } else if (acrossZ) {
         const z = (a.z + b.z) / 2 + (a.z < b.z ? (a.d - b.d) / 4 : (b.d - a.d) / 4);
         const x = (a.x + b.x) / 2;
-        solid(core, 'facade', 'bridge', texOf((s) => s.win === 'curtain'), x, y, z, 3, 2.4, gz + 0.6);
-        strips.push({ x, y: y + 1.35, z, w: 0.16, h: 0.16, d: gz, color: '#7de8ff' });
+        if (airFull(x, y, z, 0, gz)) continue;
+        if (gz >= 12) { roofed.push({ axis: 'x', at: z, t: x, half: 4 }); overStreets += 1; } // over an east–west street
+        if (rand() < 0.55) {
+          solid(core, 'facade', 'bridge', texOf((s) => s.win === 'curtain'), x, y, z, 3, 2.4, gz + 0.6);
+          strips.push({ x, y: y + 1.35, z, w: 0.16, h: 0.16, d: gz, color: '#7de8ff' });
+        } else {
+          solid(core, 'dark', 'bridge', 0, x, y - 0.9, z, 2.2, 0.3, gz + 0.6);
+          for (const s of [-1, 1]) clutter.push({ kind: 'rail', x: x + s * 1.05, y: y - 0.3, z, w: gz + 0.6, h: 0.9, d: 0.05, rotY: Math.PI / 2 });
+          for (let u = -gz / 2 + 2; u < gz / 2; u += 4) lantern(x, y + 0.6, z + u);
+        }
       } else continue;
       a.bridges += 1; b.bridges += 1; bridged += 1;
     }
@@ -1200,6 +1542,7 @@ export function planCity(seed: number): Plan {
   const beacons = [
     { x: lmx, y: landmark.top + 1.6, z: lmz },
     { x: mgx + 15, y: 118, z: mgz + 2 },
+    ...extraBeacons,
     ...stacks.map((s) => ({ x: s.x, y: s.top + 1.4, z: s.z })),
     ...tall.slice(0, 26).map((t) => ({ x: t.x, y: t.top + 1.8, z: t.z })),
   ];
@@ -1245,7 +1588,7 @@ export function planCity(seed: number): Plan {
   }
 
   /** Street left ahead of `from` on the travel axis at street `at`: to the
-   *  first closed segment, or the fence. */
+   *  first closed segment, the first span roofing the street, or the fence. */
   const roomAhead = (axis: 'x' | 'z', at: number, from: number, dir: 1 | -1): number => {
     const i = Math.round(at / G - 0.5);
     const fence = dir > 0 ? EXT - 24 - from : from + EXT - 24;
@@ -1259,11 +1602,16 @@ export function planCity(seed: number): Plan {
         break;
       }
     }
+    for (const o of roofed) {
+      if (o.axis !== axis || Math.abs(o.at - at) > 1) continue;
+      const d = dir > 0 ? o.t - o.half - from : from - (o.t + o.half);
+      if (d >= 0) room = Math.min(room, d);
+    }
     return Math.max(0, room);
   };
 
   return {
-    core, outer, sprawl, strips, leds, awnings, tarps, signs, posts, lanterns, wires, vents, holos, stalls, sprawlLamps, neon,
+    core, outer, sprawl, strips, leds, awnings, tarps, clutter, signs, posts, lanterns, wires, vents, holos, stalls, sprawlLamps, neon,
     beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead, air, pads,
   };
 }
@@ -1415,6 +1763,13 @@ export class AutoFlight {
       const snap = { ...this.st, orbit: this.st.orbit ? { ...this.st.orbit } : null };
       if (tries >= 40) { // only a canyon is actually low; a dive not yet flown is still up in the air
         this.st.phase = this.st.phase === 'canyon' ? 'climb' : 'cruise'; this.st.left = 2; this.st.orbit = null; this.st.avenue = false;
+        // hemmed in: the knot's own tangent leads into a wall and every leg bulges along it — shorten it, so the
+        // legs leave straighter (the leg into the knot must stay clear; the leg being flown is never reshaped)
+        if (this.knots.length - 1 > this.seg + 1) {
+          const old = last.t.clone();
+          last.t.setLength(Math.max(6, last.t.length() * 0.6));
+          if (!this.legClear(this.knots.length - 2)) last.t.copy(old);
+        }
       }
       const c = this.propose(last.p, last.t, tries, tries >= 40 ? 40 + this.rand() * 60 : undefined);
       if (this.push(last, c, c.phase)) { if (c.dive) this.dives += 1; return; }
@@ -1442,7 +1797,7 @@ export class AutoFlight {
 
   private push(last: Knot, c: Proposal, phase: Phase): boolean {
     const chord = c.p.distanceTo(last.p);
-    if (chord < 20) return false; // a stub leg under a long tangent loops — never flown
+    if (chord < 20) return false; // a stub leg under a long tangent loops — never flown // a stub leg under a long tangent loops — never flown
     // no doubling back: a leg that leaves against the tangent it inherits
     // (in plan — a drop can hide a reversal) bends through a near-cusp,
     // and the pace would sag in it; and no plunge: a leg never rises or
@@ -1451,7 +1806,7 @@ export class AutoFlight {
     const th = Math.hypot(last.t.x, last.t.z);
     const dy = Math.abs(c.p.y - last.p.y);
     if (ch > dy && th > 1 && (last.t.x * cx + last.t.z * cz) < -0.2 * th * ch) return false; // (a mostly vertical leg may turn about)
-    if (last.p.y - c.p.y > 0.6 * ch + 4) return false;
+    if (last.p.y - c.p.y > (c.phase === 'canyon' ? 0.8 : 0.6) * ch + 4) return false; // (a canyon leg dives steeper)
     c.dir.normalize();
     // a knot needs a RUNWAY: the next leg leaves along this tangent, so a
     // clear point hemmed in by towers would strand the flight
@@ -1487,12 +1842,19 @@ export class AutoFlight {
     return true;
   }
 
+  /** The skyline at a point: the top of the tallest thing right under it, read from the solids themselves (a
+   *  cell's maximum would be a spike two lots away — the flight cruised at the spires' height and no street had
+   *  room for a dive from there). */
+  private skylineAt(x: number, z: number): number {
+    for (let y = 214; y >= 30; y -= 8) if (this.grid.hit(x, y, z, FLY_PAD + 0.4)) return y + 8;
+    return 30;
+  }
   /** The skyline under a chord: the tallest top sampled along it. */
   private ceilingAlong(a: Vector3, b: Vector3): number {
     let top = 0;
     for (let i = 0; i <= 10; i++) {
       const t = i / 10;
-      top = Math.max(top, this.grid.ceilingAt(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t));
+      top = Math.max(top, this.skylineAt(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t));
     }
     return top;
   }
@@ -1551,11 +1913,15 @@ export class AutoFlight {
     }
     if (!best) return null;
     const r = Math.hypot(best.x - last.x, best.z - last.z);
+    // the skyline under the circle: the orbit flies above it (owner: the supertalls hemmed an orbit in)
+    let top = 0;
+    for (let i = 0; i < 24; i++) { const a = (i / 24) * Math.PI * 2; top = Math.max(top, this.grid.ceilingAt(best.x + Math.sin(a) * r, best.z + Math.cos(a) * r)); }
+    if (top > 170) return null;
     // turn the way we are already turning about it
     const cross = hx * (best.z - last.z) - hz * (best.x - last.x);
     const da = (cross > 0 ? 1 : -1) * 0.85;
     const a = Math.atan2(last.x - best.x, last.z - best.z);
-    return { x: best.x, z: best.z, y: last.y, yTo: clamp(best.y * 0.9 + 16, 44, 190), r, a, da, focus: best };
+    return { x: best.x, z: best.z, y: Math.max(last.y, top + 14), yTo: clamp(Math.max(best.y * 0.9 + 16, top + 14), 44, 200), r, a, da, focus: best };
   }
 
   private propose(last: Vector3, tan: Vector3, tries: number, forceY?: number): Proposal {
@@ -1594,7 +1960,7 @@ export class AutoFlight {
       // — but never more than half the leg's length up or down in one leg
       const ceil = this.ceilingAlong(last, p);
       p.y = clamp(Math.max(ceil + 10 + (forceY ?? r() * 36), last.y + (r() - 0.5) * 50), 34, 210);
-      p.y = clamp(Math.max(Math.min(p.y, last.y + dist * 0.5), last.y - dist * 0.5, ceil + 10), 34, 210);
+      p.y = clamp(Math.max(Math.min(p.y, last.y + dist * (0.5 + 0.015 * tries)), last.y - dist * 0.5, ceil + 10), 34, 210); // (a leg refused again and again climbs steeper: hemmed in low, the way out is up)
       s.cool = Math.max(0, s.cool - 1);
       if (--s.left <= 0) {
         // what next: circle a landmark (now and then), run an avenue low
@@ -1633,43 +1999,44 @@ export class AutoFlight {
       const along = (s.axis === 'x' ? last.x : last.z) + s.dir * (60 + r() * 30);
       const p = s.axis === 'x' ? new Vector3(along, 0, s.street) : new Vector3(s.street, 0, along);
       const ceil = this.ceilingAlong(last, p);
-      // the streets are only dived inside the main city, only where the
-      // skyline is low enough to drop through, and only with enough OPEN
-      // street ahead for the run AND the climb out before a closed segment
-      // or the fence — otherwise cruise on and try elsewhere. The avenues
-      // are open by construction: the flyover just needs room to the fence.
       const room = this.room(s.axis, s.street, along, s.dir);
       const perp = s.axis === 'x' ? last.z : last.x;
-      if ((!s.avenue && ceil > 90) || room < 120 || Math.abs(perp) > EXT) {
+      const dist = s.dir * (along - (s.axis === 'x' ? last.x : last.z));
+      // THE KNOT OVER THE STREET: an avenue flyover runs low from the start; a dive first ALIGNS with the street
+      // at its own height, coming down no faster than half its run (the leg is validated like every other), and
+      // only then plunges along the street's centre, where nothing stands but what roofs it — and the run the
+      // whole dive needs (the plunge to the band, a leg in it, the climb out) must lie open ahead: no closed
+      // segment, no span roofing the street, no skybridge over it, not the fence. A canyon under supertalls is
+      // too deep to dive.
+      const py = s.avenue ? 36 + r() * 10 : Math.max(42 + r() * 10, last.y - dist * 0.5);
+      const need = s.avenue ? 120 : (py - 26) / 0.7 + 45 + 70;
+      if (room < need || Math.abs(perp) > EXT || (!s.avenue && ceil > 150)) {
         s.phase = 'cruise'; s.left = 1; s.avenue = false; s.retry += 1; // one more cruise leg, then try a street again
         return this.propose(last, tan, tries, forceY);
       }
-      // (an avenue's own skyline is its gantries; the cell's ceiling would be
-      // the landmark next door — the legs are validated regardless)
-      p.y = s.avenue ? 36 + r() * 10 : Math.max(44 + r() * 14, ceil + 8);
+      p.y = py;
       const phase: Phase = s.avenue ? 'flyover' : 'dive';
-      const dist = s.dir * (along - (s.axis === 'x' ? last.x : last.z));
-      if (last.y - p.y > dist * 0.5 && room > 220) { // room for this leg and the one after
-        // too steep for one leg: a first leg brings the height down, still aligned with the street
-        p.y = Math.max(last.y - dist * 0.5, ceil + 8);
-        s.heading = s.axis === 'x' ? (s.dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (s.dir > 0 ? 0 : Math.PI);
+      s.heading = s.axis === 'x' ? (s.dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (s.dir > 0 ? 0 : Math.PI);
+      if (!s.avenue && py > 52.01) { // still high: this leg aligns and brings the height down; the next comes back here lower
         const dir0 = streetDir(); dir0.y = -0.35;
         return { p, dir: dir0, dive: false, phase };
       }
       s.retry = 0;
       s.phase = 'canyon';
-      s.left = s.avenue ? 3 + Math.floor(r() * 2) : Math.max(1, Math.min(2 + Math.floor(r() * 3), Math.floor((room - 100) / 70)));
+      s.left = s.avenue ? 3 + Math.floor(r() * 2) : Math.max(1, Math.min(2 + Math.floor(r() * 3), 1 + Math.floor((room - need) / 70)));
       const dir = streetDir(); dir.y = -0.45; // nosing down, already aligned with the street
       return { p, dir, dive: !s.avenue, phase };
     }
     if (s.phase === 'canyon') {
-      const along = (s.axis === 'x' ? last.x : last.z) + s.dir * (45 + r() * 25);
+      const here = s.axis === 'x' ? last.x : last.z;
+      if (this.room(s.axis, s.street, here, s.dir) < 115) { s.phase = 'climb'; return this.propose(last, tan, tries, forceY); } // a leg and the climb out must fit before the street closes
+      const along = here + s.dir * (45 + r() * 25);
       if (Math.abs(along) > EXT - 110) { s.phase = 'climb'; return this.propose(last, tan, tries, forceY); } // the core ends: climb out while there is room
       // the dives stay above the street's life (owner: raise them), and a
       // canyon leg never falls more than half its run — the descent from the
       // dive knot is spread over the first legs
       const band = s.avenue ? 22 + r() * 12 : 20 + r() * 12;
-      const y = Math.max(band, last.y - Math.abs(along - (s.axis === 'x' ? last.x : last.z)) * 0.5);
+      const y = Math.max(band, last.y - Math.abs(along - here) * 0.75); // steep, as a dive should be (the plunge rule allows a canyon leg this much)
       const lat = s.street + (r() - 0.5) * 1.4;
       if (y <= band + 0.01 && --s.left <= 0) s.phase = 'climb';
       return { p: s.axis === 'x' ? new Vector3(along, y, lat) : new Vector3(lat, y, along), dir: streetDir(), dive: false, phase: 'canyon' };
@@ -1677,10 +2044,11 @@ export class AutoFlight {
     // climb: out of the canyon, back to the rooftops, still heading along
     // the street — in two legs when the rise is steeper than half the run
     const from = s.axis === 'x' ? last.x : last.z;
-    const along = clamp(from + s.dir * (60 + r() * 30), -(EXT - 40), EXT - 40);
+    const ahead = this.room(s.axis, s.street, from, s.dir); // the climb ends before the street closes
+    const along = clamp(from + s.dir * Math.min(60 + r() * 30, Math.max(30, ahead - 8)), -(EXT - 40), EXT - 40);
     const run = Math.abs(along - from);
     let y = forceY ?? 64 + r() * 56;
-    const split = y - last.y > run * 0.5 && Math.abs(along + s.dir * 80) < EXT - 40;
+    const split = y - last.y > run * 0.5 && Math.abs(along + s.dir * 80) < EXT - 40 && ahead > run + 90;
     if (split) y = last.y + run * 0.5;
     else { y = Math.min(y, last.y + run * 0.7); s.phase = 'cruise'; s.left = 2 + Math.floor(r() * 4); s.avenue = false; }
     s.heading = s.axis === 'x' ? (s.dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (s.dir > 0 ? 0 : Math.PI);
