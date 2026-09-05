@@ -867,26 +867,40 @@ function moonTexture(): CanvasTexture {
 
 /** Dithered pixel clouds; `low` makes the dark silhouette tier that sits
  *  against the horizon glow in the reference. */
+/** Pixel clouds (owner: by day they read as grey slabs): soft rounded puffs — overlapping ellipses with a
+ *  radial fall-off to nothing, a lit crown, a darker belly — greyscale, tinted by the look; `low` makes the
+ *  dark silhouette tier that sits against the horizon glow. */
 function cloudTexture(rand: () => number, low: boolean): CanvasTexture {
   const c = document.createElement('canvas');
-  c.width = 128; c.height = 40;
+  c.width = 160; c.height = 48;
   const x = c.getContext('2d')!;
-  const body = low ? '#8a8a8a' : '#9a9a9a'; // greyscale: the look tints them (city-sky.ts)
-  const top = '#ffffff';
-  const blobs = 4 + Math.floor(rand() * 4);
+  x.clearRect(0, 0, 160, 48);
+  const body = low ? 138 : 154, crown = low ? 190 : 255, belly = low ? 96 : 118;
+  const grey = (v: number, a: number) => `rgba(${v},${v},${v},${a})`;
+  const blobs = 6 + Math.floor(rand() * 5);
   for (let b = 0; b < blobs; b++) {
-    const bx = 10 + rand() * 100, by = 14 + rand() * 16, bw = 26 + rand() * 52, bh = 5 + rand() * 9;
-    x.fillStyle = body;
-    x.fillRect(bx - bw / 2, by - bh / 2, bw, bh);
-    x.fillStyle = top;
-    x.fillRect(bx - bw / 2, by - bh / 2, bw, 2);
-    x.fillStyle = body;
-    for (let dx = 0; dx < bw; dx += 4) {
-      x.fillRect(bx - bw / 2 + dx + (Math.floor(by) % 2 ? 2 : 0), by + bh / 2, 2, 2);
-      x.fillRect(bx - bw / 2 + dx + (Math.floor(bx) % 2 ? 0 : 2), by - bh / 2 - 2, 2, 2);
-    }
+    const bx = 18 + rand() * 124, by = 22 + (rand() - 0.5) * 12, rw = 14 + rand() * 24, rh = 6 + rand() * 9;
+    x.save();
+    x.translate(bx, by); x.scale(rw / rh, 1);
+    const g = x.createRadialGradient(0, -rh * 0.25, 0, 0, 0, rh);
+    g.addColorStop(0, grey(crown, 0.95));
+    g.addColorStop(0.55, grey(body, 0.85));
+    g.addColorStop(0.85, grey(belly, 0.5));
+    g.addColorStop(1, grey(belly, 0));
+    x.fillStyle = g;
+    x.beginPath(); x.arc(0, 0, rh, 0, Math.PI * 2); x.fill();
+    x.restore();
   }
-  return asPixelTex(new CanvasTexture(c));
+  // a flat belly: the underside sheared off, a shade darker
+  x.globalCompositeOperation = 'destination-out';
+  x.fillStyle = '#000'; x.fillRect(0, 40, 160, 8);
+  x.globalCompositeOperation = 'source-atop';
+  x.fillStyle = grey(belly, 0.35); x.fillRect(0, 30, 160, 10);
+  x.globalCompositeOperation = 'source-over';
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace;
+  t.minFilter = LinearFilter; t.magFilter = LinearFilter; t.generateMipmaps = false; // soft, not blocky: a cloud
+  return t;
 }
 
 function horizonTexture(rand: () => number): CanvasTexture {
@@ -1796,7 +1810,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       (fwGeo.getAttribute('position') as BufferAttribute).needsUpdate = true;
       (fwGeo.getAttribute('color') as BufferAttribute).needsUpdate = true;
       void fade;
-    } else if (--fw.next <= 0) {
+    } else if (--fw.next <= 0 && lampLevel > 0.5) { // (no fireworks by day)
       fw.next = 700 + Math.floor(rand() * 900);
       fw.life = 70;
       fw.launched += 1;
@@ -2450,9 +2464,9 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
           const hx = cx - lx * 3.0, hz = cz - lz * 3.0, hy = n.y + 4.75;
           const yaw = Math.atan2(-ux, -uz); // the head faces the approach
           dummy.rotation.set(0, yaw, 0);
-          dummy.position.set(hx, hy, hz); dummy.scale.set(0.42, 1.1, 0.34); dummy.updateMatrix(); housings.setMatrixAt(jh++, dummy.matrix);
+          dummy.position.set(hx, hy, hz); dummy.scale.set(0.5, 1.2, 0.34); dummy.updateMatrix(); housings.setMatrixAt(jh++, dummy.matrix);
           for (const dy of [0.3, -0.3]) { // red over green, on the face
-            dummy.position.set(hx - ux * 0.19, hy + dy, hz - uz * 0.19); dummy.scale.set(0.26, 0.26, 0.06); dummy.updateMatrix(); signalLamps.setMatrixAt(jl++, dummy.matrix);
+            dummy.position.set(hx - ux * 0.19, hy + dy, hz - uz * 0.19); dummy.scale.set(0.34, 0.34, 0.06); dummy.updateMatrix(); signalLamps.setMatrixAt(jl++, dummy.matrix);
           }
           dummy.rotation.set(0, Math.atan2(ux, uz), 0); // the pedestrian lamp on the post, for the corner's walkers
           dummy.position.set(cx + ux * 0.1, n.y + 2.6, cz + uz * 0.1); dummy.scale.set(0.22, 0.3, 0.06); dummy.updateMatrix(); signalLamps.setMatrixAt(jl++, dummy.matrix);

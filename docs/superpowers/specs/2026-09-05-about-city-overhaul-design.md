@@ -102,3 +102,15 @@ Night and dusk: the ground's lift drops from 1.05 to about 0.7 and its glow from
 ## Delivery
 
 Four commits, each green and verified in the pane: (1) massing, districts, kit, overbuilds, catwalks; (2) signage, billboards, holos, neon, palette and light; (3) the rail, traffic lights, boats, street kit; (4) the life review fixes and polish. Deployed to Pages after each.
+
+## As built (2026-09-05)
+
+Departures from the design above, each for a reason found while building:
+
+- The walled district is 44–80 tall (not 24–52) with its block jitter softened: spans need masses of 43+ either side, and the tops were too low to carry them. Spans sit at 35+ (the band's top plus the flight's pad is 34.6), and their number is found by a sweep of the masses either side of each street, not by pairing random cells.
+- Skybridges over streets are capped at thirty and, like the spans, count as closures for the auto-flight, which now reads the true skyline under a chord (a cell's maximum was a spike two lots away and kept it cruising at spire height), aligns with a street at its own height before plunging, budgets a dive against the open street ahead, climbs out early, keeps orbits above the skyline, and straightens a hemmed-in knot's tangent instead of forcing a leg.
+- The rail's portal legs stand at the kerb line (5.35), not on the lot side: a fused lot has no gutter to stand in. Its stations are entered by a bridge into the tower next door where one is tall enough; there is no stair tower on the pavement.
+- The canal bridges stand at 1.6 with visible approach wedges (the design said nothing of the ramps; the cars climbed an invisible hump), their abutments at the water's edge so the quays' walkers pass; boats are low, their cabins under 1.35.
+- Billboards start at 20-tall walls (few walls reach 30) and the giants hang on the tallest wide masses (a slender spire cannot carry a board twenty wide).
+- Found and fixed on the way: the shadow map was never rendered under a moonlit look with the maps enabled, so every lit material's draw was dropped and the city showed as a carpet of dots on the shadow tiers by night since a1cca0a. One priming render fixes it.
+- Lit panes are glass by day (their painted light made a Mondrian of every grid tower), windows are mostly warm and cool whites with a rare saturated pane, the wide panes burn lower.

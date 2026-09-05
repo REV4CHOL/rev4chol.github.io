@@ -108,7 +108,7 @@ export const FAMILIES: Family[] = [
     v('#5a6470', '#a8b0bc', '#a8b0bc', '#4a5460', 'flush', 0.5, 0.4),
     v('#26504a', '#6a9088', '#6a9088', '#1e4440', 'flush', 0.5, 0.45),
     v('#2e2a52', '#7a72a8', '#7a72a8', '#262046', 'flush', 0.55, 0.3),
-    v('#2a4a80', '#c8d0dc', '#c8d0dc', '#203c6a', 'flush', 0.92, 0.12), // the megastructure: a curtain of cold light
+    v('#2a4a80', '#c8d0dc', '#c8d0dc', '#203c6a', 'flush', 0.62, 0.12), // the megastructure: a curtain of cold light (0.92 bloomed to a white slab)
   ] },
 ];
 
