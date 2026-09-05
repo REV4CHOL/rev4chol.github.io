@@ -34,4 +34,4 @@
 
 ### Task 3: Docs, memory, deploy
 - [x] Spec as-built notes; memory entry.
-- [ ] Push; `gh run watch`.
+- [x] Push; `gh run watch` (run 33996026608, success).
