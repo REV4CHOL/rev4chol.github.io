@@ -198,6 +198,22 @@ describe('Traffic', () => {
     expect(n.transit.every((c) => c.transit!.from.link.street !== n.streets[0])).toBe(true);
   });
 
+  it('drives the lanes: in the graph, never lit, motorbikes mostly, no bus or truck turns into one', () => {
+    const laneLanes = traffic.lanes.filter((l) => l.link.street.kind === 'lane');
+    expect(laneLanes.length).toBeGreaterThan(80);
+    for (const l of laneLanes) expect(Math.abs(l.offset)).toBe(OFFSETS.lane[0]);
+    for (const n of traffic.nodes) if (n.streets.some((st) => st.kind === 'lane')) expect(n.signal).toBeNull();
+    // whoever is on a lane over the next while: motorbikes mostly (the cars seldom turn in), never a bus or a truck
+    let seen = 0, motos = 0;
+    for (let f = 0; f < 3000; f++) {
+      traffic.step();
+      if (f % 100) continue;
+      for (const c of traffic.cars) if (c.lane && c.lane.link.street.kind === 'lane') { seen += 1; if (c.kind === 'moto') motos += 1; expect(c.kind === 'bus' || c.kind === 'truck', 'a bus or a truck in a lane').toBe(false); }
+    }
+    expect(seen).toBeGreaterThan(30);
+    expect(motos / seen).toBeGreaterThan(0.35);
+  });
+
   it('is deterministic for a seed', () => {
     const a = new Traffic(plan.streets, mulberry32(5));
     const b = new Traffic(plan.streets, mulberry32(5));

@@ -108,7 +108,7 @@ export class People {
     private readonly crossOK: CrossOK = () => false, private readonly nodes: number[] = [], opts: PeopleOpts = {},
   ) {
     this.solid = opts.solid; this.roadClear = opts.roadClear; this.walkOK = opts.walkOK;
-    this.walkable = streets.filter((s) => s.kind === 'road' || s.kind === 'alley' || s.kind === 'diagonal' || s.kind === 'catwalk' || s.kind === 'arterial');
+    this.walkable = streets.filter((s) => s.kind === 'road' || s.kind === 'alley' || s.kind === 'diagonal' || s.kind === 'catwalk' || s.kind === 'arterial' || s.kind === 'lane');
     // where each pavement runs through another carriageway (a walker waits at its kerb for the red, or for a gap)
     const ways = streets.filter((s) => s.kind === 'road' || s.kind === 'diagonal' || s.kind === 'arterial');
     for (const st of this.walkable) {
@@ -133,7 +133,7 @@ export class People {
       this.doors = new Map();
       for (const d of opts.doors) {
         for (const st of this.walkable) {
-          if (st.kind !== 'road' && st.kind !== 'arterial') continue;
+          if (st.kind !== 'road' && st.kind !== 'arterial' && st.kind !== 'lane') continue;
           const t = (d.x - st.x0) * st.dx + (d.z - st.z0) * st.dz;
           if (t < 3 || t > st.len - 3) continue;
           const lat = -(d.x - st.x0) * st.dz + (d.z - st.z0) * st.dx;
@@ -145,7 +145,7 @@ export class People {
         }
       }
     } else this.doors = null;
-    this.weights = this.walkable.map((s) => (s.kind === 'alley' ? s.len * 3 : s.kind === 'catwalk' ? s.len * 2 : s.kind === 'arterial' ? s.len * 1.5 : s.len));
+    this.weights = this.walkable.map((s) => (s.kind === 'alley' ? s.len * 3 : s.kind === 'catwalk' ? s.len * 2 : s.kind === 'arterial' ? s.len * 1.5 : s.kind === 'lane' ? s.len * 1.2 : s.len));
     this.total = this.weights.reduce((a, b) => a + b, 0);
     const r = rand;
     for (const st of stalls) { // a vendor in every stall
@@ -269,6 +269,7 @@ export class People {
     if (s.kind === 'alley') return [0, (s.width - 1.5) / 2];
     if (s.kind === 'catwalk') return [0, (s.width - 0.9) / 2];
     if (s.kind === 'diagonal') return [s.width / 2 + 0.4, s.width / 2 + 0.8];
+    if (s.kind === 'lane') return [s.width / 2 - 0.75, s.width / 2 - 0.25]; // the sliver of pavement inside a lane's building line
     if (s.kind === 'arterial') return [ARTERIAL_ROW - ARTERIAL.walk + 0.8, ARTERIAL_ROW - 0.8];
     return [s.width / 2 - 1.7, s.width / 2 - 0.3];
   }
@@ -316,7 +317,11 @@ export class People {
   private walkOn(p: Person, st: Street, off: number, t: number, dir: 1 | -1): void {
     const a = this.endOf(st, 'a'), b = this.endOf(st, 'b');
     p.st = st; p.off = off; p.t = clamp(t, a, st.len - b);
-    if (this.solid) for (let k = 0; k < 6 && this.solid(st.x0 + st.dx * p.t - st.dz * p.off, 0.9, st.z0 + st.dz * p.t + st.dx * p.off); k++) p.t = clamp(p.t + dir * 2, a, st.len - b); // not inside a kiosk
+    if (this.solid) {
+      const inside = () => this.solid!(st.x0 + st.dx * p.t - st.dz * p.off, 0.9, st.z0 + st.dz * p.t + st.dx * p.off);
+      for (let k = 0; k < 6 && inside(); k++) p.t = clamp(p.t + dir * 2, a, st.len - b); // not inside a kiosk
+      for (let k = 0; k < 16 && inside(); k++) p.t = clamp(a + this.rand() * Math.max(0, st.len - a - b), a, st.len - b); // a run through a wall (the stadium's base sits on the arterial's pavement): anywhere else along it
+    }
     p.v = (0.016 + this.rand() * 0.02) * p.pace * dir;
     p.act = 'walk'; p.knot = null; p.goal = null; p.stall = null; p.zone = null; p.cross = null;
     p.timer = 400 + this.rand() * 1800; // until the next pause
@@ -461,7 +466,7 @@ export class People {
           if (--p.timer <= 0) {
             const a = r();
             const here = p.st!;
-            if (a < 0.1 && (here.kind === 'road' || here.kind === 'arterial') && !this.overWater(here, p.t) && !p.cross) { // in at a door — a real one, on this side, a step away (owner: people vanished into blank walls): gone a while, then out again
+            if (a < 0.1 && (here.kind === 'road' || here.kind === 'arterial' || here.kind === 'lane') && !this.overWater(here, p.t) && !p.cross) { // in at a door — a real one, on this side, a step away (owner: people vanished into blank walls): gone a while, then out again
               const door = this.doorNear(here, p.t, Math.sign(p.off || 1));
               if (door !== null) { p.act = 'enter'; p.t = door.t; p.offTo = Math.sign(p.off || 1) * door.off; p.timer = 300 + r() * 1500; }
               else p.timer = 200 + r() * 400;

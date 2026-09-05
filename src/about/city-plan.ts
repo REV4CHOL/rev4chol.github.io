@@ -164,11 +164,11 @@ export interface Profile {
   min: number; max: number;
 }
 export const DISTRICTS: Record<District, Profile> = {
-  heights: { name: 'heights', lo: 50, hi: 125, fuse: 0.3, stack: 2, kit: 0.25, signs: 0.6, over: 0.15, arcade: 0.05, min: 6, max: 12 },
+  heights: { name: 'heights', lo: 50, hi: 125, fuse: 0.3, stack: 2, kit: 0.25, signs: 0.6, over: 0.25, arcade: 0.05, min: 6, max: 12 },
   walled: { name: 'walled', lo: 44, hi: 80, fuse: 0.9, stack: 3, kit: 1.0, signs: 1.0, over: 1.0, arcade: 0.35, min: 6, max: 14 }, // tall enough for the overbuilds to roof its streets
-  strip: { name: 'strip', lo: 20, hi: 70, fuse: 0.5, stack: 2, kit: 0.7, signs: 1.2, over: 0.35, arcade: 0.3, min: 5, max: 16 },
+  strip: { name: 'strip', lo: 20, hi: 70, fuse: 0.5, stack: 2, kit: 0.7, signs: 1.2, over: 0.6, arcade: 0.3, min: 5, max: 16 },
   old: { name: 'old', lo: 8, hi: 24, fuse: 0.6, stack: 1, kit: 0.5, signs: 0.5, over: 0, arcade: 0.15, min: 4, max: 9 },
-  mid: { name: 'mid', lo: 16, hi: 66, fuse: 0.5, stack: 2, kit: 0.6, signs: 0.8, over: 0.32, arcade: 0.2, min: 5, max: 16 }, // (owner: less uniform — more spans, taller spikes)
+  mid: { name: 'mid', lo: 16, hi: 66, fuse: 0.5, stack: 2, kit: 0.6, signs: 0.8, over: 0.6, arcade: 0.2, min: 5, max: 16 }, // (owner: less uniform — more spans, taller spikes; the tube houses along the lanes carry none)
 };
 export function districtOf(bx: number, bz: number): District {
   if (Math.abs(bx) === 1 || Math.abs(bz) === 1) return 'strip'; // about the plaza and along both avenues
@@ -259,8 +259,14 @@ export interface Plan {
   piers: { x: number; z: number }[];
   /** Ground patches in the lots' stone over closed street bands, so the ground tile's paint never reads as a ghost road. */
   patches: { x: number; z: number; w: number; d: number }[];
-  /** Vehicles parked along the arterial's aprons (yaw as the traffic's: 0 faces +z). */
+  /** Vehicles parked along the arterial's aprons, and the motorbikes nose to tail along the kerbs' pavements (yaw as the
+   *  traffic's: 0 faces +z). */
   parked: { x: number; z: number; yaw: number; kind: 'car' | 'taxi' | 'truck' | 'moto' }[];
+  /** Utility poles at the building lines along the roads and the lanes (owner: Hanoi's wire spaghetti): the crossarm
+   *  lies across yaw, a transformer hangs on some; their lines are in `wires`. */
+  poles: { x: number; z: number; h: number; yaw: number; box: boolean }[];
+  /** The 2×2 superblocks' centres (the crossing each swallowed): two lanes cross inside every one. */
+  superblocks: { x: number; z: number }[];
   styles: FacadeStyle[];
   sprawlTex: [number, number];
   grid: CollisionGrid;
@@ -458,6 +464,9 @@ export function planCity(seed: number): Plan {
   const lifts: { x: number; z: number; top: number }[] = [];
   const parties: Plan['parties'] = [];
   const perches: Plan['perches'] = [];
+  const parked: Plan['parked'] = [];
+  const poles: Plan['poles'] = [];
+  const superblocks: Plan['superblocks'] = [];
   const stages: Plan['stages'] = [];
   const subways: { x: number; z: number; rotY: number }[] = [];
   const piers: { x: number; z: number }[] = [];
@@ -797,12 +806,12 @@ export function planCity(seed: number): Plan {
    *  route stays bare. */
   const roofKit = (x: number, z: number, w: number, d: number, top: number, capped: boolean) => {
     if (capped) return;
-    if (w >= 7 && d >= 7 && rand() < 0.15) { // a cooling tower (owner: rooftop infrastructure, cyberpunk)
+    if (w >= 7 && d >= 7 && rand() < 0.45) { // a cooling tower (owner: rooftop infrastructure, cyberpunk)
       const cx = x + (rand() - 0.5) * (w - 5), cz = z + (rand() - 0.5) * (d - 5);
       solid(bucket, 'cyl', 'industry', 0, cx, top + 2.1, cz, 3.6, 4.2, 3.6);
       solid(bucket, 'cyl', 'industry', 0, cx, top + 4.4, cz, 2.6, 0.5, 2.6);
       grid.add({ x: cx, y: top + 2.3, z: cz, w: 3.6, h: 4.6, d: 3.6 });
-    } else if (w >= 10 && d >= 8 && rand() < 0.1) { // a greenhouse, glass, lit from inside
+    } else if (w >= 10 && d >= 8 && rand() < 0.32) { // a greenhouse, glass, lit from inside
       const gw = Math.min(6, w - 3), gd = Math.min(3.4, d - 3), cx = x + (rand() - 0.5) * (w - gw - 1), cz = z + (rand() - 0.5) * (d - gd - 1);
       solid(bucket, 'facade', 'bits', texOf((q) => q.win === 'curtain'), cx, top + 1.3, cz, gw, 2.6, gd);
       grid.add({ x: cx, y: top + 1.3, z: cz, w: gw, h: 2.6, d: gd });
@@ -1013,6 +1022,33 @@ export function planCity(seed: number): Plan {
     return finish({ x, z, w, d }, h, top, allowed < Infinity, flat);
   };
 
+  /** A TUBE HOUSE (owner: cyberpunk Hanoi): a slim deep house of three to eight floors with a facade of its own, a
+   *  water tank on legs and a tin lean-to on the roof, a shopfront below (building() adds it), balconies by finish(). */
+  const tubeHouse = (x: number, z: number, w: number, d: number, h0: number): Foot => {
+    const allowed = allowedTop(x, z, w, d);
+    const h = fitH(h0, 1, 2.2, allowed);
+    if (!h) return null;
+    const tex = texOf((q) => q.win === 'grid' || q.win === 'tiny' || q.win === 'strip');
+    solid(bucket, 'facade', 'block', tex, x, h / 2, z, w, h, d);
+    let top = h;
+    if (rand() < 0.7) { // the tank
+      const cx = x + (rand() - 0.5) * Math.max(0, w - 1.8), cz = z + (rand() - 0.5) * Math.max(0, d - 1.8);
+      solid(bucket, 'dark', 'bits', 0, cx, h + 0.45, cz, 0.9, 0.9, 0.9);
+      solid(bucket, 'cyl', 'industry', 0, cx, h + 1.55, cz, 1.3, 1.3, 1.3);
+      top = h + 2.2;
+    }
+    if (rand() < 0.45) { // the lean-to
+      solid(bucket, 'facade', 'shanty', SHANTY_TEX[rand() < 0.6 ? 0 : 1], x + (rand() - 0.5) * w * 0.2, h + 0.9, z + (rand() - 0.5) * d * 0.2, w * 0.7, 1.8, d * 0.55);
+      top = Math.max(top, h + 1.8);
+    }
+    const open = [0, 1, 2, 3].filter((k) => bctx.outer[k]);
+    if (open.length && rand() < 0.6) { // a neon edge over the shop, in a colour of its own
+      const sd = pick(rand, open), f = face({ x, z, w, d }, sd, 0.08);
+      leds.push({ x: f.x, y: 3.1, z: f.z, w: sd < 2 ? w * 0.8 : 0.08, h: 0.08, d: sd < 2 ? 0.08 : d * 0.8, color: pick(rand, ['#ff4fd8', '#5df2ff', '#C8FF00', '#ff8c42']) });
+    }
+    return finish({ x, z, w, d }, h, top, allowed < Infinity, false);
+  };
+
   /** Recursive partition of a rectangle into building cells between min and
    *  max across, so a lot fills edge to edge with jumbled footprints. */
   const partition = (r: Rect, min: number, max: number, out: Rect[]) => {
@@ -1034,7 +1070,7 @@ export function planCity(seed: number): Plan {
   /** One cell of a lot becomes one building: its district's heights (jittered per block, the odd spike), a
    *  seam or a gutter about it, an archetype by district and size class; its street-facing walls are
    *  remembered for the overbuilds. */
-  const building = (c: Rect, lot: Rect, prof: Profile, seam: number | null, storefronts: boolean, jit: number) => {
+  const building = (c: Rect, lot: Rect, prof: Profile, seam: number | null, storefronts: boolean, jit: number, open?: boolean[], tube = false) => {
     if (lineDist(c.x, c.z, DIAGONAL.x0, DIAGONAL.z0, DIAGONAL.x1, DIAGONAL.z1) < DIAGONAL.width / 2 + Math.max(c.w, c.d) / 2 + 1) return; // the boulevard's right of way
     if (Math.abs(arterialLat(c.x, c.z)) < ARTERIAL_ROW + Math.max(c.w, c.d) / 2 + 1) return; // the arterial's right of way (the deck rides over it)
     const g = seam ?? 0.3 + rand() * 0.8;
@@ -1048,10 +1084,12 @@ export function planCity(seed: number): Plan {
     const m = Math.min(w, d), M = Math.max(w, d);
     const a = rand();
     const outer = [c.z + c.d / 2 > lot.z + lot.d / 2 - 1, c.z - c.d / 2 < lot.z - lot.d / 2 + 1, c.x + c.w / 2 > lot.x + lot.w / 2 - 1, c.x - c.w / 2 < lot.x - lot.w / 2 + 1];
+    if (open) for (let k = 0; k < 4; k++) outer[k] = outer[k] || open[k]; // a face onto a lane is a street face (balconies, awnings)
     bctx = { outer, prof, g, round: false, bustle: null, bill: null };
     const i0 = bucket.length;
     let fp: Foot;
-    if (m < 5.5) fp = prof.name === 'walled' ? block(x, z, w, d, Math.min(h, 44)) : h > 34 && rand() < 0.25 && prof.name !== 'old' ? needle(x, z, h) : low(x, z, w, d, Math.min(h, 16));
+    if (tube) fp = tubeHouse(x, z, w, d, (10 + rand() * 20) * (0.85 + 0.3 * rand()) * (rand() < 0.25 ? 1.9 : 1));
+    else if (m < 5.5) fp = prof.name === 'walled' ? block(x, z, w, d, Math.min(h, 44)) : h > 34 && rand() < 0.25 && prof.name !== 'old' ? needle(x, z, h) : low(x, z, w, d, Math.min(h, 16));
     else if (M / m > 2.2) fp = slab(x, z, w, d, h);
     else if (prof.name === 'heights') {
       fp = a < 0.34 ? tower(x, z, w, d, h, anyTex()) : a < 0.52 ? podium(x, z, w, d, h) : a < 0.66 && w > 9 ? twin(x, z, w, d, h) : a < 0.8 ? cross(x, z, w, d, h)
@@ -1074,7 +1112,8 @@ export function planCity(seed: number): Plan {
     for (let i = i0; i < bucket.length; i++) { const s = bucket[i]; if (s.kind === 'facade' && s.arch !== 'shanty' && s.arch !== 'annex') noteFace(s, lot); }
     // LIVELY STREETS: storefront light spilling onto the pavement
     if (fp && storefronts && rand() < 0.8) {
-      const side = Math.floor(rand() * 4);
+      const laneFace = open ? open.findIndex((o) => o) : -1;
+      const side = laneFace >= 0 && rand() < 0.65 ? laneFace : Math.floor(rand() * 4); // a tube house's shop faces its lane
       const sx = side < 2 ? fp.x : fp.x + (side === 2 ? fp.w / 2 + 0.08 : -fp.w / 2 - 0.08);
       const sz = side === 0 ? fp.z + fp.d / 2 + 0.08 : side === 1 ? fp.z - fp.d / 2 - 0.08 : fp.z;
       strips.push({
@@ -1082,6 +1121,7 @@ export function planCity(seed: number): Plan {
         color: rand() < 0.62 ? pick(rand, WARM) : pick(rand, [...COOL, '#C8FF00', '#5df2ff']),
       });
       doors.push({ x: sx, z: sz }); // a lit shopfront has a door
+      if (tube) signs.push({ x: sx, y: 2.75, z: sz, rotY: side < 2 ? 0 : Math.PI / 2, w: (side < 2 ? fp.w : fp.d) * 0.85, h: 0.7, color: signColor(rand), kind: 'board' }); // the shop's board over the front
     }
   };
 
@@ -1115,33 +1155,196 @@ export function planCity(seed: number): Plan {
     if (rand() < 0.5) vents.push({ x: alongX ? x0 + rand() * len : at + (rand() - 0.5) * 1.5, z: alongX ? at + (rand() - 0.5) * 1.5 : z0 + rand() * len });
   };
 
-  /** Pack a lot (or a merged superblock) edge to edge by its district's profile — fused into one mass or
-   *  gutters between — often cut by an alley with catwalks across it. */
-  const buildLot = (r: Rect, prof: Profile, storefronts: boolean, jit: number) => {
-    const parts: Rect[] = [];
+  // -- LANES (owner: "cyberpunk Hanoi": the grid was too uniform) ---------------------------------------------------
+  // A lane (a ngõ) is a 7-wide two-way street cut through a lot from bounding street to bounding street: a T where the
+  // bounding street is open, a GATE WALL a few units inside the lot where it is closed (a dead end the traffic turns
+  // about in). A blind BRANCH may leave it into one side. A superblock gets two lanes across each other. Along every lane:
+  // poles with wire bundles, spans to the far wall, lanterns, hanging signs. The cells along a lane are TUBE HOUSES in
+  // the old, mid and strip districts.
+  type Part = { r: Rect; open: boolean[]; tube: boolean }; // open: which faces [+z, −z, +x, −x] look onto a lane
+  const pendingLanes: { alongX: boolean; at: number; a: number; b: number }[] = []; // the lot's lanes, dressed once they all stand
+  const gate = (alongX: boolean, at: number, pos: number) =>
+    solid(bucket, 'dark', 'street', 0, alongX ? pos : at, 1.3, alongX ? at : pos, alongX ? 0.4 : LANE_W - 0.4, 2.6, alongX ? LANE_W - 0.4 : 0.4);
+  /** Three lines pole to pole (the crossarm's ends and its middle), sagging. */
+  const bundle = (ax: number, az: number, bx: number, bz: number, h: number, alongX: boolean) => {
+    for (const [o, dy] of [[-0.55, -0.15], [0, 0.05], [0.55, -0.15]] as [number, number][]) {
+      const ox = alongX ? 0 : o, oz = alongX ? o : 0, y = h + dy, sag = 0.5 + rand() * 0.35;
+      const mx = (ax + bx) / 2 + ox, mz = (az + bz) / 2 + oz;
+      wires.push(ax + ox, y, az + oz, mx, y - sag, mz, mx, y - sag, mz, bx + ox, y, bz + oz);
+    }
+  };
+  /** One line across, sagging. */
+  const span = (ax: number, az: number, bx: number, bz: number, ya: number, yb: number) => {
+    const mx = (ax + bx) / 2, mz = (az + bz) / 2, my = Math.min(ya, yb) - 0.6 - rand() * 0.5;
+    wires.push(ax, ya, az, mx, my, mz, mx, my, mz, bx, yb, bz);
+  };
+  /** A lane through lot `r` — along x at z = at, or along z at x = at — from the bounding street's axis on each side
+   *  (a T) or, where that street is closed or something stands in the mouth, to a gate three inside the lot. */
+  const lane = (r: Rect, alongX: boolean, at: number, blind?: 'a' | 'b') => {
+    const lo = alongX ? r.x - r.w / 2 : r.z - r.d / 2, hi = alongX ? r.x + r.w / 2 : r.z + r.d / 2;
+    const axisA = lo - STREET / 2, axisB = hi + STREET / 2;
+    const idx = Math.round(at / G); // the block row (an x-lane) or column (a z-lane) the lane runs through
+    const openEnd = (axis: number, edge: number): boolean => {
+      const line = Math.round(axis / G - 0.5);
+      if (!(alongX ? openZ(line, idx) : openX(line, idx))) return false; // the bounding street is closed here
+      const mx = alongX ? edge : at, mz = alongX ? at : edge; // nothing standing where the lane crosses the pavement
+      return grid.hit(mx, 1.5, mz, 2.9) === null;
+    };
+    const a = blind !== 'a' && openEnd(axisA, lo - 1) ? axisA : lo + 3, b = blind !== 'b' && openEnd(axisB, hi + 1) ? axisB : hi - 3;
+    if (b - a < 12) return;
+    streets.push({
+      x0: alongX ? a : at, z0: alongX ? at : a, dx: alongX ? 1 : 0, dz: alongX ? 0 : 1, len: b - a, y: 0, kind: 'lane', width: LANE_W,
+      ends: { a: a === axisA ? ROAD / 2 + 2 : 0.5, b: b === axisB ? ROAD / 2 + 2 : 0.5 }, // the walkers stop at the street's building line, or at the gate
+    });
+    if (a !== axisA) gate(alongX, at, a - 2); // (two past the end: the turn-about loop swings there)
+    if (b !== axisB) gate(alongX, at, b + 2);
+    pendingLanes.push({ alongX, at, a, b });
+  };
+  /** A lane's furniture (owner: Hanoi's wire spaghetti), hung once every lane of the lot stands: poles at one wall every
+   *  ten (none where another lane crosses), three lines pole to pole, a span to a hook on the far wall at every other,
+   *  lanterns, hanging signs. The poles are furniture, not solids — as the lamp posts are — the sliver of pavement is
+   *  too narrow to walk round them. */
+  const dressLane = (L: { alongX: boolean; at: number; a: number; b: number }) => {
+    const { alongX, at, a, b } = L;
+    const side = rand() < 0.5 ? -1 : 1;
+    let prev: { x: number; z: number } | null = null;
+    for (let t = a + 4, k = 0; t <= b - 3; t += 10, k++) {
+      const lat = side * (LANE_W / 2 - 0.06);
+      const x = alongX ? t : at + lat, z = alongX ? at + lat : t;
+      if (carriagewayAt(streets, x, z) !== null) { prev = null; continue; } // another lane crosses here
+      poles.push({ x, z, h: 6.4, yaw: alongX ? Math.PI / 2 : 0, box: k % 3 === 1 });
+      if (prev) bundle(prev.x, prev.z, x, z, 6.4, alongX);
+      if (k % 2 === 0) span(x, z, alongX ? x : at - lat, alongX ? at - lat : z, 6.2, 5.3 + rand() * 0.6);
+      prev = { x, z };
+    }
+    for (let t = a + 5; t < b - 4; t += 7) {
+      const sg = rand() < 0.5 ? -1 : 1;
+      lantern(alongX ? t : at + sg * (LANE_W / 2 - 0.5), 3.6 + rand() * 1.4, alongX ? at + sg * (LANE_W / 2 - 0.5) : t);
+    }
+    for (let t = a + 8; t < b - 6; t += 13) {
+      if (rand() < 0.6) signs.push({ x: alongX ? t : at, y: 4.6 + rand() * 2.5, z: alongX ? at : t, rotY: alongX ? Math.PI / 2 : 0, w: LANE_W * 0.7, h: 1.0, color: signColor(rand), kind: 'tag' });
+    }
+  };
+  /** A blind branch off a lane (along x at z = laneAt, or along z at x = laneAt) into `side`, the part beside it:
+   *  across the part to three short of its far edge, a gate there. The part splits in two along it. */
+  const branch = (laneAlongX: boolean, laneAt: number, side: Part, parts: Part[], tube: boolean): boolean => {
+    const q = side.r;
+    const depth = laneAlongX ? q.d : q.w, run = laneAlongX ? q.w : q.d;
+    if (depth < 12 || run < 20) return false;
+    const along = (laneAlongX ? q.x : q.z) + (rand() - 0.5) * (run - 16);
+    const sgn = Math.sign((laneAlongX ? q.z : q.x) - laneAt);
+    const far = (laneAlongX ? q.z : q.x) + sgn * (depth / 2 - 3);
+    const a = Math.min(far, laneAt), b = Math.max(far, laneAt), blindA = far < laneAt;
+    streets.push({
+      x0: laneAlongX ? along : a, z0: laneAlongX ? a : along, dx: laneAlongX ? 0 : 1, dz: laneAlongX ? 1 : 0, len: b - a, y: 0, kind: 'lane', width: LANE_W,
+      ends: { a: blindA ? 0.5 : LANE_W / 2 + 0.5, b: blindA ? LANE_W / 2 + 0.5 : 0.5 },
+    });
+    gate(!laneAlongX, along, far + sgn * 2);
+    pendingLanes.push({ alongX: !laneAlongX, at: along, a, b });
+    const lo = (laneAlongX ? q.x : q.z) - run / 2, hi = (laneAlongX ? q.x : q.z) + run / 2;
+    for (const [s0, s1, k] of [[lo, along - LANE_W / 2, laneAlongX ? 2 : 0], [along + LANE_W / 2, hi, laneAlongX ? 3 : 1]] as [number, number, number][]) {
+      if (s1 - s0 < 3.5) continue;
+      const open = side.open.slice(); open[k] = true;
+      parts.push({ r: laneAlongX ? { x: (s0 + s1) / 2, z: q.z, w: s1 - s0, d: q.d } : { x: q.x, z: (s0 + s1) / 2, w: q.w, d: s1 - s0 }, open, tube });
+    }
+    return true;
+  };
+  /** Cut lot `r` with a lane (`lanes` 1) or two across each other (2, a superblock), a blind branch where there is
+   *  room; the parts either side, marked with the faces that look onto a lane. */
+  const laneCut = (r: Rect, prof: Profile, parts: Part[], lanes: 1 | 2) => {
+    const tube = prof.name === 'old' || prof.name === 'mid' || prof.name === 'strip';
+    const alongX = lanes === 2 ? false : rand() < 0.5;
+    const across = alongX ? r.d : r.w;
+    // a lane parallel to a swallowed street's axis (a superblock's, a pair's when the lane runs across the pair) keeps
+    // 12–18 off that axis: at half a unit its mouth merged into the crossing where the swallowed street ends
+    const inner = lanes === 2 || across > LOT + 1;
+    const offAxis = () => (rand() < 0.5 ? -1 : 1) * (12 + rand() * Math.max(0, Math.min(6, across / 2 - LANE_W / 2 - 4.5 - 12)));
+    const spread = Math.min(4, Math.max(0, across / 2 - LANE_W / 2 - 4.5));
+    const at = (alongX ? r.z : r.x) + (inner ? offAxis() : (rand() - 0.5) * 2 * spread);
+    const blind = lanes === 1 && r.w <= LOT + 1 && r.d <= LOT + 1 && rand() < 0.5 ? (rand() < 0.5 ? 'a' : 'b') : undefined; // an ordinary lot's lane: often a gate at one end
+    lane(r, alongX, at, blind);
+    const h = LANE_W / 2;
+    const A: Part = alongX
+      ? { r: { x: r.x, z: (r.z - r.d / 2 + at - h) / 2, w: r.w, d: at - h - (r.z - r.d / 2) }, open: [true, false, false, false], tube }
+      : { r: { x: (r.x - r.w / 2 + at - h) / 2, z: r.z, w: at - h - (r.x - r.w / 2), d: r.d }, open: [false, false, true, false], tube };
+    const B: Part = alongX
+      ? { r: { x: r.x, z: (at + h + r.z + r.d / 2) / 2, w: r.w, d: r.z + r.d / 2 - at - h }, open: [false, true, false, false], tube }
+      : { r: { x: (at + h + r.x + r.w / 2) / 2, z: r.z, w: r.x + r.w / 2 - at - h, d: r.d }, open: [false, false, false, true], tube };
+    if (lanes === 2) { // the second lane, across the first: four quarters, a branch into one of them
+      const at2 = r.z + (rand() < 0.5 ? -1 : 1) * (12 + rand() * 6);
+      lane(r, true, at2);
+      const quarters: Part[] = [];
+      for (const P of [A, B]) {
+        const q = P.r;
+        quarters.push({ r: { x: q.x, z: (q.z - q.d / 2 + at2 - h) / 2, w: q.w, d: at2 - h - (q.z - q.d / 2) }, open: [true, false, P.open[2], P.open[3]], tube });
+        quarters.push({ r: { x: q.x, z: (at2 + h + q.z + q.d / 2) / 2, w: q.w, d: q.z + q.d / 2 - at2 - h }, open: [false, true, P.open[2], P.open[3]], tube });
+      }
+      const into = quarters[Math.floor(rand() * quarters.length)];
+      if (rand() < 0.8 && branch(true, at2, into, parts, tube)) quarters.splice(quarters.indexOf(into), 1);
+      parts.push(...quarters);
+      return;
+    }
+    const into = rand() < 0.5 ? A : B, other = into === A ? B : A;
+    if (rand() < 0.6 && branch(alongX, at, into, parts, tube)) parts.push(other);
+    else parts.push(A, B);
+  };
+  /** The cells of a part along a lane: a row of tube houses 3.5–5.5 wide facing it, as deep as the part up to
+   *  8–12 — the rest of a deeper part goes back to the district's own partition (it faces the street). */
+  const tubeCells = (p: Part, cells: Rect[], rest: Part[]): boolean => {
+    const k = p.open.findIndex((o) => o);
+    if (k < 0) return false;
+    const alongZ = k >= 2; // the frontage runs along z (the lane lies beside an x face)
+    const front = alongZ ? p.r.w : p.r.d, run = alongZ ? p.r.d : p.r.w;
+    if (front < 4 || run < 3.5) return false;
+    const depth = front > 13 ? 8 + rand() * 4 : front;
+    const sgn = k === 0 || k === 2 ? 1 : -1;
+    const cx = alongZ ? p.r.x + sgn * (p.r.w - depth) / 2 : p.r.x, cz = alongZ ? p.r.z : p.r.z + sgn * (p.r.d - depth) / 2;
+    let t = -run / 2;
+    while (run / 2 - t > 0.5) {
+      let cw = 3.5 + rand() * 2;
+      if (run / 2 - (t + cw) < 3.5) cw = run / 2 - t; // the last takes the remainder
+      cells.push(alongZ ? { x: cx, z: p.r.z + t + cw / 2, w: depth, d: cw } : { x: cx + t + cw / 2, z: cz, w: cw, d: depth });
+      t += cw;
+    }
+    if (front - depth >= 4) {
+      const bw = front - depth;
+      rest.push({ r: alongZ ? { x: p.r.x - sgn * depth / 2, z: p.r.z, w: bw, d: p.r.d } : { x: p.r.x, z: p.r.z - sgn * depth / 2, w: p.r.w, d: bw }, open: p.open.map((o, i) => (i === k ? false : o)), tube: false });
+    }
+    return true;
+  };
+
+  /** Pack a lot (a merged pair, a superblock) edge to edge by its district's profile — fused into one mass or gutters
+   *  between — cut by an alley with catwalks across it, or by a lane or two (see LANES). */
+  const buildLot = (r: Rect, prof: Profile, storefronts: boolean, jit: number, lanes: 0 | 1 | 2 = 0) => {
+    const parts: Part[] = [];
+    const plain = (q: Rect): Part => ({ r: q, open: [false, false, false, false], tube: false });
     const alleyOdds = prof.name === 'old' ? 0.6 : prof.name === 'walled' ? 0.3 : 0.5;
-    if (r.w >= 20 && r.d >= 20 && rand() < alleyOdds) {
+    if (lanes === 1 || lanes === 2) { laneCut(r, prof, parts, lanes); for (const L of pendingLanes.splice(0)) dressLane(L); }
+    else if (r.w >= 20 && r.d >= 20 && rand() < alleyOdds) {
       const alongX = rand() < 0.5;
       const aw = 3.5 + rand() * 1.5;
       if (alongX) {
         const at = r.z + (rand() - 0.5) * (r.d - 14);
         const zl = r.z - r.d / 2, zh = r.z + r.d / 2;
-        parts.push({ x: r.x, z: (zl + at - aw / 2) / 2, w: r.w, d: at - aw / 2 - zl });
-        parts.push({ x: r.x, z: (at + aw / 2 + zh) / 2, w: r.w, d: zh - at - aw / 2 });
+        parts.push(plain({ x: r.x, z: (zl + at - aw / 2) / 2, w: r.w, d: at - aw / 2 - zl }));
+        parts.push(plain({ x: r.x, z: (at + aw / 2 + zh) / 2, w: r.w, d: zh - at - aw / 2 }));
         alley(r, true, at, aw);
       } else {
         const at = r.x + (rand() - 0.5) * (r.w - 14);
         const xl = r.x - r.w / 2, xh = r.x + r.w / 2;
-        parts.push({ x: (xl + at - aw / 2) / 2, z: r.z, w: at - aw / 2 - xl, d: r.d });
-        parts.push({ x: (at + aw / 2 + xh) / 2, z: r.z, w: xh - at - aw / 2, d: r.d });
+        parts.push(plain({ x: (xl + at - aw / 2) / 2, z: r.z, w: at - aw / 2 - xl, d: r.d }));
+        parts.push(plain({ x: (at + aw / 2 + xh) / 2, z: r.z, w: xh - at - aw / 2, d: r.d }));
         alley(r, false, at, aw);
       }
-    } else parts.push(r);
+    } else parts.push(plain(r));
     const seam = rand() < prof.fuse ? 0.08 : null;
-    for (const part of parts) {
+    while (parts.length) {
+      const part = parts.shift()!;
+      if (part.r.w < 1 || part.r.d < 1) continue;
       const cells: Rect[] = [];
-      partition(part, prof.min, prof.min + 2 + rand() * (prof.max - prof.min - 2), cells);
-      for (const c of cells) building(c, r, prof, seam, storefronts, jit);
+      const tubed = part.tube && tubeCells(part, cells, parts);
+      if (!tubed) partition(part.r, prof.min, prof.min + 2 + rand() * (prof.max - prof.min - 2), cells);
+      for (const c of cells) building(c, r, prof, tubed ? 0.08 : seam, storefronts, jit, part.open, tubed);
     }
     for (const c of pendingCats.splice(0)) { // catwalks across the alley, between walls that are really there
       const nx = c.alongX ? 0 : 1, nz = c.alongX ? 1 : 0; // across the alley
@@ -1228,7 +1431,7 @@ export function planCity(seed: number): Plan {
   const closedX = new Set<string>();
   closedZ.add('-5:3'); closedZ.add('-5:4'); closedX.add('3:-5'); closedX.add('3:-4'); // the stadium
   closedZ.add('3:-3'); closedZ.add('3:-4'); closedX.add('-4:3'); closedX.add('-4:4'); // the megastructure
-  const merged = new Map<string, 'x' | 'z'>(); // the first block of a merged pair → merge axis
+  const merged = new Map<string, 'x' | 'z' | '4'>(); // the first block of a merged pair → merge axis ('4': a 2×2 superblock)
   const swallowed = new Set<string>();
   const noMerge = new Set<string>(); // blocks the arterial's junctions need whole
   const ordinary = (bx: number, bz: number) =>
@@ -1362,6 +1565,34 @@ export function planCity(seed: number): Plan {
       wires.push(ax, 5.2, az, (ax + bx) / 2, 4.7, (az + bz) / 2, (ax + bx) / 2, 4.7, (az + bz) / 2, bx, 5.2, bz);
     }
   }
+  // SUPERBLOCKS (owner: cyberpunk Hanoi — the grid was too uniform): six 2×2 blocks swallow their inner crossing; lanes
+  // cut them (buildLot). Never against an avenue, never under the rail's lines, clear of the arterial and the boulevard
+  {
+    const four = (bx: number, bz: number): [number, number][] => [[bx, bz], [bx + 1, bz], [bx, bz + 1], [bx + 1, bz + 1]];
+    const cands: [number, number][] = [];
+    for (let bx = -HALF; bx < HALF; bx++) {
+      for (let bz = -HALF; bz < HALF; bz++) {
+        if (bx + 1 === 0 || bz + 1 === 0 || bx === 5 || bx === -6 || bz === 5 || bz === -6) continue;
+        // (nor where the avenues' footbridge stairs and gantry posts stand at the block centres beside the avenue roads: a
+        // superblock's lanes land within a few units of a block centre)
+        const rows = [bz, bz + 1], cols = [bx, bx + 1];
+        if (rows.some((v) => Math.abs(v) === 1) && cols.some((v) => [2, 3, 5, 6].includes(Math.abs(v)))) continue;
+        if (cols.some((v) => Math.abs(v) === 1) && rows.some((v) => [3, 6].includes(Math.abs(v)))) continue;
+        if (!four(bx, bz).every(([a, b]) => ordinary(a, b))) continue;
+        const cx = bx * G + G / 2, cz = bz * G + G / 2;
+        if (Math.abs(arterialLat(cx, cz)) < ARTERIAL_ROW + 80 || lineDist(cx, cz, DIAGONAL.x0, DIAGONAL.z0, DIAGONAL.x1, DIAGONAL.z1) < 50) continue; // (far enough that its lanes are allowed: see `clear` in the city loop)
+        cands.push([bx, bz]);
+      }
+    }
+    for (let n = 0; n < 6 && cands.length; ) {
+      const [bx, bz] = cands.splice(Math.floor(rand() * cands.length), 1)[0];
+      if (!four(bx, bz).every(([a, b]) => ordinary(a, b))) continue;
+      merged.set(key(bx, bz), '4'); superblocks.push({ x: bx * G + G / 2, z: bz * G + G / 2 });
+      for (const [a, b] of four(bx, bz).slice(1)) swallowed.add(key(a, b));
+      closedZ.add(bx + ':' + bz); closedZ.add(bx + ':' + (bz + 1)); closedX.add(bz + ':' + bx); closedX.add(bz + ':' + (bx + 1));
+      n += 1;
+    }
+  }
   for (let bx = -HALF; bx <= HALF; bx++) {
     for (let bz = -HALF; bz <= HALF; bz++) {
       if (!ordinary(bx, bz)) continue;
@@ -1385,8 +1616,24 @@ export function planCity(seed: number): Plan {
       const rect: Rect = m === 'x'
         ? { x: bx * G + G / 2, z: bz * G, w: 2 * LOT + STREET, d: LOT }
         : m === 'z' ? { x: bx * G, z: bz * G + G / 2, w: LOT, d: 2 * LOT + STREET }
+        : m === '4' ? { x: bx * G + G / 2, z: bz * G + G / 2, w: 2 * LOT + STREET, d: 2 * LOT + STREET }
         : { x: bx * G, z: bz * G, w: LOT, d: LOT };
-      buildLot(rect, DISTRICTS[districtOf(bx, bz)], true, blockJitter(bx, bz));
+      const prof = DISTRICTS[districtOf(bx, bz)];
+      // LANES cut a superblock always, a merged pair mostly, a third of the old and mid lots, fewer elsewhere — never
+      // where the arterial or the boulevard has taken the lot's streets
+      const reach = Math.max(rect.w, rect.d) / 2;
+      // the avenues' footbridges land their stairs and the gantries their posts at the block centres beside the avenue roads:
+      // a lane that could run through such a centre (an ordinary lot's, a pair's along its length) is not cut; a
+      // superblock's lanes and a pair's lane across run well clear of it
+      const rowKit = (col: number) => Math.abs(bz) === 1 && [2, 3, 5, 6].includes(Math.abs(col)), colKit = (row: number) => Math.abs(bx) === 1 && [3, 6].includes(Math.abs(row));
+      const avenueKit = m === '4' ? false
+        : m === 'x' ? colKit(bz) || (Math.abs(bx + 1) === 1 && [3, 6].includes(Math.abs(bz))) || (Math.abs(bz) === 1 && [bx, bx + 1].some((v) => [2, 3, 5, 6].includes(Math.abs(v))))
+        : m === 'z' ? rowKit(bx) || (Math.abs(bz + 1) === 1 && [2, 3, 5, 6].includes(Math.abs(bx))) || (Math.abs(bx) === 1 && [bz, bz + 1].some((v) => [3, 6].includes(Math.abs(v))))
+        : rowKit(bx) || colKit(bz);
+      const clear = !avenueKit && Math.abs(arterialLat(rect.x, rect.z)) > ARTERIAL_ROW + reach + 24 && lineDist(rect.x, rect.z, DIAGONAL.x0, DIAGONAL.z0, DIAGONAL.x1, DIAGONAL.z1) > DIAGONAL.width / 2 + reach + 12;
+      const odds = !clear ? 0 : m === '4' ? 1 : m ? 0.85 : prof.name === 'old' || prof.name === 'mid' ? 0.65 : prof.name === 'strip' ? 0.5 : 0.25;
+      const cut = rand() < odds;
+      buildLot(rect, prof, true, blockJitter(bx, bz), cut ? (m === '4' ? 2 : 1) : 0);
     }
   }
   // -- the outer ring: past the fence, still finished ------------------------
@@ -1710,7 +1957,7 @@ export function planCity(seed: number): Plan {
       run += len;
       if (run >= 24 && onStraight(ax, az) && onStraight(bx, bz)) { // a portal frame (where one cannot stand, the next point takes it)
         let clear = true;
-        for (const s of [-1, 1]) { const lx = ax - dz * s * RAIL.leg, lz = az + dx * s * RAIL.leg; for (const y of [2, 11, 14, 26]) if (grid.hit(lx, y, lz, 0.3)) clear = false; } // (the deck, a ramp, a bustle over the kerb)
+        for (const s of [-1, 1]) { const lx = ax - dz * s * RAIL.leg, lz = az + dx * s * RAIL.leg; for (const y of [2, 11, 14, 26]) if (grid.hit(lx, y, lz, 0.3)) clear = false; if (carriagewayAt(streets, lx, lz) !== null) clear = false; } // (the deck, a ramp, a bustle over the kerb, a lane's mouth)
         if (onStreet(Math.abs(dx) > 0.5 ? ax : az) || Math.abs(arterialLat(ax, az)) < ARTERIAL_ROW + 2) clear = false; // a crossing street's carriageway, the arterial's right of way
         if (!clear) continue;
         run = 0;
@@ -1805,6 +2052,60 @@ export function planCity(seed: number): Plan {
         if (Math.abs(x) < MEDIAN + 1 && r.axis === 'x') continue; // the canal has its quays
         if (Math.abs(Math.abs(r.at) - RAIL.at) < 1 && rail.portals.some((p) => Math.abs(p.x - x) < 4 && Math.abs(p.z - z) < 4)) continue; // a portal frame stands here
         posts.push({ x, z, h: 5.5 });
+      }
+    }
+  }
+  for (const r of roads) { // (a second pass: every road stands now, so a row near a crossing sees the cross street)
+    // UTILITY POLES (owner: cyberpunk Hanoi — the wire spaghetti): at the building line between the lamps, both sides,
+    // three sagging lines pole to pole, a span across the street at every other, a transformer on every fourth; and
+    // MOTORBIKES nose to tail on the pavement at the kerb between the lamps, where the block beside is old, mid or strip
+    if (Math.abs(r.at) <= EXT) {
+      const prev: Record<number, { x: number; z: number } | null> = { [-1]: null, 1: null };
+      const quay = r.axis === 'z' && Math.abs(Math.abs(r.at) - (CANAL.w / 2 + 7)) < 0.6;
+      const line = Math.round(r.at / G - 0.5);
+      for (let t = r.from + 12, k = 0; t <= r.to - 8; t += 12, k++) {
+        const m = (((t - G / 2) % G) + G) % G; // from the street axes themselves (a record a ramp cut does not start on one)
+        if (Math.min(m, G - m) < 6.5 || Math.abs(t) > EXT) { prev[-1] = null; prev[1] = null; continue; } // not at a crossing's corner
+        const stood: number[] = [];
+        for (const s of [-1, 1]) {
+          const off = r.at + s * (STREET / 2 - 0.3);
+          const x = r.axis === 'x' ? t : off, z = r.axis === 'x' ? off : t;
+          const ok = !(Math.abs(arterialLat(x, z)) < ARTERIAL_ROW + 2 || (Math.abs(x) < 30 && Math.abs(z) < 30) || (Math.abs(x) < MEDIAN + 1 && r.axis === 'x'))
+            && !(quay && s !== Math.sign(r.at)) && lineDist(x, z, DIAGONAL.x0, DIAGONAL.z0, DIAGONAL.x1, DIAGONAL.z1) > DIAGONAL.width / 2 + 3
+            && !(Math.abs(Math.abs(r.at) - RAIL.at) < 1 && rail.portals.some((p) => Math.abs(p.x - x) < 4 && Math.abs(p.z - z) < 4))
+            && carriagewayAt(streets, x, z) === null && grid.hit(x, 3, z, 0.6) === null;
+          if (!ok) { prev[s] = null; continue; }
+          poles.push({ x, z, h: 7.2, yaw: r.axis === 'x' ? Math.PI / 2 : 0, box: k % 4 === 1 && s === 1 }); // (furniture, not a solid: the lamp posts are not either)
+          const p = prev[s];
+          if (p && Math.hypot(p.x - x, p.z - z) < 13) bundle(p.x, p.z, x, z, 7.2, r.axis === 'x');
+          prev[s] = { x, z };
+          stood.push(s);
+          // the motorbikes: a row on this pavement, between this lamp and the next, where the block beside likes them
+          const bx = r.axis === 'x' ? Math.round(t / G) : (s > 0 ? line + 1 : line), bz = r.axis === 'x' ? (s > 0 ? line + 1 : line) : Math.round(t / G);
+          const kind = reserved.get(key(bx, bz));
+          if (Math.max(Math.abs(bx), Math.abs(bz)) > HALF || (kind && kind !== 'flea' && kind !== 'favela') || Math.abs(arterialLat(x, z)) < ARTERIAL_ROW + 4) continue;
+          const dist = districtOf(bx, bz);
+          const odds = dist === 'old' ? 0.6 : dist === 'strip' ? 0.5 : dist === 'mid' ? 0.35 : 0.12;
+          if (rand() >= odds) continue;
+          const n = 2 + Math.floor(rand() * 4), len = n * 2.6, lat = r.at + s * (ROAD / 2 + 0.3); // on the kerb line, a wheel over it: the walkers' band starts at 6
+          const cx = r.axis === 'x' ? t : lat, cz = r.axis === 'x' ? lat : t;
+          if (carriagewayAt(streets, cx, cz) !== null) continue;
+          let put = 0;
+          for (let i = 0; i < n; i++) {
+            const tt = t - len / 2 + 1.3 + i * 2.6;
+            const px = r.axis === 'x' ? tt : lat, pz = r.axis === 'x' ? lat : tt;
+            const inMouth = [-1.15, 0, 1.15].some((o) => carriagewayAt(streets, r.axis === 'x' ? px + o : px, r.axis === 'x' ? pz : pz + o) !== null);
+            if (grid.hit(px, 0.6, pz, 1.2) !== null || inMouth || Math.abs(arterialLat(px, pz)) < ARTERIAL_ROW + 2) continue; // (a lamp, a door's step, a lane's mouth, the arterial's aprons)
+            parked.push({ x: px, z: pz, yaw: (r.axis === 'x' ? Math.PI / 2 : 0) + (rand() < 0.5 ? Math.PI : 0) + (rand() - 0.5) * 0.2, kind: 'moto' });
+            grid.add({ x: px, y: 0.55, z: pz, w: r.axis === 'x' ? 2.3 : 0.8, h: 1.1, d: r.axis === 'x' ? 0.8 : 2.3 });
+            put += 1;
+          }
+          if (!put) continue;
+        }
+        if (stood.length === 2 && k % 2 === 0) { // a span across the street
+          const oa = r.at - (STREET / 2 - 0.3), ob = r.at + (STREET / 2 - 0.3);
+          span(r.axis === 'x' ? t : oa, r.axis === 'x' ? oa : t, r.axis === 'x' ? t : ob, r.axis === 'x' ? ob : t, 7.0, 7.0);
+        }
       }
     }
   }
@@ -1916,7 +2217,7 @@ export function planCity(seed: number): Plan {
       const x = streetAt(i) + sx * 8.6, z = streetAt(j) + sz * 8.6;
       if (Math.abs(x) < MEDIAN + 2 || Math.abs(z) < MEDIAN + 2) continue;
       if (Math.abs(arterialLat(x, z)) < ARTERIAL_ROW + 2 || !(openX(j, i) || openX(j, i + 1)) || !(openZ(i, j) || openZ(i, j + 1))) continue; // a corner of a crossing that is really there
-      if (lineDist(x, z, DIAGONAL.x0, DIAGONAL.z0, DIAGONAL.x1, DIAGONAL.z1) < 9) continue;
+      if (lineDist(x, z, DIAGONAL.x0, DIAGONAL.z0, DIAGONAL.x1, DIAGONAL.z1) < 9 || carriagewayAt(streets, x, z) !== null) continue; // (never in a lane's mouth)
       solid(core, 'dark', 'street', 0, x, 1.2, z, 2.2, 2.4, 1.6);
       signs.push({ x, y: 1.5, z: z - sz * 0.85, rotY: sz > 0 ? Math.PI : 0, w: 1.8, h: 1.3, color: signColor(rand), kind: 'tag' });
     }
@@ -1994,7 +2295,6 @@ export function planCity(seed: number): Plan {
   // THE APRONS (owner: a lived-in boulevard): along the arterial between the kerb and the pavement, where no ramp comes
   // down — parked vehicles along the kerb, market stalls, shanties under the ramps' high parts, kiosks; nothing in a
   // north–south street's band, nothing near the water, nothing under or on a low slab
-  const parked: Plan['parked'] = [];
   {
     const yawA = Math.atan2(hdx, hdz); // a vehicle's yaw along the axis (the traffic's convention: 0 faces +z)
     for (let t = 6; t < hlenA; t += 9) {
@@ -2212,6 +2512,8 @@ export function planCity(seed: number): Plan {
     const inWay = (x: number, z: number, y = 0) => carriagewayAt(streets, x, z, y) !== null;
     const keptPosts = posts.filter((p) => !inWay(p.x, p.z, p.y ?? 0));
     posts.length = 0; posts.push(...keptPosts);
+    const keptPoles = poles.filter((p) => !inWay(p.x, p.z));
+    poles.length = 0; poles.push(...keptPoles);
     const gone: { x: number; z: number }[] = [];
     const keep = (s: Solid) => {
       const base = s.y - s.h / 2;
@@ -2233,7 +2535,7 @@ export function planCity(seed: number): Plan {
   }
   return {
     core, outer, sprawl, strips, leds, awnings, tarps, clutter, billboards, spots, signs, posts, lanterns, wires, vents, holos, stalls, sprawlLamps, neon,
-    beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead, air, pads, rail, piers, patches, parked, doors, lifts, subways,
+    beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead, air, pads, rail, piers, patches, parked, poles, superblocks, doors, lifts, subways,
     parties, perches, stages,
   };
 }
@@ -2578,6 +2880,12 @@ export class AutoFlight {
         dir.normalize();
         s.heading = Math.atan2(dir.x, dir.z);
       }
+      if (tries >= 20 && tries % 2 === 0) { // hemmed in low (owner: a forced leg is a jolt): climb straight ahead, then look again
+        const q = new Vector3(last.x + dir.x * 24, 0, last.z + dir.z * 24);
+        q.y = Math.min(210, Math.max(last.y + 16, this.ceilingAlong(last, q) + 12));
+        const up = dir.clone(); up.y = 0.35; up.normalize(); // the tangent leaves climbing, so the arc stays smooth (measured: a level tangent kinked past 8.6° a step)
+        return { p: q, dir: up, dive: false, phase: 'cruise' };
+      }
       // ride the skyline: sometimes skimming the roofs, sometimes well above
       // — but never more than half the leg's length up or down in one leg
       const ceil = this.ceilingAlong(last, p);
@@ -2616,7 +2924,14 @@ export class AutoFlight {
         s.axis = alongX ? 'x' : 'z';
         s.dir = (alongX ? Math.sin(s.heading) : Math.cos(s.heading)) >= 0 ? 1 : -1;
         const perp = alongX ? last.z : last.x;
-        s.street = clamp(Math.round((perp - G / 2) / G) * G + G / 2, -EXT + G / 2, EXT - G / 2);
+        const base = clamp(Math.round((perp - G / 2) / G) * G + G / 2, -EXT + G / 2, EXT - G / 2);
+        // (owner: a Hanoi grid is broken up — superblocks, closures, spans — so the flight looks a street either side of
+        // the nearest for a clearly longer open run before it commits to a dive)
+        const from = (alongX ? last.x : last.z) + s.dir * 60;
+        const roomOf = (street: number) => (Math.abs(street) > EXT - G / 2 ? -1 : this.room(s.axis, street, from, s.dir));
+        let best = base, bestRoom = roomOf(base);
+        if (bestRoom < 160) for (const cand of [base - G, base + G]) { const rm = roomOf(cand); if (rm > bestRoom + 20) { best = cand; bestRoom = rm; } } // (only when the nearest is short: a lateral leg is a leg through the towers)
+        s.street = best;
       } else s.street = 0;
       const along = (s.axis === 'x' ? last.x : last.z) + s.dir * (60 + r() * 30);
       const p = s.axis === 'x' ? new Vector3(along, 0, s.street) : new Vector3(s.street, 0, along);

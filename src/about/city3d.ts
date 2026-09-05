@@ -2490,6 +2490,22 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     g.setAttribute('position', new BufferAttribute(new Float32Array(plan.wires), 3));
     scene.add(new LineSegments(g, new LineBasicMaterial({ color: '#12162a' })));
   }
+  { // UTILITY POLES (owner: cyberpunk Hanoi): a concrete pole, a crossarm across the line, a transformer on some — their
+    // lines hang in plan.wires with the rest
+    const n = Math.max(1, plan.poles.length);
+    const poleMat = new MeshLambertMaterial({ color: '#4a4640' }), trafoMat = new MeshLambertMaterial({ color: '#2e3038' });
+    const shafts = new InstancedMesh(geo.box, poleMat, n), crossarms = new InstancedMesh(geo.box, poleMat, n), trafos = new InstancedMesh(geo.box, trafoMat, n);
+    let jt = 0;
+    plan.poles.forEach((p, j) => {
+      dummy.rotation.set(0, p.yaw, 0);
+      dummy.position.set(p.x, p.h / 2, p.z); dummy.scale.set(0.26, p.h, 0.26); dummy.updateMatrix(); shafts.setMatrixAt(j, dummy.matrix);
+      dummy.position.set(p.x, p.h - 0.22, p.z); dummy.scale.set(1.3, 0.1, 0.1); dummy.updateMatrix(); crossarms.setMatrixAt(j, dummy.matrix);
+      if (p.box) { dummy.position.set(p.x, p.h - 1.4, p.z); dummy.scale.set(0.7, 0.9, 0.6); dummy.updateMatrix(); trafos.setMatrixAt(jt++, dummy.matrix); }
+    });
+    shafts.count = plan.poles.length; crossarms.count = plan.poles.length; trafos.count = jt;
+    dummy.rotation.set(0, 0, 0);
+    for (const inst of [shafts, crossarms, trafos]) { inst.instanceMatrix.needsUpdate = true; inst.castShadow = true; scene.add(inst); }
+  }
   {
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(new Float32Array(plan.neon.pos), 3));

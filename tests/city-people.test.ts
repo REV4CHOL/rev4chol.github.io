@@ -195,6 +195,21 @@ describe('People', () => {
     for (const p of perched.slice(0, 40)) { expect(p.y).toBeGreaterThan(3); expect([FRAME.stand, FRAME.sit, FRAME.phone, FRAME.sitPhone, FRAME.talk]).toContain(p.frame); }
   });
 
+  it('walks the lanes on their slivers of pavement, and goes in at the tube houses\' doors', () => {
+    const lp = new People(plan.streets, [], plan.stalls, mulberry32(9), 2200, () => false, nodes, { solid: (x, y, z) => plan.grid.hit(x, y, z, 0.3) !== null, doors: plan.doors });
+    let onLanes = 0, entered = 0;
+    for (let f = 0; f < 2500; f++) {
+      lp.step();
+      if (f % 100 === 0) for (const p of lp.people) {
+        if (!p.st || p.st.kind !== 'lane') continue;
+        if (p.act === 'walk' || p.act === 'stand') { onLanes += 1; expect(Math.abs(p.off)).toBeGreaterThanOrEqual(p.st.width / 2 - 0.76); expect(Math.abs(p.off)).toBeLessThanOrEqual(p.st.width / 2 - 0.24); }
+        if (p.act === 'enter' || p.act === 'inside' || p.act === 'exit') entered += 1;
+      }
+    }
+    expect(onLanes).toBeGreaterThan(200);
+    expect(entered).toBeGreaterThan(0);
+  });
+
   it('is deterministic for a seed', () => {
     const a = new People(plan.streets, zones, plan.stalls, mulberry32(9), 400, () => true, nodes);
     const b = new People(plan.streets, zones, plan.stalls, mulberry32(9), 400, () => true, nodes);

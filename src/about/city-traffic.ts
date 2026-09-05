@@ -31,8 +31,8 @@ export type VKind = 'car' | 'taxi' | 'bus' | 'truck' | 'moto';
  *  barrier). Three lanes a side fit inside it with the widest vehicle. */
 export const DECK_KERB = 8;
 /** Lane centres from a street's axis: 2.4 apart, the widest vehicle (a bus, 2.3) fitting inside its lane. */
-export const OFFSETS: Record<string, number[]> = { road: [1.35, 3.75], diagonal: [1.35, 3.75], highway: [1.4, 3.8, 6.2], ramp: [0], arterial: [3.0, 5.4] }; // (the arterial's median holds the deck's piers)
-const SPEED: Record<string, number> = { highway: 1.9, ramp: 1.3, arterial: 1.25 };
+export const OFFSETS: Record<string, number[]> = { road: [1.35, 3.75], diagonal: [1.35, 3.75], highway: [1.4, 3.8, 6.2], ramp: [0], arterial: [3.0, 5.4], lane: [1.4] }; // (the arterial's median holds the deck's piers; a lane is one each way)
+const SPEED: Record<string, number> = { highway: 1.9, ramp: 1.3, arterial: 1.25, lane: 0.6 };
 export const GREEN = 420; // (owner: a pedestrian phase — a 14-second cycle left no walk window against a 6-second crossing)
 export const CLEAR = 130; // all red: whoever is in the box gets out
 export const PHASE = GREEN + CLEAR; // one street's turn; a node cycles through as many phases as it has streets
@@ -124,8 +124,8 @@ export class Traffic {
   peds: ((x: number, z: number, axis: 'x' | 'z' | 'd') => boolean) | null = null;
 
   constructor(streets: Street[], private readonly rand: () => number) {
-    const ways = streets.filter((s) => s.kind === 'road' || s.kind === 'highway' || s.kind === 'diagonal' || s.kind === 'ramp' || s.kind === 'arterial');
-    const surface = (s: Street) => s.kind === 'road' || s.kind === 'diagonal' || s.kind === 'arterial';
+    const ways = streets.filter((s) => s.kind === 'road' || s.kind === 'highway' || s.kind === 'diagonal' || s.kind === 'ramp' || s.kind === 'arterial' || s.kind === 'lane');
+    const surface = (s: Street) => s.kind === 'road' || s.kind === 'diagonal' || s.kind === 'arterial' || s.kind === 'lane';
     const cuts: { t: number; node: Node }[][] = ways.map(() => []);
     const cells = new Map<string, Node[]>();
     const nodeAt = (x: number, z: number, y: number): Node => {
@@ -217,13 +217,17 @@ export class Traffic {
     // streets' right of way: boxFor — a ramp runs inside the arterial's right of way, so its slip stops at the
     // carriageway, not the pavement); lights where two streets cross on the ground (a ramp's joint, mount and merge
     // yield by gap), their cycle scaled to the box's reach
-    const boxFor = (n: Node, st: Street) => KERB + n.streets.reduce((m, s) => (s === st ? m : Math.max(m, st.kind === 'ramp' && s.kind === 'arterial' ? s.width / 2 : rowOf(s))), n.streets.length > 1 ? 0 : rowOf(st));
+    // (a lane's mouth on a road is no box for the road: its traffic runs on — the turner from the lane waits for its gap
+    // and whoever follows holds while the turn is in progress — else every mouth was a box to clear, and the roads crawled)
+    const boxFor = (n: Node, st: Street) => KERB + n.streets.reduce((m, s) => (s === st ? m : Math.max(m, st.kind === 'ramp' && s.kind === 'arterial' ? s.width / 2 : s.kind === 'lane' && st.kind !== 'lane' ? 0.4 : rowOf(s))), n.streets.length > 1 ? 0 : rowOf(st));
     for (const n of this.nodes) {
       n.box = n.streets.reduce((m, s) => Math.max(m, rowOf(s)), 0) + KERB;
       // lights only where two streets CROSS; a T-junction runs on priority — the through road flows, the ending
       // road yields (owner: the city jammed solid — the rim roads, a T at every block, stopped for two thirds of
       // every cycle and became the sink every straight-driving vehicle ended in)
-      const lit = n.streets.length >= 2 && n.ports.length >= 4 && !n.streets.some((s) => s.kind === 'highway' || s.kind === 'ramp');
+      // (a lane's own junctions run on priority; a lane's mouth that shares a node with a real crossing does not unlight it)
+      const roadsHere = n.streets.filter((s) => s.kind !== 'lane').length, roadPorts = n.ports.filter((p) => p.link.street.kind !== 'lane').length;
+      const lit = roadsHere >= 2 && roadPorts >= 4 && !n.streets.some((s) => s.kind === 'highway' || s.kind === 'ramp');
       if (lit) {
         const reach = n.streets.reduce((m, s) => Math.max(m, boxFor(n, s)), 0); // the longest approach's box: half the longest path through
         const k = Math.min(3, Math.max(1, reach / (STREET_BOX)));
@@ -273,7 +277,14 @@ export class Traffic {
       if (w.kind === 'ramp' && st.kind === 'ramp' && !straight) return; // a chain carries on (its pieces meet within 9°)
       const lanes = link.lanes[dirOut > 0 ? 0 : 1];
       if (!lanes.length) return;
-      const crossing = !straight && !uturn && (wx * nx + wz * nz) < -0.3;
+      // a lane's straight run across a road, and a north–south lane's straight run across an east–west lane where two
+      // lanes cross without lights, yield like a turn across the oncoming (the roads and the east–west lanes run through)
+      const acrossRoad = straight && st.kind === 'lane' && w !== st;
+      const minorLane = straight && st.kind === 'lane' && w === st && !n.signal && n.streets.length === 2 && n.ports.length === 4 && st.dz !== 0;
+      const crossing = !uturn && ((!straight && (wx * nx + wz * nz) < -0.3) || acrossRoad || minorLane);
+      // no turn across the oncoming INTO a lane (Hanoi: right in, right out): a car waiting at the line for that gap held
+      // its whole lane behind it at every mouth, and the roads crawled (measured: stopped 0.52 → 0.44)
+      if (crossing && !straight && w.kind === 'lane' && st.kind !== 'lane') return;
       // lane discipline, so no two paths of one green cross: a turn across
       // the oncoming lanes only from the inside lane, a near-side turn only
       // from the outside lane, straight on from any; a ramp joins the edge lane.
@@ -281,14 +292,17 @@ export class Traffic {
       // outer to outer, nested (owner: the outer lane's only exit was a U-turn whose loop swept through the inner lane's turn)
       const corner = n.streets.length === 2 && n.ports.length === 2;
       if (!straight && !uturn && !corner) { if (crossing ? lane.index !== 0 : !outermost) return; }
-      const to = st.kind === 'ramp' && w.kind !== 'ramp' ? lanes[lanes.length - 1] : lanes[Math.min(lane.index, lanes.length - 1)]; // a ramp lands on the edge lane
+      // a ramp lands on the edge lane; a near-side turn lands on the kerb lane (from a one-lane street too — landing inboard
+      // swept the kerb lane, and met whoever stood in it); a turn across and straight on keep their index
+      const to = st.kind === 'ramp' && w.kind !== 'ramp' ? lanes[lanes.length - 1] : !straight && !uturn && !crossing ? lanes[lanes.length - 1] : lanes[Math.min(lane.index, lanes.length - 1)];
       lanePoint(to, 0, Q);
       // at a T the through road is no highway: carrying on and turning in weigh about the same, so the rim roads
       // drain back into the grid instead of collecting every straight-driving vehicle in the city
-      const tee = n.ports.length === 3 && st.kind === 'road';
+      const tee = n.ports.length === 3 && st.kind === 'road' && !n.streets.some((q) => q.kind === 'lane'); // (not at a lane's mouth: the road carries on, a few turn in)
       // (the arterial is the through road under the viaduct: its traffic mostly stays on it, a third of its kerb lane takes an on-ramp)
       const art = st.kind === 'arterial'; // the through road under the viaduct: most of its traffic stays on it
-      const weight = uturn ? 0.001 : w.kind === 'ramp' ? (st.kind === 'ramp' ? 10 : st.kind === 'highway' ? 1.2 : 4) : straight ? (tee ? 2 : w === st ? (art ? 12 : 6) : 3) : crossing ? (art ? 0.6 : 1) : (art ? 0.9 : 1.5);
+      const lanes0 = st.kind === 'lane' && w.kind !== 'lane'; // out of a lane onto a street: with the flow mostly (a turn across the oncoming holds the street while it is made)
+      const weight = uturn ? 0.001 : w.kind === 'ramp' ? (st.kind === 'ramp' ? 10 : st.kind === 'highway' ? 1.2 : 4) : straight ? (tee ? 2 : w === st ? (art ? 12 : 6) : lanes0 ? 0.8 : 3) : crossing ? (art ? 0.6 : lanes0 ? 0.3 : 1) : (art ? 0.9 : 1.5);
       let cx = (P.x + Q.x) / 2, cz = (P.z + Q.z) / 2;
       if (uturn) { // a loop out past the dead end, wider from the outer lane, so the lanes' U-turns nest instead of crossing
         const k = 1 + Math.abs(lane.offset) * 1.6;
@@ -382,10 +396,11 @@ export class Traffic {
       let pick = r() * total;
       let lane = this.lanes[this.lanes.length - 1];
       for (let k = 0; k < ws.length; k++) { pick -= ws[k]; if (pick <= 0) { lane = this.lanes[k]; break; } }
-      const hw = lane.link.street.kind === 'highway';
+      const hw = lane.link.street.kind === 'highway', ln = lane.link.street.kind === 'lane';
       const a = r();
       const kind: VKind = hw
         ? (a < 0.42 ? 'car' : a < 0.55 ? 'taxi' : a < 0.82 ? 'truck' : a < 0.9 ? 'bus' : 'moto')
+        : ln ? (a < 0.62 ? 'moto' : a < 0.86 ? 'car' : 'taxi') // the lanes belong to the motorbikes
         : (a < 0.5 ? 'car' : a < 0.66 ? 'taxi' : a < 0.73 ? 'bus' : a < 0.78 ? 'truck' : 'moto');
       const [len, w, h, v0, spread] = SPEC[kind];
       const car: Car = {
@@ -404,7 +419,7 @@ export class Traffic {
         }
       }
       if (!placed) continue;
-      car.exit = this.choose(lane);
+      car.exit = this.choose(lane, car);
       this.cars.push(car);
       this.place(car);
     }
@@ -417,13 +432,17 @@ export class Traffic {
     lane.cars.splice(k, 0, car);
   }
 
-  private choose(lane: Lane): Exit | null {
+  private choose(lane: Lane, car?: Car): Exit | null {
     if (!lane.exits.length) return null;
+    const wide = car !== undefined && car.len > 6 ? lane.exits.filter((e) => e.to.link.street.kind !== 'lane') : lane.exits; // a bus or a truck keeps to the streets
+    const exits = wide.length ? wide : lane.exits;
+    // a turn off a street into a lane: the motorbikes take it, the cars mostly do not (Hanoi's lanes belong to the bikes)
+    const into = (e: Exit) => (e.to.link.street.kind === 'lane' && lane.link.street.kind !== 'lane' ? (car?.kind === 'moto' ? 5 : 0.4) : 1);
     let total = 0;
-    for (const e of lane.exits) total += e.weight;
+    for (const e of exits) total += e.weight * into(e);
     let pick = this.rand() * total;
-    for (const e of lane.exits) { pick -= e.weight; if (pick <= 0) return e; }
-    return lane.exits[lane.exits.length - 1];
+    for (const e of exits) { pick -= e.weight * into(e); if (pick <= 0) return e; }
+    return exits[exits.length - 1];
   }
 
   /** One frame of everybody. */
@@ -454,7 +473,7 @@ export class Traffic {
   private frontGap(c: Car, lane: Lane, tick: number): number {
     const ahead = lane.len - c.s - c.len / 2; // bumper to the stop line
     const n = lane.end;
-    if (!c.exit) c.exit = this.choose(lane);
+    if (!c.exit) c.exit = this.choose(lane, c);
     const ex = c.exit;
     if (!ex) return ahead;
     let gap = 1e9;
@@ -469,7 +488,10 @@ export class Traffic {
       // DON'T BLOCK THE BOX (owner: the city jammed solid, then nothing moved — vehicles entered the boxes
       // without room to clear them, stalled mid-crossing, and every stalled box held its cross street):
       // no room past the box for the whole vehicle → hold at the line
-      if (!wait && ex.S >= 0.4 && room < ex.S + c.len + G0) {
+      // (a lane's mouth on this street is no box to keep clear: the street runs on as if unbroken — measured: every mouth
+      // held as a box put a tenth of the city at a standstill)
+      const mouth = lane.link.street.kind !== 'lane' && n.streets.length >= 2 && n.streets.every((q) => q === lane.link.street || q.kind === 'lane');
+      if (!wait && !mouth && ex.S >= 0.4 && room < ex.S + c.len + G0) {
         // a driver facing a full lane takes another exit if one has room (the highway's edge lane used to park
         // behind exiters waiting on a full ramp); else hold
         const alt = this.detour(c, lane, n, ex);
@@ -480,7 +502,7 @@ export class Traffic {
       // the start of its own all-red — the oncoming is held, the box is watched by everyone who follows
       if (wait && ex.crossing && n.signal && this.lateTurn(n, lane.group, tick) && !this.boxBusy(n, lane.group) && !this.yieldBusy(lane)) wait = false;
       // someone is turning across this path: they went first; this one holds until they are through
-      if (!wait && !ex.crossing) wait = this.turnerCrossing(n, lane);
+      if (!wait && !ex.crossing) wait = this.turnerCrossing(n, lane, ex);
       // someone is in the crosswalk before the line: hold
       if (!wait && this.peds) { const sk = lane.link.street; if (this.peds(n.x, n.z, sk.kind === 'diagonal' ? 'd' : sk.dx !== 0 ? 'x' : 'z')) wait = true; }
       if (wait) gap = Math.min(gap, ahead);
@@ -560,6 +582,7 @@ export class Traffic {
     const ok: Exit[] = [];
     for (const e of lane.exits) {
       if (e === not || e.weight < 0.01) continue;
+      if (c.len > 6 && e.to.link.street.kind === 'lane') continue; // a bus or a truck never detours into a lane
       if (e.S >= 0.4 && this.entryRoom(e, n) < e.S + c.len + G0) continue;
       ok.push(e); total += e.weight;
     }
@@ -578,8 +601,12 @@ export class Traffic {
   }
 
   /** A turn across other traffic is under way in the box, from another link: it went first. */
-  private turnerCrossing(n: Node, lane: Lane): boolean {
-    for (const t of n.transit) if (t.transit && t.transit.ex.crossing && t.transit.from.link !== lane.link) return true;
+  private turnerCrossing(n: Node, lane: Lane, ex: Exit): boolean {
+    for (const t of n.transit) {
+      if (!t.transit || !t.transit.ex.crossing || t.transit.from.link === lane.link) continue;
+      if (t.transit.ex.to.link === ex.to.link && t.transit.ex.to.dir === ex.to.dir) continue; // it joins my carriageway (the inner lane, by discipline): it cuts the other one
+      return true;
+    }
     return false;
   }
 
@@ -595,14 +622,14 @@ export class Traffic {
   /** The front vehicle crossed the stop line: into the box (or straight
    *  into the next lane when the path is a point). */
   private leave(c: Car, lane: Lane, tick: number): void {
-    const ex = c.exit ?? this.choose(lane);
+    const ex = c.exit ?? this.choose(lane, c);
     const n = lane.end;
     if (!ex) { c.s = lane.len - 0.01; lane.cars.push(c); return; }
     if (n.signal && !this.green(n, lane.group, tick) && !(ex.crossing && this.lateTurn(n, lane.group, tick)) && c.s - c.v + c.len / 2 < lane.len - 0.5) this.violations += 1;
     const over = c.s - lane.len;
     c.lane = null;
     this.hops += 1; c.hops += 1;
-    if (ex.S < 0.4) { if (ex.portal) c.warped = tick; c.s = over; this.insert(ex.to, c); c.exit = this.choose(ex.to); return; }
+    if (ex.S < 0.4) { if (ex.portal) c.warped = tick; c.s = over; this.insert(ex.to, c); c.exit = this.choose(ex.to, c); return; }
     c.transit = { node: n, from: lane, ex, s: over };
     c.exit = ex;
     n.transit.push(c);
@@ -641,7 +668,7 @@ export class Traffic {
       list.splice(i, 1);
       c.s = t.s - t.ex.S;
       this.insert(t.ex.to, c);
-      c.exit = this.choose(t.ex.to);
+      c.exit = this.choose(t.ex.to, c);
     }
   }
 

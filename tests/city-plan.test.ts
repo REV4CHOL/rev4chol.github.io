@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
 import {
-  ARTERIAL, ARTERIAL_ROW, arterialLat, arterialZ, AutoFlight, BOUND, CAM_R, CANAL, carriagewayAt, CollisionGrid, districtOf, EXT, G, HIGHWAY, MEDIAN, planCity, RAIL, RAMP, RAMP_W, rampY,
+  ARTERIAL, ARTERIAL_ROW, arterialLat, arterialZ, AutoFlight, BOUND, CAM_R, CANAL, carriagewayAt, CollisionGrid, districtOf, EXT, G, HIGHWAY, LANE_CAR, LANE_W, MEDIAN, planCity, RAIL, RAMP, RAMP_W, rampY,
   ROAD, starPositions, STREET, streetAt, tourRoute,
 } from '../src/about/city-plan';
 import { mulberry32 } from '../src/lib/rng';
@@ -104,7 +104,7 @@ describe('planCity', () => {
     expect(plan.signs.length).toBeGreaterThan(5000);
     const kinds = new Set(plan.signs.map((s) => s.kind));
     for (const k of ['hang', 'wall', 'board', 'tag', 'roof', 'gantry', 'screen']) expect(kinds.has(k as never), k).toBe(true);
-    expect(plan.posts.length).toBeGreaterThan(4000);
+    expect(plan.posts.length).toBeGreaterThan(3800); // (the lanes' mouths take a few)
     expect(plan.pois.length).toBeGreaterThan(14);
   });
 
@@ -121,9 +121,10 @@ describe('planCity', () => {
       for (let t = 1; t < r.len; t += 3) expect(plan.grid.hit(r.x0 + r.dx * t, rampY(r, t) + 2, r.z0 + r.dz * t, 0.3), `ramp at t=${t}`).toBeNull();
     }
     for (const st of plan.streets) {
-      if (st.kind !== 'road') continue;
+      if (st.kind !== 'road' && st.kind !== 'lane') continue;
+      const half = st.kind === 'lane' ? LANE_CAR - 0.5 : ROAD / 2 - 0.5;
       for (let t = 1; t < st.len; t += 3) {
-        for (const off of [0, ROAD / 2 - 0.5, -(ROAD / 2 - 0.5)]) { // the carriageway, to its kerbs (the pavements carry lamps, legs and kit by design)
+        for (const off of [0, half, -half]) { // the carriageway, to its kerbs (the pavements carry lamps, legs and kit by design)
           const x = st.x0 + st.dx * t - st.dz * off, z = st.z0 + st.dz * t + st.dx * off;
           if (Math.abs(x) > EXT + 10 || Math.abs(z) > EXT + 10) continue;
           const q = { x: 0, y: 0, z: 0 };
@@ -225,7 +226,7 @@ describe('Newport City, layered (owner: messy, overlapping, Ghost in the Shell)'
 
   it('bridges the streets with overbuilds above the flight band, never over an avenue', () => {
     const overs = plan.core.filter((s) => s.arch === 'over');
-    expect(overs.length).toBeGreaterThan(15); // (the arterial took a swath of the north's streets)
+    expect(overs.length).toBeGreaterThanOrEqual(8); // (the arterial took a swath of the north's streets; the lanes' tube houses are too low to carry a span)
     for (const o of overs) {
       expect(o.y - o.h / 2, 'underside').toBeGreaterThanOrEqual(35); // the canyon band's top plus the flight's pad is 34.6
       expect(Math.abs(o.x) < 26 || Math.abs(o.z) < 26, 'over an avenue').toBe(false);
@@ -441,12 +442,54 @@ describe('The viaduct over its arterial (owner: roads that exist in real life)',
   });
 
   it('dresses the aprons: parked vehicles, stalls and shanties, none on the carriageway', () => {
-    expect(plan.parked.length).toBeGreaterThan(10);
-    for (const p of plan.parked) {
+    const aprons = plan.parked.filter((p) => Math.abs(arterialLat(p.x, p.z)) < ARTERIAL_ROW + 1);
+    expect(aprons.length).toBeGreaterThan(10);
+    for (const p of aprons) {
       const lat = Math.abs(arterialLat(p.x, p.z));
       expect(lat).toBeGreaterThan(ARTERIAL.w / 2 + 2.2);
       expect(lat).toBeLessThan(ARTERIAL_ROW - ARTERIAL.walk);
     }
+  });
+
+  it('is cyberpunk Hanoi: superblocks and lanes through the lots (T\'s and gates), tube houses, poles and wires, motorbikes on the kerbs', () => {
+    const lanes = plan.streets.filter((st) => st.kind === 'lane');
+    expect(lanes.length).toBeGreaterThan(40);
+    const onAxis = (v: number) => Math.abs((((v - G / 2) % G) + G) % G) < 0.01 || Math.abs(((((v - G / 2) % G) + G) % G) - G) < 0.01; // a street's axis lies at (i + ½)·G
+    let tees = 0, gates = 0, long = 0;
+    for (const l of lanes) {
+      expect(l.width).toBe(LANE_W);
+      expect(Math.abs(arterialLat(l.x0 + l.dx * l.len / 2, l.z0 + l.dz * l.len / 2)), 'a lane in the arterial\'s reach').toBeGreaterThan(ARTERIAL_ROW + 6);
+      if (l.len > 50) long += 1;
+      for (const [t, pad] of [[0, l.ends?.a], [l.len, l.ends?.b]] as [number, number | undefined][]) {
+        const v = l.dx ? l.x0 + l.dx * t : l.z0 + l.dz * t; // the end's coordinate along the lane
+        if (onAxis(v)) { tees += 1; expect(pad).toBeCloseTo(ROAD / 2 + 2, 5); } // a T: the walkers stop at the street's building line
+        else if (pad !== undefined && Math.abs(pad - 0.5) < 1e-6) { // a gate: three inside a lot's edge
+          gates += 1;
+          const m = ((v % G) + G) % G, frac = Math.min(m, G - m); // from the nearest block centre
+          expect(frac).toBeLessThanOrEqual(12 - 2.9 + 0.01);
+        } else expect(pad).toBeCloseTo(LANE_W / 2 + 0.5, 5); // a branch's mouth on its lane
+      }
+      for (let t = 1.5; t < l.len - 1.5; t += 2) expect(plan.grid.hit(l.x0 + l.dx * t, 1.6, l.z0 + l.dz * t, 2.0), 'something in a lane').toBeNull();
+    }
+    expect(tees).toBeGreaterThan(40); // most lanes reach a street at least at one end
+    expect(gates).toBeGreaterThanOrEqual(6); // some end blind, at a gate
+    expect(long).toBeGreaterThanOrEqual(12); // the superblocks' lanes and the merged pairs' long ones
+    expect(plan.superblocks.length).toBe(6);
+    for (const sb of plan.superblocks) { // two lanes cross inside every superblock, one along each axis
+      const inside = lanes.filter((l) => l.len > 50 && Math.abs((l.dx ? l.z0 : l.x0) - (l.dx ? sb.z : sb.x)) <= 18.01 && Math.abs((l.dx ? l.x0 + l.len / 2 : l.z0 + l.len / 2) - (l.dx ? sb.x : sb.z)) < 8); // (12–18 off the swallowed street's axis)
+      for (const l of inside) expect(Math.abs((l.dx ? l.z0 : l.x0) - (l.dx ? sb.z : sb.x))).toBeGreaterThanOrEqual(11.99); // never on the swallowed street's axis: its mouth would merge into the crossing where that street ends
+      expect(inside.some((l) => l.dx !== 0) && inside.some((l) => l.dz !== 0), `superblock at ${sb.x},${sb.z} lacks a lane`).toBe(true);
+    }
+    const tubes = plan.core.filter((q) => q.kind === 'facade' && q.arch === 'block' && q.h >= 10 && Math.min(q.w, q.d) < 5.6 && Math.min(q.w, q.d) >= 3.2 && Math.max(q.w, q.d) >= 3.8);
+    expect(tubes.length).toBeGreaterThan(300); // tube houses: slim, deep, tall
+    expect(plan.poles.length).toBeGreaterThan(500);
+    for (const p of plan.poles) expect(carriagewayAt(plan.streets, p.x, p.z), 'a pole in the road').toBeNull();
+    expect(plan.wires.length / 12).toBeGreaterThan(3000); // the bundles pole to pole and the spans across
+    const motos = plan.parked.filter((p) => p.kind === 'moto' && Math.abs(arterialLat(p.x, p.z)) > ARTERIAL_ROW + 1);
+    expect(motos.length).toBeGreaterThan(150);
+    for (const p of motos) expect(carriagewayAt(plan.streets, p.x, p.z), 'a motorbike in the road').toBeNull();
+    const merged4 = plan.streets.filter((st) => st.kind === 'lane' && st.len > 60).length;
+    expect(merged4).toBeGreaterThanOrEqual(6);
   });
 });
 
