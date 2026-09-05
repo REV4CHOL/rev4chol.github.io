@@ -40,6 +40,10 @@ export const REACH = (HALF + OUTER) * G + STREET; // how far streets, traffic an
 export const HIGHWAY = { x0: -400, z0: 210, x1: 400, z1: 80, y: 14, width: 17 }; // three lanes a side at a bus's width, parapets past them // the elevated highway across the north
 export const DIAGONAL = { x0: -247, z0: -19, x1: -19, z1: -247, width: 12 }; // the surface boulevard slashing the south-west: x + z = −266 runs it through seven grid crossings, T-ing into the avenue roads at both ends
 export const CANAL = { w: 24, deck: 1.15 }; // the north–south avenue's water and its bridge decks
+/** THE RAIL (owner: layered infrastructure, Akira's elevated line): a closed loop along the four street lines at
+ *  ±209, its deck at 38 (the flight's canyon band tops at 32, its pad 2.6), corners rounded on a 30 arc over the
+ *  corner lots, portal frames every 24 with legs at the kerb line, three stations. */
+export const RAIL = { at: 209, y: 38, r: 30, w: 3.2, leg: 5.35 };
 const ROUTE_PAD = 3.4; // clearance the city keeps around the story route
 const FLY_PAD = 2.6; // clearance the auto-flight demands of a new leg
 const GRID_PAD = 4; // cell registration pad — every query radius stays under it
@@ -113,9 +117,9 @@ export interface Profile {
 export const DISTRICTS: Record<District, Profile> = {
   heights: { name: 'heights', lo: 50, hi: 125, fuse: 0.3, stack: 2, kit: 0.25, signs: 0.6, over: 0.15, arcade: 0.05, min: 6, max: 12 },
   walled: { name: 'walled', lo: 44, hi: 80, fuse: 0.9, stack: 3, kit: 1.0, signs: 1.0, over: 1.0, arcade: 0.35, min: 6, max: 14 }, // tall enough for the overbuilds to roof its streets
-  strip: { name: 'strip', lo: 20, hi: 70, fuse: 0.5, stack: 2, kit: 0.7, signs: 1.2, over: 0.25, arcade: 0.3, min: 5, max: 16 },
+  strip: { name: 'strip', lo: 20, hi: 70, fuse: 0.5, stack: 2, kit: 0.7, signs: 1.2, over: 0.35, arcade: 0.3, min: 5, max: 16 },
   old: { name: 'old', lo: 8, hi: 24, fuse: 0.6, stack: 1, kit: 0.5, signs: 0.5, over: 0, arcade: 0.15, min: 4, max: 9 },
-  mid: { name: 'mid', lo: 16, hi: 60, fuse: 0.5, stack: 2, kit: 0.6, signs: 0.8, over: 0.15, arcade: 0.2, min: 5, max: 16 },
+  mid: { name: 'mid', lo: 16, hi: 60, fuse: 0.5, stack: 2, kit: 0.6, signs: 0.8, over: 0.2, arcade: 0.2, min: 5, max: 16 },
 };
 export function districtOf(bx: number, bz: number): District {
   if (Math.abs(bx) === 1 || Math.abs(bz) === 1) return 'strip'; // about the plaza and along both avenues
@@ -139,7 +143,16 @@ export type WinStyle = 'grid' | 'ribbon' | 'strip' | 'tiny' | 'wide' | 'curtain'
 export interface FacadeStyle {
   tint: string; win: WinStyle; crown: boolean; density: number; warm: number; dim: number; core: boolean;
 }
+export interface Rail {
+  /** The closed loop, [x, y, z] every dozen units along the straights and eight to an arc; the last point a step from the first. */
+  pts: [number, number, number][];
+  /** A station: the platforms' centre on the line, and the line's direction there. */
+  stations: { x: number; y: number; z: number; dx: number; dz: number }[];
+  /** A portal frame's centre on the line, and the line's direction there (its legs stand at ±RAIL.leg). */
+  portals: { x: number; z: number; dx: number; dz: number }[];
+}
 export interface Plan {
+  rail: Rail;
   core: Solid[];
   outer: Solid[];
   sprawl: Solid[];
@@ -373,6 +386,27 @@ export function planCity(seed: number): Plan {
   const ramps: Street[] = []; // planned before any lot is built — they cap what stands under them
   const stacks: { x: number; z: number; top: number }[] = [];
   const tall: { x: number; z: number; top: number; w: number; d: number; bridges: number; flat: boolean }[] = [];
+  // -- the rail's line, known before any lot is built (its arcs cap what stands under them) --------------------
+  const railPts: [number, number, number][] = [];
+  {
+    const A = RAIL.at, R = RAIL.r, y = RAIL.y;
+    // clockwise from the north side's west end: N (x rising at z = A), arc NE, E (z falling at x = A), arc SE, S, arc SW, W, arc NW
+    const straight = (x0: number, z0: number, x1: number, z1: number) => { const n = Math.round(Math.hypot(x1 - x0, z1 - z0) / 12); for (let i = 0; i < n; i++) railPts.push([x0 + (x1 - x0) * i / n, y, z0 + (z1 - z0) * i / n]); };
+    const arc = (cx: number, cz: number, a0: number, a1: number) => { for (let i = 0; i < 8; i++) { const a = a0 + (a1 - a0) * i / 8; railPts.push([cx + Math.cos(a) * R, y, cz + Math.sin(a) * R]); } };
+    straight(-(A - R), A, A - R, A); arc(A - R, A - R, Math.PI / 2, 0);
+    straight(A, A - R, A, -(A - R)); arc(A - R, -(A - R), 0, -Math.PI / 2);
+    straight(A - R, -A, -(A - R), -A); arc(-(A - R), -(A - R), -Math.PI / 2, -Math.PI);
+    straight(-A, -(A - R), -A, A - R); arc(-(A - R), A - R, Math.PI, Math.PI / 2);
+  }
+  /** Lateral distance from a point to the rail's line (its nearest segment). */
+  const railDist = (x: number, z: number): number => {
+    let d = Infinity;
+    for (let i = 0; i < railPts.length; i++) {
+      const [ax, , az] = railPts[i], [bx, , bz] = railPts[(i + 1) % railPts.length];
+      d = Math.min(d, lineDist(x, z, ax, az, bx, bz), Math.hypot(x - ax, z - az));
+    }
+    return d;
+  };
   let bucket: Solid[] = core; // which ring the archetypes write into
   let rich = true; // signage density: the main city is lavish, the outer ring modest
 
@@ -412,6 +446,8 @@ export function planCity(seed: number): Plan {
       const pr = lineProj(x, z, r.x0, r.z0, r.x0 + r.dx * r.len, r.z0 + r.dz * r.len);
       if (pr.d < RAMP_W / 2 + Math.max(w, d) / 2 + 1) top = Math.min(top, rampY(r, pr.t * r.len) - 0.5 - ROUTE_PAD);
     }
+    // the rail's arcs cross the corner lots: nothing stands up into its deck
+    if (Math.max(Math.abs(x), Math.abs(z)) > RAIL.at - RAIL.r - 20 && railDist(x, z) < RAIL.w / 2 + Math.max(w, d) / 2 + 1) top = Math.min(top, RAIL.y - 0.6 - ROUTE_PAD);
     return top;
   };
   /** Scale a building so its planned top (h·factor + extra) clears the route;
@@ -1394,6 +1430,50 @@ export function planCity(seed: number): Plan {
     }
   }
 
+  // -- THE RAIL: portal frames every 24 along the straights, legs at the kerb line (the pavement's walkers and the
+  // lanes pass clear), skipped where the highway or a ramp is in the way; three stations at mid-block on the south,
+  // east and west sides — platforms either side of the track (catwalks: people wait on them), a canopy, a bridge
+  // into the tower next door where one stands tall enough; the deck a chain of solids the flight respects --------
+  const rail: Rail = { pts: railPts, stations: [], portals: [] };
+  {
+    const n = railPts.length;
+    const onStraight = (x: number, z: number) => Math.abs(Math.abs(x) - RAIL.at) < 0.5 || Math.abs(Math.abs(z) - RAIL.at) < 0.5;
+    let run = 0;
+    for (let i = 0; i < n; i++) {
+      const [ax, , az] = railPts[i], [bx, , bz] = railPts[(i + 1) % n];
+      const len = Math.hypot(bx - ax, bz - az), dx = (bx - ax) / len, dz = (bz - az) / len;
+      for (let t = 0; t < len; t += 6) { // the deck
+        const x = ax + dx * t, z = az + dz * t;
+        grid.add({ x, y: RAIL.y, z, w: RAIL.w + 0.4 + Math.abs(dx) * 5, h: 1.4, d: RAIL.w + 0.4 + Math.abs(dz) * 5 });
+      }
+      run += len;
+      if (run >= 24 && onStraight(ax, az) && onStraight(bx, bz)) { // a portal frame
+        run = 0;
+        let clear = true;
+        for (const s of [-1, 1]) { const lx = ax - dz * s * RAIL.leg, lz = az + dx * s * RAIL.leg; for (const y of [2, 14, 26]) if (grid.hit(lx, y, lz, 0.3)) clear = false; } // (the highway deck, a ramp, a bustle over the kerb)
+        if (!clear) continue;
+        rail.portals.push({ x: ax, z: az, dx, dz });
+        for (const s of [-1, 1]) solid(core, 'dark', 'street', 0, ax - dz * s * RAIL.leg, RAIL.y / 2 - 0.4, az + dx * s * RAIL.leg, 0.6 + Math.abs(dx) * 0.2, RAIL.y - 0.8, 0.6 + Math.abs(dz) * 0.2);
+        solid(core, 'dark', 'street', 0, ax, RAIL.y - 1.2, az, Math.abs(dx) > 0.5 ? 0.8 : 2 * RAIL.leg + 0.6, 1.2, Math.abs(dx) > 0.5 ? 2 * RAIL.leg + 0.6 : 0.8); // the crossbeam
+      }
+    }
+    for (const [x, z, dx, dz] of [[-2 * G, -RAIL.at, 1, 0], [RAIL.at, 2 * G, 0, -1], [-RAIL.at, -2 * G, 0, 1]]) { // the stations
+      rail.stations.push({ x, y: RAIL.y, z, dx, dz });
+      for (const s of [-1, 1]) { // the platforms, a catwalk each: people wait and walk on them
+        const lat = s * (RAIL.w / 2 + 1.2);
+        streets.push({ x0: x - dx * 10 - dz * lat, z0: z - dz * 10 + dx * lat, dx, dz, len: 20, y: RAIL.y + 0.6, kind: 'catwalk', width: 2.2 });
+        grid.add({ x: x - dz * lat, y: RAIL.y + 0.6, z: z + dx * lat, w: Math.abs(dx) > 0.5 ? 20 : 2.4, h: 0.4, d: Math.abs(dx) > 0.5 ? 2.4 : 20 });
+        // a bridge into the tower next door, where one stands tall enough
+        const bx = x - dz * s * 8, bz = z + dx * s * 8;
+        if (grid.hit(bx, RAIL.y + 2, bz, 0.5)) {
+          const fromLat = RAIL.w / 2 + 2.4, toLat = 7.2;
+          solid(core, 'facade', 'bridge', texOf((q) => q.win === 'curtain'), x - dz * s * (fromLat + toLat) / 2, RAIL.y + 1.9, z + dx * s * (fromLat + toLat) / 2, Math.abs(dx) > 0.5 ? 2.4 : toLat - fromLat + 0.4, 2.6, Math.abs(dx) > 0.5 ? toLat - fromLat + 0.4 : 2.4);
+        }
+      }
+      grid.add({ x, y: RAIL.y + 4.6, z, w: Math.abs(dx) > 0.5 ? 22 : 9.4, h: 0.4, d: Math.abs(dx) > 0.5 ? 9.4 : 22 }); // the canopy
+      for (let u = -8; u <= 8; u += 4) lantern(x + dx * u, RAIL.y + 4.2, z + dz * u); // its lights
+    }
+  }
   // -- the streets: open runs between closed segments, lamps on every kerb,
   // corner kiosks; skybridges between neighbouring towers ---------------------
   const roads: { axis: 'x' | 'z'; at: number; from: number; to: number }[] = [];
@@ -1420,6 +1500,7 @@ export function planCity(seed: number): Plan {
         const x = r.axis === 'x' ? t : off, z = r.axis === 'x' ? off : t;
         if (Math.abs(x) < 30 && Math.abs(z) < 30) continue; // the plaza has its ring
         if (Math.abs(x) < MEDIAN + 1 && r.axis === 'x') continue; // the canal has its quays
+        if (Math.abs(Math.abs(r.at) - RAIL.at) < 1 && rail.portals.some((p) => Math.abs(p.x - x) < 4 && Math.abs(p.z - z) < 4)) continue; // a portal frame stands here
         posts.push({ x, z, h: 5.5 });
       }
     }
@@ -1433,6 +1514,7 @@ export function planCity(seed: number): Plan {
   for (const r of roads) {
     const i = Math.round(r.at / G - 0.5);
     if (i === -1 || i === 0) continue; // the avenues' own carriageways
+    if (Math.abs(Math.abs(r.at) - RAIL.at) < 1) continue; // the rail rides these: nothing else spans them
     const j0 = Math.round(r.from / G + 0.5), j1 = Math.round(r.to / G - 0.5);
     for (let j = j0; j <= j1; j++) {
       const ba = r.axis === 'x' ? [j, i, 0] : [i, j, 2], bb = r.axis === 'x' ? [j, i + 1, 1] : [i + 1, j, 3]; // (bx, bz, side) either side of the road
@@ -1576,6 +1658,7 @@ export function planCity(seed: number): Plan {
         const x = (a.x + b.x) / 2 + (a.x < b.x ? (a.w - b.w) / 4 : (b.w - a.w) / 4);
         const z = (a.z + b.z) / 2;
         if (airFull(x, y, z, gx, 0)) continue;
+        if (gx >= 12 && Math.abs(Math.abs(x) - RAIL.at) < 3) continue; // the rail rides this street
         if (gx >= 12) { roofed.push({ axis: 'z', at: x, t: z, half: 4 }); overStreets += 1; } // over a north–south street: the flight sees a closure
         if (rand() < 0.55) {
           solid(core, 'facade', 'bridge', texOf((s) => s.win === 'curtain'), x, y, z, gx + 0.6, 2.4, 3);
@@ -1589,6 +1672,7 @@ export function planCity(seed: number): Plan {
         const z = (a.z + b.z) / 2 + (a.z < b.z ? (a.d - b.d) / 4 : (b.d - a.d) / 4);
         const x = (a.x + b.x) / 2;
         if (airFull(x, y, z, 0, gz)) continue;
+        if (gz >= 12 && Math.abs(Math.abs(z) - RAIL.at) < 3) continue; // the rail rides this street
         if (gz >= 12) { roofed.push({ axis: 'x', at: z, t: x, half: 4 }); overStreets += 1; } // over an east–west street
         if (rand() < 0.55) {
           solid(core, 'facade', 'bridge', texOf((s) => s.win === 'curtain'), x, y, z, 3, 2.4, gz + 0.6);
@@ -1703,6 +1787,7 @@ export function planCity(seed: number): Plan {
   /** Street left ahead of `from` on the travel axis at street `at`: to the
    *  first closed segment, the first span roofing the street, or the fence. */
   const roomAhead = (axis: 'x' | 'z', at: number, from: number, dir: 1 | -1): number => {
+    if (Math.abs(Math.abs(at) - RAIL.at) < 1) return 0; // the rail rides this street: no dive
     const i = Math.round(at / G - 0.5);
     const fence = dir > 0 ? EXT - 24 - from : from + EXT - 24;
     let j = Math.round(from / G);
@@ -1725,7 +1810,7 @@ export function planCity(seed: number): Plan {
 
   return {
     core, outer, sprawl, strips, leds, awnings, tarps, clutter, billboards, spots, signs, posts, lanterns, wires, vents, holos, stalls, sprawlLamps, neon,
-    beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead, air, pads,
+    beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead, air, pads, rail,
   };
 }
 

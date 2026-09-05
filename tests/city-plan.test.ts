@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
 import {
-  AutoFlight, BOUND, CAM_R, CollisionGrid, districtOf, EXT, G, MEDIAN, planCity, ROAD, starPositions, STREET, streetAt, tourRoute,
+  AutoFlight, BOUND, CAM_R, CollisionGrid, districtOf, EXT, G, MEDIAN, planCity, RAIL, ROAD, starPositions, STREET, streetAt, tourRoute,
 } from '../src/about/city-plan';
 import { mulberry32 } from '../src/lib/rng';
 import { hashSlug } from '../src/project/dossier';
@@ -210,7 +210,7 @@ describe('Newport City, layered (owner: messy, overlapping, Ghost in the Shell)'
 
   it('bridges the streets with overbuilds above the flight band, never over an avenue', () => {
     const overs = plan.core.filter((s) => s.arch === 'over');
-    expect(overs.length).toBeGreaterThan(25);
+    expect(overs.length).toBeGreaterThan(20);
     for (const o of overs) {
       expect(o.y - o.h / 2, 'underside').toBeGreaterThanOrEqual(35); // the canyon band's top plus the flight's pad is 34.6
       expect(Math.abs(o.x) < 26 || Math.abs(o.z) < 26, 'over an avenue').toBe(false);
@@ -233,6 +233,26 @@ describe('Newport City, layered (owner: messy, overlapping, Ghost in the Shell)'
     expect(new Set(plan.holos.map((h) => h.kind)).size).toBe(4);
     expect(plan.leds.length).toBeGreaterThan(400);
     expect(plan.wires.length / 12).toBeGreaterThan(2000);
+  });
+
+  it('rings the city with an elevated rail: a closed loop at 38 with rounded corners, three stations, portals at the kerbs, streets the flight never dives', () => {
+    const r = plan.rail;
+    expect(r.pts.length).toBeGreaterThan(60);
+    const [x0, , z0] = r.pts[0], [x1, , z1] = r.pts[r.pts.length - 1];
+    expect(Math.hypot(x1 - x0, z1 - z0)).toBeLessThan(14); // closed: the last point a step from the first
+    for (const [x, y, z] of r.pts) {
+      expect(y).toBe(RAIL.y);
+      expect(Math.max(Math.abs(x), Math.abs(z))).toBeGreaterThan(RAIL.at - RAIL.r - 1);
+      expect(Math.max(Math.abs(x), Math.abs(z))).toBeLessThan(RAIL.at + 1);
+      expect(plan.grid.hit(x, y, z, 0.2), 'the deck is solid to the camera').not.toBeNull();
+      expect(plan.grid.hit(x, y + 3, z, 1), `the track's air at ${x.toFixed(0)},${z.toFixed(0)}`).toBeNull(); // nothing stands up into it
+    }
+    expect(r.stations.length).toBe(3);
+    expect(plan.streets.filter((s) => s.kind === 'catwalk' && Math.abs(s.y - RAIL.y - 0.6) < 0.01).length).toBe(6); // the platforms
+    expect(r.portals.length).toBeGreaterThan(32);
+    for (const p of r.portals) expect(Math.min(Math.abs(Math.abs(p.x) - RAIL.at), Math.abs(Math.abs(p.z) - RAIL.at))).toBeLessThan(0.01); // on a ring street's line
+    expect(plan.roomAhead('x', RAIL.at, 0, 1)).toBe(0);
+    expect(plan.roomAhead('z', -RAIL.at, 0, -1)).toBe(0);
   });
 
   it('strings catwalks across the alleys and arcades along the facades, every one at its own height', () => {

@@ -27,7 +27,7 @@
  *  the visitor still drives. The streets run on a real traffic network
  *  (city-traffic.ts): lanes, lights, queues, turns, on- and off-ramps. */
 import {
-  AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, ClampToEdgeWrapping, Color, ConeGeometry, DataTexture,
+  AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, CatmullRomCurve3, CircleGeometry, ClampToEdgeWrapping, Color, ConeGeometry, DataTexture,
   CylinderGeometry, DirectionalLight, DoubleSide, FogExp2, Group, HemisphereLight, InstancedBufferAttribute,
   InstancedBufferGeometry, InstancedMesh, LinearFilter, LinearMipmapLinearFilter, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial,
   MeshLambertMaterial, MeshStandardMaterial, NearestFilter, NeutralToneMapping, NoColorSpace, Object3D, PCFShadowMap, PerspectiveCamera, PlaneGeometry, PMREMGenerator, PointLight, Points,
@@ -43,7 +43,7 @@ import { isMobile, reducedMotion } from '../lib/env';
 import { mulberry32 } from '../lib/rng';
 import {
   AirLane, ART_COLOR, ARTS, AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, DIAGONAL, EXT, G, HALF, HIGHWAY, HoloKind, OUTER, planCity,
-  Poi, RAMP_W, rampY, REACH, ROAD, Sign, signColor, Solid, starPositions, streetAt, STREET, Street, tourRoute,
+  Poi, RAIL, RAMP_W, rampY, REACH, ROAD, Sign, signColor, Solid, starPositions, streetAt, STREET, Street, tourRoute,
 } from './city-plan';
 import { fov24, LensPass, lensTarget, MotionBlurPass } from './city-post';
 import { CityAudio } from './city-audio';
@@ -2129,6 +2129,105 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     for (const inst of [decks, rails2, posts2]) { inst.instanceMatrix.needsUpdate = true; inst.castShadow = true; inst.receiveShadow = true; scene.add(inst); }
     glowPoints(catLights, '#ffd9a0', 2.4);
   }
+  // -- THE RAIL (owner: Akira's elevated line): the deck as a chain of boxes along the plan's loop, two rails on it,
+  // amber lights under its edge; the stations' canopies on columns with a white strip; three trains of four cars
+  // circling it, braking into the stations and waiting there, their windows lit, a headlight and a red tail ------
+  const railCurve = new CatmullRomCurve3(plan.rail.pts.map(([x, y, z]) => new Vector3(x, y, z)), true, 'centripetal');
+  railCurve.arcLengthDivisions = 800;
+  const railLen = railCurve.getLength();
+  const stationS = plan.rail.stations.map((st) => {
+    let best = 0, bd = Infinity;
+    for (let k = 0; k < 800; k++) { const p = railCurve.getPointAt(k / 800); const d = Math.hypot(p.x - st.x, p.z - st.z); if (d < bd) { bd = d; best = k / 800; } }
+    return best * railLen;
+  }).sort((a, b) => a - b);
+  interface Train { s: number; v: number; dwell: number; next: number; since: number }
+  const trains: Train[] = [];
+  const CARS = 4, CAR = 9, CAR_GAP = 0.8, TRAINS = 3;
+  const carMat = new MeshLambertMaterial({ color: '#b8bec8' });
+  const carGlass = new MeshLambertMaterial({ color: '#1a2030', emissive: '#ffe9c9', emissiveIntensity: 1.2 });
+  lampHeads.push(carGlass);
+  const cars3 = new InstancedMesh(geo.box, carMat, TRAINS * CARS), glass3 = new InstancedMesh(geo.box, carGlass, TRAINS * CARS);
+  const trainLights = { arr: new Float32Array(TRAINS * 2 * 3), col: new Float32Array(TRAINS * 2 * 3), g: new BufferGeometry() };
+  {
+    const steel = new MeshLambertMaterial({ color: '#4a5066' }), railMat2 = new MeshLambertMaterial({ color: '#c8ccd6' }), canopyMat = new MeshLambertMaterial({ color: '#3a3f52' });
+    const n = plan.rail.pts.length;
+    const deck = new InstancedMesh(geo.box, steel, n), rails3 = new InstancedMesh(geo.box, railMat2, n * 2);
+    const railLights: number[] = [];
+    plan.rail.pts.forEach(([ax, ay, az], i) => {
+      const [bx, , bz] = plan.rail.pts[(i + 1) % n];
+      const len = Math.hypot(bx - ax, bz - az), yaw = Math.atan2(-(bz - az), bx - ax);
+      const mx = (ax + bx) / 2, mz = (az + bz) / 2, nx = -(bz - az) / len, nz = (bx - ax) / len;
+      dummy.rotation.set(0, yaw, 0);
+      dummy.position.set(mx, ay - 0.35, mz); dummy.scale.set(len + 0.3, 0.7, RAIL.w); dummy.updateMatrix(); deck.setMatrixAt(i, dummy.matrix);
+      for (const s of [-1, 1]) {
+        dummy.position.set(mx + nx * s * 0.75, ay + 0.1, mz + nz * s * 0.75); dummy.scale.set(len + 0.3, 0.2, 0.14); dummy.updateMatrix(); rails3.setMatrixAt(i * 2 + (s > 0 ? 1 : 0), dummy.matrix);
+      }
+      if (i % 2 === 0) for (const s of [-1, 1]) railLights.push(mx + nx * s * (RAIL.w / 2), ay - 0.9, mz + nz * s * (RAIL.w / 2));
+    });
+    dummy.rotation.set(0, 0, 0);
+    for (const inst of [deck, rails3]) { inst.instanceMatrix.needsUpdate = true; inst.castShadow = true; inst.receiveShadow = true; scene.add(inst); }
+    glowPoints(railLights, '#ffb347', 2.0, 0.8);
+    for (const st of plan.rail.stations) {
+      const along = Math.abs(st.dx) > 0.5;
+      const canopy = new Mesh(new BoxGeometry(along ? 22 : 9.4, 0.4, along ? 9.4 : 22), canopyMat);
+      canopy.position.set(st.x, RAIL.y + 4.6, st.z); canopy.castShadow = true; canopy.receiveShadow = true;
+      scene.add(canopy);
+      for (const u of [-9, 9]) for (const s of [-1, 1]) {
+        const col = new Mesh(new BoxGeometry(0.3, 4, 0.3), railMat2);
+        col.position.set(st.x + st.dx * u - st.dz * s * 4.2, RAIL.y + 2.6, st.z + st.dz * u + st.dx * s * 4.2);
+        scene.add(col);
+      }
+      const strip = new Mesh(new BoxGeometry(along ? 20 : 0.3, 0.12, along ? 0.3 : 20), new MeshBasicMaterial({ color: '#dff6ff' }));
+      strip.position.set(st.x, RAIL.y + 4.35, st.z);
+      scene.add(strip);
+    }
+    for (let i = 0; i < TRAINS; i++) {
+      const s = (i / TRAINS) * railLen;
+      const nextIdx = stationS.findIndex((ss) => ss > s);
+      trains.push({ s, v: 0.9, dwell: 0, next: nextIdx === -1 ? 0 : nextIdx, since: 60 });
+    }
+    scene.add(cars3, glass3);
+    trainLights.g.setAttribute('position', new BufferAttribute(trainLights.arr, 3));
+    trainLights.g.setAttribute('color', new BufferAttribute(trainLights.col, 3));
+    scene.add(new Points(trainLights.g, new PointsMaterial({ vertexColors: true, size: 2.6, sizeAttenuation: true, transparent: true, blending: AdditiveBlending, depthWrite: false })));
+  }
+  const railP = new Vector3(), railT = new Vector3();
+  const RAIL_HEAD = new Color('#fff4d6'), RAIL_TAIL = new Color('#ff3b2f');
+  const runTrains = () => {
+    trains.forEach((t, ti) => {
+      if (t.dwell > 0) { t.dwell -= 1; if (t.dwell === 0) t.since = 0; }
+      else {
+        const target = stationS[t.next];
+        const d = (((target - t.s) % railLen) + railLen) % railLen; // to the next station, along the loop
+        t.v = Math.min(0.9, Math.max(0.12, Math.min(d / 45, t.since / 40 + 0.14) * 0.9)); // brakes into a station, eases out of one
+        if (d <= t.v + 0.01) { t.s = target; t.dwell = 240; t.next = (t.next + 1) % stationS.length; }
+        else { t.s += t.v; t.since += t.v; }
+      }
+      for (let k = 0; k < CARS; k++) {
+        const sc = t.s - k * (CAR + CAR_GAP) - CAR / 2;
+        const u = (((sc % railLen) + railLen) % railLen) / railLen;
+        railCurve.getPointAt(u, railP); railCurve.getTangentAt(u, railT);
+        const yaw = Math.atan2(railT.x, railT.z);
+        dummy.rotation.set(0, yaw, 0);
+        dummy.position.set(railP.x, railP.y + 1.55, railP.z); dummy.scale.set(2.3, 3.0, CAR); dummy.updateMatrix(); cars3.setMatrixAt(ti * CARS + k, dummy.matrix);
+        dummy.position.set(railP.x, railP.y + 2.05, railP.z); dummy.scale.set(2.36, 1.0, CAR * 0.88); dummy.updateMatrix(); glass3.setMatrixAt(ti * CARS + k, dummy.matrix);
+        if (k === 0) { // the headlight, ahead of the first car
+          const j = ti * 6;
+          trainLights.arr[j] = railP.x + railT.x * (CAR / 2 + 0.2); trainLights.arr[j + 1] = railP.y + 1.2; trainLights.arr[j + 2] = railP.z + railT.z * (CAR / 2 + 0.2);
+          RAIL_HEAD.toArray(trainLights.col, j);
+        }
+        if (k === CARS - 1) { // the tail, behind the last
+          const j = ti * 6 + 3;
+          trainLights.arr[j] = railP.x - railT.x * (CAR / 2 + 0.2); trainLights.arr[j + 1] = railP.y + 1.2; trainLights.arr[j + 2] = railP.z - railT.z * (CAR / 2 + 0.2);
+          RAIL_TAIL.toArray(trainLights.col, j);
+        }
+      }
+    });
+    dummy.rotation.set(0, 0, 0);
+    cars3.instanceMatrix.needsUpdate = true; glass3.instanceMatrix.needsUpdate = true;
+    (trainLights.g.getAttribute('position') as BufferAttribute).needsUpdate = true;
+    (trainLights.g.getAttribute('color') as BufferAttribute).needsUpdate = true;
+  };
   {
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(new Float32Array(plan.wires), 3));
@@ -3048,6 +3147,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     (mirror.material as MeshBasicMaterial).opacity = 0.3 + Math.sin(tick * 0.03) * 0.06;
     craftMat.opacity = tick % 40 < 20 ? 1 : 0.15;
     driveCars();
+    runTrains();
     walkPeople();
     fly();
     flyAir();
@@ -3055,7 +3155,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     cruiseCraft();
     breathe();
   };
-  driveCars(); walkPeople(); fly(); flyAir(); playMatch(); cruiseCraft(); breathe();
+  driveCars(); runTrains(); walkPeople(); fly(); flyAir(); playMatch(); cruiseCraft(); breathe();
   fit();
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(canvas);
 
