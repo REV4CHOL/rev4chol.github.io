@@ -73,8 +73,8 @@ export class People {
     streets: Street[], zones: Zone[], stalls: Stall[], private readonly rand: () => number, n: number,
     private readonly crossOK: CrossOK = () => false, private readonly nodes: number[] = [],
   ) {
-    this.walkable = streets.filter((s) => s.kind === 'road' || s.kind === 'alley' || s.kind === 'diagonal');
-    this.weights = this.walkable.map((s) => (s.kind === 'alley' ? s.len * 3 : s.len));
+    this.walkable = streets.filter((s) => s.kind === 'road' || s.kind === 'alley' || s.kind === 'diagonal' || s.kind === 'catwalk');
+    this.weights = this.walkable.map((s) => (s.kind === 'alley' ? s.len * 3 : s.kind === 'catwalk' ? s.len * 2 : s.len));
     this.total = this.weights.reduce((a, b) => a + b, 0);
     const r = rand;
     for (const st of stalls) { // a vendor in every stall
@@ -107,7 +107,7 @@ export class People {
       const st = this.pickStreet();
       this.walkOn(p, st, this.kerb(st), r() * st.len, r() < 0.5 ? 1 : -1);
       if (r() < 0.08) { p.act = 'stand'; p.timer = 100 + r() * 300; p.frame = this.idleFrame(); }
-      else if (r() < 0.05 && st.kind !== 'alley') { p.act = 'sit'; p.frame = this.sitFrame(); p.timer = 400 + r() * 900; p.off *= 1.15; }
+      else if (r() < 0.05 && st.kind !== 'alley' && st.kind !== 'catwalk') { p.act = 'sit'; p.frame = this.sitFrame(); p.timer = 400 + r() * 900; p.off = this.sitOff(p, st); }
     }
     for (const p of this.people) this.place(p);
   }
@@ -130,10 +130,25 @@ export class People {
     return this.walkable[this.walkable.length - 1];
   }
 
-  /** A pavement offset: a kerb side of a road (the pavement's outer half — the lamp posts stand at the kerb), anywhere across an alley. */
+  /** A pavement offset: a kerb side of a road (the pavement's outer half — the lamp posts stand at the kerb), anywhere
+   *  across an alley or a catwalk, past the boulevard's edge lines. */
   private kerb(st: Street): number {
     if (st.kind === 'alley') return (this.rand() - 0.5) * (st.width - 1.5);
+    if (st.kind === 'catwalk') return (this.rand() - 0.5) * (st.width - 0.9);
+    if (st.kind === 'diagonal') return (this.rand() < 0.5 ? 1 : -1) * (st.width / 2 + 0.4 + this.rand() * 0.4); // the boulevard's pavement lies past its edge lines (its lamps stand at 6.1)
     return (this.rand() < 0.5 ? 1 : -1) * (st.width / 2 - 1 + this.rand() * 0.7);
+  }
+  /** Where a sitter sits: against the wall, on the pavement (owner: they sat inside the wall). */
+  private sitOff(p: Person, st: Street): number {
+    const s = Math.sign(p.off || 1);
+    return st.kind === 'road' ? s * (st.width / 2 - 0.25) : st.kind === 'diagonal' ? s * (st.width / 2 + 0.9) : p.off;
+  }
+  /** An offset on a street from a lateral distance to its axis, kept where its walkers belong. */
+  private offOn(s: Street, lat: number): number {
+    if (s.kind === 'alley') return clamp(lat, -(s.width - 1.5) / 2, (s.width - 1.5) / 2);
+    if (s.kind === 'catwalk') return clamp(lat, -(s.width - 0.9) / 2, (s.width - 0.9) / 2);
+    if (s.kind === 'diagonal') return Math.sign(lat || 1) * clamp(Math.abs(lat), s.width / 2 + 0.4, s.width / 2 + 0.8);
+    return Math.sign(lat || 1) * clamp(Math.abs(lat), s.width / 2 - 1.7, s.width / 2 - 0.3);
   }
 
   /** The canal's water and its bridges, on an east–west road. */
@@ -143,10 +158,12 @@ export class People {
   /** The parameter of the quay on the given side of the water. */
   private quayT(st: Street, side: 1 | -1): number { return (side * QUAY - st.x0) / st.dx; }
   /** How far in from a road's ends the pavement runs (the crossing street's road lies past it). */
-  private endOf(st: Street): number { return st.kind === 'road' || st.kind === 'diagonal' ? Math.min(CORNER, st.len / 2) : 0; }
+  private endOf(st: Street): number { return st.kind === 'road' || st.kind === 'diagonal' ? Math.min(CORNER, st.len / 2) : st.kind === 'catwalk' ? Math.min(0.6, st.len / 2) : 0; }
   /** The same kerb side the walker is on, a fresh offset (never across the road in a step). */
   private sameSide(p: Person, st: Street): number {
     if (st.kind === 'alley') return clamp(p.off, -(st.width - 1.5) / 2, (st.width - 1.5) / 2);
+    if (st.kind === 'catwalk') return clamp(p.off, -(st.width - 0.9) / 2, (st.width - 0.9) / 2);
+    if (st.kind === 'diagonal') return Math.sign(p.off || 1) * (st.width / 2 + 0.4 + this.rand() * 0.4);
     return Math.sign(p.off || 1) * (st.width / 2 - 1 + this.rand() * 0.7);
   }
 
@@ -204,13 +221,12 @@ export class People {
     const options: { s: Street; t: number; off: number }[] = [];
     for (const s of this.walkable) {
       if (s === st) continue;
+      if (Math.abs(s.y - st.y) > 1.5) continue; // a raised walk meets only what stands at its height
       const u = (x - s.x0) * s.dx + (z - s.z0) * s.dz;
       if (u < this.endOf(s) || u > s.len - this.endOf(s)) continue;
       const lat = -(x - s.x0) * s.dz + (z - s.z0) * s.dx;
       if (Math.abs(lat) > s.width / 2 + 2.5) continue;
-      const off = s.kind === 'alley'
-        ? clamp(lat, -(s.width - 1.5) / 2, (s.width - 1.5) / 2)
-        : Math.sign(lat || 1) * clamp(Math.abs(lat), s.width / 2 - 1.7, s.width / 2 - 0.3);
+      const off = this.offOn(s, lat);
       if (this.overWater(s, u)) continue;
       const nx = s.x0 + s.dx * u - s.dz * off, nz = s.z0 + s.dz * u + s.dx * off;
       if (Math.hypot(nx - x, nz - z) > 2.4) continue; // the next pavement must begin where this one ends
@@ -278,7 +294,7 @@ export class People {
             if (a < 0.1 && here.kind === 'road' && !this.overWater(here, p.t)) { // in at a door: gone a while, then out again
               p.act = 'enter'; p.offTo = Math.sign(p.off || 1) * (here.width / 2 + 0.7); p.timer = 300 + r() * 1500;
             } else if (a < 0.45) { // a pause: a sit on the kerb (the elders often), or a stand
-              if (here.kind !== 'alley' && r() < (CAST[p.kind].name === 'elder' ? 0.35 : 0.1)) { p.act = 'sit'; p.frame = this.sitFrame(); p.timer = 400 + r() * 900; p.off *= 1.15; }
+              if (here.kind !== 'alley' && here.kind !== 'catwalk' && r() < (CAST[p.kind].name === 'elder' ? 0.35 : 0.1)) { p.act = 'sit'; p.frame = this.sitFrame(); p.timer = 400 + r() * 900; p.off = this.sitOff(p, here); }
               else { p.act = 'stand'; p.timer = 90 + r() * 360; p.frame = this.idleFrame(); p.yaw += (r() - 0.5) * 2; }
             }
             else if (a < 0.7 && here.kind === 'road') { // cross at the crosswalk, when the cars have the red

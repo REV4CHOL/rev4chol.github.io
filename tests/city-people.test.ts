@@ -50,7 +50,7 @@ describe('People', () => {
           expect(Math.abs(p.z)).toBeLessThan(REACH + 20);
           if (p.act === 'walk' || p.act === 'stand' || p.act === 'cross') {
             const st = p.st!;
-            expect(Math.abs(p.off)).toBeLessThanOrEqual(st.width / 2 + 0.01); // on the pavement, never in the road (crossing aside)
+            expect(Math.abs(p.off)).toBeLessThanOrEqual(st.width / 2 + (st.kind === 'diagonal' ? 0.81 : 0.01)); // on the pavement, never in the road (crossing aside; the boulevard's pavement lies past its edge lines)
             expect(p.t).toBeGreaterThanOrEqual(-0.01);
             expect(p.t).toBeLessThanOrEqual(st.len + 0.01);
           }
@@ -108,6 +108,27 @@ describe('People', () => {
     for (const [name, fr] of Object.entries(FRAME)) expect(frames.has(fr), name).toBe(true);
     for (const p of people.people) { expect(p.frame).toBeGreaterThanOrEqual(0); expect(p.frame).toBeLessThan(8); }
   });
+
+  it('walks the catwalks and the platforms at their own height, never off their width, and sits against the wall', () => {
+    const cats = plan.streets.filter((s) => s.kind === 'catwalk');
+    expect(cats.length).toBeGreaterThan(100);
+    const crowd = new People(plan.streets, [], plan.stalls, mulberry32(5), 1600, () => false, nodes);
+    for (let i = 0; i < 3000; i++) {
+      crowd.step();
+      for (const p of crowd.people) {
+        if (!p.st) continue;
+        if (p.st.kind === 'catwalk') {
+          expect(Math.abs(p.y - p.st.y), `a walker on a catwalk at ${p.st.y} is at ${p.y}`).toBeLessThan(0.01);
+          expect(Math.abs(p.off)).toBeLessThanOrEqual(p.st.width / 2 - 0.4 + 1e-6);
+          expect(p.t).toBeGreaterThanOrEqual(-1e-6); expect(p.t).toBeLessThanOrEqual(p.st.len + 1e-6);
+        }
+        if (p.act === 'sit' && p.st.kind === 'road') expect(Math.abs(p.off), 'a sitter on the pavement, against the wall').toBeLessThanOrEqual(p.st.width / 2 - 0.2 + 1e-6);
+        if (p.act === 'walk' && p.st.kind === 'diagonal') expect(Math.abs(p.off), 'a walker past the boulevard\'s edge lines').toBeGreaterThanOrEqual(p.st.width / 2 + 0.3);
+      }
+    }
+    expect(crowd.people.filter((p) => p.st?.kind === 'catwalk').length).toBeGreaterThan(30);
+    expect(crowd.people.filter((p) => p.st?.kind === 'catwalk' && p.st.y > 30).length).toBeGreaterThan(0); // the stations' platforms
+  }, 60000);
 
   it('is deterministic for a seed', () => {
     const a = new People(plan.streets, zones, plan.stalls, mulberry32(9), 400, () => true, nodes);

@@ -4,6 +4,7 @@ import {
   AutoFlight, BOUND, CAM_R, CollisionGrid, districtOf, EXT, G, MEDIAN, planCity, RAIL, ROAD, starPositions, STREET, streetAt, tourRoute,
 } from '../src/about/city-plan';
 import { mulberry32 } from '../src/lib/rng';
+import { streetPoint } from '../src/about/city-traffic';
 import { hashSlug } from '../src/project/dossier';
 
 const SEED = hashSlug('revachol-night-city');
@@ -113,7 +114,9 @@ describe('planCity', () => {
         for (const off of [0, ROAD / 2 + 1, -(ROAD / 2 + 1)]) {
           const x = st.x0 + st.dx * t - st.dz * off, z = st.z0 + st.dz * t + st.dx * off;
           if (Math.abs(x) > EXT + 10 || Math.abs(z) > EXT + 10) continue;
-          expect(plan.grid.hit(x, 2, z, 0.3), `road at ${x.toFixed(1)},${z.toFixed(1)}`).toBeNull();
+          const q = { x: 0, y: 0, z: 0 };
+          streetPoint(st, t, off, q); // the road's own height: it humps over the canal bridges
+          expect(plan.grid.hit(x, q.y + 2, z, 0.3), `road at ${x.toFixed(1)},${z.toFixed(1)}`).toBeNull();
         }
       }
     }

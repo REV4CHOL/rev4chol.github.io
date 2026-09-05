@@ -1124,7 +1124,11 @@ export interface CityRide {
   /** The time of day (city-sky.ts): eased over a couple of seconds, or at once. */
   setTime(t: TimeOfDay, instant?: boolean): void;
   time(): TimeOfDay;
-  probe(): { people: number; cars: number; flyers: number; knots: number[][]; air: number[][]; pads: number[][]; kinds: number[]; lights: number[][]; look: string; blend: number; bleach: number };
+  probe(): {
+    people: number; cars: number; flyers: number; knots: number[][]; air: number[][]; pads: number[][]; kinds: number[]; lights: number[][]; look: string; blend: number; bleach: number;
+    /** The signal heads and how many show green; the walkers on the catwalks and platforms; the first boats' positions; the trains' positions. */
+    signals: [number, number]; catwalkers: number; boats: number[][]; trains: number[][];
+  };
   /** The cast's sprite sheet, for inspection. */
   sheet(): HTMLCanvasElement;
 }
@@ -1494,7 +1498,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     const railMat = new MeshLambertMaterial({ color: '#d0d6e0' });
     const concrete = new MeshLambertMaterial({ color: '#7d8391' });
     const bridgeStrip = roadStrip(12, [2.55], 4.9, 0, true, aniso);
-    const SEG = 12, HANG = [-9, -6, -3, 0, 3, 6, 9], BAL = 13, RISE = 6.2, HALF_SPAN = 12, DECK_Y = 1.0;
+    const SEG = 12, HANG = [-9, -6, -3, 0, 3, 6, 9], BAL = 13, RISE = 6.2, HALF_SPAN = 12, DECK_Y = 1.6; // (owner: the boats clipped the decks — a low cabin passes under 1.35)
     const archY = (x: number) => DECK_Y + 0.3 + RISE * (1 - (x / HALF_SPAN) ** 2);
     const nB = plan.bridges.length;
     const arches = new InstancedMesh(geo.box, steel, (SEG * 2 + HANG.length * 2 + 3) * nB);
@@ -1521,7 +1525,14 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
         for (let i = 0; i < BAL; i++) put(rails, ir++, -HALF_SPAN + (2 * HALF_SPAN * i) / (BAL - 1), DECK_Y + 0.85, b.z + side * 5.55, 0.08, 1.0, 0.08);
       }
       for (const px of [-3, 0, 3]) put(arches, ia++, px, archY(px), b.z, 0.26, 0.26, 11.7); // portal braces
-      for (const side of [-1, 1]) put(abutments, ic++, side * (HALF_SPAN + 0.6), 0.35, b.z, 1.6, 1.3, 12.4); // the abutments on the quays
+      for (const side of [-1, 1]) put(abutments, ic++, side * (HALF_SPAN - 0.4), 0.7, b.z, 1.6, 1.4, 12.4); // the abutments at the water's edge (the quays' walkers pass outside them)
+      for (const side of [-1, 1]) { // the approach wedges: the road climbs the eight units to the deck (the cars used to float up an invisible hump)
+        const ramp = new Mesh(new BoxGeometry(Math.hypot(8.2, 1.9), 0.5, 12), [concrete, concrete, streetMat(rampStrip, 8.2 / 12), concrete, concrete, concrete]);
+        ramp.position.set(side * 17, 0.7, b.z);
+        ramp.rotation.z = -side * Math.atan2(1.9, 8.2);
+        ramp.receiveShadow = true;
+        scene.add(ramp);
+      }
     }
     for (const inst of [arches, rails, abutments]) { inst.instanceMatrix.needsUpdate = true; inst.castShadow = true; inst.receiveShadow = true; scene.add(inst); }
     dummy.rotation.set(0, 0, 0);
@@ -2045,7 +2056,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     glowPoints(plan.lanterns, '#ffb36b', 3);
     glowPoints(plan.spots, '#ffffff', 2.2, 0.9); // the billboards' lamps
     const rail: number[] = [];
-    for (const b of plan.bridges) for (let x = -12; x <= 12; x += 2.4) for (const s of [-1, 1]) rail.push(x, 1.9, b.z + s * 5.4);
+    for (const b of plan.bridges) for (let x = -12; x <= 12; x += 2.4) for (const s of [-1, 1]) rail.push(x, 2.5, b.z + s * 5.4);
     glowPoints(rail, '#ffd9a0', 2);
   }
   // -- THE KIT (owner: a lived-in city — Ghost in the Shell's walls): every small thing the plan crusted on the
@@ -2301,7 +2312,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   }
   const BODY = ['#141827', '#1a1f33', '#242a44', '#3a1f2a', '#2a2a30', '#1c2d3a', '#e8e0d0'];
   const TRUCK = ['#3a3f55', '#5a2a2a', '#2a3a4a', '#c9c2b2', '#2f4a3a'];
-  const total = cars.length + boats.length;
+  const total = cars.length; // (the boats have hulls of their own below)
   const carWrap = carTextures();
   const carMesh = new InstancedMesh(geo.box, [ // lit, wrapped: a side, a side, the roof, the underside, an end, an end
     new MeshLambertMaterial({ map: carWrap.side }), new MeshLambertMaterial({ map: carWrap.side }), new MeshLambertMaterial({ map: carWrap.top }),
@@ -2309,8 +2320,19 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   ], total);
   cars.forEach((c, i) => carMesh.setColorAt(i, new Color(
     c.kind === 'bus' ? '#d9d2c4' : c.kind === 'taxi' ? '#ffd23f' : c.kind === 'truck' ? pick(rand, TRUCK) : c.kind === 'moto' ? '#1a1a24' : pick(rand, BODY))));
-  boats.forEach((_, k) => carMesh.setColorAt(cars.length + k, new Color('#1a1c2c')));
   scene.add(carMesh);
+  // BOATS (owner: they were car-shaped boxes in car wraps, clipping the bridge decks): a low hull, a cabin aft with lit
+  // windows, a white bow light and a red stern light; the hull's top at 0.5 and the cabin's at 1.15, under the decks at 1.35
+  const hullMat = new MeshLambertMaterial({ color: '#22283a' }), cabinMat = new MeshLambertMaterial({ color: '#3a4258' });
+  const cabinGlass = new MeshLambertMaterial({ color: '#1a2030', emissive: '#ffd9a0', emissiveIntensity: 1.2 });
+  lampHeads.push(cabinGlass);
+  const hulls = new InstancedMesh(geo.box, hullMat, boats.length), cabins = new InstancedMesh(geo.box, cabinMat, boats.length), cabinWin = new InstancedMesh(geo.box, cabinGlass, boats.length);
+  scene.add(hulls, cabins, cabinWin);
+  const boatLights = { arr: new Float32Array(boats.length * 2 * 3), col: new Float32Array(boats.length * 2 * 3), g: new BufferGeometry() };
+  boatLights.g.setAttribute('position', new BufferAttribute(boatLights.arr, 3));
+  boatLights.g.setAttribute('color', new BufferAttribute(boatLights.col, 3));
+  scene.add(new Points(boatLights.g, new PointsMaterial({ vertexColors: true, size: 1.6, sizeAttenuation: true, transparent: true, depthWrite: false })));
+  const BOW = new Color('#fff4d6'), STERN = new Color('#ff3b2f');
   const lightsOf = (color: string, size: number, tinted: boolean) => {
     const arr = new Float32Array(total * 2 * 3);
     const g = new BufferGeometry();
@@ -2322,6 +2344,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     return { arr, col, pts };
   };
   const heads = lightsOf('#fff2d8', 1.5, false);
+  dim(heads.pts.material as PointsMaterial, 'lamps', 0.35); // the headlights dim by day like the throws
   // and the headlights' throw: a cone of light on the road ahead (owner: lit by practicals)
   const throws = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), dim(additiveFog(new MeshBasicMaterial({
     map: headlightTexture(), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.22, color: '#fff0cc',
@@ -2373,8 +2396,18 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       if (b.t < 0) b.t += canal.len;
       const x = canal.x0 + canal.dx * b.t - canal.dz * b.lane, z = canal.z0 + canal.dz * b.t + canal.dx * b.lane;
       const yaw = b.v > 0 ? Math.atan2(canal.dx, canal.dz) : Math.atan2(-canal.dx, -canal.dz);
-      placeVehicle(cars.length + k, x, canal.y + 0.4, z, yaw, 0, 2.6, 0.8, 8, 0, false, 0.5);
+      const hx = Math.sin(yaw), hz = Math.cos(yaw);
+      dummy.rotation.order = 'XYZ'; dummy.rotation.set(0, yaw, 0);
+      dummy.position.set(x, 0.28, z); dummy.scale.set(2.2, 0.44, 7); dummy.updateMatrix(); hulls.setMatrixAt(k, dummy.matrix);
+      dummy.position.set(x - hx * 1.6, 0.82, z - hz * 1.6); dummy.scale.set(1.5, 0.64, 2.4); dummy.updateMatrix(); cabins.setMatrixAt(k, dummy.matrix);
+      dummy.position.set(x - hx * 1.6, 0.9, z - hz * 1.6); dummy.scale.set(1.54, 0.26, 2.2); dummy.updateMatrix(); cabinWin.setMatrixAt(k, dummy.matrix);
+      const j = k * 6;
+      boatLights.arr[j] = x + hx * 3.4; boatLights.arr[j + 1] = 0.7; boatLights.arr[j + 2] = z + hz * 3.4; BOW.toArray(boatLights.col, j);
+      boatLights.arr[j + 3] = x - hx * 3.4; boatLights.arr[j + 4] = 1.2; boatLights.arr[j + 5] = z - hz * 3.4; STERN.toArray(boatLights.col, j + 3);
     });
+    hulls.instanceMatrix.needsUpdate = true; cabins.instanceMatrix.needsUpdate = true; cabinWin.instanceMatrix.needsUpdate = true;
+    (boatLights.g.getAttribute('position') as BufferAttribute).needsUpdate = true;
+    (boatLights.g.getAttribute('color') as BufferAttribute).needsUpdate = true;
     dummy.rotation.set(0, 0, 0);
     dummy.rotation.order = 'XYZ';
     carMesh.instanceMatrix.needsUpdate = true;
@@ -2385,6 +2418,63 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     (tails.pts.geometry.getAttribute('position') as BufferAttribute).needsUpdate = true;
     (tails.pts.geometry.getAttribute('color') as BufferAttribute).needsUpdate = true;
   };
+
+  // -- TRAFFIC LIGHTS (owner: the vehicles stopped for nothing — the lights lived in the simulation alone): at
+  // every lit crossing, for each street and each direction of travel along it, a post on the corner before the
+  // box on the side that traffic drives on, an arm over its near lane, a head facing the approach with a red lamp
+  // over a green one lit by the crossing's phase, and a pedestrian lamp on the post — white when that street's
+  // cars have the red, when the walkers cross ----------------------------------------------------------------------
+  interface SignalHead { n: (typeof traffic.nodes)[number]; group: number }
+  const signalHeads: SignalHead[] = [];
+  let signalLamps: InstancedMesh | null = null;
+  {
+    const lit = traffic.nodes.filter((n) => n.signal && n.streets.length >= 2);
+    let count = 0;
+    for (const n of lit) count += n.streets.length * 2;
+    const postMat = new MeshLambertMaterial({ color: '#2a2e3a' }), housingMat = new MeshLambertMaterial({ color: '#15171d' });
+    const lampMat = new MeshBasicMaterial({ color: '#ffffff' });
+    const sposts = new InstancedMesh(geo.box, postMat, count * 2), housings = new InstancedMesh(geo.box, housingMat, count);
+    signalLamps = new InstancedMesh(geo.box, lampMat, count * 3);
+    let jp = 0, jh = 0, jl = 0;
+    for (const n of lit) {
+      for (const st of n.streets) {
+        const group = n.streets.indexOf(st);
+        for (const dir of [1, -1] as const) {
+          const ux = st.dx * dir, uz = st.dz * dir; // the approach's heading
+          const lx = -uz, lz = ux; // its left: the side it drives on
+          const K = ROAD / 2 + 0.9;
+          const cx = n.x - ux * K + lx * K, cz = n.z - uz * K + lz * K; // the corner before the box, on the traffic's side
+          dummy.rotation.set(0, 0, 0);
+          dummy.position.set(cx, n.y + 2.75, cz); dummy.scale.set(0.16, 5.5, 0.16); dummy.updateMatrix(); sposts.setMatrixAt(jp++, dummy.matrix);
+          dummy.position.set(cx - lx * 1.6, n.y + 5.4, cz - lz * 1.6); dummy.scale.set(Math.abs(lx) * 3.2 + 0.12, 0.12, Math.abs(lz) * 3.2 + 0.12); dummy.updateMatrix(); sposts.setMatrixAt(jp++, dummy.matrix); // the arm over the near lane
+          const hx = cx - lx * 3.0, hz = cz - lz * 3.0, hy = n.y + 4.75;
+          const yaw = Math.atan2(-ux, -uz); // the head faces the approach
+          dummy.rotation.set(0, yaw, 0);
+          dummy.position.set(hx, hy, hz); dummy.scale.set(0.42, 1.1, 0.34); dummy.updateMatrix(); housings.setMatrixAt(jh++, dummy.matrix);
+          for (const dy of [0.3, -0.3]) { // red over green, on the face
+            dummy.position.set(hx - ux * 0.19, hy + dy, hz - uz * 0.19); dummy.scale.set(0.26, 0.26, 0.06); dummy.updateMatrix(); signalLamps.setMatrixAt(jl++, dummy.matrix);
+          }
+          dummy.rotation.set(0, Math.atan2(ux, uz), 0); // the pedestrian lamp on the post, for the corner's walkers
+          dummy.position.set(cx + ux * 0.1, n.y + 2.6, cz + uz * 0.1); dummy.scale.set(0.22, 0.3, 0.06); dummy.updateMatrix(); signalLamps.setMatrixAt(jl++, dummy.matrix);
+          signalHeads.push({ n, group });
+        }
+      }
+    }
+    dummy.rotation.set(0, 0, 0);
+    for (const inst of [sposts, housings, signalLamps]) { inst.instanceMatrix.needsUpdate = true; scene.add(inst); }
+  }
+  const RED = new Color('#ff3b3b'), GREEN = new Color('#3dff8f'), OFF_RED = new Color('#2a0808'), OFF_GREEN = new Color('#082a12'), WALK = new Color('#e8f4ff'), DONT = new Color('#ff5e4a');
+  const tendSignals = () => {
+    if (!signalLamps) return;
+    signalHeads.forEach((h, i) => {
+      const g = traffic.green(h.n, h.group);
+      signalLamps!.setColorAt(i * 3, g ? OFF_RED : RED);
+      signalLamps!.setColorAt(i * 3 + 1, g ? GREEN : OFF_GREEN);
+      signalLamps!.setColorAt(i * 3 + 2, g ? DONT : WALK); // the walkers cross this street when its cars have the red
+    });
+    if (signalLamps.instanceColor) signalLamps.instanceColor.needsUpdate = true;
+  };
+  tendSignals();
 
   // -- PEOPLE (owner: NPCs interacting, going about their business): pixel
   // sprites with lives (city-people.ts) — walking, stopping, talking in
@@ -3147,6 +3237,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     (mirror.material as MeshBasicMaterial).opacity = 0.3 + Math.sin(tick * 0.03) * 0.06;
     craftMat.opacity = tick % 40 < 20 ? 1 : 0.15;
     driveCars();
+    if (tick % 6 === 0) tendSignals();
     runTrains();
     walkPeople();
     fly();
@@ -3265,6 +3356,10 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       pads: flyers.filter((fl) => fl.pad).map((fl) => [fl.x, fl.y, fl.z, fl.stage === 'sit' ? 1 : 0]),
       kinds: CAST.map((_, k) => people.people.filter((p) => p.kind === k).length),
       lights: slots.filter((sl) => sl.src).map((sl) => [sl.light.position.x, sl.light.position.y, sl.light.position.z, Math.round(sl.light.intensity)]),
+      signals: [signalHeads.length, signalHeads.filter((h) => traffic.green(h.n, h.group)).length],
+      catwalkers: people.people.filter((p) => p.st?.kind === 'catwalk').length,
+      boats: boats.slice(0, 3).map((b) => [canal.x0 + canal.dx * b.t - canal.dz * b.lane, canal.z0 + canal.dz * b.t + canal.dx * b.lane]),
+      trains: trains.map((t) => { const u = ((t.s % railLen) + railLen) % railLen / railLen; const q = railCurve.getPointAt(u); return [q.x, q.y, q.z, t.dwell]; }),
     }),
     sheet: () => peopleMat.map!.image as HTMLCanvasElement,
   };

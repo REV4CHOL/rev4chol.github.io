@@ -39,7 +39,7 @@ export const CAM_R = 1.2; // the camera's body
 export const REACH = (HALF + OUTER) * G + STREET; // how far streets, traffic and lamps run
 export const HIGHWAY = { x0: -400, z0: 210, x1: 400, z1: 80, y: 14, width: 17 }; // three lanes a side at a bus's width, parapets past them // the elevated highway across the north
 export const DIAGONAL = { x0: -247, z0: -19, x1: -19, z1: -247, width: 12 }; // the surface boulevard slashing the south-west: x + z = −266 runs it through seven grid crossings, T-ing into the avenue roads at both ends
-export const CANAL = { w: 24, deck: 1.15 }; // the north–south avenue's water and its bridge decks
+export const CANAL = { w: 24, deck: 1.6 }; // the north–south avenue's water and its bridge decks (a boat's low cabin passes under)
 /** THE RAIL (owner: layered infrastructure, Akira's elevated line): a closed loop along the four street lines at
  *  ±209, its deck at 38 (the flight's canyon band tops at 32, its pad 2.6), corners rounded on a 30 arc over the
  *  corner lots, portal frames every 24 with legs at the kerb line, three stations. */
@@ -1337,7 +1337,7 @@ export function planCity(seed: number): Plan {
   for (let j = -HALF - OUTER - 1; j <= HALF + OUTER; j++) {
     const z = streetAt(j);
     bridges.push({ z });
-    solid(core, 'dark', 'bridge', 0, 0, CANAL.deck, z, CANAL.w + 2, 0.5, 12);
+    solid(core, 'dark', 'bridge', 0, 0, CANAL.deck, z, CANAL.w, 0.5, 12); // over the water alone: the quays' walkers pass its ends
   }
   for (let t = -REACH; t <= REACH; t += 9) {
     if (Math.abs(t) < 30 || onStreet(t)) continue;
@@ -1426,7 +1426,7 @@ export function planCity(seed: number): Plan {
     for (let t = 6; t < glen; t += 12) {
       const x = DIAGONAL.x0 + gdx * t, z = DIAGONAL.z0 + gdz * t;
       if (onStreet(x) || onStreet(z)) continue;
-      for (const s of [-1, 1]) posts.push({ x: x - gdz * s * 7, z: z + gdx * s * 7, h: 5.5 });
+      for (const s of [-1, 1]) posts.push({ x: x - gdz * s * 6.1, z: z + gdx * s * 6.1, h: 5.5 }); // at the boulevard's kerb: its walkers pass outside them
     }
   }
 
@@ -1710,8 +1710,9 @@ export function planCity(seed: number): Plan {
   const ring: [number, number, number][] = [];
   for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; ring.push([Math.cos(a) * 212, 96, Math.sin(a) * 212]); }
   air.push({ kind: 'ring', loop: true, speed: 0.5, pts: lift(ring, true, 12) });
-  air.push({ kind: 'patrol', loop: true, speed: 0.16, pts: lift([[streetAt(-2), 30, streetAt(-2)], [streetAt(2), 30, streetAt(-2)], [streetAt(2), 30, streetAt(2)], [streetAt(-2), 30, streetAt(2)]], true, 8) });
-  air.push({ kind: 'patrol', loop: true, speed: 0.15, pts: lift([[streetAt(-5), 30, streetAt(-1)], [streetAt(-1), 30, streetAt(-1)], [streetAt(-1), 30, streetAt(-5)], [streetAt(-5), 30, streetAt(-5)]], true, 8) });
+  // (the patrols fly above the auto-flight's canyon band, which tops at 32 with a 2.6 pad)
+  air.push({ kind: 'patrol', loop: true, speed: 0.16, pts: lift([[streetAt(-2), 36, streetAt(-2)], [streetAt(2), 36, streetAt(-2)], [streetAt(2), 36, streetAt(2)], [streetAt(-2), 36, streetAt(2)]], true, 8) });
+  air.push({ kind: 'patrol', loop: true, speed: 0.15, pts: lift([[streetAt(-5), 36, streetAt(-1)], [streetAt(-1), 36, streetAt(-1)], [streetAt(-1), 36, streetAt(-5)], [streetAt(-5), 36, streetAt(-5)]], true, 8) });
   const pads = tall.slice(0, 6).map((t) => ({ x: t.x, y: t.top + 0.2, z: t.z }));
   for (const p of pads) grid.add({ x: p.x, y: p.y, z: p.z, w: 6, h: 0.4, d: 6 });
 

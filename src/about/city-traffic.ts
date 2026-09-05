@@ -86,14 +86,14 @@ const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
 /** A point on a street at parameter t, `o` units along its left normal —
  *  at the street's elevation (ramps slope; east–west roads climb the canal
- *  bridges: 1.3 up over the water, a 4-unit ramp either side). */
+ *  bridges: 1.9 up over the water, an 8-unit ramp either side). */
 export function streetPoint(st: Street, t: number, o: number, out: { x: number; y: number; z: number }): void {
   out.x = st.x0 + st.dx * t - st.dz * o;
   out.z = st.z0 + st.dz * t + st.dx * o;
   out.y = st.y1 === undefined ? st.y : st.y + (st.y1 - st.y) * smooth(clamp(t / st.len, 0, 1));
   if (st.kind === 'road' && st.dz === 0) {
     const ax = Math.abs(out.x);
-    if (ax < 13) out.y += 1.3; else if (ax < 17) out.y += 1.3 * (17 - ax) / 4;
+    if (ax < 13) out.y += 1.9; else if (ax < 21) out.y += 1.9 * (21 - ax) / 8; // (the bridges stand 1.9 over the water: a boat's low cabin passes under; the approaches are wedges)
   }
 }
 
