@@ -202,6 +202,8 @@ export interface Plan {
   outer: Solid[];
   sprawl: Solid[];
   strips: Strip[];
+  /** The doors of the city (every lit shopfront, every station entrance): where people go in and come out. */
+  doors: { x: number; z: number }[];
   leds: Strip[];
   awnings: Strip[];
   /** Tarpaulins over the shacks and the stalls, the washing on the balconies — lit dim, in their own colours. */
@@ -437,6 +439,7 @@ export function planCity(seed: number): Plan {
   const stalls: Stall[] = [];
   const streets: Street[] = [];
   const ramps: Street[] = []; // planned before any lot is built — they cap what stands under them
+  const doors: { x: number; z: number }[] = [];
   const piers: { x: number; z: number }[] = [];
   const stacks: { x: number; z: number; top: number }[] = [];
   const tall: { x: number; z: number; top: number; w: number; d: number; bridges: number; flat: boolean }[] = [];
@@ -748,11 +751,17 @@ export function planCity(seed: number): Plan {
         const a = at(-along / 2, 6.2 + rand() * 0.6, 0.12), b = at(along / 2, 6.2 + rand() * 0.6, 0.12), m = at(0, 6.0, 0.4);
         wires.push(a.x, a.y, a.z, m.x, m.y, m.z, m.x, m.y, m.z, b.x, b.y, b.z);
       }
-      if (bctx.outer[s] && bctx.g >= 0.7 && h >= 5) { // the street kit, in a gutter wide enough for it
-        if (rand() < 0.3 * K) { const p = at((rand() - 0.5) * (along - 2), 0.95, 0.42); clutter.push({ kind: 'vend', x: p.x, y: p.y, z: p.z, w: 0.95, h: 1.9, d: 0.8, rotY: rot, color: pick(rand, VEND) }); }
-        if (rand() < 0.12 * K) { const p = at((rand() - 0.5) * (along - 2), 1.15, 0.5); clutter.push({ kind: 'booth', x: p.x, y: p.y, z: p.z, w: 1.0, h: 2.3, d: 1.0, rotY: rot }); }
-        if (rand() < 0.2 * K) { const p = at((rand() - 0.5) * (along - 2), 0.55, 0.5); clutter.push({ kind: 'bin', x: p.x, y: p.y, z: p.z, w: 1.6, h: 1.1, d: 0.9, rotY: rot }); }
-        if (rand() < 0.15 * K) { const p = at((rand() - 0.5) * (along - 2), 0.4, 0.4); clutter.push({ kind: 'crate', x: p.x, y: p.y, z: p.z, w: 0.8, h: 0.8, d: 0.8, rotY: rot + (rand() - 0.5) * 0.6 }); }
+      if (bctx.outer[s] && bctx.g >= 0.7 && h >= 5) { // the street kit, in a gutter wide enough for it — solid to the walkers (grid)
+        const alongX = Math.abs(Math.cos(rot)) > 0.5;
+        const put = (kind: ClutterKind, u: number, cy: number, out: number, w: number, hh: number, d: number, rotY: number, color?: string) => {
+          const p = at(u, cy, out);
+          clutter.push({ kind, x: p.x, y: p.y, z: p.z, w, h: hh, d, rotY, color });
+          grid.add({ x: p.x, y: hh / 2, z: p.z, w: alongX ? w : d, h: hh, d: alongX ? d : w });
+        };
+        if (rand() < 0.3 * K) put('vend', (rand() - 0.5) * (along - 2), 0.95, 0.42, 0.95, 1.9, 0.8, rot, pick(rand, VEND));
+        if (rand() < 0.12 * K) put('booth', (rand() - 0.5) * (along - 2), 1.15, 0.5, 1.0, 2.3, 1.0, rot);
+        if (rand() < 0.2 * K) put('bin', (rand() - 0.5) * (along - 2), 0.55, 0.5, 1.6, 1.1, 0.9, rot);
+        if (rand() < 0.15 * K) put('crate', (rand() - 0.5) * (along - 2), 0.4, 0.4, 0.8, 0.8, 0.8, rot + (rand() - 0.5) * 0.6);
       }
     }
   };
@@ -1036,6 +1045,7 @@ export function planCity(seed: number): Plan {
         x: sx, y: 0.85, z: sz, w: side < 2 ? fp.w * 0.82 : 0.14, h: 1.5, d: side < 2 ? 0.14 : fp.d * 0.82,
         color: rand() < 0.62 ? pick(rand, WARM) : pick(rand, [...COOL, '#C8FF00', '#5df2ff']),
       });
+      doors.push({ x: sx, z: sz }); // a lit shopfront has a door
     }
   };
 
@@ -1449,7 +1459,7 @@ export function planCity(seed: number): Plan {
     const z = streetAt(j);
     if (!openX(j, 0)) continue; // the arterial took this crossing: its own bridge carries the road
     bridges.push({ x: 0, z, yaw: 0, w: 12, span: CANAL.w + 2 });
-    solid(core, 'dark', 'bridge', 0, 0, CANAL.deck - 0.25, z, CANAL.w, 0.5, 12); // over the water alone: the quays' walkers pass its ends
+    solid(core, 'dark', 'bridge', 0, 0, CANAL.deck - 0.25, z, CANAL.w, 0.5, STREET); // over the water alone, the street's full width: its pavements cross on it
   }
   bridges.push({ x: 0, z: arterialZ(0), yaw: Math.atan2(-hdz, hdx), w: 2 * ARTERIAL_ROW, span: CANAL.w / Math.abs(hdx) + 2 }); // the arterial's: flush, skewed, its whole right of way wide
   for (let t = -REACH; t <= REACH; t += 9) {
@@ -2015,7 +2025,7 @@ export function planCity(seed: number): Plan {
   }
   return {
     core, outer, sprawl, strips, leds, awnings, tarps, clutter, billboards, spots, signs, posts, lanterns, wires, vents, holos, stalls, sprawlLamps, neon,
-    beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead, air, pads, rail, piers, patches, parked,
+    beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead, air, pads, rail, piers, patches, parked, doors,
   };
 }
 

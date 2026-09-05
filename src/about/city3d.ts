@@ -1647,7 +1647,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     const steel = new MeshLambertMaterial({ color: '#8ea0bc' });
     const railMat = new MeshLambertMaterial({ color: '#d0d6e0' });
     const concrete = new MeshLambertMaterial({ color: '#7d8391' });
-    const bridgeStrip = roadStrip(12, [2.55], 4.9, 0, true, aniso);
+    const bridgeStrip = roadStrip(STREET, [2.55], 4.9, 0, true, aniso); // the street's full width: its pavements cross on the deck
     const SEG = 12, HANG = [-9, -6, -3, 0, 3, 6, 9], BAL = 13, RISE = 6.2, HALF_SPAN = 12, DECK_Y = CANAL.deck; // flush with the streets: the water lies below (owner: the approach wedges sat inside the quay crossings)
     const archY = (x: number) => DECK_Y + 0.3 + RISE * (1 - (x / HALF_SPAN) ** 2);
     const ews = plan.bridges.filter((b) => b.yaw === 0);
@@ -1659,22 +1659,22 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       dummy.position.set(x, y, z); dummy.rotation.set(0, 0, rz); dummy.scale.set(w, h, d); dummy.updateMatrix(); inst.setMatrixAt(j, dummy.matrix);
     };
     for (const b of ews) {
-      const deck = new Mesh(new BoxGeometry(2 * HALF_SPAN + 2, 0.6, 12), [concrete, concrete, streetMat(bridgeStrip, (2 * HALF_SPAN + 2) / 12), concrete, concrete, concrete]);
+      const deck = new Mesh(new BoxGeometry(2 * HALF_SPAN + 2, 0.6, STREET), [concrete, concrete, streetMat(bridgeStrip, (2 * HALF_SPAN + 2) / 12), concrete, concrete, concrete]);
       deck.position.set(b.x, DECK_Y - 0.3, b.z);
       deck.receiveShadow = true; deck.castShadow = true;
       scene.add(deck);
       for (const side of [-1, 1]) {
-        const zs = b.z + side * 5.7;
+        const zs = b.z + side * (STREET / 2 + 0.1); // the arches outside the pavements
         for (let i = 0; i < SEG; i++) { // the arch, in segments
           const x0 = -HALF_SPAN + (2 * HALF_SPAN * i) / SEG, x1 = -HALF_SPAN + (2 * HALF_SPAN * (i + 1)) / SEG;
           const y0 = archY(x0), y1 = archY(x1);
           put(arches, ia++, (x0 + x1) / 2, (y0 + y1) / 2, zs, Math.hypot(x1 - x0, y1 - y0) + 0.1, 0.36, 0.3, Math.atan2(y1 - y0, x1 - x0));
         }
         for (const hx of HANG) put(arches, ia++, hx, (DECK_Y + 0.3 + archY(hx)) / 2, zs, 0.16, archY(hx) - DECK_Y - 0.3, 0.16); // the hangers
-        put(rails, ir++, 0, DECK_Y + 1.35, b.z + side * 5.55, 2 * HALF_SPAN + 2, 0.1, 0.1); // the handrail
-        for (let i = 0; i < BAL; i++) put(rails, ir++, -HALF_SPAN + (2 * HALF_SPAN * i) / (BAL - 1), DECK_Y + 0.85, b.z + side * 5.55, 0.08, 1.0, 0.08);
+        put(rails, ir++, 0, DECK_Y + 1.35, b.z + side * (STREET / 2 - 0.15), 2 * HALF_SPAN + 2, 0.1, 0.1); // the handrail, at the pavement's edge
+        for (let i = 0; i < BAL; i++) put(rails, ir++, -HALF_SPAN + (2 * HALF_SPAN * i) / (BAL - 1), DECK_Y + 0.85, b.z + side * (STREET / 2 - 0.15), 0.08, 1.0, 0.08);
       }
-      for (const px of [-3, 0, 3]) put(arches, ia++, px, archY(px), b.z, 0.26, 0.26, 11.7); // portal braces
+      for (const px of [-3, 0, 3]) put(arches, ia++, px, archY(px), b.z, 0.26, 0.26, STREET + 0.4); // portal braces
     }
     for (const inst of [arches, rails]) { inst.instanceMatrix.needsUpdate = true; inst.castShadow = true; inst.receiveShadow = true; scene.add(inst); }
     for (const b of plan.bridges.filter((b) => b.yaw !== 0)) { // the arterial's: a flush girder deck the width of its right of way, balustrades along both edges
@@ -2724,15 +2724,22 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   }
   const nodeAt = new Map<string, (typeof traffic.nodes)[number]>();
   for (const n of traffic.nodes) nodeAt.set(`${Math.round(n.x)}:${Math.round(n.z)}`, n);
-  const crossOK = (x: number, z: number, axis: 'x' | 'z'): boolean => {
+  const crossOK = (x: number, z: number, axis: 'x' | 'z' | 'd'): boolean => {
     const n = nodeAt.get(`${Math.round(x)}:${Math.round(z)}`);
     if (!n || !n.signal) return false;
-    const st = n.streets.find((q) => (axis === 'x') === (q.dx !== 0));
+    const st = axis === 'd' ? n.streets.find((q) => q.kind === 'diagonal') : n.streets.find((q) => q.kind !== 'diagonal' && (axis === 'x') === (q.dx !== 0));
     return st ? !traffic.green(n, Math.max(0, n.streets.indexOf(st))) : false;
   };
   const crossNodes: number[] = [];
   for (let i = -HALF - OUTER - 1; i <= HALF + OUTER; i++) crossNodes.push(streetAt(i));
-  const people = new People(plan.streets, zones, plan.stalls, mulberry32(seed ^ 0x7e0b1e), calm ? 1100 : 2200, crossOK, crossNodes);
+  // the two sims speak: the walkers ask whether a crosswalk is clear of vehicles and where the walls are; the traffic
+  // asks who is in its crosswalks (owner: pedestrians clipped through vehicles, vehicles drove through pedestrians)
+  const people = new People(plan.streets, zones, plan.stalls, mulberry32(seed ^ 0x7e0b1e), calm ? 1100 : 2200, crossOK, crossNodes, {
+    solid: (x, y, z) => plan.grid.hit(x, y, z, 0.3) !== null,
+    roadClear: (x, z) => traffic.clearAt(x, z),
+    doors: plan.doors,
+  });
+  traffic.peds = (x, z, axis) => people.walkersIn(x, z, axis) > 0;
   const PEOPLE = people.people.length;
   const ROWS = CAST.length * LOOKS_PER_KIND;
   const peopleGeo = new InstancedBufferGeometry();

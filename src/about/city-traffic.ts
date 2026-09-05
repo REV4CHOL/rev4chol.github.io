@@ -118,6 +118,9 @@ export class Traffic {
   violations = 0;
   /** Lane-to-lane handoffs through the nodes — how much of the graph is lived in. */
   hops = 0;
+  /** Someone is in the crosswalk of the street along `axis` at the node at (x, z): its lanes hold at the line
+   *  (owner: the vehicles drove straight through the pedestrians). The people answer it. */
+  peds: ((x: number, z: number, axis: 'x' | 'z' | 'd') => boolean) | null = null;
 
   constructor(streets: Street[], private readonly rand: () => number) {
     const ways = streets.filter((s) => s.kind === 'road' || s.kind === 'highway' || s.kind === 'diagonal' || s.kind === 'ramp' || s.kind === 'arterial');
@@ -334,6 +337,16 @@ export class Traffic {
     lane.exits.push({ to, weight: 1, crossing: false, straight: true, portal: true, x0: P.x, y0: P.y, z0: P.z, cx: P.x, cz: P.z, x1: Q.x, y1: Q.y, z1: Q.z, S: 0 });
   }
 
+  /** No vehicle is on the crosswalk at (x, z) (within 3) or bearing down on it (moving, within 12): a walker at an
+   *  unlit crossing may go. */
+  clearAt(x: number, z: number): boolean {
+    for (const c of this.cars) {
+      const d = Math.hypot(c.x - x, c.z - z);
+      if (d < 3 || (d < 12 && c.v > 0.02)) return false;
+    }
+    return true;
+  }
+
   /** Each street at a lit node gets its own phase in turn: green, then an
    *  all-red to clear the box. */
   green(n: Node, group: number, tick = this.tick): boolean {
@@ -452,6 +465,8 @@ export class Traffic {
       if (wait && ex.crossing && n.signal && this.lateTurn(n, lane.group, tick) && !this.boxBusy(n, lane.group) && !this.yieldBusy(lane)) wait = false;
       // someone is turning across this path: they went first; this one holds until they are through
       if (!wait && !ex.crossing) wait = this.turnerCrossing(n, lane);
+      // someone is in the crosswalk before the line: hold
+      if (!wait && this.peds) { const sk = lane.link.street; if (this.peds(n.x, n.z, sk.kind === 'diagonal' ? 'd' : sk.dx !== 0 ? 'x' : 'z')) wait = true; }
       if (wait) gap = Math.min(gap, ahead);
       c.waited = wait && c.v < 0.005 ? c.waited + 1 : 0;
     }

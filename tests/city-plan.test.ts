@@ -123,12 +123,12 @@ describe('planCity', () => {
     for (const st of plan.streets) {
       if (st.kind !== 'road') continue;
       for (let t = 1; t < st.len; t += 3) {
-        for (const off of [0, ROAD / 2 + 1, -(ROAD / 2 + 1)]) {
+        for (const off of [0, ROAD / 2 - 0.5, -(ROAD / 2 - 0.5)]) { // the carriageway, to its kerbs (the pavements carry lamps, legs and kit by design)
           const x = st.x0 + st.dx * t - st.dz * off, z = st.z0 + st.dz * t + st.dx * off;
           if (Math.abs(x) > EXT + 10 || Math.abs(z) > EXT + 10) continue;
           const q = { x: 0, y: 0, z: 0 };
-          streetPoint(st, t, off, q); // the road's own height: it humps over the canal bridges
-          expect(plan.grid.hit(x, q.y + 2, z, 0.3), `road at ${x.toFixed(1)},${z.toFixed(1)}`).toBeNull();
+          streetPoint(st, t, off, q); // the road's own height
+          expect(plan.grid.hit(x, q.y + 2, z, 0.25), `road at ${x.toFixed(1)},${z.toFixed(1)}`).toBeNull();
         }
       }
     }

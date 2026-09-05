@@ -162,6 +162,20 @@ describe('Traffic', () => {
     expect(onRamps).toBeGreaterThan(20);
   });
 
+  it('holds a lane at the line while someone is in its crosswalk', () => {
+    const t = new Traffic(plan.streets, mulberry32(7));
+    t.populate(900, weight);
+    const n = t.nodes.find((q) => q.signal && q.streets.length === 2 && q.streets.every((s) => s.kind === 'road'))!;
+    const axis = n.streets[0].dx !== 0 ? 'x' : 'z';
+    t.peds = (x, z, a) => a === axis && Math.abs(x - n.x) < 0.5 && Math.abs(z - n.z) < 0.5; // someone forever in the crosswalks of the first street here
+    for (let f = 0; f < 1500; f++) t.step();
+    for (const p of n.ports) {
+      if (p.link.street !== n.streets[0]) continue;
+      for (const lane of p.link.lanes.flat()) if (lane.end === n) expect(lane.cars.every((c) => c.s < lane.len), 'a vehicle crossed the line into an occupied crosswalk').toBe(true);
+    }
+    expect(n.transit.every((c) => c.transit!.from.link.street !== n.streets[0])).toBe(true);
+  });
+
   it('is deterministic for a seed', () => {
     const a = new Traffic(plan.streets, mulberry32(5));
     const b = new Traffic(plan.streets, mulberry32(5));

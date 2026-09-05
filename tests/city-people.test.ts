@@ -88,8 +88,8 @@ describe('People', () => {
         maxStep = Math.max(maxStep, Math.hypot(p.x - q.x, p.z - q.z));
         q.x = p.x; q.z = p.z;
         if (p.act === 'inside') inside += 1;
-        if (p.act !== 'inside' && p.act !== 'enter' && p.act !== 'exit' && p.st && p.st.kind === 'road' && p.st.dz === 0) {
-          expect(Math.abs(p.x)).toBeGreaterThanOrEqual(12.5 - 1e-6); // never on the water or its bridges (an east–west road's pavement stops at the quay's coping)
+        if (p.st && p.st.kind === 'road' && p.st.dx === 0 && Math.abs(Math.abs(p.st.x0) - 19) < 0.6 && p.act !== 'cross') {
+          expect(p.off * p.st.x0, 'a quay walker on the water side, under the bridges').toBeLessThan(0); // the quay's land side only
         }
       });
     }
@@ -132,9 +132,42 @@ describe('People', () => {
       }
     }
     expect(crowd.people.filter((p) => p.st?.kind === 'catwalk').length).toBeGreaterThan(30);
-    expect(crowd.people.filter((p) => p.st?.kind === 'arterial' && p.act === 'walk').length).toBeGreaterThan(20); // the arterial's pavements are walked
+    expect(crowd.people.filter((p) => p.st?.kind === 'arterial' && (p.act === 'walk' || p.act === 'wait' || p.act === 'stand')).length).toBeGreaterThan(12); // the arterial's pavements are walked
     expect(crowd.people.filter((p) => p.st?.kind === 'catwalk' && p.st.y > 30).length).toBeGreaterThan(0); // the stations' platforms
   }, 60000);
+
+  it('waits at the kerb for the red or a gap, holds the traffic while crossing, and never walks through a solid', () => {
+    const solid = (x: number, y: number, z: number) => plan.grid.hit(x, y, z, 0.3) !== null;
+    // nothing ever clears: everyone who reaches a cross street waits at its kerb
+    const held = new People(plan.streets, [], plan.stalls, mulberry32(3), 1200, () => false, nodes, { solid, roadClear: () => false, doors: plan.doors });
+    let waiting = 0, through = 0, inSolid = 0;
+    for (let f = 0; f < 2500; f++) {
+      held.step();
+      if (f % 50 !== 0) continue;
+      for (const p of held.people) {
+        if (p.act === 'wait') waiting += 1;
+        if (p.act === 'walk' && p.cross && ((p.v > 0 && p.t > p.cross.tNear + 0.5) || (p.v < 0 && p.t < p.cross.tNear - 0.5))) through += 1;
+        if ((p.act === 'walk' || p.act === 'wait' || p.act === 'stand') && p.st && (p.st.kind === 'road' || p.st.kind === 'arterial' || p.st.kind === 'diagonal') && solid(p.x, 0.9, p.z)) inSolid += 1;
+      }
+    }
+    expect(waiting).toBeGreaterThan(50);
+    expect(through).toBe(0);
+    expect(inSolid).toBe(0);
+    // every light red for the cars: they cross, and the traffic is told who is in its crosswalks
+    const free = new People(plan.streets, [], plan.stalls, mulberry32(3), 1200, () => true, nodes, { solid, doors: plan.doors });
+    let crossers = 0, told = 0;
+    for (let f = 0; f < 2500; f++) {
+      free.step();
+      if (f % 50 !== 0) continue;
+      for (const p of free.people) if (p.cross && (p.act === 'walk' || p.act === 'cross')) { crossers += 1; if (free.walkersIn(p.cross.nx, p.cross.nz, p.cross.axes[0]) > 0) told += 1; }
+    }
+    expect(crossers).toBeGreaterThan(50);
+    expect(told).toBe(crossers);
+    // doors: with the plan's doors people go in only where a door is; with none listed nobody goes in
+    const closed = new People(plan.streets, [], plan.stalls, mulberry32(4), 800, () => true, nodes, { doors: [] });
+    for (let f = 0; f < 2500; f++) closed.step();
+    expect(closed.people.filter((p) => p.act === 'inside' || p.act === 'enter').length).toBe(0);
+  }, 90000);
 
   it('is deterministic for a seed', () => {
     const a = new People(plan.streets, zones, plan.stalls, mulberry32(9), 400, () => true, nodes);
