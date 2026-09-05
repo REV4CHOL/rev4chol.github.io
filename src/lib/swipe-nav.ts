@@ -53,6 +53,8 @@ export interface GlideOptions {
   allow?: (dir: 1 | -1) => boolean;
   /** Page-specific garnish on commit (the homepage bursts its hero). */
   onCommit?: (dir: 1 | -1) => void;
+  /** Whether the page is in a state to leave at all (the about page's solo flight is not). */
+  enabled?: () => boolean;
 }
 
 /** Drag depth where resistance kicks in / hard cap, as viewport fractions. */
@@ -69,6 +71,11 @@ export function armGlideNav(opts: GlideOptions): void {
     cue.className = 'swipe-cue';
     cue.href = next.href;
     cue.setAttribute('data-internal', '');
+    const kicker = document.createElement('span');
+    kicker.className = 'swc-kicker';
+    kicker.textContent = 'SCROLL ▾';
+    kicker.setAttribute('aria-hidden', 'true');
+    cue.append(kicker);
     const label = document.createElement('span');
     label.className = 'swc-label';
     label.textContent = next.label;
@@ -108,7 +115,7 @@ export function armGlideNav(opts: GlideOptions): void {
   let committed = false;
 
   const stopFor = (dir: 1 | -1) => (dir > 0 ? next : prev);
-  const may = (dir: 1 | -1) => !!stopFor(dir) && (opts.allow ? opts.allow(dir) : true);
+  const may = (dir: 1 | -1) => !!stopFor(dir) && (!opts.enabled || opts.enabled()) && (opts.allow ? opts.allow(dir) : true);
 
   const setDrag = (px: number, dir: 1 | -1) => {
     const vh = window.innerHeight;
@@ -247,6 +254,28 @@ export function armGlideNav(opts: GlideOptions): void {
     },
     { passive: true },
   );
+
+  // ---- the wheel (owner: scroll down to each section, on to the next): on a page that cannot scroll, or one
+  // scrolled to its end, a deliberate scroll on — a few notches, after the page has come to rest — goes to
+  // the next stop; from the top, back. The same slide as a swipe.
+  let wheelSum = 0;
+  let wheelAt = 0;
+  let restAt = 0;
+  let lastTop = -1;
+  window.addEventListener('scroll', () => {
+    const top = (document.scrollingElement ?? document.documentElement).scrollTop;
+    if (top !== lastTop) { lastTop = top; restAt = performance.now(); }
+  }, { passive: true });
+  window.addEventListener('wheel', (e) => {
+    if (committed || calm) return;
+    const now = performance.now();
+    if (now - wheelAt > 700 || now - restAt < 450) wheelSum = 0; // a fresh gesture; nothing while the page still moves
+    wheelAt = now;
+    const dir: 1 | -1 = e.deltaY > 0 ? 1 : -1;
+    if (!may(dir) || now - restAt < 450) return;
+    wheelSum = Math.sign(wheelSum) === dir ? wheelSum + e.deltaY : e.deltaY;
+    if (Math.abs(wheelSum) >= 360) { wheelSum = 0; commit(dir); }
+  }, { passive: true });
 
   // debug handle for verification
   (window as unknown as { rvlGlide: unknown }).rvlGlide = {

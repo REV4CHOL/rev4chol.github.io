@@ -24,6 +24,7 @@ startPage(
     const se = document.scrollingElement ?? document.documentElement;
     armGlideNav({
       ...navNeighbors(site.nav, location.pathname),
+      enabled: () => !document.body.classList.contains('a3-solo'), // a solo flight keeps its page
       allow: (dir) =>
         dir > 0
           ? se.scrollTop + window.innerHeight >= se.scrollHeight - 6
@@ -56,12 +57,13 @@ async function armFlight(site: SiteContent): Promise<void> {
   (window as unknown as { rvlRide: typeof ride }).rvlRide = ride; // debug handle for verification
 
   // -- the flight dial: TOUR (the scroll story) / AUTO (endless drift) /
-  // FREE (drag-look + WASD, fine pointers only) -------------------------
+  // FREE (drag-look + WASD; on a phone a stick, lift buttons and a drag) --
   type Mode = 'tour' | 'auto' | 'free';
   const fly = document.getElementById('a3-fly')!;
   const hint = document.getElementById('a3-hint')!;
   const fine = window.matchMedia('(pointer: fine)').matches;
-  const modes: Mode[] = fine ? ['tour', 'auto', 'free'] : ['tour', 'auto'];
+  const modes: Mode[] = ['tour', 'auto', 'free'];
+  if (!fine) hint.textContent = 'DRAG ▸ LOOK ▪ STICK ▸ MOVE ▪ ▲▼ ▸ RISE/SINK';
   fly.innerHTML = modes
     .map((m) => `<button type="button" data-m="${m}"${m === 'tour' ? ' class="on"' : ''}>${m.toUpperCase()}</button>`)
     .join('');
@@ -70,6 +72,8 @@ async function armFlight(site: SiteContent): Promise<void> {
     mode = m;
     ride.setMode(m);
     document.body.classList.toggle('a3-solo', m !== 'tour');
+    document.body.classList.toggle('a3-touch-free', m === 'free' && !fine);
+    if (m !== 'free') ride.setStick(0, 0, 0);
     hint.hidden = m !== 'free';
     for (const b of fly.querySelectorAll('button')) b.classList.toggle('on', b.dataset.m === m);
     sound.click();
@@ -97,20 +101,66 @@ async function armFlight(site: SiteContent): Promise<void> {
     if (b) { setTime(b.dataset.t as TimeOfDay); sound.click(); }
   });
   // free flight: drag anywhere to look (the stations are inert in solo
-  // modes, so the whole page is the windshield), WASD/arrows to move
-  let dragging = false;
+  // modes, so the whole page is the windshield), WASD/arrows to move —
+  // on a phone the drag looks, a stick moves, two buttons rise and sink
+  let lookId: number | null = null;
   let lx = 0, ly = 0;
   window.addEventListener('pointerdown', (e) => {
-    if (mode !== 'free') return;
-    if ((e.target as Element).closest?.('.a3-fly, .nav, .hud, a, button')) return;
-    dragging = true; lx = e.clientX; ly = e.clientY;
+    if (mode !== 'free' || lookId !== null) return;
+    if ((e.target as Element).closest?.('.a3-fly, .a3-tod, .a3-pad, .a3-lift, .nav, .hud, a, button')) return;
+    lookId = e.pointerId; lx = e.clientX; ly = e.clientY;
   });
   window.addEventListener('pointermove', (e) => {
-    if (!dragging || mode !== 'free') return;
+    if (lookId !== e.pointerId || mode !== 'free') return;
     ride.look(e.clientX - lx, e.clientY - ly);
     lx = e.clientX; ly = e.clientY;
   });
-  window.addEventListener('pointerup', () => { dragging = false; });
+  const endLook = (e: PointerEvent) => { if (e.pointerId === lookId) lookId = null; };
+  window.addEventListener('pointerup', endLook);
+  window.addEventListener('pointercancel', endLook);
+  if (!fine) { // the stick and the lift buttons (owner: free fly mode on mobile, with touch controls)
+    const pad = document.createElement('div');
+    pad.className = 'a3-pad'; pad.setAttribute('aria-hidden', 'true');
+    const knob = document.createElement('div');
+    knob.className = 'a3-pad-knob';
+    pad.append(knob);
+    const lift = document.createElement('div');
+    lift.className = 'a3-lift'; lift.setAttribute('aria-label', 'Rise and sink');
+    lift.innerHTML = '<button type="button" data-l="1" aria-label="Rise">▲</button><button type="button" data-l="-1" aria-label="Sink">▼</button>';
+    document.body.append(pad, lift);
+    let padId: number | null = null;
+    let sx = 0, sy = 0, liftV = 0;
+    const R = 40;
+    const setKnob = (dx: number, dy: number) => { knob.style.translate = `${dx}px ${dy}px`; };
+    pad.addEventListener('pointerdown', (e) => {
+      if (padId !== null) return;
+      padId = e.pointerId; sx = e.clientX; sy = e.clientY;
+      try { pad.setPointerCapture(e.pointerId); } catch { /* a synthetic pointer: no capture to take */ }
+    });
+    pad.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== padId) return;
+      let dx = e.clientX - sx, dy = e.clientY - sy;
+      const d = Math.hypot(dx, dy);
+      if (d > R) { dx *= R / d; dy *= R / d; }
+      setKnob(dx, dy);
+      ride.setStick(dx / R, -dy / R, liftV);
+    });
+    const endPad = (e: PointerEvent) => {
+      if (e.pointerId !== padId) return;
+      padId = null; setKnob(0, 0); ride.setStick(0, 0, liftV);
+    };
+    pad.addEventListener('pointerup', endPad);
+    pad.addEventListener('pointercancel', endPad);
+    for (const b of lift.querySelectorAll<HTMLButtonElement>('button')) {
+      const v = Number(b.dataset.l);
+      const on = (e: PointerEvent) => { e.preventDefault(); liftV = v; ride.setStick(padId === null ? 0 : undefined, undefined, liftV); };
+      const off = () => { if (liftV === v) { liftV = 0; ride.setStick(undefined, undefined, 0); } };
+      b.addEventListener('pointerdown', on);
+      b.addEventListener('pointerup', off);
+      b.addEventListener('pointercancel', off);
+      b.addEventListener('pointerleave', off);
+    }
+  }
   window.addEventListener('keydown', (e) => {
     ride.keys.add(e.key.toLowerCase());
     if (e.key.toLowerCase() === 't' && !e.repeat && !(e.target as Element).closest?.('input, textarea')) { setTime(nextTime(tod)); sound.click(); }

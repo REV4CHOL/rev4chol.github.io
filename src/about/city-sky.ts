@@ -108,7 +108,7 @@ export const LOOKS: Record<TimeOfDay, Look> = {
     label: 'HAZE',
     key: { dir: [-200, 200, -120], color: '#fff1de', intensity: 1.4 },
     hemi: { sky: '#dfe6f0', ground: '#c0b8aa', intensity: 1.25 },
-    fog: { color: '#dde2ea', density: 1.9 },
+    fog: { color: '#dde2ea', density: 3.0 },
     exposure: 0.9, bloom: 1.15, windows: 0.25, lamps: 0.25, walls: 0.6, bleach: { color: '#cfcfd2', amount: 0.4 }, glass: '#3a4258', shadows: false, groundGlow: 0.4, groundLift: 1.05, reflect: 0.8, stars: 0, moon: 0,
     sun: { color: '#fff8ee', size: 140, opacity: 0.8 },
     sky: {

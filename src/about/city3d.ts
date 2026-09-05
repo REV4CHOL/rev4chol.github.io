@@ -89,11 +89,13 @@ ShaderChunk.fog_fragment = /* glsl */ `
   #else
     float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
   #endif
-  // the near-ground haze thickens with the fog's density (the hazy morning's is thick)
-  float haze = 0.42 * clamp( fogDensity / 0.0026, 0.6, 2.4 ) * exp( - max( vFogWorld.y, 0.0 ) * 0.03 ) * ( 1.0 - exp( - vFogDepth * 0.011 ) );
-  fogFactor = min( 0.985, 1.0 - ( 1.0 - fogFactor ) * ( 1.0 - min( haze, 0.95 ) ) );
+  // the air inside the fence is clear but for a breath of haze low in the streets (owner: the whole map at once,
+  // and no fog wall that moves with the eye); a hazy look thickens it
+  float haze = 0.14 * clamp( fogDensity / 0.001, 0.6, 3.0 ) * exp( - max( vFogWorld.y, 0.0 ) * 0.03 ) * ( 1.0 - exp( - vFogDepth * 0.006 ) );
+  fogFactor = min( 0.985, 1.0 - ( 1.0 - fogFactor ) * ( 1.0 - min( haze, 0.9 ) ) );
+  // THE FOG OF WAR (owner: dense — only glimpses of what lies past the fence): a wall standing in the world
   float edge = max( abs( vFogWorld.x ), abs( vFogWorld.z ) );
-  fogFactor = max( fogFactor, smoothstep( 272.0, 440.0, edge ) * 0.93 );
+  fogFactor = max( fogFactor, smoothstep( 292.0, 400.0, edge ) * 0.975 );
   gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );
 #endif`;
 
@@ -109,10 +111,13 @@ const FOG_ADD = /* glsl */ `
   #else
     float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
   #endif
-  float haze = 0.42 * clamp( fogDensity / 0.0026, 0.6, 2.4 ) * exp( - max( vFogWorld.y, 0.0 ) * 0.03 ) * ( 1.0 - exp( - vFogDepth * 0.011 ) );
-  fogFactor = min( 0.985, 1.0 - ( 1.0 - fogFactor ) * ( 1.0 - min( haze, 0.95 ) ) );
+  // the air inside the fence is clear but for a breath of haze low in the streets (owner: the whole map at once,
+  // and no fog wall that moves with the eye); a hazy look thickens it
+  float haze = 0.14 * clamp( fogDensity / 0.001, 0.6, 3.0 ) * exp( - max( vFogWorld.y, 0.0 ) * 0.03 ) * ( 1.0 - exp( - vFogDepth * 0.006 ) );
+  fogFactor = min( 0.985, 1.0 - ( 1.0 - fogFactor ) * ( 1.0 - min( haze, 0.9 ) ) );
+  // THE FOG OF WAR (owner: dense — only glimpses of what lies past the fence): a wall standing in the world
   float edge = max( abs( vFogWorld.x ), abs( vFogWorld.z ) );
-  fogFactor = max( fogFactor, smoothstep( 272.0, 440.0, edge ) * 0.93 );
+  fogFactor = max( fogFactor, smoothstep( 292.0, 400.0, edge ) * 0.975 );
   gl_FragColor.rgb *= 1.0 - fogFactor;
 #endif`;
 function additiveFog<T extends Material>(m: T): T {
@@ -129,11 +134,11 @@ function additiveFog<T extends Material>(m: T): T {
  *  and the device; from then on the measured frame time steps the tier
  *  down when frames run long and back up when they run short. */
 interface Tier { label: string; far: number; fog: number; shadows: boolean; pix: number }
-const TIERS: Tier[] = [
-  { label: 'low', far: 900, fog: 0.0036, shadows: false, pix: 3 },
-  { label: 'mid', far: 1000, fog: 0.0026, shadows: false, pix: 2 },
-  { label: 'high', far: 1200, fog: 0.0019, shadows: true, pix: 2 },
-  { label: 'ultra', far: 1400, fog: 0.0014, shadows: true, pix: 2 },
+const TIERS: Tier[] = [ // (owner: the whole map inside the fence at once, at every tier — the fog of war is a wall, not a distance)
+  { label: 'low', far: 1500, fog: 0.0009, shadows: false, pix: 3 },
+  { label: 'mid', far: 1500, fog: 0.0008, shadows: false, pix: 2 },
+  { label: 'high', far: 1500, fog: 0.0008, shadows: true, pix: 2 },
+  { label: 'ultra', far: 1500, fog: 0.0007, shadows: true, pix: 2 },
 ];
 function startTier(): number {
   const nav = navigator as Navigator & { connection?: { effectiveType?: string; saveData?: boolean; downlink?: number }; deviceMemory?: number };
@@ -1022,6 +1027,8 @@ export interface CityRide {
   setMode(m: FlyMode): void;
   look(dx: number, dy: number): void;
   keys: Set<string>;
+  /** A stick for the free flight: x strafes (−1..1), y drives (−1..1), lift rises (−1..1); undefined leaves an axis as it is. */
+  setStick(x?: number, y?: number, lift?: number): void;
   /** Verification handles: jump the free camera; advance n frames by hand
    *  (what the frame clock would do, minus the clock); read the pose. */
   warp(x: number, y: number, z: number, yaw: number, pitch: number): void;
@@ -1057,7 +1064,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   let starLevel = 1;
   let fogMul = 1;
   let tier = startTier();
-  let PIX = TIERS[tier].pix;
+  const pixOf = (t: number) => (isMobile() ? 1 : TIERS[t].pix); // a phone's viewport is small: it renders at its own pixels
+  let PIX = pixOf(tier);
   const fog = new FogExp2('#0c1826', TIERS[tier].fog);
   scene.fog = fog;
 
@@ -1122,6 +1130,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const domeA = new Mesh(domeGeo, new MeshBasicMaterial({ map: skyTex(SKY.night), side: BackSide, fog: false, depthWrite: false }));
   const domeB = new Mesh(domeGeo, new MeshBasicMaterial({ map: null, side: BackSide, fog: false, depthWrite: false, transparent: true, opacity: 0 }));
   domeB.visible = false;
+  domeA.renderOrder = -2; domeB.renderOrder = -1; // the domes draw before every other transparent thing, whatever its distance
   sky.add(domeA, domeB);
   const nebulae: Sprite[] = [];
   const starsOf = (pos: Float32Array, size: number, tint: string, opacity = 1): Points => {
@@ -1165,7 +1174,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       opacity: low ? 0.85 : 0.55 + rand() * 0.3, fog: false, depthWrite: false,
     }));
     const a = rand() < 0.7 ? rand() * Math.PI : rand() * Math.PI * 2;
-    const r = 480 + rand() * 300;
+    const r = 380 + rand() * 200; // inside the dome (640): a cloud past it vanished behind the crossfading dome at every time change
     s.position.set(Math.cos(a) * r, low ? 70 + rand() * 70 : 170 + rand() * 220, Math.sin(a) * r);
     s.scale.set(low ? 300 + rand() * 200 : 190 + rand() * 160, low ? 42 + rand() * 20 : 58 + rand() * 30, 1);
     clouds.push(s); lowCloud.push(low);
@@ -1184,8 +1193,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   for (let i = 0; i < 4; i++) {
     const h = horizon.clone();
     const a = (i / 4) * Math.PI * 2;
-    h.position.set(Math.cos(a) * 430, 34, Math.sin(a) * 430);
-    h.scale.set(920, 96, 1);
+    h.position.set(Math.cos(a) * 520, 34, Math.sin(a) * 520); // past the fog of war: the far city's glow shows through it
+    h.scale.set(1100, 96, 1);
     h.lookAt(0, 34, 0);
     horizonRing.add(h);
   }
@@ -1350,6 +1359,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const shopfronts: { x: number; z: number; w: number; d: number }[] = []; // lit ground floors: they wash the pavement before them
   const NO_SHOP = new Set<Solid['arch']>(['bits', 'street', 'bridge', 'temple', 'industry', 'shanty', 'sprawl']);
   const place = (s: Solid, far: boolean) => {
+    if (far && Math.max(Math.abs(s.x), Math.abs(s.z)) > 470) return; // past the fog of war's wall: never seen, not built
     if (s.arch === 'bridge' && s.kind === 'dark' && s.w > 20) return; // the canal's bridges are built below, not as slabs
     const mast = s.kind === 'dark' && s.arch === 'bits' && s.w < 0.3 && s.h > 3;
     if (mast) masts.push({ x: s.x, y: s.y - s.h / 2, z: s.z, h: s.h });
@@ -2452,12 +2462,16 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     if (keys.has('d') || keys.has('arrowright')) { want.sub(side); strafe -= 1; }
     if (keys.has('e') || keys.has(' ')) want.y += 1;
     if (keys.has('q') || keys.has('c')) want.y -= 1;
+    if (stick.x || stick.y || stick.lift) { // the phone's stick and lift buttons
+      want.addScaledVector(fwd, stick.y); want.addScaledVector(side, stick.x); want.y += stick.lift; strafe += stick.x;
+    }
     const driving = want.lengthSq() > 0;
+    const push = Math.min(1, want.length()); // a half-pushed stick is a half-throttle
     // the throttle builds while a key is held and bleeds off when released;
     // the velocity chases the intent, and glides to rest without it
     free.throttle = driving ? Math.min(1, free.throttle + 0.02) : Math.max(0, free.throttle - 0.03);
     const boost = keys.has('shift') ? 2.4 : 1;
-    const speed = 1.05 * boost * (0.25 + 0.75 * free.throttle * free.throttle);
+    const speed = 1.05 * boost * push * (0.25 + 0.75 * free.throttle * free.throttle);
     if (driving) free.vel.lerp(want.normalize().multiplyScalar(speed), 0.07);
     else free.vel.multiplyScalar(0.94);
     meant.copy(free.pos).add(free.vel);
@@ -2478,6 +2492,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     camera.rotateZ(free.roll);
   };
 
+  const stick = { x: 0, y: 0, lift: 0 };
   const audio = new CityAudio();
   const lastCam = new Vector3();
   const render = () => {
@@ -2534,7 +2549,6 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       camera.lookAt(lx, ly, lz);
     }
     sky.position.copy(camera.position); // the dome is a skybox: infinitely far in every direction
-    horizonRing.position.set(camera.position.x, 0, camera.position.z); // the far city stays on the ground
     tendLook();
     aimMoon();
     tendLights();
@@ -2697,9 +2711,13 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     gm.color.setScalar(L.groundLift); // the streets' own brightness
     gm.emissive.set(L.bleach.color); gm.emissiveIntensity = L.groundGlow; // and their glow, the paint brighter than the asphalt: no patch of street falls to black
     for (const m of streetMats) { m.color.setScalar(L.groundLift); m.emissive.set(L.bleach.color); m.emissiveIntensity = L.groundGlow * 0.9; }
-    // shadows: a sun casts them, the moon does not (owner: no patches of shadow by night) — within the tier's means
+    // shadows: a sun casts them, the moon does not (owner: no patches of shadow by night) — by the shadow's INTENSITY,
+    // never by toggling the maps (that recompiles every shader and stalled the switch for a second); a shadow at
+    // zero is not even rendered
     const shadows = L.shadows && TIERS[tier].shadows;
-    if (shadows !== renderer.shadowMap.enabled) { renderer.shadowMap.enabled = shadows; moonLight.castShadow = shadows; refreshMaterials(); }
+    moonLight.shadow.intensity = shadows ? 1 : 0;
+    if (shadows && !renderer.shadowMap.autoUpdate) renderer.shadowMap.needsUpdate = true;
+    renderer.shadowMap.autoUpdate = shadows;
     if (pitchMat) pitchMat.emissiveIntensity = 0.15 + 0.4 * L.lamps;
     lampLevel = L.lamps; starLevel = L.stars;
     for (const m of lampHeads) m.emissiveIntensity = 1.2 * L.lamps;
@@ -2797,9 +2815,12 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     camera.updateProjectionMatrix();
     fog.density = T.fog * fogMul;
     setPool(POOL[tier]);
-    renderer.shadowMap.enabled = T.shadows && lookNow.shadows;
-    moonLight.castShadow = renderer.shadowMap.enabled;
-    if (PIX !== T.pix) { PIX = T.pix; fit(); }
+    renderer.shadowMap.enabled = T.shadows;
+    moonLight.castShadow = T.shadows;
+    moonLight.shadow.intensity = T.shadows && lookNow.shadows ? 1 : 0;
+    renderer.shadowMap.autoUpdate = T.shadows && lookNow.shadows;
+    if (renderer.shadowMap.autoUpdate) renderer.shadowMap.needsUpdate = true;
+    if (PIX !== pixOf(tier)) { PIX = pixOf(tier); fit(); }
     refreshMaterials();
   };
   // the frame clock: long frames step the tier down, short ones (for a
@@ -2855,6 +2876,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     },
     look: (dx, dy) => { free.lookX += dx; free.lookY += dy; }, // an impulse; the head carries it
     keys,
+    setStick: (x, y, lift) => { if (x !== undefined) stick.x = clamp(x, -1, 1); if (y !== undefined) stick.y = clamp(y, -1, 1); if (lift !== undefined) stick.lift = clamp(lift, -1, 1); },
     warp: (x, y, z, yaw, pitch) => {
       mode = 'free';
       free.pos.set(x, y, z);
@@ -2869,7 +2891,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       camera.getWorldDirection(fwd);
       return { x: camera.position.x, y: camera.position.y, z: camera.position.z, yaw: free.yaw, pitch: free.pitch, mode, dir: [fwd.x, fwd.y, fwd.z] };
     },
-    quality: () => ({ tier: TIERS[tier].label, far: camera.far, fog: fog.density, shadows: renderer.shadowMap.enabled, pix: PIX }),
+    quality: () => ({ tier: TIERS[tier].label, far: camera.far, fog: fog.density, shadows: renderer.shadowMap.enabled && moonLight.shadow.intensity > 0, pix: PIX }),
     frame: (w = 240, h = 150) => {
       renderer.setSize(w, h, false); composer.setSize(w, h);
       camera.aspect = w / h; camera.fov = fov24(camera.aspect); camera.updateProjectionMatrix(); lens.setAspect(camera.aspect);

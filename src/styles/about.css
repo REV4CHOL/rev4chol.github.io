@@ -92,7 +92,7 @@
 .a3-fly button.on::before { content: '▸ '; }
 /* the clock: the time of day, bottom right */
 .a3-tod {
-  position: fixed; right: 28px; bottom: 16px; z-index: 3;
+  position: fixed; right: 28px; bottom: 46px; z-index: 3; /* above the HUD's timecode corner (owner: they collided) */
   display: flex; gap: 16px;
 }
 .a3-tod button {
@@ -103,12 +103,40 @@
 .a3-tod button:hover { color: var(--bone); }
 .a3-tod button.on { color: var(--signal); }
 .a3-tod button.on::before { content: '◐ '; }
-@media (max-width: 720px) {
-  .a3-tod { right: 50%; translate: 50% 0; bottom: 40px; gap: 12px; }
-  .a3-hint { bottom: 64px; }
+@media (max-width: 720px) { /* a phone's bottom edge: the shell's corner HUDs at 14-42, the dial above them, the clock above that, one row each */
+  .a3-fly { bottom: 60px; gap: 18px; }
+  .a3-tod { right: 50%; translate: 50% 0; bottom: 88px; gap: 8px; }
+  .a3-tod button { font-size: 8px; letter-spacing: 0.12em; padding: 3px 0; } /* one row on a phone */
+  .page-about .swipe-cue { bottom: 112px; }
+  .a3-hint { top: 262px; max-width: 250px; line-height: 1.8; }
+  body.a3-touch-free .a3-tod { display: none; } /* the stick takes its room; the clock is set from the tour */
 }
-.a3-hint {
-  position: fixed; left: 50%; translate: -50% 0; bottom: 42px; z-index: 3;
+/* the scroll-on cue rides above the flight dial; a solo flight has no next page */
+@media (min-width: 721px) { .page-about .swipe-cue { bottom: 62px; } } /* clear of the flight dial and the clock (the phone block sets its own) */
+body.a3-solo .swipe-cue { display: none; }
+/* TOUCH FLIGHT (owner: free fly on phones): a stick to move, buttons to rise and sink, a drag to look; the
+   page stays put under the fingers */
+body.a3-solo { overflow: hidden; touch-action: none; }
+.a3-pad {
+  position: fixed; left: 18px; bottom: 100px; z-index: 4; width: 112px; height: 112px; border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--bone) 35%, transparent); background: rgba(6, 6, 6, 0.28);
+  touch-action: none; display: none;
+}
+.a3-pad-knob {
+  position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%;
+  background: color-mix(in srgb, var(--signal) 70%, transparent); box-shadow: 0 0 14px -2px var(--signal); pointer-events: none;
+}
+.a3-lift { position: fixed; right: 18px; bottom: 100px; z-index: 4; display: none; flex-direction: column; gap: 10px; }
+.a3-lift button {
+  width: 54px; height: 54px; border-radius: 50%; touch-action: none;
+  border: 1px solid color-mix(in srgb, var(--bone) 35%, transparent); background: rgba(6, 6, 6, 0.28);
+  color: var(--bone); font-size: 18px; line-height: 1;
+}
+.a3-lift button:active { background: color-mix(in srgb, var(--signal) 70%, transparent); color: var(--void); }
+body.a3-touch-free .a3-pad { display: block; }
+body.a3-touch-free .a3-lift { display: flex; }
+.a3-hint { /* the controls' one line: up top under the HUD, where the crowded bottom edge never reaches it */
+  position: fixed; left: 50%; translate: -50% 0; top: 112px; z-index: 3; text-align: center;
   color: color-mix(in srgb, var(--bone) 70%, transparent); letter-spacing: 0.2em;
   text-shadow: 0 0 8px rgba(6, 6, 6, 0.95);
 }
@@ -436,7 +464,7 @@ body.a3-solo { user-select: none; }
 
 /* coarse-gated: the poster lock must never see this block */
 @media (max-width: 760px) and (pointer: coarse) {
-  .a3-in-hero { padding: 0 18px 64px; }
+  .a3-in-hero { padding: 0 18px 174px; } /* above the dial, the clock and the cue */
   .a-name { font-size: clamp(2.4rem, 16.5vw, 4.4rem); }
   .a-name::before { translate: 5px 3px; }
   .a-name::after { translate: -4px -2px; }
@@ -462,7 +490,7 @@ body.a3-solo { user-select: none; }
   .a-rack-group { gap: 8px; }
   .a-bar { height: 44px; gap: 10px; }
   .a-bar-cap { display: none; }
-  .a3-in-tx { padding: 0 18px 56px; }
+  .a3-in-tx { padding: 0 18px 156px; }
   .a-yes { font-size: var(--t-xl); }
 }
 
