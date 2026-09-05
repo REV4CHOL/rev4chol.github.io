@@ -110,5 +110,8 @@ Commits per group; deploy after C and at the end.
 - **G**: auto speed 0.18 (0.11 calm); the eye's target slews at 0.012 a frame; yaw capped at 0.0035 rad a frame
   (12°/s) and pitch at 0.0025 (8.6°/s) with gain 0.00045 and damping 0.042; bank capped at 0.05 rad and eased at
   0.03; the body follows the flight's point through a 0.1 lerp and is kept out of solids.
-- Not done: a pedestrian phase at the lights (walkers cross on their pavement line inside the box, as everywhere);
-  the market streets' vendors mill as at any market; the lift cabs ride on a fixed cycle.
+- **The pedestrian phase** (added on request): every lit node runs a walk signal per street — WALK while the
+  street is red after its own all-red with more red left than the crossing takes, FLASH for the crossing time before
+  its green, DONT through its phase; a crossing starts only on WALK, timed at the slowest walker's hurry (crossers move
+  at 1.5× a walker); the cycle grew to 18 s (green 420, all-red 130) to make room for a window; the lamps show it.
+- Not done: the market streets' vendors mill as at any market; the lift cabs ride on a fixed cycle.
