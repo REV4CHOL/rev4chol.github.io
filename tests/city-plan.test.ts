@@ -137,7 +137,7 @@ describe('planCity', () => {
   it('knows how much open street lies ahead — closed segments end a dive early', () => {
     // the stadium closes the east–west street at row 3 alongside columns −5 and −4
     expect(plan.roomAhead('x', streetAt(3), -5 * G - 30, 1)).toBeCloseTo(11, 5);
-    expect(plan.roomAhead('x', streetAt(3), -100, -1)).toBeCloseTo(33, 5);
+    expect(plan.roomAhead('x', streetAt(3), 200, -1)).toBe(0); // the arterial's right of way closed this segment of the same street
     // a street runs to the fence, to a closed segment, or to a span roofing it
     const room = plan.roomAhead('z', streetAt(2), 0, 1);
     expect(room).toBeGreaterThan(20);
@@ -225,7 +225,7 @@ describe('Newport City, layered (owner: messy, overlapping, Ghost in the Shell)'
 
   it('bridges the streets with overbuilds above the flight band, never over an avenue', () => {
     const overs = plan.core.filter((s) => s.arch === 'over');
-    expect(overs.length).toBeGreaterThan(20);
+    expect(overs.length).toBeGreaterThan(15); // (the arterial took a swath of the north's streets)
     for (const o of overs) {
       expect(o.y - o.h / 2, 'underside').toBeGreaterThanOrEqual(35); // the canyon band's top plus the flight's pad is 34.6
       expect(Math.abs(o.x) < 26 || Math.abs(o.z) < 26, 'over an avenue').toBe(false);
@@ -240,7 +240,7 @@ describe('Newport City, layered (owner: messy, overlapping, Ghost in the Shell)'
     expect(hangs.filter((s) => s.w >= 2.4 && s.h >= 12).length).toBeGreaterThan(600); // the big ones
     for (const s of hangs) { expect(s.y - s.h / 2).toBeGreaterThanOrEqual(6.4); expect(s.w).toBeLessThanOrEqual(3.2); } // over a bus, never over the lanes
     expect(plan.clutter.filter((c) => c.kind === 'bracket').length).toBe(hangs.length * 2);
-    expect(plan.billboards.length).toBeGreaterThan(200);
+    expect(plan.billboards.length).toBeGreaterThan(150);
     for (const b of plan.billboards) { expect(b.w).toBeGreaterThanOrEqual(5); expect(b.art).toBeGreaterThanOrEqual(0); expect(b.art).toBeLessThan(24); expect(Number.isFinite(b.rotY)).toBe(true); }
     expect(plan.billboards.filter((b) => b.w >= 14).length).toBeGreaterThanOrEqual(6); // the giants
     expect(plan.spots.length / 3).toBeGreaterThan(300);

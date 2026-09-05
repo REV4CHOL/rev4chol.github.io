@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EXT, G, HALF, OUTER, planCity, REACH, streetAt } from '../src/about/city-plan';
+import { ARTERIAL, ARTERIAL_ROW, EXT, G, HALF, OUTER, planCity, REACH, streetAt } from '../src/about/city-plan';
 import { CAST, FRAME, KIND, People, Zone } from '../src/about/city-people';
 import { mulberry32 } from '../src/lib/rng';
 import { hashSlug } from '../src/project/dossier';
@@ -50,7 +50,12 @@ describe('People', () => {
           expect(Math.abs(p.z)).toBeLessThan(REACH + 20);
           if (p.act === 'walk' || p.act === 'stand' || p.act === 'cross') {
             const st = p.st!;
-            expect(Math.abs(p.off)).toBeLessThanOrEqual(st.width / 2 + (st.kind === 'diagonal' ? 0.81 : 0.01)); // on the pavement, never in the road (crossing aside; the boulevard's pavement lies past its edge lines)
+            expect(Math.abs(p.off)).toBeLessThanOrEqual(st.width / 2 + (st.kind === 'diagonal' ? 0.81 : st.kind === 'arterial' ? 10.21 : 0.01)); // on the pavement, never in the road (crossing aside; the boulevard's and the arterial's pavements lie past their carriageways)
+            if (st.kind === 'arterial' && p.act === 'walk') expect(Math.abs(p.off)).toBeGreaterThanOrEqual(ARTERIAL_ROW - ARTERIAL.walk + 0.79);
+            if (st.kind === 'road' && st.ends) { // a run ending on the arterial: its walkers stop at the arterial's pavement
+              if (st.ends.a !== undefined) expect(p.t).toBeGreaterThanOrEqual(st.ends.a - 0.3);
+              if (st.ends.b !== undefined) expect(p.t).toBeLessThanOrEqual(st.len - st.ends.b + 0.3);
+            }
             expect(p.t).toBeGreaterThanOrEqual(-0.01);
             expect(p.t).toBeLessThanOrEqual(st.len + 0.01);
           }
@@ -84,7 +89,7 @@ describe('People', () => {
         q.x = p.x; q.z = p.z;
         if (p.act === 'inside') inside += 1;
         if (p.act !== 'inside' && p.act !== 'enter' && p.act !== 'exit' && p.st && p.st.kind === 'road' && p.st.dz === 0) {
-          expect(Math.abs(p.x)).toBeGreaterThan(12.5); // never on the water or its bridges (an east–west road's pavement stops at the quay)
+          expect(Math.abs(p.x)).toBeGreaterThanOrEqual(12.5 - 1e-6); // never on the water or its bridges (an east–west road's pavement stops at the quay's coping)
         }
       });
     }
@@ -127,6 +132,7 @@ describe('People', () => {
       }
     }
     expect(crowd.people.filter((p) => p.st?.kind === 'catwalk').length).toBeGreaterThan(30);
+    expect(crowd.people.filter((p) => p.st?.kind === 'arterial' && p.act === 'walk').length).toBeGreaterThan(20); // the arterial's pavements are walked
     expect(crowd.people.filter((p) => p.st?.kind === 'catwalk' && p.st.y > 30).length).toBeGreaterThan(0); // the stations' platforms
   }, 60000);
 

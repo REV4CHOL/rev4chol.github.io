@@ -1217,8 +1217,10 @@ export function planCity(seed: number): Plan {
   const patches: { x: number; z: number; w: number; d: number }[] = [];
   const RIM = HALF + OUTER;
   // east–west segments (line i alongside column j): closed where the axis comes within EAT of the street anywhere on the
-  // segment's inner range — the arterial's pavement would eat the street's band; the blocks across merge where ordinary
-  const EAT = ARTERIAL_ROW + STREET / 2 + 0.5;
+  // segment's inner range — its crossings would sit so close to the arterial's that a north–south vehicle could not
+  // stand between the two stop lines (the arterial's box 20, a crossing's 8.5, a bus and its gap), and the box of one
+  // would never clear for the other; the blocks across merge where ordinary
+  const EAT = ARTERIAL_ROW + STREET / 2 + 9.5;
   for (let i = -RIM - 1; i <= RIM; i++) {
     const z = streetAt(i);
     for (let j = -RIM; j <= RIM; j++) {
@@ -1518,8 +1520,11 @@ export function planCity(seed: number): Plan {
         solid(core, 'dark', 'street', 0, x, (HIGHWAY.y - 1.8) / 2, z, 2.2, HIGHWAY.y - 1.8, 2.2);
       }
     }
-    // the arterial itself, lamps on its pavements
-    streets.push({ x0: HIGHWAY.x0, z0: HIGHWAY.z0, dx, dz, len, y: 0, kind: 'arterial', width: ARTERIAL.w });
+    // the arterial itself — run on well past the rim's streets into the fog, so its ends are portals like the highway's
+    // with room to queue between the rim's lights and the fog (a T dumping every vehicle onto the rim road, or a portal
+    // a car's length past the last light, throttled the whole arterial); its walkers turn at the rim; lamps on its pavements
+    const past = 60;
+    streets.push({ x0: HIGHWAY.x0 - dx * past, z0: HIGHWAY.z0 - dz * past, dx, dz, len: len + 2 * past, y: 0, kind: 'arterial', width: ARTERIAL.w, ends: { a: past + 6.5, b: past + 6.5 } });
     for (let t = 6; t < len; t += 12) {
       const x = HIGHWAY.x0 + dx * t, z = HIGHWAY.z0 + dz * t;
       if (Math.abs(x) > REACH || onStreet(x) || Math.abs(x) < MEDIAN + 16) continue;

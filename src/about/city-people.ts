@@ -11,13 +11,14 @@
  *  android — each kind at its own pace (owner: a lot of variety). Pure: no
  *  DOM, no renderer; the renderer draws each person's position, heading,
  *  kind and animation frame. */
-import { CANAL, Stall, Street } from './city-plan';
+import { ARTERIAL, ARTERIAL_ROW, CANAL, Stall, Street } from './city-plan';
 
 /** Walking, or paused, or talking in a knot, or browsing a stall, or crossing a road, or vending, or sitting,
  *  or milling in a market — or going in at a door (enter), gone a while (inside), coming out (exit). */
 export type Act = 'walk' | 'stand' | 'talk' | 'browse' | 'cross' | 'vend' | 'sit' | 'mill' | 'enter' | 'inside' | 'exit';
-/** The water's edge either side of the canal: no pavement crosses it (the bridges carry the road alone). */
-const QUAY = CANAL.w / 2 + 1.5;
+/** The water's edge either side of the canal: no pavement crosses it (the bridges carry the road alone; their decks are
+ *  flush with the quays, whose coping is walked). */
+const QUAY = CANAL.w / 2 + 0.5;
 /** A road's pavement stops short of the crossing street: the corner, where the next pavement begins. */
 const CORNER = 6.2;
 /** Animation frames in the sprite sheet: walk A/B, stand, sit, talk (a hand
@@ -73,8 +74,8 @@ export class People {
     streets: Street[], zones: Zone[], stalls: Stall[], private readonly rand: () => number, n: number,
     private readonly crossOK: CrossOK = () => false, private readonly nodes: number[] = [],
   ) {
-    this.walkable = streets.filter((s) => s.kind === 'road' || s.kind === 'alley' || s.kind === 'diagonal' || s.kind === 'catwalk');
-    this.weights = this.walkable.map((s) => (s.kind === 'alley' ? s.len * 3 : s.kind === 'catwalk' ? s.len * 2 : s.len));
+    this.walkable = streets.filter((s) => s.kind === 'road' || s.kind === 'alley' || s.kind === 'diagonal' || s.kind === 'catwalk' || s.kind === 'arterial');
+    this.weights = this.walkable.map((s) => (s.kind === 'alley' ? s.len * 3 : s.kind === 'catwalk' ? s.len * 2 : s.kind === 'arterial' ? s.len * 1.5 : s.len));
     this.total = this.weights.reduce((a, b) => a + b, 0);
     const r = rand;
     for (const st of stalls) { // a vendor in every stall
@@ -130,25 +131,35 @@ export class People {
     return this.walkable[this.walkable.length - 1];
   }
 
-  /** A pavement offset: a kerb side of a road (the pavement's outer half — the lamp posts stand at the kerb), anywhere
-   *  across an alley or a catwalk, past the boulevard's edge lines. */
+  /** Where a street's walkers belong: the |offset| band of its pavement — a road's pavement inside its width (the lamp
+   *  posts stand at the kerb), the boulevard's past its edge lines, the arterial's beyond its apron (16.9–17.7 from its
+   *  axis: the lamps stand at 16.4, the building line at 18.5); an alley or a catwalk is walked anywhere across. */
+  private band(s: Street): [number, number] {
+    if (s.kind === 'alley') return [0, (s.width - 1.5) / 2];
+    if (s.kind === 'catwalk') return [0, (s.width - 0.9) / 2];
+    if (s.kind === 'diagonal') return [s.width / 2 + 0.4, s.width / 2 + 0.8];
+    if (s.kind === 'arterial') return [ARTERIAL_ROW - ARTERIAL.walk + 0.8, ARTERIAL_ROW - 0.8];
+    return [s.width / 2 - 1.7, s.width / 2 - 0.3];
+  }
+  /** A pavement offset: a kerb side of a road (the pavement's outer half), anywhere across an alley or a catwalk, the
+   *  boulevard's or the arterial's pavement band. */
   private kerb(st: Street): number {
-    if (st.kind === 'alley') return (this.rand() - 0.5) * (st.width - 1.5);
-    if (st.kind === 'catwalk') return (this.rand() - 0.5) * (st.width - 0.9);
-    if (st.kind === 'diagonal') return (this.rand() < 0.5 ? 1 : -1) * (st.width / 2 + 0.4 + this.rand() * 0.4); // the boulevard's pavement lies past its edge lines (its lamps stand at 6.1)
-    return (this.rand() < 0.5 ? 1 : -1) * (st.width / 2 - 1 + this.rand() * 0.7);
+    const [lo, hi] = this.band(st);
+    if (st.kind === 'alley' || st.kind === 'catwalk') return (this.rand() - 0.5) * 2 * hi;
+    const side = this.rand() < 0.5 ? 1 : -1;
+    if (st.kind === 'road') return side * (st.width / 2 - 1 + this.rand() * 0.7);
+    return side * (lo + this.rand() * (hi - lo));
   }
   /** Where a sitter sits: against the wall, on the pavement (owner: they sat inside the wall). */
   private sitOff(p: Person, st: Street): number {
     const s = Math.sign(p.off || 1);
-    return st.kind === 'road' ? s * (st.width / 2 - 0.25) : st.kind === 'diagonal' ? s * (st.width / 2 + 0.9) : p.off;
+    return st.kind === 'road' ? s * (st.width / 2 - 0.25) : st.kind === 'diagonal' ? s * (st.width / 2 + 0.9) : st.kind === 'arterial' ? s * (ARTERIAL_ROW - 0.4) : p.off;
   }
   /** An offset on a street from a lateral distance to its axis, kept where its walkers belong. */
   private offOn(s: Street, lat: number): number {
-    if (s.kind === 'alley') return clamp(lat, -(s.width - 1.5) / 2, (s.width - 1.5) / 2);
-    if (s.kind === 'catwalk') return clamp(lat, -(s.width - 0.9) / 2, (s.width - 0.9) / 2);
-    if (s.kind === 'diagonal') return Math.sign(lat || 1) * clamp(Math.abs(lat), s.width / 2 + 0.4, s.width / 2 + 0.8);
-    return Math.sign(lat || 1) * clamp(Math.abs(lat), s.width / 2 - 1.7, s.width / 2 - 0.3);
+    const [lo, hi] = this.band(s);
+    if (s.kind === 'alley' || s.kind === 'catwalk') return clamp(lat, -hi, hi);
+    return Math.sign(lat || 1) * clamp(Math.abs(lat), lo, hi);
   }
 
   /** The canal's water and its bridges, on an east–west road. */
@@ -157,20 +168,26 @@ export class People {
   }
   /** The parameter of the quay on the given side of the water. */
   private quayT(st: Street, side: 1 | -1): number { return (side * QUAY - st.x0) / st.dx; }
-  /** How far in from a road's ends the pavement runs (the crossing street's road lies past it). */
-  private endOf(st: Street): number { return st.kind === 'road' || st.kind === 'diagonal' ? Math.min(CORNER, st.len / 2) : st.kind === 'catwalk' ? Math.min(0.6, st.len / 2) : 0; }
+  /** How far in from a road's end (`a` at t = 0, `b` at t = len) the pavement runs: the crossing street's road lies
+   *  past it — or what the plan says lies there (a run ending on the arterial's axis stops at the arterial's pavement). */
+  private endOf(st: Street, end: 'a' | 'b'): number {
+    const pad = st.ends?.[end];
+    if (pad !== undefined) return Math.min(pad, st.len / 2);
+    return st.kind === 'road' || st.kind === 'diagonal' || st.kind === 'arterial' ? Math.min(CORNER, st.len / 2) : st.kind === 'catwalk' ? Math.min(0.6, st.len / 2) : 0;
+  }
   /** The same kerb side the walker is on, a fresh offset (never across the road in a step). */
   private sameSide(p: Person, st: Street): number {
-    if (st.kind === 'alley') return clamp(p.off, -(st.width - 1.5) / 2, (st.width - 1.5) / 2);
-    if (st.kind === 'catwalk') return clamp(p.off, -(st.width - 0.9) / 2, (st.width - 0.9) / 2);
-    if (st.kind === 'diagonal') return Math.sign(p.off || 1) * (st.width / 2 + 0.4 + this.rand() * 0.4);
-    return Math.sign(p.off || 1) * (st.width / 2 - 1 + this.rand() * 0.7);
+    const [lo, hi] = this.band(st);
+    if (st.kind === 'alley' || st.kind === 'catwalk') return clamp(p.off, -hi, hi);
+    if (st.kind === 'road') return Math.sign(p.off || 1) * (st.width / 2 - 1 + this.rand() * 0.7);
+    return Math.sign(p.off || 1) * (lo + this.rand() * (hi - lo));
   }
 
   private walkOn(p: Person, st: Street, off: number, t: number, dir: 1 | -1): void {
-    const end = this.endOf(st);
-    p.st = st; p.off = off; p.t = clamp(t, end, st.len - end);
-    if (this.overWater(st, p.t)) p.t = clamp(this.quayT(st, dir > 0 ? 1 : -1), end, st.len - end); // never on the water: start past it
+    const a = this.endOf(st, 'a'), b = this.endOf(st, 'b');
+    p.st = st; p.off = off; p.t = clamp(t, a, st.len - b);
+    if (this.overWater(st, p.t)) p.t = clamp(this.quayT(st, dir > 0 ? 1 : -1), a, st.len - b); // never on the water: start past it
+    if (this.overWater(st, p.t)) p.t = clamp(this.quayT(st, dir > 0 ? -1 : 1), a, st.len - b); // (a run ending at a quay: the other quay, then)
     p.v = (0.016 + this.rand() * 0.02) * p.pace * dir;
     p.act = 'walk'; p.knot = null; p.goal = null; p.stall = null; p.zone = null;
     p.timer = 400 + this.rand() * 1800; // until the next pause
@@ -223,9 +240,10 @@ export class People {
       if (s === st) continue;
       if (Math.abs(s.y - st.y) > 1.5) continue; // a raised walk meets only what stands at its height
       const u = (x - s.x0) * s.dx + (z - s.z0) * s.dz;
-      if (u < this.endOf(s) || u > s.len - this.endOf(s)) continue;
+      if (u < this.endOf(s, 'a') || u > s.len - this.endOf(s, 'b')) continue;
       const lat = -(x - s.x0) * s.dz + (z - s.z0) * s.dx;
-      if (Math.abs(lat) > s.width / 2 + 2.5) continue;
+      const [lo, hi] = this.band(s);
+      if (Math.abs(lat) > hi + 2.5 || Math.abs(lat) < lo - 2.5) continue; // its pavement is a step away, not its carriageway
       const off = this.offOn(s, lat);
       if (this.overWater(s, u)) continue;
       const nx = s.x0 + s.dx * u - s.dz * off, nz = s.z0 + s.dz * u + s.dx * off;
@@ -237,7 +255,7 @@ export class People {
       this.walkOn(p, o.s, o.off, o.t, r() < 0.5 ? 1 : -1);
       return;
     }
-    p.v = -p.v; p.t = clamp(p.t, this.endOf(st), st.len - this.endOf(st)); p.goal = null;
+    p.v = -p.v; p.t = clamp(p.t, this.endOf(st, 'a'), st.len - this.endOf(st, 'b')); p.goal = null;
   }
 
   /** Crossings along a road: the street centres it crosses, as its own parameter. */
@@ -284,8 +302,7 @@ export class People {
           if (this.overWater(st, p.t)) { // the quay: the water and its bridge are the road's alone — turn about
             p.v = -p.v; p.t = clamp(this.quayT(st, p.v > 0 ? 1 : -1), 0, st.len); p.goal = null; // back to the quay they came from
           }
-          const end = this.endOf(st);
-          if (p.t > st.len - end || p.t < end) { this.turnCorner(p); break; } // the corner: round it
+          if (p.t > st.len - this.endOf(st, 'b') || p.t < this.endOf(st, 'a')) { this.turnCorner(p); break; } // the corner: round it
           p.yaw = Math.atan2(p.st!.dx * Math.sign(p.v), p.st!.dz * Math.sign(p.v));
           p.frame = ((this.tick + p.phase) >> 3) & 1 ? FRAME.walkB : FRAME.walkA;
           if (--p.timer <= 0) {
