@@ -42,14 +42,14 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { isMobile, reducedMotion } from '../lib/env';
 import { mulberry32 } from '../lib/rng';
 import {
-  AirLane, ART_COLOR, ARTS, AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, DIAGONAL, EXT, G, HALF, HIGHWAY, HoloKind, OUTER, planCity,
-  Poi, RAIL, RAMP_W, rampY, REACH, ROAD, Sign, signColor, Solid, starPositions, streetAt, STREET, Street, tourRoute,
+  AirLane, ART_COLOR, ARTERIAL, ARTERIAL_ROW, arterialLat, ARTS, AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, DIAGONAL, EXT, G, HALF, HIGHWAY, HoloKind, OUTER,
+  planCity, Poi, RAIL, RAMP_W, rampY, ROAD, Sign, signColor, Solid, starPositions, streetAt, STREET, Street, tourRoute,
 } from './city-plan';
 import { fov24, LensPass, lensTarget, MotionBlurPass } from './city-post';
 import { CityAudio } from './city-audio';
 import { CAST, People, Zone } from './city-people';
 import { blendLooks, ease, lerpHex, Look as SkyLook, LOOKS as SKY, paintSky, TimeOfDay } from './city-sky';
-import { Traffic, DECK_KERB } from './city-traffic';
+import { Traffic, DECK_KERB, SPEC } from './city-traffic';
 import { ATLAS, CELLS, FAMILIES, FLOOR, heightToNormal, PX as SKIN_PX, SHOP, skinFor, tintJitter, UPPER, VARIANTS } from './city-skins';
 
 /** THE FOG, rewritten for every material at once: three's exponential
@@ -1072,6 +1072,54 @@ function roadStrip(width: number, lanes: number[], edge: number, median: number,
   return { map, glow };
 }
 
+/** THE ARTERIAL'S STRIP: asphalt about a concrete median with yellow edges (the piers stand in it), a dashed lane
+ *  line between the lanes at 3.0 and 5.4, edge lines, kerb stones; the APRONS either side in a darker concrete
+ *  with bay lines; the pavements' slabs beyond a second kerb, out to the building line. Repeats every 12 along u. */
+function arterialStripTextures(aniso: number): { map: CanvasTexture; glow: CanvasTexture } {
+  const S = 8, L = 12 * S, W = Math.round(2 * ARTERIAL_ROW * S);
+  const c = document.createElement('canvas');
+  c.width = L; c.height = W;
+  const x = c.getContext('2d')!;
+  const mid = W / 2, half = ARTERIAL.w / 2, apron = half + ARTERIAL.apron;
+  const band = (a: number, b: number, color: string) => { // both sides, |lat| in [a, b)
+    x.fillStyle = color;
+    x.fillRect(0, Math.round(mid - b * S), L, Math.round((b - a) * S)); x.fillRect(0, Math.round(mid + a * S), L, Math.round((b - a) * S));
+  };
+  band(0, ARTERIAL_ROW, '#6c7082'); // the pavements' slabs
+  x.fillStyle = '#5c6074'; for (let i = 0; i < L; i += S) { x.fillRect(i, 0, 1, W); } // slab joints
+  band(0, apron + 0.5, '#585c6e'); // the aprons: a darker concrete
+  x.fillStyle = '#4a4e60'; for (let i = 0; i < L; i += 6 * S) { x.fillRect(i, Math.round(mid - apron * S), 1, Math.round((apron - half - 0.5) * S)); x.fillRect(i, Math.round(mid + (half + 0.5) * S), 1, Math.round((apron - half - 0.5) * S)); } // bay lines
+  band(apron - 0.2, apron + 0.5, '#8e92a6'); // the pavements' kerb stones
+  band(half, half + 0.5, '#8e92a6'); // the carriageway's kerb stones
+  band(0, half, '#3e4150'); // the asphalt
+  band(0, 1.8, '#7a7e90'); // the median's concrete
+  band(1.75, 1.95, '#e6c042'); // its yellow edges
+  band(half - 0.35, half - 0.1, '#e8eaf0'); // the edge lines
+  x.fillStyle = '#e8eaf0';
+  for (const s of [-1, 1]) for (const d of [0, 6 * S]) x.fillRect(d, Math.round(mid + s * 4.2 * S) - 1, 3 * S, 2); // the lane line between 3.0 and 5.4
+  for (let i = 0; i < 1400; i++) {
+    x.fillStyle = i % 2 ? '#000000' : '#ffffff'; x.globalAlpha = 0.03 + ((i * 7919) % 100) / 1400;
+    x.fillRect((i * 37) % L, (i * 53) % W, 1, 1);
+  }
+  x.globalAlpha = 1;
+  const map = streetTex(c, aniso), glow = streetTex(glowTwin(c), aniso);
+  map.wrapT = glow.wrapT = ClampToEdgeWrapping;
+  return { map, glow };
+}
+/** A zebra crossing: white bars across u, clear between them. */
+function zebraTexture(): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 16;
+  const x = c.getContext('2d')!;
+  x.clearRect(0, 0, 128, 16);
+  x.fillStyle = '#e8eaf0';
+  for (let i = 4; i < 128; i += 12) x.fillRect(i, 1, 6, 14);
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace;
+  t.magFilter = NearestFilter; t.minFilter = LinearMipmapLinearFilter;
+  return t;
+}
+
 /** The canal's mirror: vertical streaks of the city's colours, scrolled. */
 function waterTexture(rand: () => number): CanvasTexture {
   const c = document.createElement('canvas');
@@ -1302,28 +1350,56 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const aniso = renderer.capabilities.getMaxAnisotropy();
   const groundTex = groundTextures(rand, aniso);
   const GROUND = 106 * G; // a whole number of blocks: lot centres land on the tile corners
-  groundTex.map.repeat.set(106, 106); groundTex.glow.repeat.set(106, 106);
   // (Lambert, not a physical material: a street seen along its length mirrors every point light and the sky's
   // horizon at grazing angles — eighteen lamps' sheen summed to a white veil over the whole frame, measured)
-  const ground = new Mesh(new PlaneGeometry(GROUND, GROUND), new MeshLambertMaterial({
+  const groundMat = new MeshLambertMaterial({
     map: groundTex.map, emissiveMap: groundTex.glow, emissive: '#2c4a8e', emissiveIntensity: 1.5, // its own glow, in the look's colour, the paint brighter than the asphalt: the streets never fall to black
-  }));
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  scene.add(ground);
-  const water = new Mesh(new PlaneGeometry(CANAL.w, 2 * REACH), new MeshBasicMaterial({ color: '#040812' }));
+  });
+  // two halves with the canal's slot between them (owner: the water lies 2.6 below the streets, between quay walls);
+  // the UVs carry the tiling in block units, so both halves keep the lot centres on the tile corners
+  const groundHalf = (xa: number, xb: number) => {
+    const H = GROUND / 2;
+    const g = new BufferGeometry();
+    g.setAttribute('position', new BufferAttribute(new Float32Array([xa, 0, -H, xb, 0, -H, xb, 0, H, xa, 0, H]), 3));
+    g.setAttribute('uv', new BufferAttribute(new Float32Array([(xa + H) / G, 0, (xb + H) / G, 0, (xb + H) / G, GROUND / G, (xa + H) / G, GROUND / G]), 2));
+    g.setAttribute('normal', new BufferAttribute(new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), 3));
+    g.setIndex([0, 2, 1, 0, 3, 2]);
+    const m = new Mesh(g, groundMat);
+    m.receiveShadow = true;
+    scene.add(m);
+  };
+  groundHalf(-GROUND / 2, -CANAL.w / 2); groundHalf(CANAL.w / 2, GROUND / 2);
+  const wallMat = new MeshLambertMaterial({ color: '#3e4456' });
+  for (const s of [-1, 1]) { // the quay walls, their coping flush with the quays
+    const wall = new Mesh(new BoxGeometry(0.7, -CANAL.water + 0.6, GROUND), wallMat);
+    wall.position.set(s * (CANAL.w / 2 + 0.35), (CANAL.water - 0.6) / 2, 0);
+    wall.receiveShadow = true;
+    scene.add(wall);
+  }
+  const water = new Mesh(new PlaneGeometry(CANAL.w, GROUND), new MeshBasicMaterial({ color: '#040812' }));
   water.rotation.x = -Math.PI / 2;
-  water.position.y = 0.06;
+  water.position.y = CANAL.water;
   scene.add(water);
   const waterMat = water.material as MeshBasicMaterial;
   const waterTex = waterTexture(rand);
-  waterTex.repeat.set(1, 2 * REACH / 64);
-  const mirror = new Mesh(new PlaneGeometry(CANAL.w, 2 * REACH), new MeshBasicMaterial({
+  waterTex.repeat.set(1, GROUND / 64);
+  const mirror = new Mesh(new PlaneGeometry(CANAL.w, GROUND), new MeshBasicMaterial({
     map: waterTex, transparent: true, opacity: 0.32, blending: AdditiveBlending, depthWrite: false,
   }));
   mirror.rotation.x = -Math.PI / 2;
-  mirror.position.y = 0.09;
+  mirror.position.y = CANAL.water + 0.03;
   scene.add(mirror);
+  // GROUND PATCHES (owner: no ghost roads): the lots' stone laid over every street band the arterial closed
+  {
+    const patchMat = new MeshLambertMaterial({ color: '#4c5062', emissive: '#2c4a8e', emissiveIntensity: 0.9 });
+    const patches = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), patchMat, plan.patches.length);
+    const o = new Object3D();
+    plan.patches.forEach((p, j) => { o.position.set(p.x, 0.03, p.z); o.scale.set(p.w, 1, p.d); o.updateMatrix(); patches.setMatrixAt(j, o.matrix); });
+    patches.instanceMatrix.needsUpdate = true; patches.receiveShadow = true;
+    scene.add(patches);
+  }
+  const hlenR = Math.hypot(HIGHWAY.x1 - HIGHWAY.x0, HIGHWAY.z1 - HIGHWAY.z0);
+  const hnxR = -(HIGHWAY.z1 - HIGHWAY.z0) / hlenR, hnzR = (HIGHWAY.x1 - HIGHWAY.x0) / hlenR; // the axis's left normal
   const streetMats: MeshLambertMaterial[] = []; // the laid roads, the deck, the ramps: lit and glowing with the ground
   const streetMat = (strip: { map: CanvasTexture; glow: CanvasTexture }, repeat: number) => {
     const map = strip.map.clone(), glow = strip.glow.clone();
@@ -1333,11 +1409,12 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     streetMats.push(m);
     return m;
   };
-  const boulevardStrip = roadStrip(DIAGONAL.width, [2.55], 4.9, 0, true, aniso); // two lanes a side (city-traffic OFFSETS.diagonal)
+  const boulevardStrip = roadStrip(DIAGONAL.width + 4, [2.55], 4.9, 0, true, aniso); // two lanes a side (city-traffic OFFSETS.diagonal), its pavements past the edge lines
   const deckStrip = roadStrip(HIGHWAY.width, [2.6, 5.0], DECK_KERB - 0.1, 0.8, false, aniso); // three lanes a side about a median (OFFSETS.highway)
   const rampStrip = roadStrip(RAMP_W, [], RAMP_W / 2 - 0.4, 0, false, aniso); // one lane
-  const laidRoad = (st: Street, y: number, width: number) => {
-    const m = new Mesh(new PlaneGeometry(st.len, width), streetMat(boulevardStrip, st.len / 12));
+  const arterialStrip = arterialStripTextures(aniso); // the carriageway about its median, the aprons, the pavements (OFFSETS.arterial)
+  const laidRoad = (st: Street, y: number, width: number, strip = boulevardStrip) => {
+    const m = new Mesh(new PlaneGeometry(st.len, width), streetMat(strip, st.len / 12));
     m.receiveShadow = true;
     m.position.set(st.x0 + st.dx * st.len / 2, y, st.z0 + st.dz * st.len / 2);
     m.rotation.y = Math.atan2(-st.dz, st.dx);
@@ -1346,8 +1423,26 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   };
   const deckDark = new MeshBasicMaterial({ color: '#0a0c1e' });
   const edge: number[] = []; // amber lights along every deck edge — the highway's and the ramps'
+  const deckLights: number[] = []; // cold tubes under the deck, over the arterial
   for (const st of plan.streets) {
-    if (st.kind === 'diagonal') laidRoad(st, 0.05, st.width);
+    if (st.kind === 'arterial') laidRoad(st, 0.05, 2 * ARTERIAL_ROW, arterialStrip);
+    if (st.kind === 'diagonal') { // the boulevard's strip with its pavements, squared off at the avenue roads' kerbs (owner: its paint ran into the quay road)
+      const half = DIAGONAL.width / 2 + 2, nx = -st.dz, nz = st.dx;
+      const pts: number[] = [], uvs: number[] = [];
+      for (const [side, t] of [[1, 'start'], [1, 'end'], [-1, 'end'], [-1, 'start']] as [number, string][]) {
+        const ex = st.x0 + nx * side * half, ez = st.z0 + nz * side * half;
+        const tt = t === 'start' ? (-24 - ez) / st.dz : (-24 - ex) / st.dx; // the avenue road's south kerb (z = −24) at the start, the quay road's west kerb (x = −24) at the end
+        pts.push(ex + st.dx * tt, 0.05, ez + st.dz * tt); uvs.push(tt / 12, side > 0 ? 1 : 0);
+      }
+      const g = new BufferGeometry();
+      g.setAttribute('position', new BufferAttribute(new Float32Array(pts), 3));
+      g.setAttribute('uv', new BufferAttribute(new Float32Array(uvs), 2));
+      g.setAttribute('normal', new BufferAttribute(new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), 3));
+      g.setIndex([0, 1, 2, 0, 2, 3]);
+      const m = new Mesh(g, streetMat(boulevardStrip, 1)); (m.material as MeshLambertMaterial).side = DoubleSide;
+      m.receiveShadow = true;
+      scene.add(m);
+    }
     if (st.kind === 'highway') {
       const deck = new Mesh(new BoxGeometry(st.len, 0.8, st.width), [deckDark, deckDark, streetMat(deckStrip, st.len / 12), deckDark, deckDark, deckDark]);
       deck.receiveShadow = true;
@@ -1363,13 +1458,11 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       for (const side of [-1, 1] as const) {
         const gaps: [number, number][] = [];
         for (const r of plan.streets) {
-          if (r.kind !== 'ramp') continue;
-          const hi = r.y > (r.y1 ?? r.y) ? 0 : r.len; // the high end: where it meets the deck
-          const hx = r.x0 + r.dx * hi, hz = r.z0 + r.dz * hi;
-          const lat = (hx - st.x0) * -st.dz + (hz - st.z0) * st.dx;
+          if (r.kind !== 'ramp' || r.y !== r.y1 || r.y < 1) continue; // a taper: at deck level, diverging along the edge
+          const lat = (r.x0 - st.x0) * -st.dz + (r.z0 - st.z0) * st.dx;
           if (Math.sign(lat) !== side) continue;
-          const t = (hx - st.x0) * st.dx + (hz - st.z0) * st.dz;
-          gaps.push([t - 15, t + 15]);
+          const t0 = (r.x0 - st.x0) * st.dx + (r.z0 - st.z0) * st.dz, t1 = t0 + r.len * (r.dx * st.dx + r.dz * st.dz);
+          gaps.push([Math.min(t0, t1) - 1, Math.max(t0, t1) + 1]);
         }
         gaps.sort((a, b) => a[0] - b[0]);
         const runs: [number, number][] = [];
@@ -1386,9 +1479,38 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
           for (let t = a; t <= b; t += 3) edge.push(st.x0 + st.dx * t - st.dz * lat, HIGHWAY.y + 1.6, st.z0 + st.dz * t + st.dx * lat);
         }
       }
+      // THE PIERS' CAPS (owner: the deck floated on sticks): a hammerhead across the axis on each of the plan's columns
+      const caps = new InstancedMesh(new BoxGeometry(1, 1, 1), new MeshLambertMaterial({ color: '#4a4f62' }), plan.piers.length);
+      const o = new Object3D();
+      plan.piers.forEach((p, j) => {
+        o.rotation.set(0, yawH, 0); o.position.set(p.x, HIGHWAY.y - 1.1, p.z); o.scale.set(2.4, 1.4, 14); o.updateMatrix(); caps.setMatrixAt(j, o.matrix);
+      });
+      caps.instanceMatrix.needsUpdate = true; caps.castShadow = true; caps.receiveShadow = true;
+      scene.add(caps);
+      for (let t = 5; t < st.len; t += 10) for (const s of [-1, 1]) deckLights.push(st.x0 + st.dx * t - st.dz * s * 5, HIGHWAY.y - 0.55, st.z0 + st.dz * t + st.dx * s * 5); // the tubes under the deck
     }
-    if (st.kind === 'ramp') { // a chain of tilted deck pieces down the ramp's ease, parapets along both sides
-      const N = 14;
+    if (st.kind === 'ramp' && st.y === st.y1) { // a TAPER at deck level or a SLIP at grade: a wedge from the deck's edge line (or the arterial's kerb line) out to the piece's outer edge, a parapet along the outer edge alone
+      const side = Math.sign(arterialLat(st.x0, st.z0)) || 1;
+      const inner = st.y > 1 ? HIGHWAY.width / 2 : ARTERIAL.w / 2;
+      const y = st.y > 1 ? st.y : st.y + 0.03;
+      const onInner = (x: number, z: number) => { const lat = arterialLat(x, z) - side * inner; return [x - hnxR * lat, z - hnzR * lat]; };
+      const outer = (t: number) => [st.x0 + st.dx * t - st.dz * side * (RAMP_W / 2), st.z0 + st.dz * t + st.dx * side * (RAMP_W / 2)];
+      const P0 = onInner(st.x0, st.z0), P1 = onInner(st.x0 + st.dx * st.len, st.z0 + st.dz * st.len), P2 = outer(st.len), P3 = outer(0);
+      const g = new BufferGeometry();
+      g.setAttribute('position', new BufferAttribute(new Float32Array([P0[0], y, P0[1], P1[0], y, P1[1], P2[0], y, P2[1], P3[0], y, P3[1]]), 3));
+      g.setAttribute('uv', new BufferAttribute(new Float32Array([0, 0, st.len / 12, 0, st.len / 12, 1, 0, 1]), 2));
+      g.setAttribute('normal', new BufferAttribute(new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), 3));
+      g.setIndex([0, 1, 2, 0, 2, 3]);
+      const m = new Mesh(g, streetMat(rampStrip, 1)); (m.material as MeshLambertMaterial).side = DoubleSide;
+      m.receiveShadow = true;
+      scene.add(m);
+      const w = new Mesh(new BoxGeometry(st.len + 0.3, 0.9, 0.3), deckDark); // the outer parapet
+      w.position.set((P3[0] + P2[0]) / 2, y + 0.45, (P3[1] + P2[1]) / 2);
+      w.rotation.y = Math.atan2(-st.dz, st.dx);
+      scene.add(w);
+      for (let t = 0; t <= st.len; t += 3) { const o = outer(t); edge.push(o[0], y + 0.5, o[1]); } // amber lights along the outer edge
+    } else if (st.kind === 'ramp') { // a RUN: a chain of tilted deck pieces down the ramp's profile, parapets along both sides
+      const N = Math.max(4, Math.round(st.len / 8));
       const top = streetMat(rampStrip, st.len / N / 12);
       for (let k = 0; k < N; k++) {
         const t0 = (k / N) * st.len, t1 = ((k + 1) / N) * st.len;
@@ -1398,6 +1520,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
         m.position.set(st.x0 + st.dx * (t0 + t1) / 2, (y0 + y1) / 2 - 0.35, st.z0 + st.dz * (t0 + t1) / 2);
         m.rotation.order = 'YZX';
         m.rotation.set(0, Math.atan2(-st.dz, st.dx), Math.atan2(dy, dh));
+        m.castShadow = true; m.receiveShadow = true;
         scene.add(m);
         for (const s of [-1, 1]) {
           const w = new Mesh(new BoxGeometry(Math.hypot(dh, dy) + 0.5, 0.9, 0.3), deckDark);
@@ -1512,19 +1635,19 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     const railMat = new MeshLambertMaterial({ color: '#d0d6e0' });
     const concrete = new MeshLambertMaterial({ color: '#7d8391' });
     const bridgeStrip = roadStrip(12, [2.55], 4.9, 0, true, aniso);
-    const SEG = 12, HANG = [-9, -6, -3, 0, 3, 6, 9], BAL = 13, RISE = 6.2, HALF_SPAN = 12, DECK_Y = 1.6; // (owner: the boats clipped the decks — a low cabin passes under 1.35)
+    const SEG = 12, HANG = [-9, -6, -3, 0, 3, 6, 9], BAL = 13, RISE = 6.2, HALF_SPAN = 12, DECK_Y = CANAL.deck; // flush with the streets: the water lies below (owner: the approach wedges sat inside the quay crossings)
     const archY = (x: number) => DECK_Y + 0.3 + RISE * (1 - (x / HALF_SPAN) ** 2);
-    const nB = plan.bridges.length;
+    const ews = plan.bridges.filter((b) => b.yaw === 0);
+    const nB = ews.length;
     const arches = new InstancedMesh(geo.box, steel, (SEG * 2 + HANG.length * 2 + 3) * nB);
     const rails = new InstancedMesh(geo.box, railMat, (2 + BAL * 2) * nB);
-    const abutments = new InstancedMesh(geo.box, concrete, 2 * nB);
-    let ia = 0, ir = 0, ic = 0;
+    let ia = 0, ir = 0;
     const put = (inst: InstancedMesh, j: number, x: number, y: number, z: number, w: number, h: number, d: number, rz = 0) => {
       dummy.position.set(x, y, z); dummy.rotation.set(0, 0, rz); dummy.scale.set(w, h, d); dummy.updateMatrix(); inst.setMatrixAt(j, dummy.matrix);
     };
-    for (const b of plan.bridges) {
+    for (const b of ews) {
       const deck = new Mesh(new BoxGeometry(2 * HALF_SPAN + 2, 0.6, 12), [concrete, concrete, streetMat(bridgeStrip, (2 * HALF_SPAN + 2) / 12), concrete, concrete, concrete]);
-      deck.position.set(0, DECK_Y, b.z);
+      deck.position.set(b.x, DECK_Y - 0.3, b.z);
       deck.receiveShadow = true; deck.castShadow = true;
       scene.add(deck);
       for (const side of [-1, 1]) {
@@ -1539,16 +1662,18 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
         for (let i = 0; i < BAL; i++) put(rails, ir++, -HALF_SPAN + (2 * HALF_SPAN * i) / (BAL - 1), DECK_Y + 0.85, b.z + side * 5.55, 0.08, 1.0, 0.08);
       }
       for (const px of [-3, 0, 3]) put(arches, ia++, px, archY(px), b.z, 0.26, 0.26, 11.7); // portal braces
-      for (const side of [-1, 1]) put(abutments, ic++, side * (HALF_SPAN - 0.4), 0.7, b.z, 1.6, 1.4, 12.4); // the abutments at the water's edge (the quays' walkers pass outside them)
-      for (const side of [-1, 1]) { // the approach wedges: the road climbs the eight units to the deck (the cars used to float up an invisible hump)
-        const ramp = new Mesh(new BoxGeometry(Math.hypot(8.2, 1.9), 0.5, 12), [concrete, concrete, streetMat(rampStrip, 8.2 / 12), concrete, concrete, concrete]);
-        ramp.position.set(side * 17, 0.7, b.z);
-        ramp.rotation.z = -side * Math.atan2(1.9, 8.2);
-        ramp.receiveShadow = true;
-        scene.add(ramp);
+    }
+    for (const inst of [arches, rails]) { inst.instanceMatrix.needsUpdate = true; inst.castShadow = true; inst.receiveShadow = true; scene.add(inst); }
+    for (const b of plan.bridges.filter((b) => b.yaw !== 0)) { // the arterial's: a flush girder deck the width of its right of way, balustrades along both edges
+      const deck = new Mesh(new BoxGeometry(b.span, 0.6, b.w), concrete);
+      deck.position.set(b.x, DECK_Y - 0.3, b.z); deck.rotation.y = b.yaw; deck.receiveShadow = true; deck.castShadow = true;
+      scene.add(deck);
+      for (const s of [-1, 1]) {
+        const rail = new Mesh(new BoxGeometry(b.span, 1.0, 0.25), railMat);
+        rail.position.set(b.x + Math.sin(b.yaw) * s * (b.w / 2 - 0.2), DECK_Y + 0.5, b.z + Math.cos(b.yaw) * s * (b.w / 2 - 0.2)); rail.rotation.y = b.yaw;
+        scene.add(rail);
       }
     }
-    for (const inst of [arches, rails, abutments]) { inst.instanceMatrix.needsUpdate = true; inst.castShadow = true; inst.receiveShadow = true; scene.add(inst); }
     dummy.rotation.set(0, 0, 0);
   }
   // -- SHOP LIGHT ON THE PAVEMENT (owner: the street level lit like a city at night): every
@@ -2033,7 +2158,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     lampHeads.push(headMat);
     const posts = new InstancedMesh(geo.box, postMat, nP), arms = new InstancedMesh(geo.box, postMat, nP), lanterns = new InstancedMesh(geo.box, headMat, nP);
     const heads = new Float32Array(nP * 3);
-    const ways = plan.streets.filter((s) => s.kind === 'road' || s.kind === 'diagonal' || s.kind === 'highway' || s.kind === 'ramp');
+    const ways = plan.streets.filter((s) => s.kind === 'road' || s.kind === 'diagonal' || s.kind === 'highway' || s.kind === 'ramp' || s.kind === 'arterial');
     plan.posts.forEach((p, j) => {
       const base = p.y ?? 0; // some stand on the highway deck or a ramp
       let ax = 1, az = 0, best = 9;
@@ -2193,6 +2318,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     dummy.rotation.set(0, 0, 0);
     for (const inst of [deck, rails3]) { inst.instanceMatrix.needsUpdate = true; inst.castShadow = true; inst.receiveShadow = true; scene.add(inst); }
     glowPoints(railLights, '#ffb347', 2.0, 0.8);
+    glowPoints(deckLights, '#dfe6ff', 2.4, 0.7); // the cold tubes under the deck
     for (const st of plan.rail.stations) {
       const along = Math.abs(st.dx) > 0.5;
       const canopy = new Mesh(new BoxGeometry(along ? 22 : 9.4, 0.4, along ? 9.4 : 22), canopyMat);
@@ -2315,7 +2441,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   traffic.populate(calm ? 800 : 1500, (lane) => {
     const st = lane.link.street;
     const t = (lane.link.t0 + lane.link.t1) / 2;
-    return lane.len * (inCore(st.x0 + st.dx * t, st.z0 + st.dz * t) ? 3 : 0.9) * (st.kind === 'highway' ? 2.2 : 1);
+    return lane.len * (inCore(st.x0 + st.dx * t, st.z0 + st.dz * t) ? 3 : 0.9) * (st.kind === 'highway' ? 2.2 : st.kind === 'arterial' ? 2.5 : 1);
   });
   const cars = traffic.cars;
   const canal = plan.streets.find((s) => s.kind === 'canal')!;
@@ -2336,6 +2462,18 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   cars.forEach((c, i) => carMesh.setColorAt(i, new Color(
     c.kind === 'bus' ? '#d9d2c4' : c.kind === 'taxi' ? '#ffd23f' : c.kind === 'truck' ? pick(rand, TRUCK) : c.kind === 'moto' ? '#1a1a24' : pick(rand, BODY))));
   scene.add(carMesh);
+  { // PARKED along the arterial's aprons (owner: a lived-in boulevard): the plan's spots, in the vehicles' own wraps
+    const parkedMesh = new InstancedMesh(geo.box, carMesh.material, Math.max(1, plan.parked.length));
+    plan.parked.forEach((p, i) => {
+      const [len, w, h] = SPEC[p.kind];
+      dummy.rotation.set(0, p.yaw, 0); dummy.position.set(p.x, h / 2 + 0.05, p.z); dummy.scale.set(w, h, len); dummy.updateMatrix(); parkedMesh.setMatrixAt(i, dummy.matrix);
+      parkedMesh.setColorAt(i, new Color(p.kind === 'taxi' ? '#ffd23f' : p.kind === 'truck' ? pick(rand, TRUCK) : p.kind === 'moto' ? '#1a1a24' : pick(rand, BODY)));
+    });
+    parkedMesh.count = plan.parked.length;
+    dummy.rotation.set(0, 0, 0);
+    parkedMesh.instanceMatrix.needsUpdate = true; if (parkedMesh.instanceColor) parkedMesh.instanceColor.needsUpdate = true; parkedMesh.castShadow = true;
+    scene.add(parkedMesh);
+  }
   // BOATS (owner: they were car-shaped boxes in car wraps, clipping the bridge decks): a low hull, a cabin aft with lit
   // windows, a white bow light and a red stern light; the hull's top at 0.5 and the cabin's at 1.15, under the decks at 1.35
   const hullMat = new MeshLambertMaterial({ color: '#22283a' }), cabinMat = new MeshLambertMaterial({ color: '#3a4258' });
@@ -2413,12 +2551,13 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       const yaw = b.v > 0 ? Math.atan2(canal.dx, canal.dz) : Math.atan2(-canal.dx, -canal.dz);
       const hx = Math.sin(yaw), hz = Math.cos(yaw);
       dummy.rotation.order = 'XYZ'; dummy.rotation.set(0, yaw, 0);
-      dummy.position.set(x, 0.28, z); dummy.scale.set(2.2, 0.44, 7); dummy.updateMatrix(); hulls.setMatrixAt(k, dummy.matrix);
-      dummy.position.set(x - hx * 1.6, 0.82, z - hz * 1.6); dummy.scale.set(1.5, 0.64, 2.4); dummy.updateMatrix(); cabins.setMatrixAt(k, dummy.matrix);
-      dummy.position.set(x - hx * 1.6, 0.9, z - hz * 1.6); dummy.scale.set(1.54, 0.26, 2.2); dummy.updateMatrix(); cabinWin.setMatrixAt(k, dummy.matrix);
+      const W = CANAL.water;
+      dummy.position.set(x, W + 0.28, z); dummy.scale.set(2.2, 0.44, 7); dummy.updateMatrix(); hulls.setMatrixAt(k, dummy.matrix);
+      dummy.position.set(x - hx * 1.6, W + 0.82, z - hz * 1.6); dummy.scale.set(1.5, 0.64, 2.4); dummy.updateMatrix(); cabins.setMatrixAt(k, dummy.matrix);
+      dummy.position.set(x - hx * 1.6, W + 0.9, z - hz * 1.6); dummy.scale.set(1.54, 0.26, 2.2); dummy.updateMatrix(); cabinWin.setMatrixAt(k, dummy.matrix);
       const j = k * 6;
-      boatLights.arr[j] = x + hx * 3.4; boatLights.arr[j + 1] = 0.7; boatLights.arr[j + 2] = z + hz * 3.4; BOW.toArray(boatLights.col, j);
-      boatLights.arr[j + 3] = x - hx * 3.4; boatLights.arr[j + 4] = 1.2; boatLights.arr[j + 5] = z - hz * 3.4; STERN.toArray(boatLights.col, j + 3);
+      boatLights.arr[j] = x + hx * 3.4; boatLights.arr[j + 1] = W + 0.7; boatLights.arr[j + 2] = z + hz * 3.4; BOW.toArray(boatLights.col, j);
+      boatLights.arr[j + 3] = x - hx * 3.4; boatLights.arr[j + 4] = W + 1.2; boatLights.arr[j + 5] = z - hz * 3.4; STERN.toArray(boatLights.col, j + 3);
     });
     hulls.instanceMatrix.needsUpdate = true; cabins.instanceMatrix.needsUpdate = true; cabinWin.instanceMatrix.needsUpdate = true;
     (boatLights.g.getAttribute('position') as BufferAttribute).needsUpdate = true;
@@ -2451,14 +2590,29 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     const sposts = new InstancedMesh(geo.box, postMat, count * 2), housings = new InstancedMesh(geo.box, housingMat, count);
     signalLamps = new InstancedMesh(geo.box, lampMat, count * 3);
     let jp = 0, jh = 0, jl = 0;
+    const rowOf = (q: Street) => (q.kind === 'arterial' ? ARTERIAL_ROW : q.width / 2);
     for (const n of lit) {
       for (const st of n.streets) {
         const group = n.streets.indexOf(st);
         for (const dir of [1, -1] as const) {
           const ux = st.dx * dir, uz = st.dz * dir; // the approach's heading
           const lx = -uz, lz = ux; // its left: the side it drives on
-          const K = ROAD / 2 + 0.9;
-          const cx = n.x - ux * K + lx * K, cz = n.z - uz * K + lz * K; // the corner before the box, on the traffic's side
+          // the post at the corner of the two pavements: back from the box by the cross streets' right of way, out on
+          // this street's own pavement (the arterial's approaches: at its kerb, in the apron) — then pushed out of any
+          // carriageway it still stands in (the six-way crossings), or dropped (owner: 25 posts stood in the road)
+          const back = n.streets.reduce((m, o) => (o === st ? m : Math.max(m, rowOf(o))), 0) + 0.9;
+          const out = st.kind === 'arterial' ? st.width / 2 + 0.9 : rowOf(st) - 1.2;
+          let cx = n.x - ux * back + lx * out, cz = n.z - uz * back + lz * out;
+          let clear = false;
+          for (let k = 0; k < 6 && !clear; k++) {
+            clear = n.streets.every((o) => {
+              const u = (cx - o.x0) * o.dx + (cz - o.z0) * o.dz;
+              if (u < 0 || u > o.len) return true;
+              return Math.abs(-(cx - o.x0) * o.dz + (cz - o.z0) * o.dx) > (o.kind === 'diagonal' ? 4.9 : o.width / 2) + 0.3;
+            });
+            if (!clear) { cx += lx; cz += lz; }
+          }
+          if (!clear) continue;
           dummy.rotation.set(0, 0, 0);
           dummy.position.set(cx, n.y + 2.75, cz); dummy.scale.set(0.16, 5.5, 0.16); dummy.updateMatrix(); sposts.setMatrixAt(jp++, dummy.matrix);
           dummy.position.set(cx - lx * 1.6, n.y + 5.4, cz - lz * 1.6); dummy.scale.set(Math.abs(lx) * 3.2 + 0.12, 0.12, Math.abs(lz) * 3.2 + 0.12); dummy.updateMatrix(); sposts.setMatrixAt(jp++, dummy.matrix); // the arm over the near lane
@@ -2475,8 +2629,30 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
         }
       }
     }
+    sposts.count = jp; housings.count = jh; signalLamps.count = jl;
     dummy.rotation.set(0, 0, 0);
     for (const inst of [sposts, housings, signalLamps]) { inst.instanceMatrix.needsUpdate = true; scene.add(inst); }
+    // ZEBRAS at the arterial's crossings: across its carriageway on the side street's pavement lines, across the side
+    // street on the arterial's pavement lines (the ground tile's crossings only know the grid)
+    const zebraMat = new MeshBasicMaterial({ map: zebraTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
+    const crossings = lit.filter((n) => n.streets.some((q) => q.kind === 'arterial') && n.streets.some((q) => q.kind === 'road'));
+    const zebras = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), zebraMat, Math.max(1, crossings.length * 4));
+    let jz = 0;
+    for (const n of crossings) {
+      const art = n.streets.find((q) => q.kind === 'arterial')!, road = n.streets.find((q) => q.kind === 'road')!;
+      for (const s of [-1, 1]) {
+        // across the arterial, on the road's pavement line: as long as the carriageway is wide where the road crosses it
+        dummy.rotation.set(0, Math.atan2(road.dx, road.dz) + Math.PI / 2, 0);
+        dummy.position.set(n.x - road.dz * s * 6.2, 0.07, n.z + road.dx * s * 6.2); dummy.scale.set(ARTERIAL.w / Math.abs(road.dx * art.dz - road.dz * art.dx) + 0.4, 1, 2.4); dummy.updateMatrix(); zebras.setMatrixAt(jz++, dummy.matrix);
+        // across the road, on the arterial's pavement line
+        dummy.rotation.set(0, Math.atan2(art.dx, art.dz) + Math.PI / 2, 0);
+        dummy.position.set(n.x - art.dz * s * (ARTERIAL_ROW - ARTERIAL.walk / 2), 0.07, n.z + art.dx * s * (ARTERIAL_ROW - ARTERIAL.walk / 2)); dummy.scale.set(ROAD + 0.4, 1, 2.2); dummy.updateMatrix(); zebras.setMatrixAt(jz++, dummy.matrix);
+      }
+    }
+    zebras.count = jz;
+    dummy.rotation.set(0, 0, 0);
+    zebras.instanceMatrix.needsUpdate = true;
+    scene.add(zebras);
   }
   const RED = new Color('#ff3b3b'), GREEN = new Color('#3dff8f'), OFF_RED = new Color('#2a0808'), OFF_GREEN = new Color('#082a12'), WALK = new Color('#e8f4ff'), DONT = new Color('#ff5e4a');
   const tendSignals = () => {
@@ -3162,7 +3338,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     scene.environmentIntensity = L.reflect;
     wallBleach.value = L.bleach.amount; wallBleachCol.value.set(L.bleach.color); wallGlass.value.set(L.glass);
     dark.color.set(lerpHex('#22305a', L.bleach.color, L.bleach.amount)); // the roofs go with the walls
-    const gm = ground.material as MeshLambertMaterial;
+    const gm = groundMat;
     gm.color.setScalar(L.groundLift); // the streets' own brightness
     gm.emissive.set(L.bleach.color); gm.emissiveIntensity = L.groundGlow; // and their glow, the paint brighter than the asphalt: no patch of street falls to black
     for (const m of streetMats) { m.color.setScalar(L.groundLift); m.emissive.set(L.bleach.color); m.emissiveIntensity = L.groundGlow * 0.9; }

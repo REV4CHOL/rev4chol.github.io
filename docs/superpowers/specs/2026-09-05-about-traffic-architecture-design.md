@@ -143,3 +143,34 @@ People: arterial walkers in band and ≥ 20 of them; nobody past a road's `ends`
 Spec → plan → implement in five tasks (plan, traffic, people, renderer, docs) → typecheck, 190+ tests, build →
 verify in the pane (an interchange from above and from the arterial; a quay crossing; the six-way crossings;
 the auto flight 1500 ticks) → commit per task → push → deploy green.
+
+## As built (2026-09-05)
+
+Departures from the design above, and why:
+
+- **The arterial's cross-section** is kerb 7.5, apron 7.5–16.1, pavement 16.1–18.5 (the table's 8.0/16.6/19.0 was
+  off by the kerb's half). Walkers keep to 16.9–17.7; the lamps stand at 16.4.
+- **East–west closures at 35, not 26.** At 26 a side street's crossing with the next east–west road sat 26–29 from
+  the arterial's axis: with the arterial's box at 20 and a crossing's at 8.5 nothing could stand between the two
+  stop lines, and a vehicle waiting there kept both boxes "busy" for ever — a deadlock ring at x = 247. Closing every
+  segment the axis comes within 35 of leaves no side-street link shorter than 60. About forty segments close.
+- **Per-node signal cycles.** A side street drives 40 units through the arterial's box, longer than the 300-frame
+  green; each lit node's green and phase now scale with its box's reach (the arterial's crossings run a 33-second
+  cycle, the plain ones as before). Waits there of 20–40 s are the boulevard's, not stalls: over 24,000 frames the
+  vehicles held longer than two cycles stay at 0–6 and do not grow (the baseline city's count of the same kind is 0–4).
+- **The arterial's ends run 60 past the rim** and are portals. A T onto the rim road, then a portal one car past
+  the rim's light, throttled the whole road.
+- **Gap patience.** A driver waiting ten seconds at an unlit turn accepts a gap of 8, not 18: the T's of the severed
+  stubs onto the saturated arterial never saw an 18-unit gap.
+- **Corners.** The severances leave two-street corners (an east–west road and a north–south road both ending); the
+  outer lane's only exit there was a U-turn whose loop swept through the inner lane's turn. Every lane turns at a
+  corner, nested.
+- **A spur shorter than the arterial's pavement pad is dropped** (x = −171 north of the stadium left a 1.8-unit road).
+- **Rail portals** no longer stand in a crossing street or under the deck (the cadence no longer resets on a skip):
+  32 portals, from 37.
+- **Overbuild and billboard counts** fell with the north's streets (18 spans, 185 billboards); the tests moved to
+  15 and 150.
+- **The quay band** for walkers is 12.5 (the coping is walkable now that the decks are flush); a run that ends at a
+  quay road starts its walkers on the other quay.
+- Not done: no separate pedestrian phase at the arterial's crossings (walkers cross on their pavement line inside
+  the box, as at every crossing); the deck's tubes are glow points, not fixtures.
