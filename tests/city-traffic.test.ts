@@ -61,7 +61,7 @@ describe('Traffic', () => {
       traffic.step();
       for (let i = 0; i < traffic.cars.length; i++) {
         const c = traffic.cars[i], p = prev[i];
-        maxJump = Math.max(maxJump, Math.hypot(c.x - p.x, c.y - p.y, c.z - p.z));
+        if (c.warped !== traffic.tick) maxJump = Math.max(maxJump, Math.hypot(c.x - p.x, c.y - p.y, c.z - p.z)); // a portal is a step by design
         p.x = c.x; p.y = c.y; p.z = c.z;
       }
       if (f % 25 === 0) {
@@ -107,6 +107,17 @@ describe('Traffic', () => {
       }
     }
     expect(closest).toBeGreaterThan(1.9);
+  });
+
+  it('runs the highway through: whoever reaches its end in the fog is carried to the other end, never turned about', () => {
+    const hw = traffic.lanes.filter((l) => l.link.street.kind === 'highway');
+    const portals = hw.flatMap((l) => l.exits.filter((e) => e.portal));
+    expect(portals.length).toBe(6); // three lanes a side, one portal each
+    for (const e of portals) { expect(e.to.link.street.kind).toBe('highway'); expect(e.S).toBe(0); expect(Math.hypot(e.x1 - e.x0, e.z1 - e.z0)).toBeGreaterThan(700); }
+    expect(hw.some((l) => l.exits.some((e) => e.to.link === l.link && !e.straight))).toBe(false); // no U-turn on the highway
+    let warped = 0;
+    for (let f = 0; f < 3000; f++) { traffic.step(); for (const c of traffic.cars) if (c.warped === traffic.tick) warped += 1; }
+    expect(warped).toBeGreaterThan(5);
   });
 
   it('uses the ramps: traffic leaves the highway and joins it', () => {

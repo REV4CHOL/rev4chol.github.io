@@ -11,9 +11,15 @@
  *  android — each kind at its own pace (owner: a lot of variety). Pure: no
  *  DOM, no renderer; the renderer draws each person's position, heading,
  *  kind and animation frame. */
-import { Stall, Street } from './city-plan';
+import { CANAL, Stall, Street } from './city-plan';
 
-export type Act = 'walk' | 'stand' | 'talk' | 'browse' | 'cross' | 'vend' | 'sit' | 'mill';
+/** Walking, or paused, or talking in a knot, or browsing a stall, or crossing a road, or vending, or sitting,
+ *  or milling in a market — or going in at a door (enter), gone a while (inside), coming out (exit). */
+export type Act = 'walk' | 'stand' | 'talk' | 'browse' | 'cross' | 'vend' | 'sit' | 'mill' | 'enter' | 'inside' | 'exit';
+/** The water's edge either side of the canal: no pavement crosses it (the bridges carry the road alone). */
+const QUAY = CANAL.w / 2 + 1.5;
+/** A road's pavement stops short of the crossing street: the corner, where the next pavement begins. */
+const CORNER = 6.2;
 /** Animation frames in the sprite sheet: walk A/B, stand, sit, talk (a hand
  *  up), phone (lit, at the face), vend (arms on the counter), sit with a phone. */
 export const FRAME = { walkA: 0, walkB: 1, stand: 2, sit: 3, talk: 4, phone: 5, vend: 6, sitPhone: 7 } as const;
@@ -76,9 +82,10 @@ export class People {
       p.kind = KIND.vendor; p.pace = 0.9;
       p.act = 'vend'; p.stall = st; p.x = st.x; p.z = st.z + 0.3; p.yaw = r() < 0.5 ? 0 : Math.PI; p.frame = FRAME.vend;
     }
-    for (let i = 0, knots = Math.max(8, Math.floor(n / 45)); i < knots; i++) { // knots of talk on the pavements
-      const st = this.pickStreet();
-      const t = 6 + r() * Math.max(1, st.len - 12);
+    for (let i = 0, knots = Math.max(8, Math.floor(n / 45)); i < knots; i++) { // knots of talk on the pavements (never on the water)
+      let st = this.pickStreet();
+      let t = 6 + r() * Math.max(1, st.len - 12);
+      while (this.overWater(st, t)) { st = this.pickStreet(); t = 6 + r() * Math.max(1, st.len - 12); }
       const off = this.kerb(st);
       const k: Knot = { x: st.x0 + st.dx * t - st.dz * off, z: st.z0 + st.dz * t + st.dx * off, st, off, t, members: [], want: 2 + Math.floor(r() * 2) };
       this.knots.push(k);
@@ -123,14 +130,30 @@ export class People {
     return this.walkable[this.walkable.length - 1];
   }
 
-  /** A pavement offset: a kerb side of a road, anywhere across an alley. */
+  /** A pavement offset: a kerb side of a road (the pavement's outer half — the lamp posts stand at the kerb), anywhere across an alley. */
   private kerb(st: Street): number {
     if (st.kind === 'alley') return (this.rand() - 0.5) * (st.width - 1.5);
-    return (this.rand() < 0.5 ? 1 : -1) * (st.width / 2 - 1);
+    return (this.rand() < 0.5 ? 1 : -1) * (st.width / 2 - 1 + this.rand() * 0.7);
+  }
+
+  /** The canal's water and its bridges, on an east–west road. */
+  private overWater(st: Street, t: number): boolean {
+    return st.kind === 'road' && st.dz === 0 && Math.abs(st.x0 + st.dx * t) < QUAY;
+  }
+  /** The parameter of the quay on the given side of the water. */
+  private quayT(st: Street, side: 1 | -1): number { return (side * QUAY - st.x0) / st.dx; }
+  /** How far in from a road's ends the pavement runs (the crossing street's road lies past it). */
+  private endOf(st: Street): number { return st.kind === 'road' || st.kind === 'diagonal' ? Math.min(CORNER, st.len / 2) : 0; }
+  /** The same kerb side the walker is on, a fresh offset (never across the road in a step). */
+  private sameSide(p: Person, st: Street): number {
+    if (st.kind === 'alley') return clamp(p.off, -(st.width - 1.5) / 2, (st.width - 1.5) / 2);
+    return Math.sign(p.off || 1) * (st.width / 2 - 1 + this.rand() * 0.7);
   }
 
   private walkOn(p: Person, st: Street, off: number, t: number, dir: 1 | -1): void {
-    p.st = st; p.off = off; p.t = clamp(t, 0, st.len);
+    const end = this.endOf(st);
+    p.st = st; p.off = off; p.t = clamp(t, end, st.len - end);
+    if (this.overWater(st, p.t)) p.t = clamp(this.quayT(st, dir > 0 ? 1 : -1), end, st.len - end); // never on the water: start past it
     p.v = (0.016 + this.rand() * 0.02) * p.pace * dir;
     p.act = 'walk'; p.knot = null; p.goal = null; p.stall = null; p.zone = null;
     p.timer = 400 + this.rand() * 1800; // until the next pause
@@ -143,6 +166,7 @@ export class People {
   private join(p: Person, k: Knot): void {
     p.act = 'talk'; p.knot = k; p.goal = null; p.st = k.st; p.off = k.off; p.t = k.t; p.v = 0;
     k.members.push(p);
+    p.x = k.x; p.z = k.z; p.y = k.st.y; // in the knot from this frame (a member's place on its ring is a step away)
     p.timer = 600 + this.rand() * 1400;
     p.frame = FRAME.stand;
   }
@@ -161,20 +185,50 @@ export class People {
     return null;
   }
 
-  /** The kerb point of the street being walked (the market people keep their own x, z). */
+  /** The kerb point of the street being walked (the market people keep their own x, z); someone inside a building is out of sight. */
   private place(p: Person): void {
     if (p.act === 'mill' || p.act === 'browse' || p.act === 'vend' || p.act === 'talk') { p.y = p.st?.y ?? 0; return; }
     const st = p.st;
     if (!st) return;
     p.x = st.x0 + st.dx * p.t - st.dz * p.off;
     p.z = st.z0 + st.dz * p.t + st.dx * p.off;
-    p.y = st.y;
+    p.y = p.act === 'inside' ? -4 : st.y;
+  }
+
+  /** The pavement ends at the corner: round it onto the street that meets it here — its pavement is a step
+   *  away, so the walker keeps their place (owner: no one vanishes) — or turn about. */
+  private turnCorner(p: Person): void {
+    const st = p.st!, r = this.rand;
+    const t = clamp(p.t, 0, st.len);
+    const x = st.x0 + st.dx * t - st.dz * p.off, z = st.z0 + st.dz * t + st.dx * p.off;
+    const options: { s: Street; t: number; off: number }[] = [];
+    for (const s of this.walkable) {
+      if (s === st) continue;
+      const u = (x - s.x0) * s.dx + (z - s.z0) * s.dz;
+      if (u < this.endOf(s) || u > s.len - this.endOf(s)) continue;
+      const lat = -(x - s.x0) * s.dz + (z - s.z0) * s.dx;
+      if (Math.abs(lat) > s.width / 2 + 2.5) continue;
+      const off = s.kind === 'alley'
+        ? clamp(lat, -(s.width - 1.5) / 2, (s.width - 1.5) / 2)
+        : Math.sign(lat || 1) * clamp(Math.abs(lat), s.width / 2 - 1.7, s.width / 2 - 0.3);
+      if (this.overWater(s, u)) continue;
+      const nx = s.x0 + s.dx * u - s.dz * off, nz = s.z0 + s.dz * u + s.dx * off;
+      if (Math.hypot(nx - x, nz - z) > 2.4) continue; // the next pavement must begin where this one ends
+      options.push({ s, t: u, off });
+    }
+    if (options.length) {
+      const o = options[Math.floor(r() * options.length)];
+      this.walkOn(p, o.s, o.off, o.t, r() < 0.5 ? 1 : -1);
+      return;
+    }
+    p.v = -p.v; p.t = clamp(p.t, this.endOf(st), st.len - this.endOf(st)); p.goal = null;
   }
 
   /** Crossings along a road: the street centres it crosses, as its own parameter. */
   private nearestCrossing(st: Street, t: number): number | null {
     let best: number | null = null;
     for (const c of this.nodes) {
+      if (Math.abs(c) < 30) continue; // the avenues take the streets' places there: no crossing street, no crosswalk
       const tc = st.dx ? (c - st.x0) / st.dx : (c - st.z0) / st.dz;
       if (tc < 4 || tc > st.len - 4) continue;
       if (best === null || Math.abs(tc - t) < Math.abs(best - t)) best = tc;
@@ -182,14 +236,14 @@ export class People {
     return best;
   }
 
-  /** A knot keeps its number: when it thins, a walker far off is sent
-   *  along its pavement to take the place. */
+  /** A knot keeps its number: when it thins, a walker already on its pavement, a way off, is sent along to
+   *  take the place (owner: no one is moved across the city to fill it). */
   private tendKnot(k: Knot): void {
     if (k.members.length >= k.want || this.rand() > 0.004) return;
-    const far = this.people.find((q) => q.act === 'walk' && !q.goal && q.st !== k.st && Math.abs(q.x - k.x) + Math.abs(q.z - k.z) > 120);
+    const far = this.people.find((q) => q.act === 'walk' && !q.goal && q.st === k.st && Math.sign(q.off) === Math.sign(k.off)
+      && Math.abs(q.t - k.t) > 8 && Math.abs(q.t - k.t) < 70);
     if (!far) return;
-    const dir: 1 | -1 = this.rand() < 0.5 ? 1 : -1;
-    this.walkOn(far, k.st, k.off, k.t - dir * 24, dir);
+    far.v = Math.abs(far.v) * (k.t > far.t ? 1 : -1);
     far.goal = k;
     far.timer = 1e9; // no pausing on the way
   }
@@ -211,36 +265,38 @@ export class People {
               p.goal = null; p.timer = 300 + r() * 600;
             }
           }
-          if (p.t > st.len || p.t < 0) { // the pavement ends: turn about, or take another street
-            if (r() < 0.5) p.v = -p.v;
-            else { const next = this.pickStreet(); this.walkOn(p, next, this.kerb(next), r() < 0.5 ? 0 : next.len, r() < 0.5 ? 1 : -1); }
-            p.t = clamp(p.t, 0, p.st!.len);
-            p.goal = null;
+          if (this.overWater(st, p.t)) { // the quay: the water and its bridge are the road's alone — turn about
+            p.v = -p.v; p.t = clamp(this.quayT(st, p.v > 0 ? 1 : -1), 0, st.len); p.goal = null; // back to the quay they came from
           }
+          const end = this.endOf(st);
+          if (p.t > st.len - end || p.t < end) { this.turnCorner(p); break; } // the corner: round it
           p.yaw = Math.atan2(p.st!.dx * Math.sign(p.v), p.st!.dz * Math.sign(p.v));
           p.frame = ((this.tick + p.phase) >> 3) & 1 ? FRAME.walkB : FRAME.walkA;
           if (--p.timer <= 0) {
             const a = r();
             const here = p.st!;
-            if (a < 0.45) { // a pause: a sit on the kerb (the elders often), or a stand
+            if (a < 0.1 && here.kind === 'road' && !this.overWater(here, p.t)) { // in at a door: gone a while, then out again
+              p.act = 'enter'; p.offTo = Math.sign(p.off || 1) * (here.width / 2 + 0.7); p.timer = 300 + r() * 1500;
+            } else if (a < 0.45) { // a pause: a sit on the kerb (the elders often), or a stand
               if (here.kind !== 'alley' && r() < (CAST[p.kind].name === 'elder' ? 0.35 : 0.1)) { p.act = 'sit'; p.frame = this.sitFrame(); p.timer = 400 + r() * 900; p.off *= 1.15; }
               else { p.act = 'stand'; p.timer = 90 + r() * 360; p.frame = this.idleFrame(); p.yaw += (r() - 0.5) * 2; }
             }
             else if (a < 0.7 && here.kind === 'road') { // cross at the crosswalk, when the cars have the red
               const node = this.nearestCrossing(here, p.t);
               const nx = here.dx ? here.x0 + here.dx * (node ?? 0) : here.x0, nz = here.dz ? here.z0 + here.dz * (node ?? 0) : here.z0;
-              if (node !== null && Math.abs(node - p.t) < 9 && this.crossOK(nx, nz, here.dx ? 'x' : 'z')) {
+              if (node !== null && Math.abs(Math.abs(node - p.t) - 7.5) < 2 && this.crossOK(nx, nz, here.dx ? 'x' : 'z')) { // at the crosswalk
                 p.act = 'cross'; p.offTo = -p.off; p.t = node + (p.t < node ? -7.5 : 7.5); this.crossings += 1;
               } else p.timer = 200 + r() * 400;
             } else if (a < 0.85) { // a knot with room takes a passer-by
-              const k = this.knots.find((kn) => kn.st === here && kn.members.length < kn.want && Math.abs(kn.t - p.t) < 14);
-              if (k) this.join(p, k); else p.timer = 300 + r() * 600;
+              const k = this.knots.find((kn) => kn.st === here && Math.sign(kn.off) === Math.sign(p.off) && kn.members.length < kn.want && Math.abs(kn.t - p.t) < 14);
+              if (k) { p.goal = k; p.v = Math.abs(p.v) * (k.t > p.t ? 1 : -1); p.timer = 1e9; } // walk over and join it
+              else p.timer = 300 + r() * 600;
             } else p.timer = 300 + r() * 900;
           }
           break;
         }
         case 'stand': case 'sit': {
-          if (--p.timer <= 0) { const st = p.st!; this.walkOn(p, st, p.act === 'sit' ? this.kerb(st) : p.off, p.t, r() < 0.5 ? 1 : -1); }
+          if (--p.timer <= 0) { const st = p.st!; this.walkOn(p, st, p.act === 'sit' ? this.sameSide(p, st) : p.off, p.t, r() < 0.5 ? 1 : -1); }
           break;
         }
         case 'cross': {
@@ -250,6 +306,22 @@ export class People {
           p.yaw = Math.atan2(-st.dz * Math.sign(step), st.dx * Math.sign(step));
           p.frame = ((this.tick + p.phase) >> 3) & 1 ? FRAME.walkB : FRAME.walkA;
           if (Math.abs(p.off - p.offTo) < 0.05) { const to = p.offTo; this.walkOn(p, st, to, p.t, r() < 0.5 ? 1 : -1); }
+          break;
+        }
+        case 'enter': case 'exit': { // walking in at a door, or out of one: across the pavement, to the building line and back
+          const st = p.st!;
+          const step = 0.03 * Math.sign(p.offTo - p.off);
+          p.off += step;
+          p.yaw = Math.atan2(-st.dz * Math.sign(step), st.dx * Math.sign(step));
+          p.frame = ((this.tick + p.phase) >> 3) & 1 ? FRAME.walkB : FRAME.walkA;
+          if (Math.abs(p.off - p.offTo) < 0.05) {
+            if (p.act === 'enter') { p.act = 'inside'; p.frame = FRAME.stand; }
+            else this.walkOn(p, st, p.offTo, p.t, r() < 0.5 ? 1 : -1);
+          }
+          break;
+        }
+        case 'inside': {
+          if (--p.timer <= 0) { p.act = 'exit'; p.offTo = Math.sign(p.off || 1) * (p.st!.width / 2 - 1 + r() * 0.7); }
           break;
         }
         case 'talk': {

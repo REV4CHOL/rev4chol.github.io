@@ -26,8 +26,9 @@ export type VKind = 'car' | 'taxi' | 'bus' | 'truck' | 'moto';
 /** The highway's parapets stand from here out to the deck's edge (7): no
  *  lane puts any vehicle past it (owner: cars rode through the outer
  *  barrier). Three lanes a side fit inside it with the widest vehicle. */
-export const DECK_KERB = 6.5;
-export const OFFSETS: Record<string, number[]> = { road: [1.7, 4.2], diagonal: [1.7, 4.2], highway: [1.3, 3.25, 5.2], ramp: [0] };
+export const DECK_KERB = 8;
+/** Lane centres from a street's axis: 2.4 apart, the widest vehicle (a bus, 2.3) fitting inside its lane. */
+export const OFFSETS: Record<string, number[]> = { road: [1.35, 3.75], diagonal: [1.35, 3.75], highway: [1.4, 3.8, 6.2], ramp: [0] };
 const SPEED: Record<string, number> = { highway: 1.9, ramp: 1.3 };
 export const GREEN = 300;
 export const CLEAR = 120; // all red: whoever is in the box gets out
@@ -38,9 +39,11 @@ const G0 = 1.6; // bumper to bumper, a queue settles here
 const K = 0.12; // the following gain: the equilibrium gap is G0 + v / K
 const ACC = 0.0035;
 const LOOK = 18; // a yielding turn waits for anything this close to the box
-export const SPEC: Record<VKind, [number, number, number, number, number]> = { // len, w, h, base speed, spread
-  car: [3.2, 1.4, 0.9, 0.1, 0.06], taxi: [3.2, 1.4, 0.9, 0.12, 0.05], bus: [7, 2.2, 2.2, 0.085, 0.01],
-  truck: [5.6, 2.1, 2.0, 0.09, 0.02], moto: [1.6, 0.6, 0.8, 0.15, 0.08],
+/** len, w, h, base speed, spread — at a person's scale (owner: the vehicles were toys beside the walkers): a car
+ *  a head below a walker's height and two and a half walkers long, a bus two heads over. */
+export const SPEC: Record<VKind, [number, number, number, number, number]> = {
+  car: [4.4, 1.8, 1.35, 0.1, 0.06], taxi: [4.4, 1.8, 1.35, 0.12, 0.05], bus: [10, 2.3, 3.0, 0.085, 0.01],
+  truck: [7.6, 2.2, 2.8, 0.09, 0.02], moto: [2.2, 0.7, 1.1, 0.15, 0.08],
 };
 
 export interface Node {
@@ -55,6 +58,8 @@ export interface Node {
 export interface Link { id: number; street: Street; t0: number; t1: number; len: number; a: Node; b: Node; lanes: [Lane[], Lane[]]; speed: number }
 export interface Exit {
   to: Lane; weight: number; crossing: boolean; straight: boolean;
+  /** The highway's far end: the vehicle is carried to the other end in a step (it drove on past the fog; another came). */
+  portal?: boolean;
   x0: number; y0: number; z0: number; cx: number; cz: number; x1: number; y1: number; z1: number; S: number;
 }
 export interface Lane {
@@ -69,6 +74,8 @@ export interface Car {
   x: number; y: number; z: number; yaw: number; pitch: number; phase: number; hops: number;
   /** The frame this vehicle last moved in — a handoff never moves it twice. */
   moved: number;
+  /** The frame this vehicle last went through a portal (a step across the map, by design). */
+  warped: number;
 }
 interface Transit { node: Node; from: Lane; ex: Exit; s: number }
 
@@ -283,7 +290,25 @@ export class Traffic {
       if (p.link === L) continue;
       add(p.link, dirOut);
     }
-    if (!lane.exits.length && !st.oneWay) add(L, lane.dir > 0 ? -1 : 1); // a dead end: turn around
+    if (!lane.exits.length) {
+      if (st.kind === 'highway') this.portal(lane); // the highway runs on past the fog: nothing turns about on it
+      else if (!st.oneWay) add(L, lane.dir > 0 ? -1 : 1); // a dead end: turn around
+    }
+  }
+
+  /** The highway's far end, out in the fog (owner: the cars must drive on past the fog of war and never
+   *  return): the lane hands its vehicles to the same lane at the highway's other end in one step, as if
+   *  they had driven on and others had come in. */
+  private portal(lane: Lane): void {
+    const st = lane.link.street;
+    const links = this.links.filter((l) => l.street === st).sort((a, b) => a.t0 - b.t0);
+    const entry = lane.dir > 0 ? links[0] : links[links.length - 1];
+    if (!entry) return;
+    const lanes = entry.lanes[lane.dir > 0 ? 0 : 1];
+    const to = lanes[Math.min(lane.index, lanes.length - 1)];
+    if (!to || to === lane) return;
+    lanePoint(lane, lane.len, P); lanePoint(to, 0, Q);
+    lane.exits.push({ to, weight: 1, crossing: false, straight: true, portal: true, x0: P.x, y0: P.y, z0: P.z, cx: P.x, cz: P.z, x1: Q.x, y1: Q.y, z1: Q.z, S: 0 });
   }
 
   /** Each street at a lit node gets its own phase in turn: green, then an
@@ -312,7 +337,7 @@ export class Traffic {
       const [len, w, h, v0, spread] = SPEC[kind];
       const car: Car = {
         kind, len, w, h, v: 0, vmax: v0 + r() * spread, lane: null, s: 0, transit: null, exit: null, brake: false,
-        x: 0, y: 0, z: 0, yaw: 0, pitch: 0, phase: r() * 7, hops: 0, moved: 0,
+        x: 0, y: 0, z: 0, yaw: 0, pitch: 0, phase: r() * 7, hops: 0, moved: 0, warped: -1,
       };
       let placed = false;
       const m = 1 + len / 2;
@@ -520,7 +545,7 @@ export class Traffic {
     const over = c.s - lane.len;
     c.lane = null;
     this.hops += 1; c.hops += 1;
-    if (ex.S < 0.4) { c.s = over; this.insert(ex.to, c); c.exit = this.choose(ex.to); return; }
+    if (ex.S < 0.4) { if (ex.portal) c.warped = tick; c.s = over; this.insert(ex.to, c); c.exit = this.choose(ex.to); return; }
     c.transit = { node: n, from: lane, ex, s: over };
     c.exit = ex;
     n.transit.push(c);

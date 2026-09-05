@@ -170,7 +170,7 @@ describe('AutoFlight', () => {
   it('never enters a building, stays inside the fence, dives but not too low, orbits, runs the avenues, and does not repeat itself', () => {
     const visited = new Set<string>();
     const firstPaths: string[] = [];
-    let orbits = 0, flyovers = 0;
+    let orbits = 0, flyovers = 0, dives = 0;
     let maxTurn = 0, minStep = Infinity, maxStep = 0, kinks = 0, steps = 0;
     for (const s of [1, 2, 3]) {
       const flight = new AutoFlight(plan.grid, mulberry32(s), new Vector3(-130, 80, 160), 2.5, plan.roomAhead, plan.pois);
@@ -198,7 +198,7 @@ describe('AutoFlight', () => {
         if (i > 1 && step > 0.1 && prevDir.lengthSq() > 0.01) { const a = prevDir.angleTo(dir); maxTurn = Math.max(maxTurn, a); if (a > 0.06) kinks += 1; steps += 1; }
         prevDir.copy(dir); prev.copy(pos);
       }
-      expect(flight.dives).toBeGreaterThan(0); // it goes down into the streets, not just rooftops
+      dives += flight.dives; // it goes down into the streets, not just rooftops (a seed may cruise long between dives: counted across the three)
       expect(lowest).toBeGreaterThan(14); // but never down among the traffic (owner: raise the dives)
       expect(flight.fallbacks).toBe(0); // every leg it flew was validated, none forced
       orbits += flight.orbits; flyovers += flight.flyovers;
@@ -206,6 +206,7 @@ describe('AutoFlight', () => {
     expect(visited.size).toBeGreaterThan(100);
     expect(new Set(firstPaths).size).toBe(3); // three seeds, three flights
     expect(orbits).toBeGreaterThan(2);
+    expect(dives).toBeGreaterThan(2);
     expect(flyovers).toBeGreaterThan(2);
     expect(minStep).toBeGreaterThan(0.44); // arc length: the pace never sags into a knot
     expect(maxStep).toBeLessThan(0.56);

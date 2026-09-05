@@ -63,12 +63,34 @@ describe('People', () => {
       }
     }
     expect(people.people.length).toBe(before);
-    for (const a of ['walk', 'stand', 'talk', 'browse', 'cross', 'vend', 'mill']) expect(seen.has(a), a).toBe(true);
+    for (const a of ['walk', 'stand', 'talk', 'browse', 'cross', 'vend', 'mill', 'enter', 'inside', 'exit']) expect(seen.has(a), a).toBe(true);
     expect(people.crossings).toBeGreaterThan(20); // people do cross the streets, on the red
     // the knots are kept up: someone arrives when someone leaves
     const filled = people.knots.filter((k) => k.members.length > 0).length;
     expect(filled / people.knots.length).toBeGreaterThan(0.6);
   });
+
+  it('never moves anyone in a step, keeps them off the water and the bridges, and lets them in at doors', () => {
+    // owner: pedestrians vanished spontaneously (they were moved across the city to fill a knot, or to a random
+    // street at a pavement's end) and walked the canal's water and bridges
+    const p2 = new People(plan.streets, zones, plan.stalls, mulberry32(21), 1500, () => true, nodes);
+    const prev = p2.people.map((p) => ({ x: p.x, z: p.z }));
+    let maxStep = 0, inside = 0;
+    for (let f = 0; f < 4000; f++) {
+      p2.step();
+      p2.people.forEach((p, i) => {
+        const q = prev[i];
+        maxStep = Math.max(maxStep, Math.hypot(p.x - q.x, p.z - q.z));
+        q.x = p.x; q.z = p.z;
+        if (p.act === 'inside') inside += 1;
+        if (p.act !== 'inside' && p.act !== 'enter' && p.act !== 'exit' && p.st && p.st.kind === 'road' && p.st.dz === 0) {
+          expect(Math.abs(p.x)).toBeGreaterThan(12.5); // never on the water or its bridges (an east–west road's pavement stops at the quay)
+        }
+      });
+    }
+    expect(maxStep).toBeLessThan(2.6); // a corner is rounded in place; no one is teleported
+    expect(inside).toBeGreaterThan(100); // people do go in at doors, and come out
+  }, 60000);
 
   it('is a varied cast, each kind at its own pace, the vendors in their stalls, every pose used', () => {
     const counts = new Array(CAST.length).fill(0);

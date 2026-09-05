@@ -37,7 +37,7 @@ export const BOUND = EXT + STREET; // the free-flight fence hugs the main city
 export const MEDIAN = LOT / 2; // the avenues' open middle: ±12 about the axis
 export const CAM_R = 1.2; // the camera's body
 export const REACH = (HALF + OUTER) * G + STREET; // how far streets, traffic and lamps run
-export const HIGHWAY = { x0: -400, z0: 210, x1: 400, z1: 80, y: 14, width: 14 }; // the elevated highway across the north
+export const HIGHWAY = { x0: -400, z0: 210, x1: 400, z1: 80, y: 14, width: 17 }; // three lanes a side at a bus's width, parapets past them // the elevated highway across the north
 export const DIAGONAL = { x0: -247, z0: -19, x1: -19, z1: -247, width: 12 }; // the surface boulevard slashing the south-west: x + z = −266 runs it through seven grid crossings, T-ing into the avenue roads at both ends
 export const CANAL = { w: 24, deck: 1.15 }; // the north–south avenue's water and its bridge decks
 const ROUTE_PAD = 3.4; // clearance the city keeps around the story route
@@ -819,7 +819,7 @@ export function planCity(seed: number): Plan {
       for (const c of side) { a = fits(c); if (a !== null) { i = c; break; } }
       if (i === undefined || a === null) continue;
       const X = streetAt(i), z = zH(X), top = HIGHWAY.y + 0.4;
-      const edge = (x: number, s: number) => ({ x: x + nx * 11 * s, z: zH(x) + nz * 11 * s });
+      const edge = (x: number, s: number) => ({ x: x + nx * 12.5 * s, z: zH(x) + nz * 12.5 * s }); // the ramp's high end rides the deck's edge
       const p = edge(X - 67, 1), q = edge(X + 67, 1), r = edge(X + 67, -1), t = edge(X - 67, -1);
       ramps.push(ramp(p.x, top, p.z, X, 0, z + a)); // eastbound off
       ramps.push(ramp(X, 0, z + a + 8, q.x, top, q.z)); // eastbound on
@@ -1045,7 +1045,7 @@ export function planCity(seed: number): Plan {
       if (t % 30 === 0 && Math.abs(x) < REACH) posts.push({ x, z, h: 6, y: HIGHWAY.y + 0.4 }); // median lamps up the deck
       if (t % 110 === 50 && Math.abs(x) < EXT) { // an overhead sign gantry across the deck
         signs.push({ x, y: HIGHWAY.y + 6.6, z, rotY: Math.atan2(dx, dz) + Math.PI / 2, w: 12, h: 2.4, color: signColor(rand), kind: 'gantry' });
-        for (const s of [-1, 1]) solid(core, 'dark', 'street', 0, x - dz * s * 7.2, HIGHWAY.y + 4, z + dx * s * 7.2, 0.36, 8, 0.36);
+        for (const s of [-1, 1]) solid(core, 'dark', 'street', 0, x - dz * s * 8.7, HIGHWAY.y + 4, z + dx * s * 8.7, 0.36, 8, 0.36);
       }
     }
     for (const r of ramps) {
@@ -1090,7 +1090,7 @@ export function planCity(seed: number): Plan {
       : { x0: r.at, z0: r.from, dx: 0, dz: 1, len: r.to - r.from, y: 0, kind: 'road', width: STREET });
     for (let t = r.from + 6; t <= r.to - 6; t += 12) {
       for (const s of [-1, 1]) {
-        const off = r.at + s * (ROAD / 2 + 1);
+        const off = r.at + s * (ROAD / 2 + 0.55); // at the kerb line: the pavement's walkers pass clear of them
         const x = r.axis === 'x' ? t : off, z = r.axis === 'x' ? off : t;
         if (Math.abs(x) < 30 && Math.abs(z) < 30) continue; // the plaza has its ring
         if (Math.abs(x) < MEDIAN + 1 && r.axis === 'x') continue; // the canal has its quays
