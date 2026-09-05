@@ -2495,6 +2495,17 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const stick = { x: 0, y: 0, lift: 0 };
   const audio = new CityAudio();
   const lastCam = new Vector3();
+  // THE SHADOW MAP MUST EXIST (owner: the whole lit city vanished — every building, the ground, the roads): with
+  // the maps enabled but not auto-updating (a moonlit look casts no shadow), the map was never rendered, so
+  // every lit material sampled a shadow texture that did not exist and the GPU dropped the draw (GL_INVALID_OPERATION,
+  // 'mismatch between texture format and sampler type'). One shadow render primes it; a look at zero shadow
+  // intensity then samples a stale map it never shows.
+  let shadowPrimed = false;
+  const primeShadows = () => {
+    if (!renderer.shadowMap.enabled || renderer.shadowMap.autoUpdate || shadowPrimed) return;
+    renderer.shadowMap.needsUpdate = true;
+    shadowPrimed = true;
+  };
   const render = () => {
     if (mode === 'free') {
       applyFree();
@@ -2559,6 +2570,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       fireworks: fw.launched, dFireworks: Math.hypot(camera.position.x - stadium.x, camera.position.y - 40, camera.position.z - stadium.z),
     });
     lastCam.copy(camera.position);
+    primeShadows();
     composer.render();
   };
 
@@ -2820,6 +2832,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     moonLight.shadow.intensity = T.shadows && lookNow.shadows ? 1 : 0;
     renderer.shadowMap.autoUpdate = T.shadows && lookNow.shadows;
     if (renderer.shadowMap.autoUpdate) renderer.shadowMap.needsUpdate = true;
+    shadowPrimed = false; // the tier's maps are new: render them once even under a look that shows no shadow
     if (PIX !== pixOf(tier)) { PIX = pixOf(tier); fit(); }
     refreshMaterials();
   };
