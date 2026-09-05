@@ -1978,8 +1978,9 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   }
   const tendHolos = () => {
     for (const h of holos) {
-      if (h.kind === 'panel') { if (tick % 4 === 0 && h.ctx && h.tex) { paintHolo(h.ctx, rand, 72 - ((tick >> 2) % 72)); h.tex.needsUpdate = true; } h.mesh.rotation.y += 0.0025; }
-      else if (h.kind === 'ring') { h.mesh.rotation.y += 0.004; if (tick % 6 === 0 && h.ctx && h.tex) { paintHolo(h.ctx, rand, 72 - ((tick >> 2) % 72)); h.tex.needsUpdate = true; } }
+      // (a hologram is a night thing: every kind fades with the look's lamps — by day the plaza's ring covered the sky)
+      if (h.kind === 'panel') { if (tick % 4 === 0 && h.ctx && h.tex) { paintHolo(h.ctx, rand, 72 - ((tick >> 2) % 72)); h.tex.needsUpdate = true; } h.mesh.rotation.y += 0.0025; h.mats[0].opacity = h.base[0] * lampLevel; }
+      else if (h.kind === 'ring') { h.mesh.rotation.y += 0.004; if (tick % 6 === 0 && h.ctx && h.tex) { paintHolo(h.ctx, rand, 72 - ((tick >> 2) % 72)); h.tex.needsUpdate = true; } h.mats[0].opacity = h.base[0] * lampLevel; }
       else if (h.kind === 'pillar') { const k = 0.75 + 0.25 * Math.sin(tick * 0.03 + h.phase); h.mats.forEach((m, i) => { m.opacity = h.base[i] * k * lampLevel; }); }
       else { h.mesh.rotation.y += 0.012; h.mats[0].opacity = h.base[0] * (0.85 + 0.15 * Math.sin(tick * 0.05 + h.phase)) * lampLevel; }
     }
