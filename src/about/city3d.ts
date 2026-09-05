@@ -27,7 +27,7 @@
  *  the visitor still drives. The streets run on a real traffic network
  *  (city-traffic.ts): lanes, lights, queues, turns, on- and off-ramps. */
 import {
-  AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, ClampToEdgeWrapping, Color, ConeGeometry, DataTexture,
+  AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, ClampToEdgeWrapping, Color, ConeGeometry, DataTexture,
   CylinderGeometry, DirectionalLight, DoubleSide, FogExp2, Group, HemisphereLight, InstancedBufferAttribute,
   InstancedBufferGeometry, InstancedMesh, LinearFilter, LinearMipmapLinearFilter, LineBasicMaterial, LineSegments, Material, Matrix4, Mesh, MeshBasicMaterial,
   MeshLambertMaterial, MeshStandardMaterial, NearestFilter, NeutralToneMapping, NoColorSpace, Object3D, PCFShadowMap, PerspectiveCamera, PlaneGeometry, PMREMGenerator, PointLight, Points,
@@ -42,7 +42,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { isMobile, reducedMotion } from '../lib/env';
 import { mulberry32 } from '../lib/rng';
 import {
-  AirLane, AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, DIAGONAL, EXT, G, HALF, HIGHWAY, OUTER, planCity,
+  AirLane, ART_COLOR, ARTS, AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, DIAGONAL, EXT, G, HALF, HIGHWAY, HoloKind, OUTER, planCity,
   Poi, RAMP_W, rampY, REACH, ROAD, Sign, signColor, Solid, starPositions, streetAt, STREET, Street, tourRoute,
 } from './city-plan';
 import { fov24, LensPass, lensTarget, MotionBlurPass } from './city-post';
@@ -634,6 +634,68 @@ function pitchTexture(): CanvasTexture {
   x.beginPath(); x.arc(76, 48, 12, 0, Math.PI * 2); x.stroke();
   x.strokeRect(6, 26, 22, 44); x.strokeRect(124, 26, 22, 44);
   x.strokeRect(6, 38, 8, 20); x.strokeRect(138, 38, 8, 20);
+  return asPixelTex(new CanvasTexture(c));
+}
+
+/** THE BILLBOARD ATLAS (owner: the plates' giant ads — a face, an eye, a koi): two dozen designs, six by four
+ *  cells of 96 × 64, abstract pixel art with glyph rows, never text. */
+function billboardAtlas(rand: () => number): CanvasTexture {
+  const CW = 96, CH = 64, COLS = 6;
+  const c = document.createElement('canvas');
+  c.width = CW * COLS; c.height = CH * Math.ceil(ARTS / COLS);
+  const x = c.getContext('2d')!;
+  const rect = (px: number, py: number, w: number, h: number, col: string) => { x.fillStyle = col; x.fillRect(px, py, w, h); };
+  const disc = (cx: number, cy: number, r: number, col: string) => { x.fillStyle = col; x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill(); };
+  const tri = (ax: number, ay: number, bx: number, by: number, cx: number, cy: number, col: string) => { x.fillStyle = col; x.beginPath(); x.moveTo(ax, ay); x.lineTo(bx, by); x.lineTo(cx, cy); x.closePath(); x.fill(); };
+  const glyphs = (px: number, py: number, w: number, col: string) => { x.fillStyle = col; for (let g = 0; g < Math.floor(w / 6); g++) for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) if (rand() < 0.6) x.fillRect(px + g * 6 + i * 2, py + j * 2, 2, 2); };
+  const designs: ((o: number, p: number) => void)[] = [
+    (o, p) => { rect(o, p, CW, CH, '#08101e'); x.save(); x.translate(o + 48, p + 30); x.scale(1.7, 1); disc(0, 0, 18, '#f4f1e8'); x.restore(); disc(o + 48, p + 30, 12, '#7de8ff'); disc(o + 48, p + 30, 6, '#050810'); disc(o + 52, p + 26, 2, '#ffffff'); glyphs(o + 8, p + 54, 80, '#7de8ff'); },
+    (o, p) => { rect(o, p, CW, CH, '#160a1e'); disc(o + 40, p + 26, 16, '#ff4fd8'); rect(o + 40, p + 18, 12, 16, '#ff4fd8'); rect(o + 24, p + 42, 36, 22, '#ff4fd8'); rect(o + 58, p + 20, 3, 3, '#160a1e'); glyphs(o + 62, p + 12, 30, '#ffffff'); },
+    (o, p) => { rect(o, p, CW, CH, '#081a3a'); for (let i = 0; i < 5; i++) rect(o + 4 + i * 18, p + 50 + (i % 2) * 4, 12, 1, '#4fa3ff'); x.save(); x.translate(o + 44, p + 28); x.scale(1.8, 1); disc(0, 0, 12, '#ff9a4d'); x.restore(); tri(o + 66, p + 28, o + 84, p + 14, o + 84, p + 42, '#ff9a4d'); disc(o + 30, p + 24, 2, '#08101e'); rect(o + 36, p + 20, 12, 3, '#ffd23f'); },
+    (o, p) => { rect(o, p, CW, CH, '#b0222a'); rect(o + 36, p + 30, 26, 26, '#ffd23f'); for (let i = 0; i < 4; i++) rect(o + 36 + i * 6.5, p + 12, 4, 20, '#ffd23f'); rect(o + 62, p + 24, 12, 4, '#ffd23f'); glyphs(o + 6, p + 6, 26, '#ffffff'); },
+    (o, p) => { rect(o, p, CW, CH, '#0c2a20'); rect(o + 40, p + 18, 16, 42, '#3dff8f'); rect(o + 44, p + 8, 8, 12, '#3dff8f'); rect(o + 40, p + 34, 16, 10, '#f4f1e8'); glyphs(o + 6, p + 54, 30, '#3dff8f'); },
+    (o, p) => { rect(o, p, CW, CH, '#101a2e'); x.save(); x.beginPath(); x.arc(o + 48, p + 34, 30, Math.PI, 0); x.closePath(); x.clip(); for (let i = 0; i < 6; i++) rect(o + 18 + i * 10, p + 4, 10, 30, i % 2 ? '#ff3b3b' : '#f4f1e8'); x.restore(); rect(o + 47, p + 34, 2, 22, '#f4f1e8'); },
+    (o, p) => { rect(o, p, CW, CH, '#050810'); for (let r = 26; r > 4; r -= 6) disc(o + 48, p + 32, r, r % 12 === 2 ? '#5df2ff' : '#050810'); glyphs(o + 6, p + 4, 40, '#5df2ff'); },
+    (o, p) => { rect(o, p, CW, CH, '#050810'); for (let i = -6; i < 12; i++) { if (i % 2) continue; x.fillStyle = '#5df2ff'; x.beginPath(); x.moveTo(o + i * 12, p); x.lineTo(o + i * 12 + 12, p); x.lineTo(o + i * 12 + 42, p + CH); x.lineTo(o + i * 12 + 30, p + CH); x.closePath(); x.fill(); } },
+    (o, p) => { for (let i = 0; i < 8; i++) rect(o, p + i * 8, CW, 8, ['#ff4fd8', '#ff9a4d', '#ffd23f', '#ff4fd8'][i % 4]); glyphs(o + 30, p + 28, 40, '#050810'); },
+    (o, p) => { rect(o, p, CW, CH, '#1a1030'); disc(o + 34, p + 30, 16, '#ffd23f'); disc(o + 66, p + 30, 12, '#f4f1e8'); disc(o + 72, p + 26, 11, '#1a1030'); },
+    (o, p) => { rect(o, p, CW, CH, '#ffd6ee'); disc(o + 38, p + 24, 12, '#ff2e63'); disc(o + 58, p + 24, 12, '#ff2e63'); tri(o + 27, p + 30, o + 69, p + 30, o + 48, p + 54, '#ff2e63'); },
+    (o, p) => { const g = x.createLinearGradient(0, p, 0, p + CH); g.addColorStop(0, '#1a3a8a'); g.addColorStop(1, '#5a1a7a'); x.fillStyle = g; x.fillRect(o, p, CW, CH); for (let r = 0; r < 5; r++) glyphs(o + 6, p + 6 + r * 11, 84, r % 2 ? '#b79cff' : '#ffffff'); },
+    (o, p) => { rect(o, p, CW, CH, '#8a1a1a'); rect(o + 14, p + 34, 68, 14, '#f4f1e8'); rect(o + 30, p + 24, 34, 12, '#f4f1e8'); disc(o + 28, p + 50, 5, '#050810'); disc(o + 68, p + 50, 5, '#050810'); glyphs(o + 6, p + 8, 40, '#ffd23f'); },
+    (o, p) => { rect(o, p, CW, CH, '#7ab800'); disc(o + 48, p + 34, 20, '#050810'); tri(o + 30, p + 26, o + 26, p + 6, o + 44, p + 16, '#050810'); tri(o + 66, p + 26, o + 70, p + 6, o + 52, p + 16, '#050810'); disc(o + 40, p + 32, 3, '#C8FF00'); disc(o + 56, p + 32, 3, '#C8FF00'); },
+    (o, p) => { rect(o, p, CW, CH, '#2a1608'); x.save(); x.beginPath(); x.arc(o + 48, p + 34, 26, 0, Math.PI); x.closePath(); x.clip(); rect(o, p, CW, CH, '#ffb36b'); x.restore(); rect(o + 22, p + 32, 52, 4, '#f4f1e8'); for (let i = 0; i < 3; i++) rect(o + 36 + i * 10, p + 10 + (i % 2) * 4, 3, 16, '#f4f1e8'); },
+    (o, p) => { rect(o, p, CW, CH, '#08102a'); for (let i = 0; i < 20; i++) rect(o + Math.floor(rand() * CW), p + Math.floor(rand() * CH), 1, 1, '#ffffff'); rect(o + 42, p + 20, 12, 30, '#f4f1e8'); tri(o + 42, p + 20, o + 54, p + 20, o + 48, p + 6, '#ff3b3b'); tri(o + 42, p + 50, o + 34, p + 58, o + 42, p + 40, '#ff3b3b'); tri(o + 54, p + 50, o + 62, p + 58, o + 54, p + 40, '#ff3b3b'); },
+    (o, p) => { rect(o, p, CW, CH, '#101a2e'); rect(o + 24, p + 12, 48, 44, '#8a90a0'); rect(o + 32, p + 22, 12, 10, '#5df2ff'); rect(o + 52, p + 22, 12, 10, '#5df2ff'); rect(o + 36, p + 42, 24, 4, '#050810'); rect(o + 46, p + 4, 4, 8, '#8a90a0'); },
+    (o, p) => { rect(o, p, CW, CH, '#050810'); for (let i = 0; i < 6; i++) for (let j = 0; j < 4; j++) { x.save(); x.translate(o + 8 + i * 16, p + 8 + j * 16); x.rotate(Math.PI / 4); rect(-5, -5, 10, 10, (i + j) % 2 ? '#ff4fd8' : '#5df2ff'); x.restore(); } },
+    (o, p) => { rect(o, p, CW, CH, '#050810'); x.fillStyle = '#ffd23f'; x.beginPath(); x.moveTo(o + 54, p + 4); x.lineTo(o + 34, p + 36); x.lineTo(o + 48, p + 36); x.lineTo(o + 40, p + 60); x.lineTo(o + 64, p + 26); x.lineTo(o + 50, p + 26); x.closePath(); x.fill(); },
+    (o, p) => { rect(o, p, CW, CH, '#1a0a1e'); tri(o + 30, p + 10, o + 66, p + 10, o + 48, p + 36, '#ff4fd8'); rect(o + 47, p + 36, 2, 16, '#ff4fd8'); rect(o + 38, p + 52, 20, 3, '#ff4fd8'); disc(o + 40, p + 14, 3, '#3dff8f'); },
+    (o, p) => { rect(o, p, CW, CH, '#050810'); for (let r = 0; r < 5; r++) rect(o + 20 + r * 6, p + 4 + r * 6, 56 - r * 12, 56 - r * 12, r % 2 ? '#050810' : '#ff9a4d'); },
+    (o, p) => { rect(o, p, CW, CH, '#081a3a'); x.fillStyle = '#5df2ff'; x.beginPath(); x.moveTo(o, p + 40); for (let i = 0; i <= CW; i += 4) x.lineTo(o + i, p + 40 + Math.sin(i / 8) * 8); x.lineTo(o + CW, p + CH); x.lineTo(o, p + CH); x.closePath(); x.fill(); glyphs(o + 6, p + 6, 60, '#ffffff'); },
+    (o, p) => { rect(o, p, CW, CH, '#2a0a3a'); x.fillStyle = '#ffd23f'; x.beginPath(); x.moveTo(o + 20, p + 50); x.lineTo(o + 20, p + 22); x.lineTo(o + 34, p + 36); x.lineTo(o + 48, p + 14); x.lineTo(o + 62, p + 36); x.lineTo(o + 76, p + 22); x.lineTo(o + 76, p + 50); x.closePath(); x.fill(); },
+    (o, p) => { rect(o, p, CW, CH, '#0a3a3a'); rect(o + 22, p + 40, 52, 24, '#3dffc8'); disc(o + 48, p + 26, 14, '#ffe0c0'); rect(o + 30, p + 8, 36, 16, '#1a0a0a'); rect(o + 30, p + 8, 6, 30, '#1a0a0a'); rect(o + 60, p + 8, 6, 30, '#1a0a0a'); rect(o + 66, p + 12, 10, 3, '#ff3b3b'); },
+  ];
+  designs.forEach((d, i) => {
+    const o = (i % COLS) * CW, p = Math.floor(i / COLS) * CH;
+    x.save(); x.beginPath(); x.rect(o, p, CW, CH); x.clip();
+    d(o, p);
+    x.restore();
+  });
+  return asPixelTex(new CanvasTexture(c));
+}
+
+/** A hologram's logo: rings and a glyph, cyan over magenta. */
+function logoTexture(rand: () => number): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const x = c.getContext('2d')!;
+  x.clearRect(0, 0, 64, 64);
+  for (const [r, col] of [[30, '#5df2ff'], [26, 'rgba(0,0,0,0)'], [20, '#ff4fd8'], [16, 'rgba(0,0,0,0)']] as [number, string][]) {
+    if (col === 'rgba(0,0,0,0)') { x.globalCompositeOperation = 'destination-out'; x.fillStyle = '#000'; } else { x.globalCompositeOperation = 'source-over'; x.fillStyle = col; }
+    x.beginPath(); x.arc(32, 32, r, 0, Math.PI * 2); x.fill();
+  }
+  x.globalCompositeOperation = 'source-over';
+  x.fillStyle = '#ffffff';
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) if (rand() < 0.6) x.fillRect(26 + i * 4, 26 + j * 4, 3, 3);
   return asPixelTex(new CanvasTexture(c));
 }
 
@@ -1816,7 +1878,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       dummy.scale.set(sg.w, sg.h, 1);
       dummy.updateMatrix();
       inst.setMatrixAt(j, dummy.matrix);
-      const col = new Color(sg.color).multiplyScalar(0.9);
+      const col = new Color(sg.color);
       inst.setColorAt(j, col);
       col.toArray(base, j * 3);
     });
@@ -1841,21 +1903,87 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       if (f.inst.instanceColor) f.inst.instanceColor.needsUpdate = true;
     }
   };
-  const holos: { mesh: Mesh; tex: CanvasTexture; ctx: CanvasRenderingContext2D }[] = [];
+  // HOLOGRAMS (owner: the plates' ads floating over the streets): scrolling panels of glyphs, a turning ring of
+  // them over the plaza, pillars of light, turning logo discs
+  interface HoloM { mesh: Object3D; tex: CanvasTexture | null; ctx: CanvasRenderingContext2D | null; kind: HoloKind; phase: number; mats: MeshBasicMaterial[]; base: number[] }
+  const holos: HoloM[] = [];
+  const logoTex = logoTexture(rand);
   for (const h of plan.holos) {
-    const c = document.createElement('canvas');
-    c.width = 48; c.height = 72;
-    const ctx = c.getContext('2d')!;
-    paintHolo(ctx, rand, 0);
-    const tex = asPixelTex(new CanvasTexture(c));
-    const m = new Mesh(geo.plane, new MeshBasicMaterial({
-      map: tex, transparent: true, opacity: 0.3, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false,
-    }));
-    m.position.set(h.x, h.y, h.z);
-    m.scale.set(h.w, h.h, 1);
-    m.rotation.y = h.rotY;
-    scene.add(m);
-    holos.push({ mesh: m, tex, ctx });
+    if (h.kind === 'panel') {
+      const c = document.createElement('canvas');
+      c.width = 48; c.height = 72;
+      const ctx = c.getContext('2d')!;
+      paintHolo(ctx, rand, 0);
+      const tex = asPixelTex(new CanvasTexture(c));
+      const mat = new MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.3, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
+      const m = new Mesh(geo.plane, mat);
+      m.position.set(h.x, h.y, h.z); m.scale.set(h.w, h.h, 1); m.rotation.y = h.rotY;
+      scene.add(m);
+      holos.push({ mesh: m, tex, ctx, kind: 'panel', phase: rand() * 7, mats: [mat], base: [0.3] });
+    } else if (h.kind === 'ring') {
+      const c = document.createElement('canvas');
+      c.width = 48; c.height = 72;
+      const ctx = c.getContext('2d')!;
+      paintHolo(ctx, rand, 0);
+      const tex = asPixelTex(new CanvasTexture(c));
+      tex.wrapS = RepeatWrapping; tex.repeat.set(Math.max(1, Math.round(h.w / 5)), 1);
+      const mat = new MeshBasicMaterial({ map: tex, color: '#9ff4ff', transparent: true, opacity: 0.34, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
+      const m = new Mesh(new CylinderGeometry(1, 1, 1, 48, 1, true), mat);
+      m.position.set(h.x, h.y, h.z); m.scale.set(h.w / 2, h.h, h.w / 2);
+      scene.add(m);
+      holos.push({ mesh: m, tex, ctx, kind: 'ring', phase: rand() * 7, mats: [mat], base: [0.34] });
+    } else if (h.kind === 'pillar') {
+      const g = new Group();
+      const mats: MeshBasicMaterial[] = [];
+      for (const [r, op, col] of [[1, 0.1, '#5df2ff'], [0.35, 0.22, '#dffbff']] as [number, number, string][]) {
+        const mat = new MeshBasicMaterial({ color: col, transparent: true, opacity: op, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
+        const m = new Mesh(new CylinderGeometry(r, r, 1, 16, 1, true), mat);
+        g.add(m); mats.push(mat);
+      }
+      g.position.set(h.x, h.y, h.z); g.scale.set(h.w / 2, h.h, h.w / 2);
+      scene.add(g);
+      holos.push({ mesh: g, tex: null, ctx: null, kind: 'pillar', phase: rand() * 7, mats, base: [0.1, 0.22] });
+    } else {
+      const mat = new MeshBasicMaterial({ map: logoTex, transparent: true, opacity: 0.55, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
+      const m = new Mesh(new CircleGeometry(0.5, 32), mat);
+      m.position.set(h.x, h.y, h.z); m.scale.set(h.w, h.h, 1);
+      scene.add(m);
+      holos.push({ mesh: m, tex: null, ctx: null, kind: 'logo', phase: rand() * 7, mats: [mat], base: [0.55] });
+    }
+  }
+  const tendHolos = () => {
+    for (const h of holos) {
+      if (h.kind === 'panel') { if (tick % 4 === 0 && h.ctx && h.tex) { paintHolo(h.ctx, rand, 72 - ((tick >> 2) % 72)); h.tex.needsUpdate = true; } h.mesh.rotation.y += 0.0025; }
+      else if (h.kind === 'ring') { h.mesh.rotation.y += 0.004; if (tick % 6 === 0 && h.ctx && h.tex) { paintHolo(h.ctx, rand, 72 - ((tick >> 2) % 72)); h.tex.needsUpdate = true; } }
+      else if (h.kind === 'pillar') { const k = 0.75 + 0.25 * Math.sin(tick * 0.03 + h.phase); h.mats.forEach((m, i) => { m.opacity = h.base[i] * k * lampLevel; }); }
+      else { h.mesh.rotation.y += 0.012; h.mats[0].opacity = h.base[0] * (0.85 + 0.15 * Math.sin(tick * 0.05 + h.phase)) * lampLevel; }
+    }
+  };
+  // BILLBOARDS (owner: the plates' giant ads): the atlas' art on framed boards, lit or dark, their lamps white
+  {
+    const atlas = billboardAtlas(rand);
+    const billMat = new MeshBasicMaterial({ map: atlas, side: DoubleSide });
+    billMat.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\n attribute float aArt;')
+        .replace('#include <uv_vertex>', `vMapUv = ( uv + vec2( mod( aArt, 6.0 ), ${Math.ceil(ARTS / 6) - 1}.0 - floor( aArt / 6.0 ) ) ) / vec2( 6.0, ${Math.ceil(ARTS / 6)}.0 );`);
+    };
+    billMat.customProgramCacheKey = () => 'billboard';
+    const g = geo.plane.clone();
+    const arts = new Float32Array(plan.billboards.length);
+    plan.billboards.forEach((b, j) => { arts[j] = b.art; });
+    g.setAttribute('aArt', new InstancedBufferAttribute(arts, 1));
+    const inst = new InstancedMesh(g, billMat, plan.billboards.length);
+    const bc = new Color();
+    plan.billboards.forEach((b, j) => {
+      dummy.position.set(b.x, b.y, b.z); dummy.rotation.set(0, b.rotY, 0); dummy.scale.set(b.w, b.h, 1); dummy.updateMatrix();
+      inst.setMatrixAt(j, dummy.matrix);
+      inst.setColorAt(j, bc.setScalar(b.lit ? 1 : 0.22));
+    });
+    dummy.rotation.set(0, 0, 0);
+    inst.instanceMatrix.needsUpdate = true;
+    if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+    scene.add(inst);
   }
 
   // -- street furniture: lamp posts with glowing heads, lanterns, wires,
@@ -1915,6 +2043,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     glowPoints(tips, '#ff3b3b', 1.6, 0.9);
     glowPoints(plan.sprawlLamps, '#ffd9a0', 3);
     glowPoints(plan.lanterns, '#ffb36b', 3);
+    glowPoints(plan.spots, '#ffffff', 2.2, 0.9); // the billboards' lamps
     const rail: number[] = [];
     for (const b of plan.bridges) for (let x = -12; x <= 12; x += 2.4) for (const s of [-1, 1]) rail.push(x, 1.9, b.z + s * 5.4);
     glowPoints(rail, '#ffd9a0', 2);
@@ -2687,6 +2816,11 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     for (let i = 0; i < plan.sprawlLamps.length; i += 3) pools.push({ x: plan.sprawlLamps[i], y: 0, z: plan.sprawlLamps[i + 2], r: 7, color: '#ffd9a0', a: 0.55 });
     for (let i = 0; i < plan.lanterns.length; i += 3) pools.push({ x: plan.lanterns[i], y: 0, z: plan.lanterns[i + 2], r: 3.2, color: '#ffb36b', a: 0.45 });
     for (const st of plan.stalls) pools.push({ x: st.x, y: 0, z: st.z, r: 4.5, color: st.color, a: 0.55 });
+    for (const b of plan.billboards) { // a low lit board lays its art's colour on the pavement
+      if (!b.lit || b.y > 16) continue;
+      const nx = Math.sin(b.rotY), nz = Math.cos(b.rotY);
+      pools.push({ x: b.x + nx * 3, y: 0, z: b.z + nz * 3, r: 4 + Math.min(6, b.w * 0.4), color: ART_COLOR[b.art], a: 0.45 });
+    }
     for (const sg of plan.signs) { // the street-level signs lay their colour on the pavement (the reference's glowing streets)
       if (sg.y > 12 || !(sg.kind === 'hang' || sg.kind === 'wall' || sg.kind === 'board' || sg.kind === 'tag')) continue;
       const nx = Math.sin(sg.rotY), nz = Math.cos(sg.rotY);
@@ -2722,6 +2856,11 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       practicals.push({ x: sg.x + nx * 1.2, y: sg.y, z: sg.z + nz * 1.2, color: new Color(sg.color), power: 6 + Math.min(80, sg.w * sg.h * 0.5), reach: 16 + Math.min(40, sg.w) });
     }
     for (const st of plan.stalls) practicals.push({ x: st.x, y: 3.4, z: st.z, color: new Color(st.color), power: 10, reach: 13 });
+    for (const b of plan.billboards) {
+      if (!b.lit) continue;
+      const nx = Math.sin(b.rotY), nz = Math.cos(b.rotY);
+      practicals.push({ x: b.x + nx * 1.5, y: b.y, z: b.z + nz * 1.5, color: new Color(ART_COLOR[b.art]), power: 10 + Math.min(120, b.w * b.h * 0.6), reach: 18 + Math.min(50, b.w * 1.5) });
+    }
     for (const h of plan.holos) practicals.push({ x: h.x, y: h.y, z: h.z, color: new Color('#7de8ff'), power: 80, reach: 50 });
     // the floodlights are aimed into the bowl: their light sits between mast and pitch, not on the highway beside it
     for (const m of stadium.masts) {
@@ -2903,8 +3042,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       for (const s of screens) { paintScreen(s.ctx, rand); s.tex.needsUpdate = true; }
       flicker();
     }
-    if (tick % 4 === 0) for (const h of holos) { paintHolo(h.ctx, rand, 72 - ((tick >> 2) % 72)); h.tex.needsUpdate = true; }
-    for (const h of holos) h.mesh.rotation.y += 0.0025;
+    tendHolos();
     wheel.rotation.x += 0.004;
     waterTex.offset.y = (waterTex.offset.y + 0.0015) % 1;
     (mirror.material as MeshBasicMaterial).opacity = 0.3 + Math.sin(tick * 0.03) * 0.06;

@@ -75,7 +75,18 @@ export const rampY = (st: Street, t: number): number => {
   return st.y + (st.y1 - st.y) * u * u * (3 - 2 * u);
 };
 export interface Poi { x: number; y: number; z: number; w: number }
-export interface Holo { x: number; y: number; z: number; w: number; h: number; rotY: number }
+/** A hologram over the city: a scrolling PANEL of glyphs, a slowly turning RING of them, a PILLAR of light, a turning LOGO disc. */
+export type HoloKind = 'panel' | 'ring' | 'pillar' | 'logo';
+export interface Holo { x: number; y: number; z: number; w: number; h: number; rotY: number; kind: HoloKind }
+/** A BILLBOARD (owner: the plates' giant ads — a face, an eye, a koi): a flat board on a wall or an overbuild's end,
+ *  `art` an index into the renderer's painted atlas of two dozen designs, `lit` 1 when its lamps burn. */
+export interface Billboard { x: number; y: number; z: number; rotY: number; w: number; h: number; art: number; lit: number }
+export const ARTS = 24;
+/** Each art's dominant colour: what its light lays on the pavement and throws on the walls. */
+export const ART_COLOR = [
+  '#7de8ff', '#ff4fd8', '#ff9a4d', '#ffd23f', '#3dff8f', '#ff3b3b', '#5df2ff', '#5df2ff', '#ff4fd8', '#ffd23f', '#ff5e7a', '#b79cff',
+  '#ff3b3b', '#C8FF00', '#ffb36b', '#4fa3ff', '#5df2ff', '#ff4fd8', '#ffd23f', '#ff4fd8', '#ff9a4d', '#5df2ff', '#ffd23f', '#3dffc8',
+];
 export interface Stall { x: number; z: number; color: string }
 /** THE KIT (owner: a lived-in city, Ghost in the Shell): the small things crusted on every wall and roof — AC
  *  units, pipes, ducts, dishes, balcony rails, fire-escape ladders, water tanks and their legs, sign brackets,
@@ -100,8 +111,8 @@ export interface Profile {
   min: number; max: number;
 }
 export const DISTRICTS: Record<District, Profile> = {
-  heights: { name: 'heights', lo: 50, hi: 125, fuse: 0.3, stack: 2, kit: 0.25, signs: 0.6, over: 0.1, arcade: 0.05, min: 6, max: 12 },
-  walled: { name: 'walled', lo: 44, hi: 80, fuse: 0.9, stack: 3, kit: 1.0, signs: 1.0, over: 0.9, arcade: 0.35, min: 6, max: 14 }, // tall enough for the overbuilds to roof its streets
+  heights: { name: 'heights', lo: 50, hi: 125, fuse: 0.3, stack: 2, kit: 0.25, signs: 0.6, over: 0.15, arcade: 0.05, min: 6, max: 12 },
+  walled: { name: 'walled', lo: 44, hi: 80, fuse: 0.9, stack: 3, kit: 1.0, signs: 1.0, over: 1.0, arcade: 0.35, min: 6, max: 14 }, // tall enough for the overbuilds to roof its streets
   strip: { name: 'strip', lo: 20, hi: 70, fuse: 0.5, stack: 2, kit: 0.7, signs: 1.2, over: 0.25, arcade: 0.3, min: 5, max: 16 },
   old: { name: 'old', lo: 8, hi: 24, fuse: 0.6, stack: 1, kit: 0.5, signs: 0.5, over: 0, arcade: 0.15, min: 4, max: 9 },
   mid: { name: 'mid', lo: 16, hi: 60, fuse: 0.5, stack: 2, kit: 0.6, signs: 0.8, over: 0.15, arcade: 0.2, min: 5, max: 16 },
@@ -139,6 +150,9 @@ export interface Plan {
   tarps: Strip[];
   /** The kit on the walls and the roofs (see Clutter). */
   clutter: Clutter[];
+  /** The billboards, and the white lamps over them (x, y, z triples). */
+  billboards: Billboard[];
+  spots: number[];
   signs: Sign[];
   posts: { x: number; z: number; h: number; y?: number }[];
   lanterns: number[];
@@ -178,10 +192,11 @@ const COOL = ['#7de8ff', '#ff5e7a', '#b79cff'];
 export const NEON = ['#C8FF00', '#FF2E63', '#B79CFF'];
 /** The reference's signage: red, yellow, cyan and white carry the street,
  *  the house neon keeps its voice among them. */
-const SIGN_COLORS: [string, number][] = [
-  ['#ff3b3b', 14], ['#ffd23f', 14], ['#5df2ff', 13], ['#f4f1e8', 12], ['#ff4fd8', 8], ['#4fa3ff', 8],
-  ['#ff9a4d', 7], ['#C8FF00', 7], ['#3dff8f', 6], ['#FF2E63', 6], ['#B79CFF', 5],
+const SIGN_COLORS: [string, number][] = [ // (owner: the plates' night is cyan and magenta over red, white and gold)
+  ['#5df2ff', 18], ['#ff4fd8', 16], ['#ff3b3b', 12], ['#f4f1e8', 10], ['#B79CFF', 8], ['#4fa3ff', 8], ['#ffd23f', 8],
+  ['#ff9a4d', 6], ['#C8FF00', 5], ['#3dff8f', 5], ['#FF2E63', 4],
 ];
+const EDGE_NEON = ['#5df2ff', '#ff4fd8', '#ff9a4d', '#C8FF00', '#4fa3ff', '#ff3b3b'];
 const SIGN_TOTAL = SIGN_COLORS.reduce((s, [, w]) => s + w, 0);
 export function signColor(rand: () => number): string {
   let r = rand() * SIGN_TOTAL;
@@ -344,6 +359,8 @@ export function planCity(seed: number): Plan {
   const awnings: Strip[] = [];
   const tarps: Strip[] = [];
   const clutter: Clutter[] = [];
+  const billboards: Billboard[] = [];
+  const spots: number[] = [];
   const signs: Sign[] = [];
   const pois: Poi[] = [];
   const posts: { x: number; z: number; h: number; y?: number }[] = [];
@@ -422,37 +439,82 @@ export function planCity(seed: number): Plan {
       rotY: f.rot + (perpendicular ? Math.PI / 2 : 0), w, h, color: signColor(rand), kind,
     });
   };
-  /** Dress a building: a lit storefront board, hanging signs sticking out
-   *  over the pavement, a flat wall sign, small tags, a roof billboard. */
+  /** A billboard on a wall, framed, two white lamps over it; its band remembered so the hanging signs keep clear. */
+  const billboard = (fp: NonNullable<Foot>, s: number, y: number, w: number, bh: number, art = Math.floor(rand() * ARTS)) => {
+    const f = face(fp, s, 0.3), nx = Math.sin(f.rot), nz = Math.cos(f.rot);
+    const slide = along(fp, s, w);
+    const x = f.x + (s < 2 ? slide : 0), z = f.z + (s >= 2 ? slide : 0);
+    if (y + bh / 2 + 1.5 > allowedTop(x, z, w, 1)) return false; // the route flies over
+    billboards.push({ x, y, z, rotY: f.rot, w, h: bh, art, lit: rand() < 0.85 ? 1 : 0 });
+    clutter.push({ kind: 'frame', x: x - nx * 0.15, y, z: z - nz * 0.15, w: w + 0.4, h: bh + 0.4, d: 0.2, rotY: f.rot });
+    for (const u of [-w * 0.3, w * 0.3]) spots.push(x + (s < 2 ? u : 0) + nx * 0.9, y + bh / 2 + 0.6, z + (s >= 2 ? u : 0) + nz * 0.9);
+    bctx.bill = { side: s, y0: y - bh / 2, y1: y + bh / 2 };
+    return true;
+  };
+  /** Dress a building (owner: the signage owns the street, Hong Kong's stacked neon): a lit storefront board;
+   *  two to five HANGING SIGNS a street face in the rich quarters, big, perpendicular on brackets, at different
+   *  heights; a wall sign; a billboard on a tall wall; a screen in the strip; small tags; a roof board on a frame. */
   const dress = (fp: NonNullable<Foot>, h: number, top: number, capped: boolean, lowY: number[] = [0, 0, 0, 0]) => {
+    const open = [0, 1, 2, 3].filter((k) => bctx.outer[k]);
+    if (!open.length) return; // a face in a seam or an alley carries nothing
+    const S = bctx.prof.signs;
     if (rand() < (rich ? 0.85 : 0.5)) {
-      const s = Math.floor(rand() * 4);
+      const s = pick(rand, open);
       const len = (s < 2 ? fp.w : fp.d) * (0.5 + rand() * 0.3);
       put(fp, s, 0.16, 3.4 + rand() * 0.8, len, 1.1 + rand() * 0.4, 'board', false, along(fp, s, len));
     }
-    const hangs = rich ? 1 + Math.floor(rand() * 3) : Math.floor(rand() * 2);
-    for (let i = 0; i < hangs; i++) {
-      const s = Math.floor(rand() * 4);
-      const big = rand() < 0.6;
-      const sw = big ? 2 : 1.5, sh = big ? 8 : 5;
-      const lo = Math.max(5, lowY[s]);
-      if (h < sh + lo + 1) continue;
-      let y = lo + sh / 2 + rand() * Math.min(h - sh - lo + 1, 26);
-      const b = bctx.bustle;
-      if (b && b.side === s) for (let k = 0; k < 3 && y + sh / 2 > b.y0 - 1 && y - sh / 2 < b.y1 + 1; k++) y = lo + sh / 2 + rand() * Math.min(h - sh - lo + 1, 26); // not through the bustle
-      put(fp, s, sw / 2 + 0.3, y, sw, sh, 'hang', true, along(fp, s, 1));
+    // a billboard first: the hanging signs keep clear of its band
+    if (rich && !bctx.round && h >= 20 && rand() < 0.5 * S) {
+      const s = pick(rand, open), along0 = s < 2 ? fp.w : fp.d;
+      const w = Math.min(along0 * 0.9, 6 + rand() * 12);
+      if (w >= 5) { const bh = w * 0.55; billboard(fp, s, 12 + rand() * Math.max(0, Math.min(h - bh - 14, 28)), w, bh); }
     }
-    if (h > 14 && rand() < (rich ? 0.35 : 0.15)) {
-      const s = Math.floor(rand() * 4);
-      put(fp, s, 0.16, 8 + rand() * Math.min(h - 14, 30) + 4.5, 2.2, 9, 'wall', false, along(fp, s, 2.2));
+    const hangs = rich ? Math.round((2.5 + rand() * 3) * S) : Math.floor(rand() * 2);
+    for (let i = 0; i < hangs; i++) {
+      const s = pick(rand, open);
+      const big = rand() < 0.5;
+      const sw = Math.min(3.2, big ? 2.4 + rand() : 1.6 + rand() * 0.8), sh = Math.min(h * 0.6, big ? 12 + rand() * 10 : 6 + rand() * 6);
+      const lo = Math.max(6.5, lowY[s]);
+      if (h < sh + lo + 1) continue;
+      const roll = () => lo + sh / 2 + rand() * (h - sh - lo);
+      let y = roll();
+      for (const band of [bctx.bustle, bctx.bill]) {
+        if (band && band.side === s) for (let k = 0; k < 4 && y + sh / 2 > band.y0 - 1 && y - sh / 2 < band.y1 + 1; k++) y = roll(); // not through the bustle or the billboard
+      }
+      const slide = along(fp, s, 1);
+      put(fp, s, sw / 2 + 0.3, y, sw, sh, 'hang', true, slide);
+      const f = face(fp, s, 0), nx = Math.sin(f.rot), nz = Math.cos(f.rot); // its bracket: an arm at the top and one at the bottom, wall to far edge
+      for (const yy of [y + sh / 2 - 0.25, y - sh / 2 + 0.25]) {
+        clutter.push({ kind: 'bracket', x: f.x + (s < 2 ? slide : 0) + nx * (sw + 0.3) / 2, y: yy, z: f.z + (s >= 2 ? slide : 0) + nz * (sw + 0.3) / 2, w: 0.1, h: 0.1, d: sw + 0.3, rotY: f.rot });
+      }
+    }
+    if (h > 14 && rand() < (rich ? 0.35 : 0.15) * S) {
+      const s = pick(rand, open), w = 2.2 + rand() * 1.8, sh = Math.min(h - 8, 9 + rand() * 11);
+      put(fp, s, 0.16, 6 + sh / 2 + rand() * Math.max(0, h - sh - 7), w, sh, 'wall', false, along(fp, s, w));
+    }
+    if (rich && bctx.prof.name === 'strip' && h > 16 && rand() < 0.22) { // a screen in the strip
+      const s = pick(rand, open), w = Math.min((s < 2 ? fp.w : fp.d) * 0.8, 6 + rand() * 6), sh = w * 0.6;
+      const f = face(fp, s, 0.3), slide = along(fp, s, w);
+      signs.push({ x: f.x + (s < 2 ? slide : 0), y: 8 + sh / 2 + rand() * Math.max(0, Math.min(h - sh - 9, 12)), z: f.z + (s >= 2 ? slide : 0), rotY: f.rot, w, h: sh, color: '#ffffff', kind: 'screen' });
     }
     const tags = rich ? Math.floor(rand() * 3) : Math.floor(rand() * 2);
     for (let i = 0; i < tags; i++) {
-      const s = Math.floor(rand() * 4);
+      const s = pick(rand, open);
       put(fp, s, 0.16, 1.6 + rand() * 4.4, 2.4, 1.2, 'tag', false, along(fp, s, 2.4));
     }
     if (!capped && top > 16 && top < 72 && rand() < 0.16) {
-      signs.push({ x: fp.x, y: top + 1.7, z: fp.z, rotY: rand() < 0.5 ? 0 : Math.PI / 2, w: Math.min(fp.w, fp.d) * 0.8, h: 2.2, color: signColor(rand), kind: 'roof' });
+      const rotY = rand() < 0.5 ? 0 : Math.PI / 2, w = Math.min(fp.w, fp.d) * 0.8;
+      signs.push({ x: fp.x, y: top + 1.7, z: fp.z, rotY, w, h: 2.2, color: signColor(rand), kind: 'roof' });
+      clutter.push({ kind: 'frame', x: fp.x, y: top + 1.7, z: fp.z, w: w + 0.3, h: 2.5, d: 0.16, rotY: rotY + Math.PI }); // its frame, behind
+      for (const u of [-w * 0.35, w * 0.35]) clutter.push({ kind: 'beam', x: fp.x + (rotY === 0 ? u : 0), y: top + 0.85, z: fp.z + (rotY === 0 ? 0 : u), w: 0.12, h: 1.7, d: 0.12, rotY: 0 }); // on legs
+    }
+    // NEON EDGES (owner: the plates' towers outlined in light): strips up two corners and along a roofline
+    if (bucket === core && !bctx.round && h >= 30 && rand() < (bctx.prof.name === 'heights' ? 0.4 : 0.12)) {
+      const color = pick(rand, EDGE_NEON), sx = rand() < 0.5 ? -1 : 1, sz = rand() < 0.5 ? -1 : 1;
+      leds.push({ x: fp.x + sx * fp.w / 2, y: h / 2, z: fp.z + sz * fp.d / 2, w: 0.22, h: h * 0.96, d: 0.22, color });
+      leds.push({ x: fp.x - sx * fp.w / 2, y: h / 2, z: fp.z + sz * fp.d / 2, w: 0.22, h: h * 0.96, d: 0.22, color });
+      const s = pick(rand, open), f = face(fp, s, 0.1), along0 = s < 2 ? fp.w : fp.d;
+      leds.push({ x: f.x, y: h - 0.3, z: f.z, w: s < 2 ? along0 : 0.2, h: 0.2, d: s < 2 ? 0.2 : along0, color });
     }
   };
   /** The mess of a lived-in facade: balconies stacked up a face with rails and the washing hung out, an
@@ -484,8 +546,8 @@ export function planCity(seed: number): Plan {
   // -- the building at hand: which of its walls face a street, its district, its gutter, whether it is round,
   // the bustle hung on it (so the signs keep clear); and the register of street-facing walls, by block and
   // side, that the overbuilds span between ---------------------------------------------------------------
-  let bctx: { outer: boolean[]; prof: Profile; g: number; round: boolean; bustle: { side: number; y0: number; y1: number } | null } =
-    { outer: [true, true, true, true], prof: DISTRICTS.mid, g: 0.5, round: false, bustle: null };
+  let bctx: { outer: boolean[]; prof: Profile; g: number; round: boolean; bustle: { side: number; y0: number; y1: number } | null; bill: { side: number; y0: number; y1: number } | null } =
+    { outer: [true, true, true, true], prof: DISTRICTS.mid, g: 0.5, round: false, bustle: null, bill: null };
   const faces = new Map<string, Solid[]>();
   const noteFace = (s: Solid, lot: Rect) => {
     const bx = Math.round(s.x / G), bz = Math.round(s.z / G);
@@ -592,7 +654,7 @@ export function planCity(seed: number): Plan {
           clutter.push({ kind: 'escape', x: lp.x, y: lp.y, z: lp.z, w: 0.5, h: 2.9, d: 0.1, rotY: rot }); // the ladder
         }
       }
-      if (rand() < 0.5 * K && h > 7) { // cables along the second floor
+      if (rand() < 0.7 * K && h > 7) { // cables along the second floor
         const a = at(-along / 2, 6.2 + rand() * 0.6, 0.12), b = at(along / 2, 6.2 + rand() * 0.6, 0.12), m = at(0, 6.0, 0.4);
         wires.push(a.x, a.y, a.z, m.x, m.y, m.z, m.x, m.y, m.z, b.x, b.y, b.z);
       }
@@ -672,7 +734,7 @@ export function planCity(seed: number): Plan {
     dress(fp, h, top2, capped, lowY);
     balconies(fp, h);
     facadeKit(fp, h);
-    bctx.bustle = null;
+    bctx.bustle = null; bctx.bill = null;
     return fp;
   };
 
@@ -850,7 +912,7 @@ export function planCity(seed: number): Plan {
     const m = Math.min(w, d), M = Math.max(w, d);
     const a = rand();
     const outer = [c.z + c.d / 2 > lot.z + lot.d / 2 - 1, c.z - c.d / 2 < lot.z - lot.d / 2 + 1, c.x + c.w / 2 > lot.x + lot.w / 2 - 1, c.x - c.w / 2 < lot.x - lot.w / 2 + 1];
-    bctx = { outer, prof, g, round: false, bustle: null };
+    bctx = { outer, prof, g, round: false, bustle: null, bill: null };
     const i0 = bucket.length;
     let fp: Foot;
     if (m < 5.5) fp = prof.name === 'walled' ? block(x, z, w, d, Math.min(h, 44)) : h > 34 && rand() < 0.25 && prof.name !== 'old' ? needle(x, z, h) : low(x, z, w, d, Math.min(h, 16));
@@ -1159,9 +1221,23 @@ export function planCity(seed: number): Plan {
   signs.push({ x: mgx - 30.3, y: 24, z: mgz + 6, rotY: -Math.PI / 2, w: 26, h: 14, color: '#ffffff', kind: 'screen' });
   signs.push({ x: mgx - 8, y: 24, z: mgz + 30.3, rotY: 0, w: 26, h: 14, color: '#ffffff', kind: 'screen' });
   const mega = { x: mgx, z: mgz, top: 116 };
-  holos.push({ x: mgx + 7, y: 140, z: mgz - 6, w: 34, h: 50, rotY: 0.6 });
-  holos.push({ x: -60, y: 84, z: 64, w: 22, h: 36, rotY: -0.4 });
-  holos.push({ x: sx0, y: 46, z: sz0, w: 26, h: 26, rotY: 1.1 });
+  billboards.push({ x: mgx + 30.3, y: 26, z: mgz - 8, rotY: Math.PI / 2, w: 26, h: 14, art: 0, lit: 1 }); // giant, on the megastructure's east face
+  billboards.push({ x: mgx + 10, y: 26, z: mgz - 30.3, rotY: Math.PI, w: 26, h: 14, art: 2, lit: 1 }); // and its south
+  for (const [bx0, bz0] of [[mgx + 30.3, mgz - 8], [mgx + 10, mgz - 30.3]]) for (const u of [-8, 8]) spots.push(bx0 + (bz0 === mgz - 8 ? 0.9 : u), 33.6, bz0 + (bz0 === mgz - 8 ? u : 0.9));
+  holos.push({ x: mgx + 7, y: 140, z: mgz - 6, w: 34, h: 50, rotY: 0.6, kind: 'panel' });
+  holos.push({ x: -60, y: 84, z: 64, w: 22, h: 36, rotY: -0.4, kind: 'panel' });
+  holos.push({ x: sx0, y: 46, z: sz0, w: 26, h: 26, rotY: 1.1, kind: 'panel' });
+  // (owner: the plates' holograms over the streets) a turning ring of glyphs over the plaza, panels looking
+  // down the avenue roads, two pillars of light at the plaza's corners, two turning logo discs over the quarters
+  holos.push({ x: 0, y: 64, z: 0, w: 40, h: 8, rotY: 0, kind: 'ring' });
+  holos.push({ x: -114, y: 32, z: 19, w: 14, h: 20, rotY: Math.PI / 2, kind: 'panel' });
+  holos.push({ x: 150, y: 34, z: -19, w: 14, h: 20, rotY: -Math.PI / 2, kind: 'panel' });
+  holos.push({ x: 19, y: 36, z: 120, w: 12, h: 18, rotY: 0, kind: 'panel' });
+  holos.push({ x: -19, y: 30, z: -150, w: 12, h: 18, rotY: Math.PI, kind: 'panel' });
+  holos.push({ x: 38, y: 34, z: 38, w: 3, h: 64, rotY: 0, kind: 'pillar' });
+  holos.push({ x: -38, y: 34, z: -38, w: 3, h: 64, rotY: 0, kind: 'pillar' });
+  holos.push({ x: 133, y: 96, z: -200, w: 18, h: 18, rotY: 0, kind: 'logo' });
+  holos.push({ x: 170, y: 150, z: -95, w: 14, h: 14, rotY: 0, kind: 'logo' });
   const temple = (cx: number, cz: number) => {
     for (let k = 0; k < 3; k++) {
       const fw = 13 - 3 * k, fd = 11 - 2.5 * k, y = k * 5.6;
@@ -1363,7 +1439,29 @@ export function planCity(seed: number): Plan {
       if ([ba, bb].some((b) => Math.abs(b[0]) > HALF || Math.abs(b[1]) > HALF)) continue;
       const A = faces.get(key3(ba)), B = faces.get(key3(bb));
       if (!A || !B) continue;
-      const odds = DISTRICTS[districtOf(ba[0], ba[1])].over;
+      const dist = districtOf(ba[0], ba[1]);
+      { // WIRES across the street between facing walls (owner: the plates' cable spaghetti), and in the old town a string
+        // of lanterns across it — all above a bus, all below the canyon band
+        const a = pick(rand, A), b = pick(rand, B);
+        const ext0 = (q: Solid): [number, number] => (r.axis === 'x' ? [q.x - q.w / 2, q.x + q.w / 2] : [q.z - q.d / 2, q.z + q.d / 2]);
+        const [a0, a1] = ext0(a), [b0, b1] = ext0(b), o0 = Math.max(a0, b0), o1 = Math.min(a1, b1);
+        if (o1 - o0 >= 2 && Math.abs(r.at) > 27) {
+          const fa = r.axis === 'x' ? a.z + a.d / 2 : a.x + a.w / 2, fb = r.axis === 'x' ? b.z - b.d / 2 : b.x - b.w / 2;
+          const lo = Math.min(a.y + a.h / 2, b.y + b.h / 2) - 1;
+          for (let k = 0, n = rand() < (dist === 'old' ? 0.6 : 0.5) ? 1 + Math.floor(rand() * 3) : 0; k < n; k++) {
+            const u = o0 + rand() * (o1 - o0), ya = Math.min(lo, 7 + rand() * 4), yb = Math.min(lo, 7 + rand() * 4), sag = 0.6 + rand() * 0.8;
+            const P0 = r.axis === 'x' ? [u, ya, fa] : [fa, ya, u], P1 = r.axis === 'x' ? [u + (rand() - 0.5) * 2, yb, fb] : [fb, yb, u + (rand() - 0.5) * 2];
+            const M = [(P0[0] + P1[0]) / 2, Math.min(ya, yb) - sag, (P0[2] + P1[2]) / 2];
+            if (ya < 6.5 || yb < 6.5) continue;
+            wires.push(P0[0], P0[1], P0[2], M[0], M[1], M[2], M[0], M[1], M[2], P1[0], P1[1], P1[2]);
+            if (dist === 'old' && k === 0) for (let t = 0.12; t < 0.95; t += 0.16) { // the lanterns, hung along the sag
+              const s2 = t, q0 = (1 - s2) * (1 - s2), q1 = 2 * (1 - s2) * s2, q2 = s2 * s2;
+              lantern(q0 * P0[0] + q1 * M[0] + q2 * P1[0], q0 * P0[1] + q1 * (M[1] - 0.3) + q2 * P1[1] - 0.4, q0 * P0[2] + q1 * M[2] + q2 * P1[2]);
+            }
+          }
+        }
+      }
+      const odds = DISTRICTS[dist].over;
       if (rand() >= odds) continue;
       // the masses either side, read along the street: a span lands wherever both carry at least 43
       const ext = (q: Solid): [number, number] => (r.axis === 'x' ? [q.x - q.w / 2, q.x + q.w / 2] : [q.z - q.d / 2, q.z + q.d / 2]);
@@ -1396,12 +1494,16 @@ export function planCity(seed: number): Plan {
           if (grid.hit(x, y0 + hb / 2, z, 1)) continue; // something already fills that air
           solid(core, 'facade', 'over', anyTex(), x, y0 + hb / 2, z, w, hb, d);
           roofed.push({ axis: r.axis, at: r.at, t: c, half: dep / 2 });
-          if (rand() < 0.35) { // a screen on the face that looks down the street
-            const sgn = rand() < 0.5 ? 1 : -1;
-            signs.push({
-              x: x + (r.axis === 'x' ? sgn * (dep / 2 + 0.2) : 0), y: y0 + hb / 2, z: z + (r.axis === 'x' ? 0 : sgn * (dep / 2 + 0.2)),
-              rotY: r.axis === 'x' ? sgn * Math.PI / 2 : sgn > 0 ? 0 : Math.PI, w: across * 0.6, h: hb * 0.6, color: '#ffffff', kind: 'screen',
-            });
+          const sgn = rand() < 0.5 ? 1 : -1, ex = x + (r.axis === 'x' ? sgn * (dep / 2 + 0.2) : 0), ez = z + (r.axis === 'x' ? 0 : sgn * (dep / 2 + 0.2));
+          const rotY = r.axis === 'x' ? sgn * Math.PI / 2 : sgn > 0 ? 0 : Math.PI;
+          const a = rand();
+          if (a < 0.35) signs.push({ x: ex, y: y0 + hb / 2, z: ez, rotY, w: across * 0.6, h: hb * 0.6, color: '#ffffff', kind: 'screen' }); // a screen on the face that looks down the street
+          else if (a < 0.75) { // or a billboard
+            const bw = across * 0.7, bhh = Math.min(hb * 0.7, bw * 0.55);
+            billboards.push({ x: ex, y: y0 + hb / 2, z: ez, rotY, w: bw, h: bhh, art: Math.floor(rand() * ARTS), lit: 1 });
+            const nx = Math.sin(rotY), nz = Math.cos(rotY);
+            clutter.push({ kind: 'frame', x: ex - nx * 0.15, y: y0 + hb / 2, z: ez - nz * 0.15, w: bw + 0.4, h: bhh + 0.4, d: 0.2, rotY });
+            for (const u of [-bw * 0.3, bw * 0.3]) spots.push(ex + (r.axis === 'x' ? 0 : u) + nx * 0.9, y0 + hb / 2 + bhh / 2 + 0.6, ez + (r.axis === 'x' ? u : 0) + nz * 0.9);
           }
         }
       }
@@ -1530,10 +1632,19 @@ export function planCity(seed: number): Plan {
   for (const p of pads) grid.add({ x: p.x, y: p.y, z: p.z, w: 6, h: 0.4, d: 6 });
 
   // -- the giant screens, beacons, points of interest ------------------------
-  for (const t of tall.slice(0, 8)) {
-    if (rand() < 0.75) {
+  const wideTall = tall.filter((t) => t.w >= 12 && t.top > 50).slice(0, 6); // the tallest of the WIDE masses: a slender spire cannot carry a board twenty wide
+  for (const [i, t] of [...wideTall, ...tall.filter((t) => !wideTall.includes(t)).slice(0, 4)].entries()) {
+    const s = rand() < 0.5 ? 1 : -1;
+    if (i < wideTall.length) { // GIANT billboards on the six tallest wide masses (owner: the plates' faces over the city)
+      const w = Math.min(24, t.w * 1.15), bh = w * 0.6, y = Math.min(t.top * 0.5, t.top - bh), x = t.x, z = t.z + s * (t.d / 2 + 0.3), rotY = s > 0 ? 0 : Math.PI;
+      if (y + bh / 2 + 1.5 <= allowedTop(x, z, w, 1)) {
+        billboards.push({ x, y, z, rotY, w, h: bh, art: [0, 23, 2, 1, 6, 9][i], lit: 1 });
+        clutter.push({ kind: 'frame', x, y, z: z - s * 0.15, w: w + 0.6, h: bh + 0.6, d: 0.24, rotY });
+        for (const u of [-w * 0.3, 0, w * 0.3]) spots.push(x + u, y + bh / 2 + 0.7, z + s * 0.9);
+        pois.push({ x, y, z: t.z, w: 1.8 });
+      }
+    } else if (rand() < 0.75) {
       const w = Math.min(10, t.w * 0.9);
-      const s = rand() < 0.5 ? 1 : -1;
       signs.push({ x: t.x, y: t.top * 0.42, z: t.z + s * (t.d / 2 + 0.25), rotY: s > 0 ? 0 : Math.PI, w, h: w * 0.6, color: '#ffffff', kind: 'screen' });
       pois.push({ x: t.x, y: t.top * 0.42, z: t.z, w: 1.6 });
     }
@@ -1613,7 +1724,7 @@ export function planCity(seed: number): Plan {
   };
 
   return {
-    core, outer, sprawl, strips, leds, awnings, tarps, clutter, signs, posts, lanterns, wires, vents, holos, stalls, sprawlLamps, neon,
+    core, outer, sprawl, strips, leds, awnings, tarps, clutter, billboards, spots, signs, posts, lanterns, wires, vents, holos, stalls, sprawlLamps, neon,
     beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead, air, pads,
   };
 }

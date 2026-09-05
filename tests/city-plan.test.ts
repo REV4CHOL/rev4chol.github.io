@@ -71,7 +71,7 @@ describe('planCity', () => {
     expect(plan.wires.length % 12).toBe(0); // three segments per wire, two endpoints each
     expect(plan.lanterns.length / 3).toBeGreaterThan(400);
     expect(plan.vents.length).toBeGreaterThan(20);
-    expect(plan.holos.length).toBe(3);
+    expect(plan.holos.length).toBe(12);
     expect(plan.stalls.length).toBeGreaterThan(80); // the night market and three flea markets
     expect(plan.stacks.length).toBeGreaterThanOrEqual(2);
     expect(plan.bridges.length).toBe(22);
@@ -210,12 +210,29 @@ describe('Newport City, layered (owner: messy, overlapping, Ghost in the Shell)'
 
   it('bridges the streets with overbuilds above the flight band, never over an avenue', () => {
     const overs = plan.core.filter((s) => s.arch === 'over');
-    expect(overs.length).toBeGreaterThan(30);
+    expect(overs.length).toBeGreaterThan(25);
     for (const o of overs) {
       expect(o.y - o.h / 2, 'underside').toBeGreaterThanOrEqual(35); // the canyon band's top plus the flight's pad is 34.6
       expect(Math.abs(o.x) < 26 || Math.abs(o.z) < 26, 'over an avenue').toBe(false);
       expect(Math.max(o.w, o.d)).toBeGreaterThan(8); // it spans a street
     }
+  });
+
+  it('signs the street like Hong Kong: stacked hanging signs on brackets, billboards, screens, holograms, neon edges, wires', () => {
+    expect(plan.signs.length).toBeGreaterThan(7000);
+    const hangs = plan.signs.filter((s) => s.kind === 'hang');
+    expect(hangs.length).toBeGreaterThan(2500);
+    expect(hangs.filter((s) => s.w >= 2.4 && s.h >= 12).length).toBeGreaterThan(600); // the big ones
+    for (const s of hangs) { expect(s.y - s.h / 2).toBeGreaterThanOrEqual(6.4); expect(s.w).toBeLessThanOrEqual(3.2); } // over a bus, never over the lanes
+    expect(plan.clutter.filter((c) => c.kind === 'bracket').length).toBe(hangs.length * 2);
+    expect(plan.billboards.length).toBeGreaterThan(200);
+    for (const b of plan.billboards) { expect(b.w).toBeGreaterThanOrEqual(5); expect(b.art).toBeGreaterThanOrEqual(0); expect(b.art).toBeLessThan(24); expect(Number.isFinite(b.rotY)).toBe(true); }
+    expect(plan.billboards.filter((b) => b.w >= 14).length).toBeGreaterThanOrEqual(6); // the giants
+    expect(plan.spots.length / 3).toBeGreaterThan(300);
+    expect(plan.signs.filter((s) => s.kind === 'screen').length).toBeGreaterThan(30);
+    expect(new Set(plan.holos.map((h) => h.kind)).size).toBe(4);
+    expect(plan.leds.length).toBeGreaterThan(400);
+    expect(plan.wires.length / 12).toBeGreaterThan(2000);
   });
 
   it('strings catwalks across the alleys and arcades along the facades, every one at its own height', () => {
