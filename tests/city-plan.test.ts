@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
 import {
-  ARTERIAL, ARTERIAL_ROW, arterialLat, arterialZ, AutoFlight, BOUND, CAM_R, CANAL, CollisionGrid, districtOf, EXT, G, HIGHWAY, MEDIAN, planCity, RAIL, RAMP, RAMP_W, rampY,
+  ARTERIAL, ARTERIAL_ROW, arterialLat, arterialZ, AutoFlight, BOUND, CAM_R, CANAL, carriagewayAt, CollisionGrid, districtOf, EXT, G, HIGHWAY, MEDIAN, planCity, RAIL, RAMP, RAMP_W, rampY,
   ROAD, starPositions, STREET, streetAt, tourRoute,
 } from '../src/about/city-plan';
 import { mulberry32 } from '../src/lib/rng';
@@ -388,6 +388,18 @@ describe('The viaduct over its arterial (owner: roads that exist in real life)',
     const wet = plan.posts.filter((p) => Math.abs(p.x) < CANAL.w / 2 && Math.abs(p.x) > 5 && Math.abs(p.z) > 20 && (p.y ?? 0) < 1);
     expect(wet.length).toBe(0);
     expect(plan.streets.find((s) => s.kind === 'canal')!.y).toBeCloseTo(CANAL.water + 0.3, 5);
+  });
+
+  it('keeps every lamp post, kiosk, stall and tree out of every carriageway (owner: posts in the middle of the roads)', () => {
+    for (const p of plan.posts) expect(carriagewayAt(plan.streets, p.x, p.z, p.y ?? 0), `a post in the road at ${p.x.toFixed(0)},${p.z.toFixed(0)}`).toBeNull();
+    for (const s of plan.stalls) expect(carriagewayAt(plan.streets, s.x, s.z), `a stall in the road at ${s.x.toFixed(0)},${s.z.toFixed(0)}`).toBeNull();
+    for (const s of plan.core) {
+      if (s.kind !== 'tree' && !(s.kind === 'dark' && s.arch === 'street' && s.h <= 2.6 && s.y - s.h / 2 < 0.5)) continue;
+      expect(carriagewayAt(plan.streets, s.x, s.z, s.y - s.h / 2), `street furniture in the road at ${s.x.toFixed(0)},${s.z.toFixed(0)}`).toBeNull();
+    }
+    const deckLamps = plan.posts.filter((p) => Math.abs((p.y ?? 0) - HIGHWAY.y - 1.5) < 0.01);
+    expect(deckLamps.length).toBeGreaterThan(20); // on the parapets
+    for (const p of deckLamps) expect(Math.abs(Math.abs(arterialLat(p.x, p.z)) - 8.25)).toBeLessThan(0.05);
   });
 
   it('dresses the aprons: parked vehicles, stalls and shanties, none on the carriageway', () => {

@@ -1106,6 +1106,19 @@ function arterialStripTextures(aniso: number): { map: CanvasTexture; glow: Canva
   map.wrapT = glow.wrapT = ClampToEdgeWrapping;
   return { map, glow };
 }
+/** Plain asphalt with its grain, for the boxes of the six-way crossings; the glow twin lifts it like the streets'. */
+function asphaltTextures(aniso: number): { map: CanvasTexture; glow: CanvasTexture } {
+  const c = document.createElement('canvas');
+  c.width = 96; c.height = 96;
+  const x = c.getContext('2d')!;
+  x.fillStyle = '#3e4150'; x.fillRect(0, 0, 96, 96);
+  for (let i = 0; i < 700; i++) {
+    x.fillStyle = i % 2 ? '#000000' : '#ffffff'; x.globalAlpha = 0.03 + ((i * 7919) % 100) / 1400;
+    x.fillRect((i * 37) % 96, (i * 53) % 96, 1, 1);
+  }
+  x.globalAlpha = 1;
+  return { map: streetTex(c, aniso), glow: streetTex(glowTwin(c), aniso) };
+}
 /** A zebra crossing: white bars across u, clear between them. */
 function zebraTexture(): CanvasTexture {
   const c = document.createElement('canvas');
@@ -2540,7 +2553,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     traffic.step();
     for (let i = 0; i < cars.length; i++) {
       const c = cars[i];
-      const weave = c.kind === 'moto' ? Math.sin(traffic.tick * 0.05 + c.phase) * 0.7 : 0; // the weave, inside the lane
+      const weave = 0; // (owner: the motorcycles swayed back and forth — they hold their line)
       placeVehicle(i, c.x, c.y + c.h / 2 + 0.05, c.z, c.yaw, c.pitch, c.w, c.h, c.len, weave, c.brake || c.v < 0.01, 0.4 + 0.6 * Math.min(1, c.v / (c.vmax * 0.6)));
     }
     boats.forEach((b, k) => {
@@ -2649,10 +2662,38 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
         dummy.position.set(n.x - art.dz * s * (ARTERIAL_ROW - ARTERIAL.walk / 2), 0.07, n.z + art.dx * s * (ARTERIAL_ROW - ARTERIAL.walk / 2)); dummy.scale.set(ROAD + 0.4, 1, 2.2); dummy.updateMatrix(); zebras.setMatrixAt(jz++, dummy.matrix);
       }
     }
+    // SIX-WAY BOXES (owner: photo 1 — the boulevard's crossings were two crossings drawn on top of each other): one
+    // plain box over each carriageway's reach through the node, over the strips' paint and the tile's, with a
+    // zebra at the mouth of every arm and a stop line before the boulevard's
+    const sixes = traffic.nodes.filter((n) => n.streets.some((q) => q.kind === 'diagonal') && n.streets.length >= 2);
+    const boxMat = streetMat(asphaltTextures(aniso), 1);
+    const lineMat = new MeshBasicMaterial({ color: '#e8eaf0', polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -3 });
+    const sixZebras = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), zebraMat, Math.max(1, sixes.length * 6));
+    let js = 0;
+    for (const n of sixes) {
+      n.streets.forEach((s, i) => {
+        const half = s.kind === 'diagonal' ? 4.9 : s.width / 2;
+        const reach = n.streets.reduce((m, o) => (o === s ? m : Math.max(m, rowOf(o))), 0) + 1.5;
+        const yaw = Math.atan2(-s.dz, s.dx);
+        const box = new Mesh(new PlaneGeometry(2 * reach, 2 * half).rotateX(-Math.PI / 2), boxMat);
+        box.position.set(n.x, 0.052 + 0.002 * i, n.z); box.rotation.y = yaw; box.receiveShadow = true;
+        scene.add(box);
+        for (const d of [-1, 1]) {
+          dummy.rotation.set(0, yaw + Math.PI / 2, 0);
+          dummy.position.set(n.x + s.dx * d * (reach - 1.3), 0.062, n.z + s.dz * d * (reach - 1.3)); dummy.scale.set(2 * half + 0.4, 1, 2.2); dummy.updateMatrix(); sixZebras.setMatrixAt(js++, dummy.matrix);
+          if (s.kind === 'diagonal') { // the boulevard's stop lines (the tile paints the roads')
+            const line = new Mesh(new PlaneGeometry(2 * half, 0.4).rotateX(-Math.PI / 2), lineMat);
+            line.position.set(n.x + s.dx * d * (reach + 0.4), 0.064, n.z + s.dz * d * (reach + 0.4)); line.rotation.y = yaw + Math.PI / 2;
+            scene.add(line);
+          }
+        }
+      });
+    }
+    sixZebras.count = js;
     zebras.count = jz;
     dummy.rotation.set(0, 0, 0);
-    zebras.instanceMatrix.needsUpdate = true;
-    scene.add(zebras);
+    zebras.instanceMatrix.needsUpdate = true; sixZebras.instanceMatrix.needsUpdate = true;
+    scene.add(zebras, sixZebras);
   }
   const RED = new Color('#ff3b3b'), GREEN = new Color('#3dff8f'), OFF_RED = new Color('#2a0808'), OFF_GREEN = new Color('#082a12'), WALK = new Color('#e8f4ff'), DONT = new Color('#ff5e4a');
   const tendSignals = () => {

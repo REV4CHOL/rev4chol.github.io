@@ -108,6 +108,21 @@ export const arterialLat = (x: number, z: number): number => {
   const hx = HIGHWAY.x1 - HIGHWAY.x0, hz = HIGHWAY.z1 - HIGHWAY.z0;
   return (-(x - HIGHWAY.x0) * hz + (z - HIGHWAY.z0) * hx) / Math.hypot(hx, hz);
 };
+/** The carriageway a point at height y stands in, if any (a road's ±5, the boulevard's ±4.9, the arterial's ±7.5, a
+ *  ramp's inside its parapets, the deck's inside its kerbs) — furniture is kept out of all of them. */
+export function carriagewayAt(streets: Street[], x: number, z: number, y = 0): Street | null {
+  for (const s of streets) {
+    const half = s.kind === 'road' ? ROAD / 2 : s.kind === 'diagonal' ? 4.9 : s.kind === 'arterial' ? s.width / 2 : s.kind === 'ramp' ? RAMP_W / 2 - 0.4 : s.kind === 'highway' ? 8 : -1;
+    if (half < 0) continue;
+    const t = (x - s.x0) * s.dx + (z - s.z0) * s.dz;
+    if (t < 0 || t > s.len) continue;
+    if (Math.abs(-(x - s.x0) * s.dz + (z - s.z0) * s.dx) >= half) continue;
+    const sy = s.y1 === undefined ? s.y : s.y + (s.y1 - s.y) * rampProfile(t / s.len);
+    if (Math.abs(y - sy) > 2.5) continue;
+    return s;
+  }
+  return null;
+}
 export interface Poi { x: number; y: number; z: number; w: number }
 /** A hologram over the city: a scrolling PANEL of glyphs, a slowly turning RING of them, a PILLAR of light, a turning LOGO disc. */
 export type HoloKind = 'panel' | 'ring' | 'pillar' | 'logo';
@@ -1500,7 +1515,7 @@ export function planCity(seed: number): Plan {
     for (let t = 0; t <= len; t += 10) { // the deck, as a chain of solids the flight respects
       const x = HIGHWAY.x0 + dx * t, z = HIGHWAY.z0 + dz * t;
       grid.add({ x, y: HIGHWAY.y, z, w: 12 + Math.abs(dz) * 8, h: 0.8, d: 14 + Math.abs(dx) * 2 });
-      if (t % 30 === 0 && Math.abs(x) < REACH) posts.push({ x, z, h: 6, y: HIGHWAY.y + 0.4 }); // median lamps up the deck
+      if (t % 30 === 0 && Math.abs(x) < REACH) for (const s of [-1, 1]) posts.push({ x: x - dz * s * 8.25, z: z + dx * s * 8.25, h: 5, y: HIGHWAY.y + 1.5 }); // lamps on the parapets (owner: not in the middle of the road)
       if (t % 110 === 50 && Math.abs(x) < EXT) { // an overhead sign gantry across the deck, its posts on the parapet line
         signs.push({ x, y: HIGHWAY.y + 6.6, z, rotY: Math.atan2(dx, dz) + Math.PI / 2, w: 12, h: 2.4, color: signColor(rand), kind: 'gantry' });
         for (const s of [-1, 1]) solid(core, 'dark', 'street', 0, x - dz * s * 8.25, HIGHWAY.y + 4.4, z + dx * s * 8.25, 0.36, 8, 0.36);
@@ -1972,6 +1987,32 @@ export function planCity(seed: number): Plan {
     return Math.max(0, room);
   };
 
+  // -- NOTHING STANDS IN A CARRIAGEWAY (owner: lamp posts in the middle of the roads): every post, kiosk, stall and
+  // tree inside any carriageway goes — the grid roads' kerb posts ran on through the boulevard's six-way crossings,
+  // the boulevard's own posts stood in the roads it cut
+  {
+    const inWay = (x: number, z: number, y = 0) => carriagewayAt(streets, x, z, y) !== null;
+    const keptPosts = posts.filter((p) => !inWay(p.x, p.z, p.y ?? 0));
+    posts.length = 0; posts.push(...keptPosts);
+    const gone: { x: number; z: number }[] = [];
+    const keep = (s: Solid) => {
+      const base = s.y - s.h / 2;
+      const kiosk = s.kind === 'dark' && s.arch === 'street' && Math.abs(s.w - 2.2) < 0.01 && Math.abs(s.h - 2.4) < 0.01 && Math.abs(s.d - 1.6) < 0.01;
+      const leg = s.kind === 'dark' && s.arch === 'street' && s.w < 0.2 && s.d < 0.2;
+      const trunk = s.kind === 'dark' && s.arch === 'street' && Math.abs(s.w - 0.34) < 0.01 && Math.abs(s.h - 1.6) < 0.01;
+      const tree = s.kind === 'tree';
+      if (!(kiosk || leg || trunk || tree) || base > 3) return true;
+      if (!inWay(s.x, s.z, base)) return true;
+      if (kiosk) gone.push({ x: s.x, z: s.z });
+      return false;
+    };
+    const keptCore = core.filter(keep);
+    core.length = 0; core.push(...keptCore);
+    const keptStalls = stalls.filter((st) => !inWay(st.x, st.z));
+    stalls.length = 0; stalls.push(...keptStalls);
+    const keptSigns = signs.filter((sg) => !(sg.kind === 'tag' && Math.abs(sg.y - 1.5) < 0.01 && gone.some((g) => Math.hypot(g.x - sg.x, g.z - sg.z) < 1.5))); // a kiosk's tag goes with it
+    signs.length = 0; signs.push(...keptSigns);
+  }
   return {
     core, outer, sprawl, strips, leds, awnings, tarps, clutter, billboards, spots, signs, posts, lanterns, wires, vents, holos, stalls, sprawlLamps, neon,
     beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead, air, pads, rail, piers, patches, parked,

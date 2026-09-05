@@ -39,11 +39,11 @@ startPage(
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-/** The time of day in force: the address first (?tod=dawn), then what was chosen last, else the night. */
-function storedTime(): TimeOfDay {
+/** The time of day the page opens at: the address may ask (?tod=dawn), else the NIGHT (owner: always night; the
+ *  switch works for the visit and is not remembered). */
+function startTime(): TimeOfDay {
   const fromUrl = new URLSearchParams(location.search).get('tod');
-  if (fromUrl) return parseTime(fromUrl);
-  try { return parseTime(localStorage.getItem('rvl-tod')); } catch { return 'night'; }
+  return fromUrl ? parseTime(fromUrl) : 'night';
 }
 
 /** The city mounts lazily (three.js is the about page's private cargo);
@@ -87,12 +87,11 @@ async function armFlight(site: SiteContent): Promise<void> {
   const clock = document.getElementById('a3-tod')!;
   clock.innerHTML = TIMES.map((t) => `<button type="button" data-t="${t}">${LOOKS[t].label}</button>`).join('');
   const status = document.getElementById('a-status-line');
-  let tod = storedTime();
+  let tod = startTime();
   const setTime = (t: TimeOfDay, instant = false) => {
     tod = t;
     ride.setTime(t, instant);
     for (const b of clock.querySelectorAll('button')) b.classList.toggle('on', b.dataset.t === t);
-    try { localStorage.setItem('rvl-tod', t); } catch { /* private mode */ }
     if (status && !instant) void scrambleEl(status, `SIGNAL :: LIVE FROM ${site.name.toUpperCase()} // ${LOOKS[t].label} FEED`, 700);
   };
   setTime(tod, true);
@@ -143,7 +142,7 @@ async function armFlight(site: SiteContent): Promise<void> {
       const d = Math.hypot(dx, dy);
       if (d > R) { dx *= R / d; dy *= R / d; }
       setKnob(dx, dy);
-      ride.setStick(dx / R, -dy / R, liftV);
+      ride.setStick(-dx / R, -dy / R, liftV); // (owner: left is left)
     });
     const endPad = (e: PointerEvent) => {
       if (e.pointerId !== padId) return;
@@ -222,7 +221,7 @@ async function armFlight(site: SiteContent): Promise<void> {
 
 function render(site: SiteContent, about: AboutContent): void {
   // -- station 00: the signal -------------------------------------------
-  void scrambleEl(document.getElementById('a-status-line')!, `SIGNAL :: LIVE FROM ${site.name.toUpperCase()} // ${LOOKS[storedTime()].label} FEED`, 900);
+  void scrambleEl(document.getElementById('a-status-line')!, `SIGNAL :: LIVE FROM ${site.name.toUpperCase()} // ${LOOKS.night.label} FEED`, 900);
   const nameEl = document.getElementById('a-name')!;
   const fullName = site.name.toUpperCase();
   nameEl.dataset.text = fullName;
