@@ -458,8 +458,9 @@ export function planCity(seed: number): Plan {
   /** The mess of a lived-in facade: balconies stacked up a face with rails and the washing hung out, an
    *  awning over the shopfront, a steam vent at the kerb. */
   const balconies = (fp: NonNullable<Foot>, h: number) => {
-    if (!bctx.round && rand() < 0.55 && h > 8) {
-      const s = Math.floor(rand() * 4);
+    const open = [0, 1, 2, 3].filter((k) => bctx.outer[k]); // a balcony wants a street before it, not a seam
+    if (!bctx.round && open.length && rand() < 0.55 && h > 8) {
+      const s = pick(rand, open);
       const f = face(fp, s, 0.45), fr = face(fp, s, 0.88);
       const len = (s < 2 ? fp.w : fp.d) * 0.7;
       for (let y = 3.8; y < h - 1.5; y += 3.6) {
@@ -471,8 +472,8 @@ export function planCity(seed: number): Plan {
         }
       }
     }
-    if (rand() < 0.4) {
-      const s = Math.floor(rand() * 4);
+    if (open.length && rand() < 0.4) {
+      const s = pick(rand, open);
       const f = face(fp, s, 0.7);
       const len = (s < 2 ? fp.w : fp.d) * 0.6;
       awnings.push({ x: f.x, y: 3.1, z: f.z, w: s < 2 ? len : 1.4, h: 0.16, d: s < 2 ? 1.4 : len, color: signColor(rand) });
@@ -560,22 +561,23 @@ export function planCity(seed: number): Plan {
     const K = bctx.prof.kit * (bucket === core ? 1 : 0.4);
     const floors = Math.floor((h - 3) / 3);
     for (let s = 0; s < 4; s++) {
-      if (!bctx.outer[s] && rand() < 0.7) continue; // the inner faces (seams, alleys) take a little
+      if (!bctx.outer[s] && (bctx.g < 0.3 || rand() < 0.6)) continue; // nothing fits in a seam; the alley faces take a little
       const along = s < 2 ? fp.w : fp.d;
       const f = face(fp, s, 0), rot = f.rot;
       const nx = Math.sin(rot), nz = Math.cos(rot); // the wall's outward normal
       const at = (u: number, y: number, out: number) => ({ x: f.x + (s < 2 ? u : 0) + nx * out, y, z: f.z + (s >= 2 ? u : 0) + nz * out });
-      if (rand() < 0.75 * K && floors > 1) { // condensers under the windows, on alternate floors
-        const n = Math.max(1, Math.floor(along / 2.4));
-        for (let k = 1; k < floors; k += 1 + Math.floor(rand() * 2)) {
+      if (rand() < 0.85 * K && floors > 1) { // condensers under the windows, floor after floor
+        const n = Math.max(1, Math.floor(along / 1.7));
+        const rowOdds = 0.45 + 0.4 * rand(); // some walls are covered, some sparse
+        for (let k = 1; k < floors; k += rand() < 0.75 ? 1 : 2) {
           for (let i = 0; i < n; i++) {
-            if (rand() >= 0.35 * K) continue;
+            if (rand() >= rowOdds * K) continue;
             const p = at(-along / 2 + (i + 0.5) * (along / n) + (rand() - 0.5) * 0.4, 3 * k + 1.7, 0.28);
             clutter.push({ kind: 'ac', x: p.x, y: p.y, z: p.z, w: 0.62, h: 0.55, d: 0.5, rotY: rot });
           }
         }
       }
-      if (rand() < 0.6 * K) { const p = at((rand() - 0.5) * (along - 1), h * 0.48, 0.14); clutter.push({ kind: 'pipe', x: p.x, y: p.y, z: p.z, w: 0.2, h: h * 0.94, d: 0.2, rotY: rot }); }
+      for (let k = 0, n = rand() < 0.7 * K ? 1 + Math.floor(rand() * 2.4) : 0; k < n; k++) { const p = at((rand() - 0.5) * (along - 1), h * 0.48, 0.14); clutter.push({ kind: 'pipe', x: p.x, y: p.y, z: p.z, w: 0.2, h: h * 0.94, d: 0.2, rotY: rot }); }
       if (rand() < 0.3 * K && floors > 1) { const y = 3 * (1 + Math.floor(rand() * (floors - 1))) + 0.4; const p = at(0, y, 0.16); clutter.push({ kind: 'pipe', x: p.x, y, z: p.z, w: along * (0.6 + rand() * 0.35), h: 0.16, d: 0.16, rotY: rot }); }
       if (rand() < 0.25 * K && h > 8) { const p = at((rand() - 0.5) * (along - 1.5), h * 0.5, 0.3); clutter.push({ kind: 'duct', x: p.x, y: p.y, z: p.z, w: 0.55, h: h * 0.8, d: 0.55, rotY: rot }); }
       if (rand() < 0.2 * K) { const p = at((rand() - 0.5) * (along - 1.5), 4 + rand() * Math.max(1, h - 6), 0.5); clutter.push({ kind: 'dish', x: p.x, y: p.y, z: p.z, w: 0.9, h: 0.9, d: 0.2, rotY: rot + (rand() - 0.5) * 1.2 }); }

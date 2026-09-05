@@ -154,12 +154,14 @@ function startTier(): number {
   return t;
 }
 
-// the reference's windows: warm sodium AND a lot of cool cyan-blue-white
-const WARM = ['#ffb36b', '#ffd9a0', '#ff9a4d', '#ffe9c9', '#ffc27a'];
-const COOL = ['#7de8ff', '#4fc3ff', '#bfefff', '#ffffff', '#ff5e7a', '#b79cff'];
+// the windows: warm sodium and cool fluorescent whites, a rare saturated pane (a shop, a screen behind glass) —
+// the colour of the street is the signs' (owner: the lit grids read as a Mondrian by day)
+const WARM = ['#ffb36b', '#ffd9a0', '#ffe9c9', '#ffc27a', '#fff1d6', '#ffcf8a'];
+const COOL = ['#bfefff', '#dff6ff', '#ffffff', '#cfe3ff', '#e8f4ff', '#a9d8f0'];
+const RARE = ['#7de8ff', '#ff5e7a', '#b79cff', '#ff9a4d', '#3dff8f'];
 
 const pick = <T>(rand: () => number, arr: T[]): T => arr[Math.floor(rand() * arr.length)];
-const windowColor = (rand: () => number, warm = 0.6) => (rand() < warm ? pick(rand, WARM) : pick(rand, COOL));
+const windowColor = (rand: () => number, warm = 0.6) => (rand() < 0.06 ? pick(rand, RARE) : rand() < warm ? pick(rand, WARM) : pick(rand, COOL));
 
 /** Every hand-pixel canvas is authored in sRGB — mark it so, or the renderer
  *  gamma-lifts the night into a grey wash (measured). */
@@ -257,7 +259,7 @@ function skinAtlas(rand: () => number): SkinAtlas {
         const on = rand() < p;
         const col = on ? (floorCol ?? windowColor(rand, v.warm)) : v.glass;
         put(wx - 1, wTop - 1, fam.ww + 2, fam.wh + 2, v.frame, 1, 0.15, false); // the frame, a shade proud
-        put(wx, wTop, fam.ww, fam.wh, col, on ? 0.75 + rand() * 0.25 : 1, curtain ? -0.1 : -1, true); // the glass, recessed
+        put(wx, wTop, fam.ww, fam.wh, col, on ? (fam.win === 'wide' ? 0.5 + rand() * 0.2 : 0.75 + rand() * 0.25) : 1, curtain ? -0.1 : -1, true); // the glass, recessed (a wide pane burns lower: a slab of white bloomed)
         if (!curtain) put(wx - 1, wTop + fam.wh, fam.ww + 2, 1, '#ffffff', 0.35, 0.45); // the sill, proud
         if (fam.win === 'strip') { // the piers between the strips stand proud, floor through floor
           put(ox + bx, fb, fam.wx - 1, FLOOR, v.wall, 1, 1.2, false);
@@ -315,6 +317,8 @@ const winTime = { value: 0 };
 const wallBleach = { value: 0 };
 const wallBleachCol = { value: new Color('#2c4a8e') };
 const wallGlass = { value: new Color('#101a36') };
+/** Shared, live: how lit the windows are (the look's `windows`) — a lit pane's albedo is its painted light by night, glass by day. */
+const wallLit = { value: 1 };
 
 /** THE SKIN: a physically lit material that WRAPS the atlas cell a building
  *  wears over its real width and height (a window is a window's size on
@@ -342,6 +346,7 @@ function skinMaterial(atlas: SkinAtlas, cyl: boolean, far: boolean): MeshStandar
     shader.uniforms.uBleach = wallBleach;
     shader.uniforms.uBleachCol = wallBleachCol;
     shader.uniforms.uGlass = wallGlass;
+    shader.uniforms.uLit = wallLit;
     shader.uniforms.uPitch = { value: pitch };
     shader.uniforms.uOffs = { value: offs };
     shader.vertexShader = shader.vertexShader
@@ -361,7 +366,7 @@ function skinMaterial(atlas: SkinAtlas, cyl: boolean, far: boolean): MeshStandar
         vSkin = aSkin;`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
-        uniform float uTime; uniform float uLift; uniform float uBleach; uniform vec3 uBleachCol; uniform vec3 uGlass;
+        uniform float uTime; uniform float uLift; uniform float uBleach; uniform vec3 uBleachCol; uniform vec3 uGlass; uniform float uLit;
         uniform vec2 uPitch[${N}]; uniform vec2 uOffs[${N}];
         varying vec4 vSkin; varying vec2 vTile; varying float vTop; varying float vInst;
         float wHash( vec2 p ) { return fract( sin( dot( p, vec2( 127.1, 311.7 ) ) ) * 43758.5453 ); }
@@ -404,7 +409,7 @@ function skinMaterial(atlas: SkinAtlas, cyl: boolean, far: boolean): MeshStandar
         float detail = clamp( wlum / 0.2, 0.45, 1.6 );
         vec3 wallCol = mix( sampledDiffuseColor.rgb * uLift, uBleachCol * detail, uBleach );
         float crown = vSkin.w * ( 1.0 - smoothstep( 2.0, 2.6, vTop ) ) * step( 0.6, vTop );
-        vec3 skinCol = sampledDiffuseColor.rgb * 0.3 * litF + uGlass * glassF + wallCol * wall;
+        vec3 skinCol = mix( uGlass, sampledDiffuseColor.rgb * 0.3, uLit ) * litF + uGlass * glassF + wallCol * wall; // a lit pane is glass by day
         sampledDiffuseColor.rgb = mix( skinCol, vec3( 0.2, 0.12, 0.06 ), crown );
         diffuseColor *= sampledDiffuseColor;`)
       .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = mix( 0.9, 0.16, wmask );')
@@ -629,6 +634,19 @@ function pitchTexture(): CanvasTexture {
   x.beginPath(); x.arc(76, 48, 12, 0, Math.PI * 2); x.stroke();
   x.strokeRect(6, 26, 22, 44); x.strokeRect(124, 26, 22, 44);
   x.strokeRect(6, 38, 8, 20); x.strokeRect(138, 38, 8, 20);
+  return asPixelTex(new CanvasTexture(c));
+}
+
+/** A condenser's face: dark louvres, a fan disc. */
+function grilleTexture(): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 16;
+  const x = c.getContext('2d')!;
+  x.fillStyle = '#5a6070'; x.fillRect(0, 0, 16, 16);
+  x.fillStyle = '#2a2e38';
+  for (let y = 1; y < 16; y += 3) x.fillRect(1, y, 14, 1);
+  x.fillStyle = '#1a1c24'; x.beginPath(); x.arc(8, 8, 4.5, 0, Math.PI * 2); x.fill();
+  x.fillStyle = '#3a3e4a'; x.beginPath(); x.arc(8, 8, 1.5, 0, Math.PI * 2); x.fill();
   return asPixelTex(new CanvasTexture(c));
 }
 
@@ -1357,7 +1375,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   interface Bucket { kind: Solid['kind']; key: string; far: boolean; mats: Matrix4[]; skins: number[]; tints: number[] }
   const buckets = new Map<string, Bucket>();
   const shopfronts: { x: number; z: number; w: number; d: number }[] = []; // lit ground floors: they wash the pavement before them
-  const NO_SHOP = new Set<Solid['arch']>(['bits', 'street', 'bridge', 'temple', 'industry', 'shanty', 'sprawl']);
+  const NO_SHOP = new Set<Solid['arch']>(['bits', 'street', 'bridge', 'temple', 'industry', 'shanty', 'sprawl', 'over', 'annex']);
   const place = (s: Solid, far: boolean) => {
     if (far && Math.max(Math.abs(s.x), Math.abs(s.z)) > 470) return; // past the fog of war's wall: never seen, not built
     if (s.arch === 'bridge' && s.kind === 'dark' && s.w > 20) return; // the canal's bridges are built below, not as slabs
@@ -1900,6 +1918,87 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     const rail: number[] = [];
     for (const b of plan.bridges) for (let x = -12; x <= 12; x += 2.4) for (const s of [-1, 1]) rail.push(x, 1.9, b.z + s * 5.4);
     glowPoints(rail, '#ffd9a0', 2);
+  }
+  // -- THE KIT (owner: a lived-in city — Ghost in the Shell's walls): every small thing the plan crusted on the
+  // walls and the roofs, one instanced mesh per kind, coloured per instance; and THE CATWALKS across the alleys,
+  // the arcades along the facades, the platforms: a deck, rails on posts, a string of lanterns ------------------
+  {
+    const disc = new CylinderGeometry(0.5, 0.5, 1, 10, 1).rotateX(Math.PI / 2); // a dish: its face along local +z, the wall's normal
+    const grille = new MeshLambertMaterial({ map: grilleTexture(), color: '#ffffff' });
+    const white = () => new MeshLambertMaterial({ color: '#ffffff' });
+    const acBody = white();
+    const boothMat = new MeshLambertMaterial({ color: '#2a3a5a', emissive: '#5df2ff', emissiveIntensity: 0.5 });
+    const vendMat = new MeshBasicMaterial({ color: '#ffffff' });
+    scalables.push({ m: vendMat, floor: 0.3 });
+    lampHeads.push(boothMat);
+    type KitDef = { geo: BoxGeometry | CylinderGeometry; mat: Material | Material[]; colors: string[]; shadow: boolean };
+    const KIT: Record<string, KitDef> = {
+      ac: { geo: geo.box, mat: [acBody, acBody, acBody, acBody, grille, acBody], colors: ['#cfd3da', '#c0c4cc', '#d8dce2', '#b4b8c0'], shadow: false },
+      pipe: { geo: geo.box, mat: white(), colors: ['#7a8090', '#6e7484', '#6a4a3a', '#5a3a2e', '#8a9098'], shadow: false },
+      duct: { geo: geo.box, mat: white(), colors: ['#8a9098', '#7a8088', '#9aa0a8'], shadow: false },
+      dish: { geo: disc, mat: white(), colors: ['#d8dce4', '#c8ccd4', '#e4e6ea'], shadow: false },
+      rail: { geo: geo.box, mat: white(), colors: ['#c8ccd6', '#b8bcc6'], shadow: false },
+      escape: { geo: geo.box, mat: white(), colors: ['#6a7080', '#5a6070'], shadow: false },
+      tank: { geo: geo.cyl, mat: white(), colors: ['#8a8f9a', '#7a6a5a', '#9a9fa8'], shadow: true },
+      beam: { geo: geo.box, mat: white(), colors: ['#6a7080'], shadow: false },
+      bracket: { geo: geo.box, mat: white(), colors: ['#3a3f52'], shadow: false },
+      frame: { geo: geo.box, mat: white(), colors: ['#2a2e3a'], shadow: false },
+      vend: { geo: geo.box, mat: vendMat, colors: ['#ffffff'], shadow: true },
+      bin: { geo: geo.box, mat: white(), colors: ['#2f4a3a', '#3a3a44', '#4a3a2a'], shadow: true },
+      crate: { geo: geo.box, mat: white(), colors: ['#6a5030', '#7a6040', '#5a4a3a'], shadow: true },
+      booth: { geo: geo.box, mat: boothMat, colors: ['#ffffff'], shadow: true },
+      plant: { geo: geo.cyl, mat: white(), colors: ['#8a8f9a', '#6a6f7a'], shadow: false },
+    };
+    const byKind = new Map<string, typeof plan.clutter>();
+    for (const c of plan.clutter) { const l = byKind.get(c.kind); if (l) l.push(c); else byKind.set(c.kind, [c]); }
+    const kitTint = new Color();
+    for (const [kind, list] of byKind) {
+      const def = KIT[kind];
+      if (!def) continue;
+      const inst = new InstancedMesh(def.geo, def.mat, list.length);
+      list.forEach((c, j) => {
+        dummy.position.set(c.x, c.y, c.z);
+        dummy.rotation.set(0, c.rotY, 0);
+        dummy.scale.set(c.w, c.h, c.d);
+        dummy.updateMatrix();
+        inst.setMatrixAt(j, dummy.matrix);
+        inst.setColorAt(j, kitTint.set(c.color ?? pick(rand, def.colors)).multiplyScalar(kind === 'vend' ? 0.8 : 1));
+      });
+      dummy.rotation.set(0, 0, 0);
+      inst.instanceMatrix.needsUpdate = true;
+      if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+      inst.castShadow = def.shadow; inst.receiveShadow = def.shadow;
+      scene.add(inst);
+    }
+    // the catwalks
+    const cats = plan.streets.filter((s) => s.kind === 'catwalk');
+    const deckMat = new MeshLambertMaterial({ color: '#3a3f52' });
+    const catRail = new MeshLambertMaterial({ color: '#c8ccd6' });
+    let nPosts = 0;
+    for (const c of cats) nPosts += Math.floor(c.len / 3) + 1;
+    const decks = new InstancedMesh(geo.box, deckMat, cats.length), rails2 = new InstancedMesh(geo.box, catRail, cats.length * 2), posts2 = new InstancedMesh(geo.box, catRail, nPosts * 2);
+    const catLights: number[] = [];
+    let jp = 0;
+    cats.forEach((c, j) => {
+      const yaw = Math.atan2(-c.dz, c.dx); // a box's length along the walk
+      const mx = c.x0 + c.dx * c.len / 2, mz = c.z0 + c.dz * c.len / 2;
+      const nx = -c.dz, nz = c.dx; // the walk's left
+      dummy.rotation.set(0, yaw, 0);
+      dummy.position.set(mx, c.y - 0.12, mz); dummy.scale.set(c.len, 0.24, c.width); dummy.updateMatrix(); decks.setMatrixAt(j, dummy.matrix);
+      for (const s of [-1, 1]) {
+        const lat = s * (c.width / 2 - 0.06);
+        dummy.position.set(mx + nx * lat, c.y + 0.95, mz + nz * lat); dummy.scale.set(c.len, 0.06, 0.06); dummy.updateMatrix(); rails2.setMatrixAt(j * 2 + (s > 0 ? 1 : 0), dummy.matrix);
+        for (let t = 0; t <= c.len + 0.01 && jp < nPosts * 2; t += 3) {
+          const px = c.x0 + c.dx * Math.min(t, c.len) + nx * lat, pz = c.z0 + c.dz * Math.min(t, c.len) + nz * lat;
+          dummy.position.set(px, c.y + 0.5, pz); dummy.scale.set(0.06, 1.0, 0.06); dummy.updateMatrix(); posts2.setMatrixAt(jp++, dummy.matrix);
+        }
+      }
+      for (let t = 1.5; t < c.len; t += 6) catLights.push(c.x0 + c.dx * t, c.y + 1.7, c.z0 + c.dz * t); // a string of lanterns over the walk
+    });
+    posts2.count = jp;
+    dummy.rotation.set(0, 0, 0);
+    for (const inst of [decks, rails2, posts2]) { inst.instanceMatrix.needsUpdate = true; inst.castShadow = true; inst.receiveShadow = true; scene.add(inst); }
+    glowPoints(catLights, '#ffd9a0', 2.4);
   }
   {
     const g = new BufferGeometry();
@@ -2712,6 +2811,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     fog.color.set(L.fog.color); fogMul = L.fog.density; fog.density = TIERS[tier].fog * fogMul;
     renderer.toneMappingExposure = L.exposure;
     bloom.threshold = L.bloom;
+    wallLit.value = Math.min(1, L.windows * 1.15);
     for (const m of skinMats) {
       m.emissiveIntensity = (m.userData.base as number) * L.windows;
       (m.userData.uLift as { value: number }).value = Math.max(1, (m.userData.lift as number) * L.walls);
