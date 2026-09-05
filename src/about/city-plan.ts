@@ -18,8 +18,9 @@
  *  lot is PACKED edge to edge by a recursive partition into building cells
  *  with jumbled heights; half the lots are cut by an alley strung with
  *  lanterns and wires; some street segments close and buildings straddle
- *  them; a diagonal boulevard slashes the south-west; an elevated highway
- *  on pillars crosses the north; a stadium, a Ferris wheel, a stepped
+ *  them; a diagonal boulevard slashes the south-west; an elevated expressway
+ *  crosses the north on piers over a surface arterial, four real ramps
+ *  between them; a stadium, a Ferris wheel, a stepped
  *  megastructure under a hologram, pagoda temples, an industrial corner of
  *  tanks and stacks, skybridges, footbridges, market stalls. */
 import { CatmullRomCurve3, Vector3 } from 'three';
@@ -37,9 +38,20 @@ export const BOUND = EXT + STREET; // the free-flight fence hugs the main city
 export const MEDIAN = LOT / 2; // the avenues' open middle: ±12 about the axis
 export const CAM_R = 1.2; // the camera's body
 export const REACH = (HALF + OUTER) * G + STREET; // how far streets, traffic and lamps run
-export const HIGHWAY = { x0: -400, z0: 210, x1: 400, z1: 80, y: 14, width: 17 }; // three lanes a side at a bus's width, parapets past them // the elevated highway across the north
+/** THE EXPRESSWAY (owner: no viaduct over buildings, no ramp that could not exist): an elevated deck across the north on a
+ *  9° skew to the grid, three lanes a side at a bus's width with parapets past them, over a surface ARTERIAL on the same
+ *  axis — the Shuto over Route 246. The deck's top is at y + 0.4, its underside at y − 0.4; the piers' caps leave 9.2
+ *  clear over the arterial (a bus is 3.0). */
+export const HIGHWAY = { x0: -400, z0: 210, x1: 400, z1: 80, y: 11, width: 17 };
+/** The arterial under the deck: a 15-wide carriageway (two lanes a side about a median the piers stand in), an APRON either
+ *  side where the ramps come down (parked vehicles, stalls and shanties where they don't), then the pavement; the building
+ *  line at ARTERIAL_ROW. Cells of any lot inside the right of way are dropped; the east–west streets it would eat close. */
+export const ARTERIAL = { w: 15, apron: 8.6, walk: 2.4 };
+export const ARTERIAL_ROW = ARTERIAL.w / 2 + ARTERIAL.apron + ARTERIAL.walk; // 18.5
 export const DIAGONAL = { x0: -247, z0: -19, x1: -19, z1: -247, width: 12 }; // the surface boulevard slashing the south-west: x + z = −266 runs it through seven grid crossings, T-ing into the avenue roads at both ends
-export const CANAL = { w: 24, deck: 1.6 }; // the north–south avenue's water and its bridge decks (a boat's low cabin passes under)
+/** The north–south avenue's water, sunk between quay walls (owner: the bridges' approach wedges sat inside the quay
+ *  crossings); every bridge deck is flush with the streets, a boat's cabin passes under with 0.7 to spare. */
+export const CANAL = { w: 24, water: -2.6, deck: 0.05 };
 /** THE RAIL (owner: layered infrastructure, Akira's elevated line): a closed loop along the four street lines at
  *  ±209, its deck at 38 (the flight's canyon band tops at 32, its pad 2.6), corners rounded on a 30 arc over the
  *  corner lots, portal frames every 24 with legs at the kerb line, three stations. */
@@ -64,19 +76,37 @@ export interface Sign {
 }
 /** A catwalk is a raised walk (across an alley, along a facade as an arcade, a station platform): it carries
  *  its own `y`, only pedestrians use it. */
-export type StreetKind = 'road' | 'highway' | 'canal' | 'alley' | 'diagonal' | 'ramp' | 'catwalk';
+export type StreetKind = 'road' | 'highway' | 'canal' | 'alley' | 'diagonal' | 'ramp' | 'catwalk' | 'arterial';
 /** A straight run: p(t) = (x0 + dx·t, z0 + dz·t) for t in [0, len]; lanes sit
  *  along the left normal (−dz, dx). A ramp climbs (or falls) from y to y1
- *  along its length and is driven one way, from t = 0. */
+ *  along its length (rampProfile) and is driven one way, from t = 0. `ends`
+ *  are the pads a road's pavement keeps from its ends where the plan knows
+ *  what lies past them (a run ending on the arterial's axis stops its walkers
+ *  at the arterial's pavement). */
 export interface Street {
   x0: number; z0: number; dx: number; dz: number; len: number; y: number; kind: StreetKind; width: number;
-  y1?: number; oneWay?: boolean;
+  y1?: number; oneWay?: boolean; ends?: { a?: number; b?: number };
 }
-export const RAMP_W = 8;
+/** THE RAMPS (owner: "no ramp in real life looks like that"): each is a chain of three straight one-way pieces — a TAPER
+ *  at deck level diverging from the deck's edge lane, a RUN parallel to the deck at `lat` from its axis falling on a
+ *  blended profile (mean 9.5 %, peak 11.8 %), a SLIP at grade converging into the arterial's kerb lane. A run passing
+ *  lower than `clear` over a north–south street closes that street's stub (a bus is 3.0, the slab 0.7). */
+export const RAMP_W = 6.6;
+export const RAMP = { taper: 30, run: 120, slip: 28, lat: 12.3, mount: 7.6, foot: 8.6, clear: 5.2 };
+/** A ramp's height along its run: half linear, half eased — 4.7 % at the joints, 11.8 % at the middle for a 9.5 % mean
+ *  (a pure ease would peak at 14 %). */
+export const rampProfile = (u: number): number => 0.5 * u + 0.5 * u * u * (3 - 2 * u);
 export const rampY = (st: Street, t: number): number => {
   if (st.y1 === undefined) return st.y;
   const u = Math.min(1, Math.max(0, t / st.len));
-  return st.y + (st.y1 - st.y) * u * u * (3 - 2 * u);
+  return st.y + (st.y1 - st.y) * rampProfile(u);
+};
+/** The arterial's (and the deck's) axis: its z at x, and a point's lateral distance from it — positive on the left
+ *  normal, the north side. */
+export const arterialZ = (x: number): number => HIGHWAY.z0 + (x - HIGHWAY.x0) * (HIGHWAY.z1 - HIGHWAY.z0) / (HIGHWAY.x1 - HIGHWAY.x0);
+export const arterialLat = (x: number, z: number): number => {
+  const hx = HIGHWAY.x1 - HIGHWAY.x0, hz = HIGHWAY.z1 - HIGHWAY.z0;
+  return (-(x - HIGHWAY.x0) * hz + (z - HIGHWAY.z0) * hx) / Math.hypot(hx, hz);
 };
 export interface Poi { x: number; y: number; z: number; w: number }
 /** A hologram over the city: a scrolling PANEL of glyphs, a slowly turning RING of them, a PILLAR of light, a turning LOGO disc. */
@@ -190,7 +220,15 @@ export interface Plan {
   wheel: { x: number; y: number; z: number; r: number };
   mega: { x: number; z: number; top: number };
   stacks: { x: number; z: number; top: number }[];
-  bridges: { z: number }[];
+  /** The canal's bridges: the east–west roads' (yaw 0, 12 wide, spanning the water) and the arterial's skewed one (its
+   *  whole right of way wide). Decks flush with the streets. */
+  bridges: { x: number; z: number; yaw: number; w: number; span: number }[];
+  /** The deck's piers: a column in the arterial's median (the renderer sets the hammerhead cap on each). */
+  piers: { x: number; z: number }[];
+  /** Ground patches in the lots' stone over closed street bands, so the ground tile's paint never reads as a ghost road. */
+  patches: { x: number; z: number; w: number; d: number }[];
+  /** Vehicles parked along the arterial's aprons (yaw as the traffic's: 0 faces +z). */
+  parked: { x: number; z: number; yaw: number; kind: 'car' | 'taxi' | 'truck' | 'moto' }[];
   styles: FacadeStyle[];
   sprawlTex: [number, number];
   grid: CollisionGrid;
@@ -384,6 +422,7 @@ export function planCity(seed: number): Plan {
   const stalls: Stall[] = [];
   const streets: Street[] = [];
   const ramps: Street[] = []; // planned before any lot is built — they cap what stands under them
+  const piers: { x: number; z: number }[] = [];
   const stacks: { x: number; z: number; top: number }[] = [];
   const tall: { x: number; z: number; top: number; w: number; d: number; bridges: number; flat: boolean }[] = [];
   // -- the rail's line, known before any lot is built (its arcs cap what stands under them) --------------------
@@ -937,6 +976,7 @@ export function planCity(seed: number): Plan {
    *  remembered for the overbuilds. */
   const building = (c: Rect, lot: Rect, prof: Profile, seam: number | null, storefronts: boolean, jit: number) => {
     if (lineDist(c.x, c.z, DIAGONAL.x0, DIAGONAL.z0, DIAGONAL.x1, DIAGONAL.z1) < DIAGONAL.width / 2 + Math.max(c.w, c.d) / 2 + 1) return; // the boulevard's right of way
+    if (Math.abs(arterialLat(c.x, c.z)) < ARTERIAL_ROW + Math.max(c.w, c.d) / 2 + 1) return; // the arterial's right of way (the deck rides over it)
     const g = seam ?? 0.3 + rand() * 0.8;
     const w = c.w - 2 * g, d = c.d - 2 * g;
     if (w < 3 || d < 3) return;
@@ -1129,55 +1169,109 @@ export function planCity(seed: number): Plan {
   closedZ.add('3:-3'); closedZ.add('3:-4'); closedX.add('-4:3'); closedX.add('-4:4'); // the megastructure
   const merged = new Map<string, 'x' | 'z'>(); // the first block of a merged pair → merge axis
   const swallowed = new Set<string>();
-  const noMerge = new Set<string>(); // blocks the interchanges need whole
+  const noMerge = new Set<string>(); // blocks the arterial's junctions need whole
   const ordinary = (bx: number, bz: number) =>
     bx !== 0 && bz !== 0 && Math.max(Math.abs(bx), Math.abs(bz)) <= HALF && !reserved.has(key(bx, bz)) && !merged.has(key(bx, bz)) && !swallowed.has(key(bx, bz)) && !noMerge.has(key(bx, bz));
-  // -- the interchanges: at one column west and one east of the plaza the
-  // highway sheds an off-ramp and takes an on-ramp on each side (owner: a
-  // highway cut by smaller roads, not a generic slab) — each ramp falls
-  // 65 units along the deck to a T on the north–south street below ---------
   const openZ = (i: number, j: number) => !closedZ.has(`${i}:${j}`);
   const openX = (i: number, j: number) => !closedX.has(`${i}:${j}`);
   const onStreet = (t: number) => Math.abs(((t % G) + G) % G - G / 2) < STREET / 2 + 2.5;
-  {
-    const hx = HIGHWAY.x1 - HIGHWAY.x0, hz = HIGHWAY.z1 - HIGHWAY.z0;
-    const hlen = Math.hypot(hx, hz);
-    const nx = -hz / hlen, nz = hx / hlen; // the deck's left normal — the eastbound lanes ride this side
-    const zH = (x: number) => HIGHWAY.z0 + (x - HIGHWAY.x0) * hz / hx;
-    const ramp = (ax: number, ay: number, az: number, bx: number, by: number, bz: number): Street => {
-      const dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz);
-      return { x0: ax, z0: az, dx: dx / len, dz: dz / len, len, y: ay, y1: by, kind: 'ramp', width: RAMP_W, oneWay: true };
-    };
-    // a column takes an interchange if its four landings (an off-ramp's
-    // foot and an on-ramp's head each side) fall between crossings on open
-    // segments, and the ramps' far ends stay clear of the avenues
-    const fits = (i: number): number | null => {
-      const X = streetAt(i), z = zH(X);
-      if (Math.abs(X) + 70 >= EXT || Math.abs(X) - 67 < MEDIAN + 16) return null;
-      for (const a of [16.6, 20, 24, 28, 14]) {
-        if ([-a - 8, -a, a, a + 8].some((off) => onStreet(z + off))) continue;
-        const j0 = Math.round((z - a - 8) / G), j1 = Math.round((z + a + 8) / G);
-        let open = true;
-        for (let j = j0; j <= j1; j++) if (!openZ(i, j)) open = false; // only the features close segments this early
-        if (!open) continue;
-        for (let j = j0; j <= j1; j++) { noMerge.add(key(i, j)); noMerge.add(key(i + 1, j)); } // and no merge may close them later
-        return a;
-      }
-      return null;
-    };
-    for (const side of [[-4, -3, -5], [3, 2, 4]]) {
-      let i: number | undefined, a: number | null = null;
-      for (const c of side) { a = fits(c); if (a !== null) { i = c; break; } }
-      if (i === undefined || a === null) continue;
-      const X = streetAt(i), z = zH(X), top = HIGHWAY.y + 0.4;
-      const edge = (x: number, s: number) => ({ x: x + nx * 12.5 * s, z: zH(x) + nz * 12.5 * s }); // the ramp's high end rides the deck's edge
-      const p = edge(X - 67, 1), q = edge(X + 67, 1), r = edge(X + 67, -1), t = edge(X - 67, -1);
-      ramps.push(ramp(p.x, top, p.z, X, 0, z + a)); // eastbound off
-      ramps.push(ramp(X, 0, z + a + 8, q.x, top, q.z)); // eastbound on
-      ramps.push(ramp(r.x, top, r.z, X, 0, z - a)); // westbound off
-      ramps.push(ramp(X, 0, z - a - 8, t.x, top, t.z)); // westbound on
+  // -- THE ARTERIAL AND ITS RAMPS (owner: roads that exist in real life) ------------------------------------------
+  // The deck rides over a surface arterial on its own axis. Four ramps, a chain of three straight pieces each: the
+  // eastbound pair on the deck's north (left-hand traffic: the eastbound lanes ride the left normal), the westbound
+  // pair on the south. Where a slip meets the arterial the north–south street there is SEVERED (it ends at the first
+  // open crossing either side; the blocks merge over its band); where a run passes lower than a bus over a
+  // north–south street, that street's STUB on the ramp's side closes and the run on the other side ends on the
+  // arterial's axis as a T; every east–west segment the arterial's pavement would eat closes. The bands of all of
+  // them get a ground patch, so the tile's paint never reads as a ghost road.
+  const hlenA = Math.hypot(HIGHWAY.x1 - HIGHWAY.x0, HIGHWAY.z1 - HIGHWAY.z0);
+  const hdx = (HIGHWAY.x1 - HIGHWAY.x0) / hlenA, hdz = (HIGHWAY.z1 - HIGHWAY.z0) / hlenA;
+  const hnx = -hdz, hnz = hdx; // the left normal: north
+  const axisPt = (x: number, lat: number) => ({ x: x + hnx * lat, z: arterialZ(x) + hnz * lat }); // `lat` off the axis at axis-x `x`
+  const deckTop = HIGHWAY.y + 0.4;
+  const piece = (a: { x: number; z: number }, ya: number, b: { x: number; z: number }, yb: number): Street => {
+    const dx = b.x - a.x, dz = b.z - a.z, len = Math.hypot(dx, dz);
+    return { x0: a.x, z0: a.z, dx: dx / len, dz: dz / len, len, y: ya, y1: yb, kind: 'ramp', width: RAMP_W, oneWay: true };
+  };
+  /** A ramp chain on `side` (+1 north), driven in `dir` (+1 eastward), leaving the deck (`off`) or joining it, its slip
+   *  meeting the arterial at axis-x `xm`: its pieces in driving order. */
+  const chain = (side: 1 | -1, dir: 1 | -1, off: boolean, xm: number): Street[] => {
+    const L = RAMP, s = off ? -dir : dir; // from the merge point back toward the deck end
+    const xs = [xm + s * (L.slip + L.run + L.taper), xm + s * (L.slip + L.run), xm + s * L.slip, xm]; // the joints' axis-x, deck end first
+    const P0 = axisPt(xs[0], side * L.mount), P1 = axisPt(xs[1], side * L.lat), P2 = axisPt(xs[2], side * L.lat), P3 = axisPt(xs[3], side * L.foot);
+    const taper = off ? piece(P0, deckTop, P1, deckTop) : piece(P1, deckTop, P0, deckTop);
+    const run = off ? piece(P1, deckTop, P2, CANAL.deck) : piece(P2, CANAL.deck, P1, deckTop);
+    const slip = off ? piece(P2, CANAL.deck, P3, CANAL.deck) : piece(P3, CANAL.deck, P2, CANAL.deck);
+    return off ? [taper, run, slip] : [slip, run, taper];
+  };
+  const mergesX = [-133, 57, 133, -57]; // where the four slips meet the arterial: EB off, EB on, WB off, WB on
+  ramps.push(...chain(1, 1, true, mergesX[0]), ...chain(1, 1, false, mergesX[1]), ...chain(-1, -1, true, mergesX[2]), ...chain(-1, -1, false, mergesX[3]));
+  /** The lowest ramp slab over a point, or null when none passes over it. */
+  const rampAt = (x: number, z: number): number | null => {
+    let best: number | null = null;
+    for (const r of ramps) {
+      const pr = lineProj(x, z, r.x0, r.z0, r.x0 + r.dx * r.len, r.z0 + r.dz * r.len);
+      if (pr.d < RAMP_W / 2 + 0.5) { const y = rampY(r, pr.t * r.len); if (best === null || y < best) best = y; }
+    }
+    return best;
+  };
+  const patches: { x: number; z: number; w: number; d: number }[] = [];
+  const RIM = HALF + OUTER;
+  // east–west segments (line i alongside column j): closed where the axis comes within EAT of the street anywhere on the
+  // segment's inner range — the arterial's pavement would eat the street's band; the blocks across merge where ordinary
+  const EAT = ARTERIAL_ROW + STREET / 2 + 0.5;
+  for (let i = -RIM - 1; i <= RIM; i++) {
+    const z = streetAt(i);
+    for (let j = -RIM; j <= RIM; j++) {
+      const near = Math.min(Math.abs(arterialZ(j * G - 14) - z), Math.abs(arterialZ(j * G + 14) - z)); // (a line: nearest at an end of the range)
+      if (near >= EAT) continue;
+      closedX.add(`${i}:${j}`);
+      patches.push({ x: j * G, z, w: G, d: STREET });
+      if (ordinary(j, i) && ordinary(j, i + 1)) { merged.set(key(j, i), 'z'); swallowed.add(key(j, i + 1)); }
     }
   }
+  // north–south lines: severed where a slip meets the arterial; a stub closed where a run passes low over the street
+  const severed = new Set<number>();
+  const stubs = new Map<number, { side: 1 | -1; zAt: number }>();
+  for (let i = -RIM - 1; i <= RIM; i++) {
+    const X = streetAt(i);
+    if (mergesX.some((m) => Math.abs(m - X) < 0.5)) { severed.add(i); continue; }
+    for (const r of ramps) {
+      if (r.y === r.y1 && r.y > 1) continue; // a taper: at deck level
+      const x1 = r.x0 + r.dx * r.len;
+      if (X < Math.min(r.x0, x1) || X > Math.max(r.x0, x1)) continue;
+      const t = (X - r.x0) / r.dx;
+      if (rampY(r, t) >= RAMP.clear) continue;
+      stubs.set(i, { side: arterialLat(r.x0 + r.dx * t, r.z0 + r.dz * t) > 0 ? 1 : -1, zAt: arterialZ(X) });
+    }
+  }
+  /** The rows to close on side s of the arterial's crossing on line i: from the row holding the crossing to the first
+   *  whose far east–west line still has a crossing on this street. */
+  const rowsBeyond = (i: number, zAt: number, s: 1 | -1): number[] => {
+    const out: number[] = [];
+    for (let j = Math.round(zAt / G), n = 0; n < 6; n++, j += s) {
+      out.push(j);
+      const line = s > 0 ? j : j - 1;
+      if (openX(line, i) || openX(line, i + 1)) break;
+    }
+    return out;
+  };
+  const cuts = new Map<number, { side: 1 | -1; zAt: number }>(); // line i → the surviving run ends on the axis at zAt; its closed side
+  const closeRows = (i: number, zAt: number, s: 1 | -1, whole: boolean) => {
+    const rows = rowsBeyond(i, zAt, s);
+    rows.forEach((j, k) => {
+      if (k > 0 || whole) closedZ.add(`${i}:${j}`);
+      noMerge.add(key(i, j)); noMerge.add(key(i + 1, j));
+      const lo = (j - 0.5) * G, hi = (j + 0.5) * G; // the band beyond the arterial's right of way, on this side
+      const zl = s > 0 ? Math.max(lo, zAt + ARTERIAL_ROW) : lo, zh = s > 0 ? hi : Math.min(hi, zAt - ARTERIAL_ROW);
+      if (zh > zl + 0.5) patches.push({ x: streetAt(i), z: (zl + zh) / 2, w: STREET, d: zh - zl });
+      if (k > 0 && ordinary(i, j) && ordinary(i + 1, j)) { merged.set(key(i, j), 'x'); swallowed.add(key(i + 1, j)); }
+    });
+    const last = rows[rows.length - 1], line = s > 0 ? last : last - 1; // the terminal crossing's flanks stay whole
+    for (const b of [key(i, line), key(i, line + 1), key(i + 1, line), key(i + 1, line + 1)]) noMerge.add(b);
+  };
+  for (const i of severed) { const zAt = arterialZ(streetAt(i)); closeRows(i, zAt, 1, true); closeRows(i, zAt, -1, true); }
+  for (const [i, st] of stubs) { if (severed.has(i)) continue; closeRows(i, st.zAt, st.side, false); cuts.set(i, st); }
+  const ARTERIAL_PAD = (ARTERIAL_ROW - ARTERIAL.walk / 2) / Math.abs(hdx); // along a north–south street, from the axis to the arterial's pavement
   for (let bx = -HALF; bx <= HALF; bx++) {
     for (let bz = -HALF; bz <= HALF; bz++) {
       if (!ordinary(bx, bz)) continue;
@@ -1333,16 +1427,19 @@ export function planCity(seed: number): Plan {
     tree(t, -7.5); tree(t, 7.5);
     if (Math.round(t / 7) % 2 === 0) posts.push({ x: t, z: 0, h: 6 });
   }
-  const bridges: { z: number }[] = [];
+  const bridges: Plan['bridges'] = [];
   for (let j = -HALF - OUTER - 1; j <= HALF + OUTER; j++) {
     const z = streetAt(j);
-    bridges.push({ z });
-    solid(core, 'dark', 'bridge', 0, 0, CANAL.deck, z, CANAL.w, 0.5, 12); // over the water alone: the quays' walkers pass its ends
+    if (!openX(j, 0)) continue; // the arterial took this crossing: its own bridge carries the road
+    bridges.push({ x: 0, z, yaw: 0, w: 12, span: CANAL.w + 2 });
+    solid(core, 'dark', 'bridge', 0, 0, CANAL.deck - 0.25, z, CANAL.w, 0.5, 12); // over the water alone: the quays' walkers pass its ends
   }
+  bridges.push({ x: 0, z: arterialZ(0), yaw: Math.atan2(-hdz, hdx), w: 2 * ARTERIAL_ROW, span: CANAL.w / Math.abs(hdx) + 2 }); // the arterial's: flush, skewed, its whole right of way wide
   for (let t = -REACH; t <= REACH; t += 9) {
     if (Math.abs(t) < 30 || onStreet(t)) continue;
-    if (Math.round(t / 9) % 2 === 0) { posts.push({ x: -10.6, z: t, h: 5.5 }); posts.push({ x: 10.6, z: t, h: 5.5 }); }
-    else { lantern(-10.2, 2.6, t); lantern(10.2, 2.6, t); }
+    if (Math.abs(arterialLat(0, t)) < ARTERIAL_ROW + 3) continue; // the arterial's bridge
+    if (Math.round(t / 9) % 2 === 0) { posts.push({ x: -13, z: t, h: 5.5 }); posts.push({ x: 13, z: t, h: 5.5 }); } // on the quay (owner: they stood in the water)
+    else { lantern(-12.4, 2.6, t); lantern(12.4, 2.6, t); } // on the quay wall's coping
   }
   const gantry = (axis: 'x' | 'z', at: number, t: number) => {
     // a lit board spanning the road on two posts at the kerbs
@@ -1366,12 +1463,12 @@ export function planCity(seed: number): Plan {
   for (let i = 0; i < 16; i++) {
     const side = i % 2 ? -1 : 1;
     const z = (rand() - 0.5) * 2 * (EXT - 30);
-    if (onStreet(z) || Math.abs(z) < 34) continue;
-    const x = side * 10.4;
-    solid(core, 'facade', 'shanty', SHANTY_TEX[1], x, 2.2, z, 3.2, 2.6, 3.4);
-    solid(core, 'pyr', 'shanty', 0, x, 4.2, z, 3.8, 1.4, 4);
-    for (const [ox, oz] of [[-1.2, -1.2], [1.2, -1.2], [-1.2, 1.2], [1.2, 1.2]]) solid(core, 'dark', 'street', 0, x + ox, 0.45, z + oz, 0.16, 0.9, 0.16);
-    lantern(x - side * 1.9, 2.8, z);
+    if (onStreet(z) || Math.abs(z) < 34 || Math.abs(arterialLat(0, z)) < ARTERIAL_ROW + 4) continue;
+    const x = side * 10.4, floor = CANAL.water + 1.1; // on stilts over the water, under the quay's edge
+    solid(core, 'facade', 'shanty', SHANTY_TEX[1], x, floor + 1.3, z, 3.2, 2.6, 3.4);
+    solid(core, 'pyr', 'shanty', 0, x, floor + 3.3, z, 3.8, 1.4, 4);
+    for (const [ox, oz] of [[-1.2, -1.2], [1.2, -1.2], [-1.2, 1.2], [1.2, 1.2]]) solid(core, 'dark', 'street', 0, x + ox, (CANAL.water + floor) / 2 - 0.1, z + oz, 0.16, floor - CANAL.water + 0.2, 0.16);
+    lantern(x - side * 1.9, floor + 1.9, z);
   }
   solid(core, 'cyl', 'street', 0, 0, 0.25, 0, 30, 0.5, 30); // the plaza's disc
   for (let i = 0; i < 12; i++) {
@@ -1401,22 +1498,42 @@ export function planCity(seed: number): Plan {
     for (let t = 0; t <= len; t += 10) { // the deck, as a chain of solids the flight respects
       const x = HIGHWAY.x0 + dx * t, z = HIGHWAY.z0 + dz * t;
       grid.add({ x, y: HIGHWAY.y, z, w: 12 + Math.abs(dz) * 8, h: 0.8, d: 14 + Math.abs(dx) * 2 });
-      if (t % 20 === 0 && !onStreet(x) && !onStreet(z) && Math.abs(x) < REACH && Math.abs(z) < REACH) {
-        solid(core, 'dark', 'street', 0, x, HIGHWAY.y / 2 - 0.4, z, 1.4, HIGHWAY.y - 0.8, 1.4);
-      }
       if (t % 30 === 0 && Math.abs(x) < REACH) posts.push({ x, z, h: 6, y: HIGHWAY.y + 0.4 }); // median lamps up the deck
-      if (t % 110 === 50 && Math.abs(x) < EXT) { // an overhead sign gantry across the deck
+      if (t % 110 === 50 && Math.abs(x) < EXT) { // an overhead sign gantry across the deck, its posts on the parapet line
         signs.push({ x, y: HIGHWAY.y + 6.6, z, rotY: Math.atan2(dx, dz) + Math.PI / 2, w: 12, h: 2.4, color: signColor(rand), kind: 'gantry' });
-        for (const s of [-1, 1]) solid(core, 'dark', 'street', 0, x - dz * s * 8.7, HIGHWAY.y + 4, z + dx * s * 8.7, 0.36, 8, 0.36);
+        for (const s of [-1, 1]) solid(core, 'dark', 'street', 0, x - dz * s * 8.25, HIGHWAY.y + 4.4, z + dx * s * 8.25, 0.36, 8, 0.36);
       }
+    }
+    // THE PIERS (owner: the deck floated — nine sticks under 800 units): a column in the arterial's median at every
+    // crossing ± 9.6 along the axis (never inside a crossing's box, 19.3 apart), none over the water; the renderer
+    // sets the hammerhead cap on each
+    for (let i = -HALF - OUTER - 1; i <= HALF + OUTER; i++) {
+      const tc = (streetAt(i) - HIGHWAY.x0) / dx;
+      for (const off of [-9.6, 9.6]) {
+        const t = tc + off;
+        if (t < 4 || t > len - 4) continue;
+        const x = HIGHWAY.x0 + dx * t, z = HIGHWAY.z0 + dz * t;
+        if (Math.abs(x) < 13.5) continue;
+        piers.push({ x, z });
+        solid(core, 'dark', 'street', 0, x, (HIGHWAY.y - 1.8) / 2, z, 2.2, HIGHWAY.y - 1.8, 2.2);
+      }
+    }
+    // the arterial itself, lamps on its pavements
+    streets.push({ x0: HIGHWAY.x0, z0: HIGHWAY.z0, dx, dz, len, y: 0, kind: 'arterial', width: ARTERIAL.w });
+    for (let t = 6; t < len; t += 12) {
+      const x = HIGHWAY.x0 + dx * t, z = HIGHWAY.z0 + dz * t;
+      if (Math.abs(x) > REACH || onStreet(x) || Math.abs(x) < MEDIAN + 16) continue;
+      for (const s of [-1, 1]) posts.push({ x: x - dz * s * (ARTERIAL_ROW - ARTERIAL.walk + 0.3), z: z + dx * s * (ARTERIAL_ROW - ARTERIAL.walk + 0.3), h: 5.5 });
     }
     for (const r of ramps) {
       streets.push(r);
-      for (let t = 0; t <= r.len; t += 4) { // the ramp's deck, as a chain of solids
+      const flat = r.y === r.y1;
+      for (let t = 0; t <= r.len; t += 4) { // the ramp's slab, as a chain of solids
         const x = r.x0 + r.dx * t, z = r.z0 + r.dz * t, y = rampY(r, t);
-        grid.add({ x, y, z, w: 5 + Math.abs(r.dz) * 4, h: 0.8, d: 5 + Math.abs(r.dx) * 4 });
-        if (t % 12 === 0 && y > 3.5 && !onStreet(x) && !onStreet(z)) solid(core, 'dark', 'street', 0, x, y / 2 - 0.4, z, 1.2, y - 0.8, 1.2);
-        if (t % 16 === 8) posts.push({ x: x - r.dz * 3.4, z: z + r.dx * 3.4, h: 4.5, y });
+        grid.add({ x, y, z, w: RAMP_W - 1.5 + Math.abs(r.dz) * 4, h: 0.8, d: RAMP_W - 1.5 + Math.abs(r.dx) * 4 });
+        const column = flat ? y > 1 && Math.abs(arterialLat(x, z)) > 10.5 : y > 3.5; // under the run, and the taper's far half
+        if (column && t % 12 === 6 && !onStreet(x)) solid(core, 'dark', 'street', 0, x, y / 2 - 0.4, z, 1.2, y - 0.8, 1.2);
+        if (!flat && t % 16 === 8) for (const s of [-1, 1]) posts.push({ x: x - r.dz * s * (RAMP_W / 2 - 0.25), z: z + r.dx * s * (RAMP_W / 2 - 0.25), h: 4, y: y + 0.9 }); // lamps on the parapets
       }
     }
     const gx = DIAGONAL.x1 - DIAGONAL.x0, gz = DIAGONAL.z1 - DIAGONAL.z0;
@@ -1447,11 +1564,12 @@ export function planCity(seed: number): Plan {
         grid.add({ x, y: RAIL.y, z, w: RAIL.w + 0.4 + Math.abs(dx) * 5, h: 1.4, d: RAIL.w + 0.4 + Math.abs(dz) * 5 });
       }
       run += len;
-      if (run >= 24 && onStraight(ax, az) && onStraight(bx, bz)) { // a portal frame
-        run = 0;
+      if (run >= 24 && onStraight(ax, az) && onStraight(bx, bz)) { // a portal frame (where one cannot stand, the next point takes it)
         let clear = true;
-        for (const s of [-1, 1]) { const lx = ax - dz * s * RAIL.leg, lz = az + dx * s * RAIL.leg; for (const y of [2, 14, 26]) if (grid.hit(lx, y, lz, 0.3)) clear = false; } // (the highway deck, a ramp, a bustle over the kerb)
+        for (const s of [-1, 1]) { const lx = ax - dz * s * RAIL.leg, lz = az + dx * s * RAIL.leg; for (const y of [2, 11, 14, 26]) if (grid.hit(lx, y, lz, 0.3)) clear = false; } // (the deck, a ramp, a bustle over the kerb)
+        if (onStreet(Math.abs(dx) > 0.5 ? ax : az) || Math.abs(arterialLat(ax, az)) < ARTERIAL_ROW + 2) clear = false; // a crossing street's carriageway, the arterial's right of way
         if (!clear) continue;
+        run = 0;
         rail.portals.push({ x: ax, z: az, dx, dz });
         for (const s of [-1, 1]) solid(core, 'dark', 'street', 0, ax - dz * s * RAIL.leg, RAIL.y / 2 - 0.4, az + dx * s * RAIL.leg, 0.6 + Math.abs(dx) * 0.2, RAIL.y - 0.8, 0.6 + Math.abs(dz) * 0.2);
         solid(core, 'dark', 'street', 0, ax, RAIL.y - 1.2, az, Math.abs(dx) > 0.5 ? 0.8 : 2 * RAIL.leg + 0.6, 1.2, Math.abs(dx) > 0.5 ? 2 * RAIL.leg + 0.6 : 0.8); // the crossbeam
@@ -1476,7 +1594,7 @@ export function planCity(seed: number): Plan {
   }
   // -- the streets: open runs between closed segments, lamps on every kerb,
   // corner kiosks; skybridges between neighbouring towers ---------------------
-  const roads: { axis: 'x' | 'z'; at: number; from: number; to: number }[] = [];
+  const roads: { axis: 'x' | 'z'; at: number; from: number; to: number; ends?: { a?: number; b?: number } }[] = [];
   for (let i = -HALF - OUTER - 1; i <= HALF + OUTER; i++) {
     for (const axis of ['x', 'z'] as const) {
       let start: number | null = null;
@@ -1490,14 +1608,31 @@ export function planCity(seed: number): Plan {
       }
     }
   }
+  for (const [i, c] of cuts) { // a stub closed by a ramp: the run through the crossing's row ends on the arterial's axis
+    const at = streetAt(i);
+    const r = roads.find((q) => q.axis === 'z' && Math.abs(q.at - at) < 0.5 && q.from <= c.zAt && q.to >= c.zAt);
+    if (!r) continue;
+    const j0 = Math.round(c.zAt / G);
+    if (c.side > 0) {
+      const far = (j0 + 0.5) * G;
+      if (r.to > far + 0.5) roads.push({ ...r, from: far }); // the street resumes past the terminal crossing
+      r.to = c.zAt; r.ends = { b: ARTERIAL_PAD };
+    } else {
+      const far = (j0 - 0.5) * G;
+      if (r.from < far - 0.5) roads.push({ ...r, to: far });
+      r.from = c.zAt; r.ends = { a: ARTERIAL_PAD };
+    }
+    if (r.to - r.from < ARTERIAL_PAD + 6) roads.splice(roads.indexOf(r), 1); // a spur inside the arterial's right of way connects nothing
+  }
   for (const r of roads) {
     streets.push(r.axis === 'x'
-      ? { x0: r.from, z0: r.at, dx: 1, dz: 0, len: r.to - r.from, y: 0, kind: 'road', width: STREET }
-      : { x0: r.at, z0: r.from, dx: 0, dz: 1, len: r.to - r.from, y: 0, kind: 'road', width: STREET });
+      ? { x0: r.from, z0: r.at, dx: 1, dz: 0, len: r.to - r.from, y: 0, kind: 'road', width: STREET, ends: r.ends }
+      : { x0: r.at, z0: r.from, dx: 0, dz: 1, len: r.to - r.from, y: 0, kind: 'road', width: STREET, ends: r.ends });
     for (let t = r.from + 6; t <= r.to - 6; t += 12) {
       for (const s of [-1, 1]) {
         const off = r.at + s * (ROAD / 2 + 0.55); // at the kerb line: the pavement's walkers pass clear of them
         const x = r.axis === 'x' ? t : off, z = r.axis === 'x' ? off : t;
+        if (Math.abs(arterialLat(x, z)) < ARTERIAL_ROW + 2) continue; // the arterial's right of way has its own lamps
         if (Math.abs(x) < 30 && Math.abs(z) < 30) continue; // the plaza has its ring
         if (Math.abs(x) < MEDIAN + 1 && r.axis === 'x') continue; // the canal has its quays
         if (Math.abs(Math.abs(r.at) - RAIL.at) < 1 && rail.portals.some((p) => Math.abs(p.x - x) < 4 && Math.abs(p.z - z) < 4)) continue; // a portal frame stands here
@@ -1605,33 +1740,55 @@ export function planCity(seed: number): Plan {
     lantern(tx, mt + 0.3, tz);
     extraBeacons.push({ x: mx, y: mt + 1.6, z: mz });
   }
-  streets.push({ x0: 0, z0: -REACH, dx: 0, dz: 1, len: 2 * REACH, y: 0.3, kind: 'canal', width: CANAL.w });
+  streets.push({ x0: 0, z0: -REACH, dx: 0, dz: 1, len: 2 * REACH, y: CANAL.water + 0.3, kind: 'canal', width: CANAL.w });
   for (let i = -HALF - 1; i <= HALF; i++) {
     for (let j = -HALF - 1; j <= HALF; j++) {
       if (rand() > 0.3) continue;
       const sx = rand() < 0.5 ? -1 : 1, sz = rand() < 0.5 ? -1 : 1;
       const x = streetAt(i) + sx * 8.6, z = streetAt(j) + sz * 8.6;
       if (Math.abs(x) < MEDIAN + 2 || Math.abs(z) < MEDIAN + 2) continue;
+      if (Math.abs(arterialLat(x, z)) < ARTERIAL_ROW + 2 || !(openX(j, i) || openX(j, i + 1)) || !(openZ(i, j) || openZ(i, j + 1))) continue; // a corner of a crossing that is really there
       if (lineDist(x, z, DIAGONAL.x0, DIAGONAL.z0, DIAGONAL.x1, DIAGONAL.z1) < 9) continue;
       solid(core, 'dark', 'street', 0, x, 1.2, z, 2.2, 2.4, 1.6);
       signs.push({ x, y: 1.5, z: z - sz * 0.85, rotY: sz > 0 ? Math.PI : 0, w: 1.8, h: 1.3, color: signColor(rand), kind: 'tag' });
     }
   }
-  // the SQUATS under the deck: shacks between the pillars wherever nothing stands
+  // THE APRONS (owner: a lived-in boulevard): along the arterial between the kerb and the pavement, where no ramp comes
+  // down — parked vehicles along the kerb, market stalls, shanties under the ramps' high parts, kiosks; nothing in a
+  // north–south street's band, nothing near the water, nothing under or on a low slab
+  const parked: Plan['parked'] = [];
   {
-    const hx = HIGHWAY.x1 - HIGHWAY.x0, hz = HIGHWAY.z1 - HIGHWAY.z0, hlen = Math.hypot(hx, hz), hdx = hx / hlen, hdz = hz / hlen;
-    for (let t = 4; t < hlen; t += 6) {
+    const yawA = Math.atan2(hdx, hdz); // a vehicle's yaw along the axis (the traffic's convention: 0 faces +z)
+    for (let t = 6; t < hlenA; t += 9) {
       const x = HIGHWAY.x0 + hdx * t, z = HIGHWAY.z0 + hdz * t;
-      if (Math.abs(x) > EXT || Math.abs(z) > EXT || onStreet(x) || onStreet(z) || rand() < 0.35) continue;
-      const side = rand() < 0.5 ? -1 : 1;
-      const sx = x - hdz * side * (2.5 + rand() * 2), sz = z + hdx * side * (2.5 + rand() * 2);
-      const sw = 2.2 + rand() * 1.6, sd = 2.2 + rand() * 1.6, sh = 2 + rand() * 1.2;
-      const pad = Math.max(sw, sd) / 2 + 0.6; // the shack itself, not just the deck's axis, stays off the pavements
-      if (Math.abs(((sx % G) + G) % G - G / 2) < STREET / 2 + pad || Math.abs(((sz % G) + G) % G - G / 2) < STREET / 2 + pad) continue;
-      if (grid.hit(sx, sh / 2, sz, Math.max(sw, sd) / 2 + 0.4)) continue;
-      solid(core, 'facade', 'shanty', SHANTY_TEX[rand() < 0.6 ? 0 : 1], sx, sh / 2, sz, sw, sh, sd);
-      tarps.push({ x: sx, y: sh + 0.08, z: sz, w: sw + 0.7, h: 0.12, d: sd + 0.7, color: pick(rand, TARP) });
-      if (rand() < 0.5) lantern(sx + side * 1.6, 1.6, sz);
+      if (Math.abs(x) > REACH - 10 || onStreet(x) || Math.abs(x) < MEDIAN + 16) continue;
+      for (const side of [-1, 1] as const) {
+        const a = rand();
+        if (a < 0.3) continue;
+        const lat = side * (ARTERIAL.w / 2 + 2.6 + rand() * 4.6); // inside the apron
+        const px = x + hnx * lat + hdx * (rand() - 0.5) * 3, pz = z + hnz * lat + hdz * (rand() - 0.5) * 3;
+        const over = rampAt(px, pz);
+        if (over !== null && over < 3.6) continue;
+        if (grid.hit(px, 1.2, pz, 2.4)) continue;
+        if (a < 0.62) { // a parked vehicle
+          const kind = a < 0.45 ? 'car' : a < 0.52 ? 'taxi' : a < 0.57 ? 'truck' : 'moto';
+          parked.push({ x: px, z: pz, yaw: yawA + (rand() < 0.5 ? Math.PI : 0) + (rand() - 0.5) * 0.12, kind });
+          grid.add({ x: px, y: 0.7, z: pz, w: 4.6, h: 1.4, d: 4.6 });
+        } else if (a < 0.78) { // a stall (the market people find it)
+          stalls.push({ x: px, z: pz, color: signColor(rand) });
+          for (const [ox, oz] of [[-1.3, -1.1], [1.3, -1.1], [-1.3, 1.1], [1.3, 1.1]]) solid(core, 'dark', 'street', 0, px + ox, 1.2, pz + oz, 0.14, 2.4, 0.14);
+          grid.add({ x: px, y: 2.9, z: pz, w: 3.2, h: 1.2, d: 2.6 });
+          lantern(px, 2.2, pz);
+        } else if (over !== null && over > 5) { // a shanty under the ramp
+          const sw = 2.4 + rand() * 1.6, sd = 2.4 + rand() * 1.6, sh = 2 + rand() * 1.2;
+          solid(core, 'facade', 'shanty', SHANTY_TEX[rand() < 0.6 ? 0 : 1], px, sh / 2, pz, sw, sh, sd);
+          tarps.push({ x: px, y: sh + 0.08, z: pz, w: sw + 0.7, h: 0.12, d: sd + 0.7, color: pick(rand, TARP) });
+          if (rand() < 0.5) lantern(px + side * 1.6, 1.6, pz);
+        } else if (a < 0.9) { // a kiosk
+          solid(core, 'dark', 'street', 0, px, 1.2, pz, 2.2, 2.4, 1.6);
+          signs.push({ x: px, y: 1.5, z: pz - side * 0.85, rotY: side > 0 ? Math.PI : 0, w: 1.8, h: 1.3, color: signColor(rand), kind: 'tag' });
+        }
+      }
     }
   }
   tall.sort((a, b) => b.top - a.top);
@@ -1756,6 +1913,7 @@ export function planCity(seed: number): Plan {
       if (Math.max(Math.abs(bx), Math.abs(bz)) <= HALF + OUTER) continue;
       if (rand() < 0.2) continue;
       const cx = bx * G, cz = bz * G;
+      if (Math.abs(cx) < HIGHWAY.x1 + 30 && Math.abs(arterialLat(cx, cz)) < ARTERIAL_ROW + 14) continue; // the arterial runs out through the sprawl
       let boost = 0;
       for (const c of clusters) boost += Math.exp(-((cx - c.x) ** 2 + (cz - c.z) ** 2) / (2 * c.s * c.s));
       const n = 1 + (rand() < 0.7 ? 1 : 0) + (rand() < 0.3 ? 1 : 0);
@@ -1811,7 +1969,7 @@ export function planCity(seed: number): Plan {
 
   return {
     core, outer, sprawl, strips, leds, awnings, tarps, clutter, billboards, spots, signs, posts, lanterns, wires, vents, holos, stalls, sprawlLamps, neon,
-    beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead, air, pads, rail,
+    beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead, air, pads, rail, piers, patches, parked,
   };
 }
 

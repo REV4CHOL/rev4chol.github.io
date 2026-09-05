@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
 import {
-  AutoFlight, BOUND, CAM_R, CollisionGrid, districtOf, EXT, G, MEDIAN, planCity, RAIL, ROAD, starPositions, STREET, streetAt, tourRoute,
+  ARTERIAL, ARTERIAL_ROW, arterialLat, arterialZ, AutoFlight, BOUND, CAM_R, CANAL, CollisionGrid, districtOf, EXT, G, HIGHWAY, MEDIAN, planCity, RAIL, RAMP, RAMP_W, rampY,
+  ROAD, starPositions, STREET, streetAt, tourRoute,
 } from '../src/about/city-plan';
 import { mulberry32 } from '../src/lib/rng';
 import { streetPoint } from '../src/about/city-traffic';
@@ -65,7 +66,7 @@ describe('planCity', () => {
 
   it('is Newport City: alleys, wires, closed segments, a canal, a highway, a diagonal, features', () => {
     const kinds = new Set(plan.streets.map((s) => s.kind));
-    for (const k of ['road', 'highway', 'canal', 'alley', 'diagonal']) expect(kinds.has(k as never), k).toBe(true);
+    for (const k of ['road', 'highway', 'canal', 'alley', 'diagonal', 'arterial', 'ramp']) expect(kinds.has(k as never), k).toBe(true);
     expect(plan.streets.filter((s) => s.kind === 'alley').length).toBeGreaterThan(120);
     expect(plan.streets.filter((s) => s.kind === 'road').length).toBeGreaterThan(44); // closed segments split the runs
     expect(plan.wires.length).toBeGreaterThan(1200);
@@ -75,7 +76,7 @@ describe('planCity', () => {
     expect(plan.holos.length).toBe(12);
     expect(plan.stalls.length).toBeGreaterThan(80); // the night market and three flea markets
     expect(plan.stacks.length).toBeGreaterThanOrEqual(2);
-    expect(plan.bridges.length).toBe(22);
+    expect(plan.bridges.length).toBe(21); // twenty east–west roads' and the arterial's skewed one (the arterial took two crossings)
     expect(plan.stadium.masts.length).toBe(4);
     expect(plan.wheel.r).toBe(11.5);
     expect(plan.mega.top).toBeGreaterThan(100);
@@ -107,7 +108,18 @@ describe('planCity', () => {
     expect(plan.pois.length).toBeGreaterThan(14);
   });
 
-  it('keeps every open road clear: nothing solid stands on a road or a pavement', () => {
+  it('keeps every open road clear: nothing solid stands on a road or a pavement, on the arterial\'s lanes or on a ramp', () => {
+    const arterial = plan.streets.find((s) => s.kind === 'arterial')!;
+    for (let t = 1; t < arterial.len; t += 3) {
+      for (const off of [-5.4, -3, 3, 5.4]) {
+        const x = arterial.x0 + arterial.dx * t - arterial.dz * off, z = arterial.z0 + arterial.dz * t + arterial.dx * off;
+        if (Math.abs(x) > EXT + 10) continue;
+        expect(plan.grid.hit(x, 2, z, 0.3), `arterial at ${x.toFixed(1)},${z.toFixed(1)}`).toBeNull();
+      }
+    }
+    for (const r of plan.streets.filter((s) => s.kind === 'ramp')) {
+      for (let t = 1; t < r.len; t += 3) expect(plan.grid.hit(r.x0 + r.dx * t, rampY(r, t) + 2, r.z0 + r.dz * t, 0.3), `ramp at t=${t}`).toBeNull();
+    }
     for (const st of plan.streets) {
       if (st.kind !== 'road') continue;
       for (let t = 1; t < st.len; t += 3) {
@@ -142,7 +154,7 @@ describe('planCity', () => {
 
   it('keeps the avenues open down the middle (trees, lamps and bridges aside)', () => {
     for (let t = -EXT; t <= EXT; t += 5) {
-      const a = plan.grid.hit(3, 12, t, 1);
+      const a = Math.abs(arterialLat(3, t)) < HIGHWAY.width / 2 + 4 ? null : plan.grid.hit(3, 12, t, 1); // (the deck bridges the canal)
       const b = plan.grid.hit(t, 12, 3, 1);
       expect(a, `canal avenue at z=${t}`).toBeNull();
       expect(b, `east-west avenue at x=${t}`).toBeNull();
@@ -252,7 +264,7 @@ describe('Newport City, layered (owner: messy, overlapping, Ghost in the Shell)'
     }
     expect(r.stations.length).toBe(3);
     expect(plan.streets.filter((s) => s.kind === 'catwalk' && Math.abs(s.y - RAIL.y - 0.6) < 0.01).length).toBe(6); // the platforms
-    expect(r.portals.length).toBeGreaterThan(32);
+    expect(r.portals.length).toBeGreaterThanOrEqual(30); // (never in a crossing street, never under the arterial's deck)
     for (const p of r.portals) expect(Math.min(Math.abs(Math.abs(p.x) - RAIL.at), Math.abs(Math.abs(p.z) - RAIL.at))).toBeLessThan(0.01); // on a ring street's line
     expect(plan.roomAhead('x', RAIL.at, 0, 1)).toBe(0);
     expect(plan.roomAhead('z', -RAIL.at, 0, -1)).toBe(0);
@@ -264,6 +276,127 @@ describe('Newport City, layered (owner: messy, overlapping, Ghost in the Shell)'
     for (const c of cats) { expect(Number.isFinite(c.y)).toBe(true); expect(c.y).toBeGreaterThanOrEqual(4); expect(c.width).toBeGreaterThan(1); }
     expect(cats.filter((c) => c.width === 1.6).length).toBeGreaterThan(30); // the arcades along the facades
     expect(cats.filter((c) => c.width === 1.4).length).toBeGreaterThan(80); // across the alleys
+  });
+});
+
+describe('The viaduct over its arterial (owner: roads that exist in real life)', () => {
+  const plan = planCity(SEED);
+  const ramps = plan.streets.filter((s) => s.kind === 'ramp');
+  const roads = plan.streets.filter((s) => s.kind === 'road');
+  const ns = roads.filter((s) => s.dx === 0), ew = roads.filter((s) => s.dz === 0);
+  const end = (r: typeof ramps[number]) => ({ x: r.x0 + r.dx * r.len, z: r.z0 + r.dz * r.len, y: rampY(r, r.len) });
+
+  it('runs an arterial under the deck, the deck at 11 on piers in its median', () => {
+    const a = plan.streets.filter((s) => s.kind === 'arterial');
+    expect(a.length).toBe(1);
+    expect(a[0].width).toBe(ARTERIAL.w);
+    expect(a[0].len).toBeGreaterThan(800);
+    expect(HIGHWAY.y).toBe(11);
+    expect(plan.piers.length).toBeGreaterThanOrEqual(36);
+    const along = plan.piers.map((p) => (p.x - HIGHWAY.x0) / 0.987).sort((p, q) => p - q);
+    for (let i = 1; i < along.length; i++) {
+      const gap = along[i] - along[i - 1], x = HIGHWAY.x0 + along[i] * 0.987;
+      expect(gap, `pier gap before x=${x.toFixed(0)}`).toBeLessThanOrEqual(Math.abs(x) < 40 ? 60 : 20.5); // (none over the water)
+    }
+    for (const p of plan.piers) { // in the median, never inside a crossing's box
+      expect(Math.abs(arterialLat(p.x, p.z))).toBeLessThan(0.3);
+      for (let i = -12; i <= 12; i++) expect(Math.abs(p.x - streetAt(i)), `pier near the crossing at x=${streetAt(i)}`).toBeGreaterThan(8.5);
+      expect(plan.grid.hit(p.x, 5, p.z, 0.5), 'the pier is solid').not.toBeNull();
+    }
+  });
+
+  it('builds four ramps as chains of three pieces that meet end to end, from the deck\'s edge lane to the arterial\'s kerb lane', () => {
+    expect(ramps.length).toBe(12);
+    for (const r of ramps) expect(r.width).toBe(RAMP_W);
+    const starts = new Set(ramps.map((r) => r));
+    // a chain's loose end is on the deck's edge lane at deck height (an on-ramp's top) or on the arterial's kerb lane at grade (an off-ramp's foot)
+    const loose = (x: number, z: number, y: number) => {
+      const lat = Math.abs(arterialLat(x, z));
+      if (Math.abs(y - HIGHWAY.y - 0.4) < 0.01) { expect(Math.abs(lat - RAMP.mount)).toBeLessThan(0.05); return 'deck'; }
+      expect(Math.abs(y - CANAL.deck)).toBeLessThan(0.01); expect(Math.abs(lat - RAMP.foot)).toBeLessThan(0.05); return 'arterial';
+    };
+    const tails: string[] = [];
+    for (const r of ramps) {
+      const e = end(r);
+      const next = ramps.find((q) => q !== r && Math.hypot(q.x0 - e.x, q.z0 - e.z) < 0.05);
+      if (next) { expect(Math.abs(next.y - e.y), 'a joint at one height').toBeLessThan(0.05); starts.delete(next); }
+      else tails.push(loose(e.x, e.z, e.y));
+    }
+    expect(tails.sort()).toEqual(['arterial', 'arterial', 'deck', 'deck']); // two off-ramps end on the arterial, two on-ramps on the deck
+    const heads = [...starts].map((r) => loose(r.x0, r.z0, r.y)).sort();
+    expect(heads).toEqual(['arterial', 'arterial', 'deck', 'deck']);
+    for (const r of ramps) expect(r.oneWay).toBe(true);
+  });
+
+  it('grades the runs like a real ramp and keeps the tapers and slips flat', () => {
+    let runs = 0;
+    for (const r of ramps) {
+      if (r.y === r.y1) continue;
+      runs += 1;
+      let steepest = 0;
+      for (let t = 1; t <= r.len; t += 1) steepest = Math.max(steepest, Math.abs(rampY(r, t) - rampY(r, t - 1)));
+      expect(steepest).toBeLessThanOrEqual(0.125);
+      expect(steepest).toBeGreaterThan(0.08);
+      expect(Math.abs(Math.abs(arterialLat(r.x0, r.z0)) - RAMP.lat)).toBeLessThan(0.05); // parallel to the deck, in the apron
+      expect(Math.abs(Math.abs(arterialLat(end(r).x, end(r).z)) - RAMP.lat)).toBeLessThan(0.05);
+    }
+    expect(runs).toBe(4);
+  });
+
+  it('never passes a ramp lower than a bus over an open street, and closes the stubs it does', () => {
+    for (const s of ns) {
+      for (const r of ramps) {
+        const x1 = r.x0 + r.dx * r.len;
+        if (s.x0 < Math.min(r.x0, x1) || s.x0 > Math.max(r.x0, x1)) continue;
+        const t = (s.x0 - r.x0) / r.dx, z = r.z0 + r.dz * t;
+        if (z < s.z0 - 0.5 || z > s.z0 + s.len + 0.5) continue;
+        expect(rampY(r, t), `a ramp ${rampY(r, t).toFixed(1)} high over the street at x=${s.x0}`).toBeGreaterThanOrEqual(RAMP.clear);
+      }
+    }
+    for (const X of [-133, -57, 57, 133]) { // severed where a slip meets the arterial
+      const zA = arterialZ(X);
+      expect(ns.some((s) => Math.abs(s.x0 - X) < 0.5 && s.z0 < zA && s.z0 + s.len > zA), `x=${X} runs through the arterial`).toBe(false);
+    }
+    const tees = ns.filter((s) => Math.abs(s.z0 - arterialZ(s.x0)) < 0.5 || Math.abs(s.z0 + s.len - arterialZ(s.x0)) < 0.5);
+    expect(tees.length).toBeGreaterThanOrEqual(5); // the stubs' survivors end on the axis (a spur too short to connect is dropped)
+    for (const s of tees) {
+      const pad = Math.abs(s.z0 - arterialZ(s.x0)) < 0.5 ? s.ends?.a : s.ends?.b;
+      expect(pad, `the T at x=${s.x0} carries its pad`).toBeCloseTo((ARTERIAL_ROW - ARTERIAL.walk / 2) / 0.98708, 1);
+      expect(s.len).toBeGreaterThan(20);
+    }
+  });
+
+  it('closes every east–west segment its pavement would eat, and patches the ghost roads', () => {
+    for (const s of ew) {
+      for (let t = 0; t <= s.len; t += 4) {
+        const x = s.x0 + t;
+        if (Math.abs(x) > HIGHWAY.x1) continue;
+        expect(Math.abs(arterialZ(x) - s.z0), `an east–west road at ${x.toFixed(0)},${s.z0}`).toBeGreaterThanOrEqual(ARTERIAL_ROW + STREET / 2);
+      }
+    }
+    expect(plan.patches.length).toBeGreaterThan(20);
+    for (const p of plan.patches) expect(Math.min(p.w, p.d)).toBeGreaterThan(0.5);
+  });
+
+  it('sinks the canal, floors its bridges flush, and keeps the quay lamps out of the water', () => {
+    expect(CANAL.water).toBeLessThan(-2);
+    expect(plan.bridges.filter((b) => b.yaw === 0).length).toBe(20);
+    const skew = plan.bridges.filter((b) => b.yaw !== 0);
+    expect(skew.length).toBe(1);
+    expect(skew[0].w).toBeCloseTo(2 * ARTERIAL_ROW, 5);
+    expect(Math.abs(skew[0].z - arterialZ(0))).toBeLessThan(0.01);
+    const wet = plan.posts.filter((p) => Math.abs(p.x) < CANAL.w / 2 && Math.abs(p.x) > 5 && Math.abs(p.z) > 20 && (p.y ?? 0) < 1);
+    expect(wet.length).toBe(0);
+    expect(plan.streets.find((s) => s.kind === 'canal')!.y).toBeCloseTo(CANAL.water + 0.3, 5);
+  });
+
+  it('dresses the aprons: parked vehicles, stalls and shanties, none on the carriageway', () => {
+    expect(plan.parked.length).toBeGreaterThan(10);
+    for (const p of plan.parked) {
+      const lat = Math.abs(arterialLat(p.x, p.z));
+      expect(lat).toBeGreaterThan(ARTERIAL.w / 2 + 2.2);
+      expect(lat).toBeLessThan(ARTERIAL_ROW - ARTERIAL.walk);
+    }
   });
 });
 
