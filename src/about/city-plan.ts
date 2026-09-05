@@ -76,7 +76,7 @@ export interface Sign {
 }
 /** A catwalk is a raised walk (across an alley, along a facade as an arcade, a station platform): it carries
  *  its own `y`, only pedestrians use it. */
-export type StreetKind = 'road' | 'highway' | 'canal' | 'alley' | 'diagonal' | 'ramp' | 'catwalk' | 'arterial';
+export type StreetKind = 'road' | 'highway' | 'canal' | 'alley' | 'diagonal' | 'ramp' | 'catwalk' | 'arterial' | 'lane';
 /** A straight run: p(t) = (x0 + dx·t, z0 + dz·t) for t in [0, len]; lanes sit
  *  along the left normal (−dz, dx). A ramp climbs (or falls) from y to y1
  *  along its length (rampProfile) and is driven one way, from t = 0. `ends`
@@ -91,6 +91,10 @@ export interface Street {
  *  at deck level diverging from the deck's edge lane, a RUN parallel to the deck at `lat` from its axis falling on a
  *  blended profile (mean 9.5 %, peak 11.8 %), a SLIP at grade converging into the arterial's kerb lane. A run passing
  *  lower than `clear` over a north–south street closes that street's stub (a bus is 3.0, the slab 0.7). */
+/** A LANE (Hanoi's ngõ, owner: the grid was too uniform): 7 across, one lane each way, the carriageway inside its edge
+ *  lines at ±2.6, a sliver of pavement beyond; never lit, giving way at the roads it meets. */
+export const LANE_W = 7;
+export const LANE_CAR = 2.6;
 export const RAMP_W = 6.6;
 export const RAMP = { taper: 30, run: 120, slip: 28, lat: 12.3, mount: 7.6, foot: 8.6, clear: 5.2 };
 /** A ramp's height along its run: half linear, half eased — 4.7 % at the joints, 11.8 % at the middle for a 9.5 % mean
@@ -112,7 +116,7 @@ export const arterialLat = (x: number, z: number): number => {
  *  ramp's inside its parapets, the deck's inside its kerbs) — furniture is kept out of all of them. */
 export function carriagewayAt(streets: Street[], x: number, z: number, y = 0): Street | null {
   for (const s of streets) {
-    const half = s.kind === 'road' ? ROAD / 2 : s.kind === 'diagonal' ? 4.9 : s.kind === 'arterial' ? s.width / 2 : s.kind === 'ramp' ? RAMP_W / 2 - 0.4 : s.kind === 'highway' ? 8 : -1;
+    const half = s.kind === 'road' ? ROAD / 2 : s.kind === 'diagonal' ? 4.9 : s.kind === 'arterial' ? s.width / 2 : s.kind === 'ramp' ? RAMP_W / 2 - 0.4 : s.kind === 'highway' ? 8 : s.kind === 'lane' ? LANE_CAR : -1;
     if (half < 0) continue;
     const t = (x - s.x0) * s.dx + (z - s.z0) * s.dz;
     if (t < 0 || t > s.len) continue;

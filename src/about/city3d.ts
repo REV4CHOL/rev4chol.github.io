@@ -42,7 +42,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { isMobile, reducedMotion } from '../lib/env';
 import { mulberry32 } from '../lib/rng';
 import {
-  AirLane, ART_COLOR, ARTERIAL, ARTERIAL_ROW, arterialLat, ARTS, AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, DIAGONAL, EXT, G, HALF, HIGHWAY, HoloKind, OUTER,
+  AirLane, ART_COLOR, ARTERIAL, ARTERIAL_ROW, arterialLat, ARTS, AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, DIAGONAL, EXT, G, HALF, HIGHWAY, HoloKind, LANE_CAR, LANE_W, OUTER,
   planCity, Poi, RAIL, RAMP_W, rampY, ROAD, Sign, signColor, Solid, starPositions, streetAt, STREET, Street, tourRoute,
 } from './city-plan';
 import { fov24, LensPass, lensTarget, MotionBlurPass } from './city-post';
@@ -928,89 +928,22 @@ function horizonTexture(rand: () => number): CanvasTexture {
   return asPixelTex(new CanvasTexture(c));
 }
 
-/** One block of ground, the street centred (owner: road markings and road
- *  textures clear at every time of day): asphalt with a bright double
- *  yellow, dashed white lane lines where the lanes really are (city-traffic
- *  OFFSETS), solid white edge lines, zebra crossings and stop lines at the
- *  crossing, manholes and drains; kerbed pavements paved a unit square; the
- *  lots' stone in the corners. Tiled every G units with lot centres on the
- *  tile corners, 8 texels a unit, mipmapped so the paint holds to the
- *  horizon without sparkle. Returns the colour and its GLOW twin (the same
- *  picture lifted toward white) so the streets' own light by night carries
- *  the paint brighter than the asphalt. */
+/** One block of ground: the lots' stone with a coarse grid and its grain — no streets (owner: the layout is no longer
+ *  a grid; every street is LAID as its own strip and every junction drawn from the traffic graph, so a street may lie
+ *  anywhere). Tiled every G units, 8 texels a unit. Returns the colour and its GLOW twin. */
 function groundTextures(rand: () => number, aniso: number): { map: CanvasTexture; glow: CanvasTexture } {
   const S = 8, T = G * S;
   const c = document.createElement('canvas');
   c.width = c.height = T;
   const x = c.getContext('2d')!;
-  const mid = T / 2, half = (STREET / 2) * S, road = (ROAD / 2) * S;
-  // the lots' ground: a mid stone with a coarse grid (the alleys and yards show it)
   x.fillStyle = '#4c5062'; x.fillRect(0, 0, T, T);
   x.fillStyle = '#42465a';
   for (let i = 0; i < T; i += 2 * S) { x.fillRect(i, 0, 1, T); x.fillRect(0, i, T, 1); }
-  // the pavements: slabs a unit square
-  x.fillStyle = '#6c7082';
-  x.fillRect(mid - half, 0, half * 2, T); x.fillRect(0, mid - half, T, half * 2);
-  x.fillStyle = '#5c6074';
-  for (let i = 0; i < T; i += S) {
-    x.fillRect(mid - half, i, half * 2, 1); x.fillRect(i, mid - half, 1, half * 2);
-  }
-  for (let j = 0; j <= half * 2; j += S) { x.fillRect(mid - half + j, 0, 1, T); x.fillRect(0, mid - half + j, T, 1); }
-  // the kerb stones: a light line the road's whole length
-  x.fillStyle = '#8e92a6';
-  for (const k of [mid - road - 2, mid + road]) { x.fillRect(k, 0, 2, T); x.fillRect(0, k, T, 2); }
-  // the asphalt, patched and seamed
-  x.fillStyle = '#3e4150';
-  x.fillRect(mid - road, 0, road * 2, T); x.fillRect(0, mid - road, T, road * 2);
-  for (let i = 0; i < 26; i++) {
-    x.fillStyle = rand() < 0.5 ? '#383b49' : '#454858'; x.globalAlpha = 0.85;
-    const a = Math.floor(rand() * T), b = mid - road + Math.floor(rand() * (road * 2 - 3 * S));
-    const w = S * (2 + Math.floor(rand() * 5)), h = S * (1 + Math.floor(rand() * 3));
-    if (rand() < 0.5) x.fillRect(b, a, w, h); else x.fillRect(a, b, h, w);
+  for (let i = 0; i < 26; i++) { // patches of another stone
+    x.fillStyle = rand() < 0.5 ? '#464a5c' : '#525668'; x.globalAlpha = 0.85;
+    x.fillRect(Math.floor(rand() * T), Math.floor(rand() * T), S * (2 + Math.floor(rand() * 6)), S * (1 + Math.floor(rand() * 4)));
   }
   x.globalAlpha = 1;
-  // the paint: a line `w` texels wide at `at` along both streets, dashed on/off (off 0 = solid), kept out of the crossing
-  const clear = road + 5 * S; // the crossing, its crosswalks and its stop lines
-  const paint = (color: string, at: number, w: number, on: number, off: number) => {
-    x.fillStyle = color;
-    for (let i = 0; i < T; i += on + off) {
-      let i0 = i, i1 = Math.min(T, i + on);
-      if (i1 > mid - clear && i0 < mid + clear) {
-        if (i0 < mid - clear) { x.fillRect(at, i0, w, mid - clear - i0); x.fillRect(i0, at, mid - clear - i0, w); }
-        if (i1 > mid + clear) { x.fillRect(at, mid + clear, w, i1 - mid - clear); x.fillRect(mid + clear, at, i1 - mid - clear, w); }
-        continue;
-      }
-      x.fillRect(at, i0, w, i1 - i0); x.fillRect(i0, at, i1 - i0, w);
-    }
-  };
-  const YELLOW = '#e6c042', WHITE = '#e8eaf0';
-  paint(YELLOW, mid - 3, 2, T, 0); paint(YELLOW, mid + 1, 2, T, 0); // the double yellow
-  const lane = Math.round(2.55 * S); // between the two lanes of a direction (city-traffic: 1.35 and 3.75 from the centre)
-  paint(WHITE, mid - lane - 1, 2, 3 * S, 3 * S); paint(WHITE, mid + lane - 1, 2, 3 * S, 3 * S);
-  paint(WHITE, mid - road + 2, 2, T, 0); paint(WHITE, mid + road - 4, 2, T, 0); // the edge lines
-  // the crossing: zebra stripes over each arm, a stop line before each
-  x.fillStyle = WHITE;
-  for (const side of [-1, 1]) {
-    const y0 = side > 0 ? mid + road + Math.round(0.5 * S) : mid - road - Math.round(3.5 * S);
-    for (let k = mid - road + Math.round(0.3 * S); k < mid + road - Math.round(0.6 * S); k += Math.round(1.2 * S)) {
-      x.fillRect(k, y0, Math.round(0.6 * S), 3 * S); x.fillRect(y0, k, 3 * S, Math.round(0.6 * S));
-    }
-    const s0 = side > 0 ? mid + road + 4 * S : mid - road - Math.round(4.4 * S);
-    x.fillRect(mid - road, s0, road * 2, Math.round(0.4 * S)); x.fillRect(s0, mid - road, Math.round(0.4 * S), road * 2);
-  }
-  // manholes on the carriageway, drains at the kerbs
-  x.fillStyle = '#2a2d3a';
-  for (let i = 0; i < 6; i++) {
-    const a = Math.floor(rand() * T), b = mid + (rand() - 0.5) * road * 1.2;
-    if (Math.abs(a - mid) < clear + 2 * S) continue;
-    x.beginPath(); x.arc(b, a, 0.55 * S, 0, Math.PI * 2); x.fill();
-    x.beginPath(); x.arc(a, b, 0.55 * S, 0, Math.PI * 2); x.fill();
-  }
-  for (let i = 3 * S; i < T; i += 9 * S) {
-    if (Math.abs(i - mid) < clear + S) continue;
-    for (const k of [mid - road + 2, mid + road - 2 - Math.round(0.4 * S)]) { x.fillRect(k, i, Math.round(0.4 * S), S); x.fillRect(i, k, S, Math.round(0.4 * S)); }
-  }
-  // asphalt and paving grain
   for (let i = 0; i < 5200; i++) {
     x.fillStyle = rand() < 0.5 ? '#000000' : '#ffffff'; x.globalAlpha = 0.03 + rand() * 0.07;
     x.fillRect(Math.floor(rand() * T), Math.floor(rand() * T), 1 + Math.floor(rand() * 2), 1);
@@ -1052,7 +985,20 @@ function roadStrip(width: number, lanes: number[], edge: number, median: number,
   const x = c.getContext('2d')!;
   const mid = c.height / 2;
   x.fillStyle = '#6c7082'; x.fillRect(0, 0, L, c.height);
+  if (width / 2 - edge >= 0.8) { // a pavement: slabs a unit square, kerb stones at the carriageway
+    x.fillStyle = '#5c6074';
+    for (let i = 0; i < L; i += S) x.fillRect(i, 0, 1, c.height);
+    for (let j = Math.round(mid + edge * S); j < c.height; j += S) x.fillRect(0, j, L, 1);
+    for (let j = Math.round(mid - edge * S); j > 0; j -= S) x.fillRect(0, j, L, 1);
+    x.fillStyle = '#8e92a6';
+    x.fillRect(0, Math.round(mid - edge * S) - 2, L, 2); x.fillRect(0, Math.round(mid + edge * S), L, 2);
+  }
   x.fillStyle = '#3e4150'; x.fillRect(0, Math.round(mid - edge * S), L, Math.round(2 * edge * S));
+  if (centre) { // a street: a manhole on the carriageway, a drain at each kerb
+    x.fillStyle = '#2a2d3a';
+    x.beginPath(); x.arc(8 * S, Math.round(mid + 1.6 * S), 0.55 * S, 0, Math.PI * 2); x.fill();
+    x.fillRect(3 * S, Math.round(mid - edge * S) + 2, S, Math.round(0.4 * S)); x.fillRect(3 * S, Math.round(mid + edge * S) - 2 - Math.round(0.4 * S), S, Math.round(0.4 * S));
+  }
   x.fillStyle = '#e8eaf0';
   x.fillRect(0, Math.round(mid - edge * S) + 1, L, 2); x.fillRect(0, Math.round(mid + edge * S) - 3, L, 2);
   for (const o of lanes) for (const s of [-1, 1]) for (const d of [0, 6 * S]) x.fillRect(d, Math.round(mid + s * o * S) - 1, 3 * S, 2);
@@ -1455,20 +1401,24 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const hlenR = Math.hypot(HIGHWAY.x1 - HIGHWAY.x0, HIGHWAY.z1 - HIGHWAY.z0);
   const hnxR = -(HIGHWAY.z1 - HIGHWAY.z0) / hlenR, hnzR = (HIGHWAY.x1 - HIGHWAY.x0) / hlenR; // the axis's left normal
   const streetMats: MeshLambertMaterial[] = []; // the laid roads, the deck, the ramps: lit and glowing with the ground
-  const streetMat = (strip: { map: CanvasTexture; glow: CanvasTexture }, repeat: number) => {
+  const streetMat = (strip: { map: CanvasTexture; glow: CanvasTexture }, repeat: number, offset = 0) => {
     const map = strip.map.clone(), glow = strip.glow.clone();
     map.needsUpdate = true; glow.needsUpdate = true;
     map.repeat.set(repeat, 1); glow.repeat.set(repeat, 1);
-    const m = new MeshLambertMaterial({ map, emissiveMap: glow, emissive: '#2c4a8e', emissiveIntensity: 1.8 });
+    // (offset: drawn in front of whatever lies a hair under it — the strips of two kinds of street overlap where they
+    // meet, and the depth buffer cannot tell 0.004 apart at three hundred units)
+    const m = new MeshLambertMaterial({ map, emissiveMap: glow, emissive: '#2c4a8e', emissiveIntensity: 1.8, polygonOffset: offset > 0, polygonOffsetFactor: -1, polygonOffsetUnits: -offset });
     streetMats.push(m);
     return m;
   };
   const boulevardStrip = roadStrip(DIAGONAL.width + 4, [2.55], 4.9, 0, true, aniso); // two lanes a side (city-traffic OFFSETS.diagonal), its pavements past the edge lines
+  const roadStripTex = roadStrip(STREET, [2.55], 4.9, 0, true, aniso); // a grid road: two lanes a side about a double yellow (OFFSETS.road), its pavements to the building line
+  const laneStripTex = roadStrip(LANE_W, [], LANE_CAR, 0, false, aniso); // a lane: one each way (OFFSETS.lane), edge lines, a sliver of pavement
   const deckStrip = roadStrip(HIGHWAY.width, [2.6, 5.0], DECK_KERB - 0.1, 0.8, false, aniso); // three lanes a side about a median (OFFSETS.highway)
   const rampStrip = roadStrip(RAMP_W, [], RAMP_W / 2 - 0.4, 0, false, aniso); // one lane
   const arterialStrip = arterialStripTextures(aniso); // the carriageway about its median, the aprons, the pavements (OFFSETS.arterial)
-  const laidRoad = (st: Street, y: number, width: number, strip = boulevardStrip) => {
-    const m = new Mesh(new PlaneGeometry(st.len, width), streetMat(strip, st.len / 12));
+  const laidRoad = (st: Street, y: number, width: number, strip = boulevardStrip, offset = 0) => {
+    const m = new Mesh(new PlaneGeometry(st.len, width), streetMat(strip, st.len / 12, offset));
     m.receiveShadow = true;
     m.position.set(st.x0 + st.dx * st.len / 2, y, st.z0 + st.dz * st.len / 2);
     m.rotation.y = Math.atan2(-st.dz, st.dx);
@@ -1480,7 +1430,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const edge: number[] = []; // amber lights along every deck edge — the highway's and the ramps'
   const deckLights: number[] = []; // cold tubes under the deck, over the arterial
   for (const st of plan.streets) {
-    if (st.kind === 'arterial') laidRoad(st, 0.05, 2 * ARTERIAL_ROW, arterialStrip);
+    if (st.kind === 'arterial') laidRoad(st, 0.05, 2 * ARTERIAL_ROW, arterialStrip, 5);
     if (st.kind === 'diagonal') { // the boulevard's strip with its pavements, squared off at the avenue roads' kerbs (owner: its paint ran into the quay road)
       const half = DIAGONAL.width / 2 + 2, nx = -st.dz, nz = st.dx;
       const pts: number[] = [], uvs: number[] = [];
@@ -1494,7 +1444,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       g.setAttribute('uv', new BufferAttribute(new Float32Array(uvs), 2));
       g.setAttribute('normal', new BufferAttribute(new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), 3));
       g.setIndex([0, 1, 2, 0, 2, 3]);
-      const m = new Mesh(g, streetMat(boulevardStrip, 1)); (m.material as MeshLambertMaterial).side = DoubleSide;
+      const m = new Mesh(g, streetMat(boulevardStrip, 1, 4)); (m.material as MeshLambertMaterial).side = DoubleSide;
       m.receiveShadow = true;
       scene.add(m);
     }
@@ -2787,55 +2737,120 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     sposts.count = jp; housings.count = jh; signalLamps.count = jl;
     dummy.rotation.set(0, 0, 0);
     for (const inst of [sposts, housings, signalLamps]) { inst.instanceMatrix.needsUpdate = true; scene.add(inst); }
-    // ZEBRAS at the arterial's crossings: across its carriageway on the side street's pavement lines, across the side
-    // street on the arterial's pavement lines (the ground tile's crossings only know the grid)
-    const zebraMat = new MeshBasicMaterial({ map: zebraTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
-    const crossings = lit.filter((n) => n.streets.some((q) => q.kind === 'arterial') && n.streets.some((q) => q.kind === 'road'));
-    const zebras = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), zebraMat, Math.max(1, crossings.length * 4));
-    let jz = 0;
-    for (const n of crossings) {
-      const art = n.streets.find((q) => q.kind === 'arterial')!, road = n.streets.find((q) => q.kind === 'road')!;
-      for (const s of [-1, 1]) {
-        // across the arterial, on the road's pavement line: as long as the carriageway is wide where the road crosses it
-        dummy.rotation.set(0, Math.atan2(road.dx, road.dz) + Math.PI / 2, 0);
-        dummy.position.set(n.x - road.dz * s * 6.2, 0.07, n.z + road.dx * s * 6.2); dummy.scale.set(ARTERIAL.w / Math.abs(road.dx * art.dz - road.dz * art.dx) + 0.4, 1, 2.4); dummy.updateMatrix(); zebras.setMatrixAt(jz++, dummy.matrix);
-        // across the road, on the arterial's pavement line
-        dummy.rotation.set(0, Math.atan2(art.dx, art.dz) + Math.PI / 2, 0);
-        dummy.position.set(n.x - art.dz * s * (ARTERIAL_ROW - ARTERIAL.walk / 2), 0.07, n.z + art.dx * s * (ARTERIAL_ROW - ARTERIAL.walk / 2)); dummy.scale.set(ROAD + 0.4, 1, 2.2); dummy.updateMatrix(); zebras.setMatrixAt(jz++, dummy.matrix);
+    // THE ROADS AND LANES LAID (owner: the tile painted a grid, so a street could only lie on a grid line): every road
+    // and every lane is a strip of its own, the strips of an axis merged into one mesh; a strip is trimmed where its
+    // street ends in another's carriageway (a T), a lane's is cut where it crosses a road's, a road's at the canal (the
+    // bridges' decks carry their own paint); the axes lie a hair apart, the later drawn in front, so nothing fights
+    const carHalf = (q: Street) => (q.kind === 'diagonal' ? 4.9 : q.kind === 'arterial' ? q.width / 2 : q.kind === 'lane' ? LANE_CAR : ROAD / 2);
+    const cell = (x: number, z: number) => `${Math.floor(x / 8)}:${Math.floor(z / 8)}`;
+    const nodeCells = new Map<string, (typeof traffic.nodes)[number][]>();
+    for (const n of traffic.nodes) { const k = cell(n.x, n.z); const list = nodeCells.get(k); if (list) list.push(n); else nodeCells.set(k, [n]); }
+    const nodeNear = (x: number, z: number) => {
+      for (let ix = -1; ix <= 1; ix++) for (let iz = -1; iz <= 1; iz++) {
+        for (const n of nodeCells.get(cell(x + ix * 8, z + iz * 8)) ?? []) if (Math.abs(n.x - x) < 1 && Math.abs(n.z - z) < 1 && Math.abs(n.y) < 1) return n;
       }
-    }
-    // SIX-WAY BOXES (owner: photo 1 — the boulevard's crossings were two crossings drawn on top of each other): one
-    // plain box over each carriageway's reach through the node, over the strips' paint and the tile's, with a
-    // zebra at the mouth of every arm and a stop line before the boulevard's
-    const sixes = traffic.nodes.filter((n) => n.streets.some((q) => q.kind === 'diagonal') && n.streets.length >= 2);
-    const boxMat = streetMat(asphaltTextures(aniso), 1);
-    const lineMat = new MeshBasicMaterial({ color: '#e8eaf0', polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -3 });
-    const sixZebras = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), zebraMat, Math.max(1, sixes.length * 6));
-    let js = 0;
-    for (const n of sixes) {
-      n.streets.forEach((s, i) => {
-        const half = s.kind === 'diagonal' ? 4.9 : s.width / 2;
-        const reach = n.streets.reduce((m, o) => (o === s ? m : Math.max(m, rowOf(o))), 0) + 1.5;
-        const yaw = Math.atan2(-s.dz, s.dx);
-        const box = new Mesh(new PlaneGeometry(2 * reach, 2 * half).rotateX(-Math.PI / 2), boxMat);
-        box.position.set(n.x, 0.052 + 0.002 * i, n.z); box.rotation.y = yaw; box.receiveShadow = true;
-        scene.add(box);
-        for (const d of [-1, 1]) {
-          dummy.rotation.set(0, yaw + Math.PI / 2, 0);
-          dummy.position.set(n.x + s.dx * d * (reach - 1.3), 0.062, n.z + s.dz * d * (reach - 1.3)); dummy.scale.set(2 * half + 0.4, 1, 2.2); dummy.updateMatrix(); sixZebras.setMatrixAt(js++, dummy.matrix);
-          if (s.kind === 'diagonal') { // the boulevard's stop lines (the tile paints the roads')
-            const line = new Mesh(new PlaneGeometry(2 * half, 0.4).rotateX(-Math.PI / 2), lineMat);
-            line.position.set(n.x + s.dx * d * (reach + 0.4), 0.064, n.z + s.dz * d * (reach + 0.4)); line.rotation.y = yaw + Math.PI / 2;
-            scene.add(line);
+      return null;
+    };
+    const layStrips = (list: Street[], y: number, width: number, strip: { map: CanvasTexture; glow: CanvasTexture }, offset: number) => {
+      const pos: number[] = [], uv: number[] = [], idx: number[] = [];
+      for (const st of list) {
+        let t0 = 0, t1 = st.len; // the run to lay: trimmed at either end by the carriageway it ends in
+        for (const end of [0, 1] as const) {
+          const t = end ? st.len : 0, n = nodeNear(st.x0 + st.dx * t, st.z0 + st.dz * t);
+          if (!n) continue;
+          const trim = n.streets.reduce((m, o) => (o === st ? m : Math.max(m, carHalf(o))), 0);
+          if (end) t1 -= trim; else t0 += trim;
+        }
+        const cuts: [number, number][] = []; // where a lane crosses a road (the road runs through, the lane gives way); where a road crosses the canal
+        if (st.kind === 'lane') for (const n of traffic.nodes) {
+          const t = (n.x - st.x0) * st.dx + (n.z - st.z0) * st.dz;
+          if (t <= t0 + 0.5 || t >= t1 - 0.5 || Math.abs(-(n.x - st.x0) * st.dz + (n.z - st.z0) * st.dx) > 0.5) continue;
+          const half = n.streets.reduce((m, o) => (o === st || o.kind === 'lane' ? m : Math.max(m, carHalf(o))), 0);
+          if (half > 0) cuts.push([t - half, t + half]);
+        }
+        if (st.kind === 'road' && st.dz === 0 && st.x0 < -13 && st.x0 + st.len > 13) cuts.push([-13 - st.x0, 13 - st.x0]);
+        cuts.sort((a, b) => a[0] - b[0]);
+        const runs: [number, number][] = [];
+        let a = t0;
+        for (const [c0, c1] of cuts) { if (c0 > a) runs.push([a, c0]); a = Math.max(a, c1); }
+        if (t1 > a) runs.push([a, t1]);
+        const nx = -st.dz, nz = st.dx;
+        for (const [r0, r1] of runs) {
+          if (r1 - r0 < 0.5) continue;
+          const base = pos.length / 3;
+          for (const [t, side] of [[r0, 1], [r1, 1], [r1, -1], [r0, -1]] as [number, number][]) {
+            pos.push(st.x0 + st.dx * t + nx * side * width / 2, y, st.z0 + st.dz * t + nz * side * width / 2);
+            uv.push(t / 12, side > 0 ? 1 : 0);
           }
+          idx.push(base, base + 2, base + 1, base, base + 3, base + 2);
+        }
+      }
+      if (!idx.length) return;
+      const g = new BufferGeometry();
+      g.setAttribute('position', new BufferAttribute(new Float32Array(pos), 3));
+      g.setAttribute('uv', new BufferAttribute(new Float32Array(uv), 2));
+      const normals = new Float32Array(pos.length); for (let i = 1; i < normals.length; i += 3) normals[i] = 1;
+      g.setAttribute('normal', new BufferAttribute(normals, 3));
+      g.setIndex(idx);
+      const m = new Mesh(g, streetMat(strip, 1, offset)); (m.material as MeshLambertMaterial).side = DoubleSide;
+      m.receiveShadow = true;
+      scene.add(m);
+    };
+    const roads = plan.streets.filter((st) => st.kind === 'road'), lanes = plan.streets.filter((st) => st.kind === 'lane');
+    layStrips(roads.filter((st) => st.dz === 0), 0.044, STREET, roadStripTex, 0);
+    layStrips(roads.filter((st) => st.dz !== 0), 0.046, STREET, roadStripTex, 1);
+    layStrips(lanes.filter((st) => st.dz === 0), 0.048, LANE_W, laneStripTex, 2);
+    layStrips(lanes.filter((st) => st.dz !== 0), 0.048, LANE_W, laneStripTex, 3);
+    // JUNCTIONS (owner: the ground paints no grid now — every junction is drawn from the traffic graph): at each node on
+    // the ground where streets meet, a plain asphalt box per street over its reach through the node (its own paint and
+    // the others' pavements blanked; only the crossing square where the street ends there), a zebra at the mouth of
+    // every arm and a stop line before it where every street is a road; a lane at a road gets no box (its strip ends at
+    // the kerb) and a give-way line at its mouth. The boxes, zebras and lines are drawn in front of the strips.
+    const junctions = traffic.nodes.filter((n) => n.streets.length >= 2 && Math.abs(n.y) < 1 && !n.streets.some((q) => q.kind === 'highway' || q.kind === 'ramp'));
+    // (the zebras and lines glow as the strips' paint does — lit and tended with the ground — not as bare white: four
+    // zebras at every crossing bloomed to a white square from the air)
+    const zebraTex = zebraTexture();
+    const zebraMat = new MeshLambertMaterial({ map: zebraTex, emissiveMap: zebraTex, emissive: '#2c4a8e', emissiveIntensity: 1.8, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -8 });
+    const boxMat = streetMat(asphaltTextures(aniso), 1, 6);
+    const lineMat = new MeshLambertMaterial({ color: '#e8eaf0', emissive: '#2c4a8e', emissiveIntensity: 1.5, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -9 });
+    streetMats.push(zebraMat, lineMat);
+    const flat = new PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+    const boxes = new InstancedMesh(flat, boxMat, Math.max(1, junctions.length * 3));
+    const zebras = new InstancedMesh(flat, zebraMat, Math.max(1, junctions.length * 6));
+    const stops = new InstancedMesh(flat, lineMat, Math.max(1, junctions.length * 6));
+    let jb = 0, jz = 0, js = 0;
+    for (const n of junctions) {
+      const allRoads = n.streets.every((q) => q.kind !== 'lane');
+      n.streets.forEach((st, i) => {
+        const others = n.streets.filter((o) => o !== st);
+        const maxRow = others.reduce((m, o) => Math.max(m, rowOf(o)), 0), maxCar = others.reduce((m, o) => Math.max(m, carHalf(o)), 0);
+        const arms = new Set<number>();
+        for (const p of n.ports) if (p.link.street === st) arms.add(p.end === 0 ? 1 : -1);
+        const ext = (d: number) => (arms.has(d) ? maxRow + 1.5 : maxCar);
+        const half = carHalf(st), yaw = Math.atan2(-st.dz, st.dx);
+        if (st.kind === 'lane' && !others.every((o) => o.kind === 'lane')) { // a lane at a road: its strip ends at the kerb; a give-way line at its mouth
+          for (const d of arms) {
+            dummy.rotation.set(0, yaw + Math.PI / 2, 0);
+            dummy.position.set(n.x + st.dx * d * (maxCar + 0.5), 0.064, n.z + st.dz * d * (maxCar + 0.5)); dummy.scale.set(2 * half, 1, 0.4); dummy.updateMatrix(); stops.setMatrixAt(js++, dummy.matrix);
+          }
+          return;
+        }
+        if (!(st.kind !== 'lane' && others.every((o) => o.kind === 'lane'))) { // (a road among lanes runs through unbroken)
+          const e0 = ext(-1), e1 = ext(1);
+          dummy.rotation.set(0, yaw, 0); dummy.position.set(n.x + st.dx * (e1 - e0) / 2, 0.052 + 0.002 * i, n.z + st.dz * (e1 - e0) / 2); dummy.scale.set(e0 + e1, 1, 2 * half); dummy.updateMatrix(); boxes.setMatrixAt(jb++, dummy.matrix);
+        }
+        if (!allRoads) return;
+        for (const d of arms) {
+          const reach = ext(d);
+          dummy.rotation.set(0, yaw + Math.PI / 2, 0);
+          dummy.position.set(n.x + st.dx * d * (reach - 1.3), 0.062, n.z + st.dz * d * (reach - 1.3)); dummy.scale.set(2 * half + 0.4, 1, 2.2); dummy.updateMatrix(); zebras.setMatrixAt(jz++, dummy.matrix);
+          dummy.position.set(n.x + st.dx * d * (reach + 0.5), 0.064, n.z + st.dz * d * (reach + 0.5)); dummy.scale.set(2 * half, 1, 0.4); dummy.updateMatrix(); stops.setMatrixAt(js++, dummy.matrix);
         }
       });
     }
-    sixZebras.count = js;
-    zebras.count = jz;
+    boxes.count = jb; zebras.count = jz; stops.count = js;
     dummy.rotation.set(0, 0, 0);
-    zebras.instanceMatrix.needsUpdate = true; sixZebras.instanceMatrix.needsUpdate = true;
-    scene.add(zebras, sixZebras);
+    for (const inst of [boxes, zebras, stops]) { inst.instanceMatrix.needsUpdate = true; inst.receiveShadow = inst === boxes; scene.add(inst); }
   }
   const RED = new Color('#ff3b3b'), GREEN = new Color('#3dff8f'), OFF_RED = new Color('#2a0808'), OFF_GREEN = new Color('#082a12'), WALK = new Color('#e8f4ff'), DONT = new Color('#ff5e4a');
   const tendSignals = () => {
