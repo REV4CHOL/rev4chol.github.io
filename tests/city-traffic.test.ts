@@ -162,6 +162,28 @@ describe('Traffic', () => {
     expect(onRamps).toBeGreaterThan(20);
   });
 
+  it('runs a pedestrian phase: WALK only while the street is red with time to cross, FLASH for the crossing time before its green, DONT through its phase', () => {
+    for (const n of traffic.nodes.filter((n) => n.signal).slice(0, 30)) {
+      const { phase } = n.signal!;
+      const cycle = n.streets.length * phase;
+      for (let g = 0; g < n.streets.length; g++) {
+        let walk = 0, flash = 0, dont = 0;
+        for (let t = 0; t < cycle; t++) {
+          const w = traffic.walk(n, g, 300, t);
+          if (w === 'walk') { walk += 1; for (let k = 0; k <= 300; k += 30) expect(traffic.green(n, g, t + k), 'a crosser who steps off on WALK meets no green').toBe(false); }
+          else if (w === 'flash') { flash += 1; expect(traffic.green(n, g, t)).toBe(false); }
+          else dont += 1;
+        }
+        expect(dont).toBe(phase); // its whole phase, green and clear
+        expect(flash).toBe(300);
+        expect(walk).toBe(cycle - phase - 300);
+        expect(walk).toBeGreaterThan(200); // a real window
+      }
+    }
+    const tee = traffic.nodes.find((n) => !n.signal && n.streets.length === 2)!;
+    expect(traffic.walk(tee, 0, 300)).toBe('unlit');
+  });
+
   it('holds a lane at the line while someone is in its crosswalk', () => {
     const t = new Traffic(plan.streets, mulberry32(7));
     t.populate(900, weight);

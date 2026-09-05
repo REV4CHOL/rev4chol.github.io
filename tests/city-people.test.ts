@@ -163,6 +163,20 @@ describe('People', () => {
     }
     expect(crossers).toBeGreaterThan(50);
     expect(told).toBe(crossers);
+    // the pedestrian signal: nobody steps off on DONT or FLASH; on WALK they go, and hurry
+    const red = new People(plan.streets, [], plan.stalls, mulberry32(3), 1200, () => true, nodes, { solid, walkOK: () => 'flash' });
+    for (let f = 0; f < 1500; f++) red.step();
+    expect(red.people.filter((p) => p.cross && (p.act === 'walk' || p.act === 'cross')).length).toBe(0);
+    expect(red.people.filter((p) => p.act === 'wait').length).toBeGreaterThan(20);
+    const go = new People(plan.streets, [], plan.stalls, mulberry32(3), 1200, () => false, nodes, { solid, walkOK: () => 'walk' });
+    let hurried = 0, ambling = 0;
+    for (let f = 0; f < 1500; f++) {
+      const before = go.people.map((p) => p.t);
+      go.step();
+      go.people.forEach((p, i) => { if (p.act !== 'walk' || !p.st || Math.abs(p.t - before[i]) > 0.2) return; const step = Math.abs(p.t - before[i]) / Math.abs(p.v || 1); if (p.cross) hurried += step; else ambling += step; });
+    }
+    expect(go.people.filter((p) => p.cross && p.act === 'walk').length).toBeGreaterThan(10);
+    expect(hurried).toBeGreaterThan(0); // crossers cover HURRY× a walker's step
     // doors: with the plan's doors people go in only where a door is; with none listed nobody goes in
     const closed = new People(plan.streets, [], plan.stalls, mulberry32(4), 800, () => true, nodes, { doors: [] });
     for (let f = 0; f < 2500; f++) closed.step();

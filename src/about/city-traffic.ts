@@ -33,8 +33,8 @@ export const DECK_KERB = 8;
 /** Lane centres from a street's axis: 2.4 apart, the widest vehicle (a bus, 2.3) fitting inside its lane. */
 export const OFFSETS: Record<string, number[]> = { road: [1.35, 3.75], diagonal: [1.35, 3.75], highway: [1.4, 3.8, 6.2], ramp: [0], arterial: [3.0, 5.4] }; // (the arterial's median holds the deck's piers)
 const SPEED: Record<string, number> = { highway: 1.9, ramp: 1.3, arterial: 1.25 };
-export const GREEN = 300;
-export const CLEAR = 120; // all red: whoever is in the box gets out
+export const GREEN = 420; // (owner: a pedestrian phase — a 14-second cycle left no walk window against a 6-second crossing)
+export const CLEAR = 130; // all red: whoever is in the box gets out
 export const PHASE = GREEN + CLEAR; // one street's turn; a node cycles through as many phases as it has streets
 export const CYCLE = 2 * PHASE;
 const KERB = 1.5; // the stop line sits this far before the crossing street's kerb
@@ -50,6 +50,7 @@ export const SPEC: Record<VKind, [number, number, number, number, number]> = {
   truck: [7.6, 2.2, 2.8, 0.09, 0.02], moto: [2.2, 0.7, 1.1, 0.15, 0.08],
 };
 
+export type WalkSignal = 'walk' | 'flash' | 'dont' | 'unlit';
 export interface Node {
   id: number; x: number; z: number; y: number;
   ports: { link: Link; end: 0 | 1 }[];
@@ -354,6 +355,21 @@ export class Traffic {
     const { offset, green, phase } = n.signal;
     const c = (tick + offset) % (n.streets.length * phase);
     return Math.floor(c / phase) === group && c % phase < green;
+  }
+
+  /** THE PEDESTRIAN SIGNAL for crossing the street of `group` at n, for a crossing that takes `frames`: WALK while the
+   *  street is red — after its own all-red, so nothing is still leaving its box — with at least `frames` of red left;
+   *  FLASH for the last `frames` of the red (whoever is crossing finishes, nobody new steps off); DONT through its green
+   *  and its clear. A node without a light says UNLIT: a gap decides. (owner: a proper walk phase at the crossings) */
+  walk(n: Node, group: number, frames = 300, tick = this.tick): WalkSignal {
+    if (!n.signal) return 'unlit';
+    const { offset, phase } = n.signal;
+    const cycle = n.streets.length * phase;
+    const c = (tick + offset) % cycle;
+    const redStart = (group + 1) * phase, redEnd = group * phase + cycle; // from the next street's green to this one's
+    const t = c < redStart ? c + cycle : c;
+    if (t >= redEnd) return 'dont';
+    return redEnd - t > frames ? 'walk' : 'flash'; // (strictly: a crosser off at the last frame would meet the green)
   }
 
   /** Fill the lanes: `n` vehicles spread by `weight(lane)`, spaced so no

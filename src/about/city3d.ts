@@ -2844,7 +2844,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       const g = traffic.green(h.n, h.group);
       signalLamps!.setColorAt(i * 3, g ? OFF_RED : RED);
       signalLamps!.setColorAt(i * 3 + 1, g ? GREEN : OFF_GREEN);
-      signalLamps!.setColorAt(i * 3 + 2, g ? DONT : WALK); // the walkers cross this street when its cars have the red
+      const w = traffic.walk(h.n, h.group, 300); // the pedestrian lamp: WALK white, FLASH a blinking red (finish, don't start), DONT red
+      signalLamps!.setColorAt(i * 3 + 2, w === 'walk' ? WALK : w === 'flash' ? ((tick >> 4) & 1 ? DONT : OFF_RED) : DONT);
     });
     if (signalLamps.instanceColor) signalLamps.instanceColor.needsUpdate = true;
   };
@@ -2880,9 +2881,16 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   zones.push({ x: 0, z: 0, w: 22, d: 22, stalls: [{ x: 0, z: 0, color: '#ffffff' }] });
   for (const st of plan.stages) zones.push({ x: st.x + Math.sign(st.x) * (st.w / 2 + 6.5), z: st.z, w: 9, d: 16, stalls: [] });
   for (const pt of plan.parties) zones.push({ x: pt.x, y: pt.y, z: pt.z, w: pt.w, d: pt.d, stalls: [] });
+  const walkOK = (x: number, z: number, axis: 'x' | 'z' | 'd', frames: number) => { // the pedestrian signal for crossing the street along axis at the node
+    const n = nodeAt.get(`${Math.round(x)}:${Math.round(z)}`);
+    if (!n || !n.signal) return 'unlit';
+    const st = axis === 'd' ? n.streets.find((q) => q.kind === 'diagonal') : n.streets.find((q) => q.kind !== 'diagonal' && (axis === 'x') === (q.dx !== 0));
+    return st ? traffic.walk(n, Math.max(0, n.streets.indexOf(st)), frames) : 'unlit';
+  };
   const people = new People(plan.streets, zones, plan.stalls, mulberry32(seed ^ 0x7e0b1e), calm ? 1100 : 2200, crossOK, crossNodes, {
     solid: (x, y, z) => plan.grid.hit(x, y, z, 0.3) !== null,
     roadClear: (x, z) => traffic.clearAt(x, z),
+    walkOK,
     doors: plan.doors,
     perches: plan.perches,
   });
