@@ -91,7 +91,7 @@ export class People {
   private readonly roadClear?: (x: number, z: number) => boolean;
   /** Each pavement's crossings of other carriageways, by parameter; each road's doors, by parameter and side. */
   private readonly xings = new Map<Street, Crossing[]>();
-  private readonly doors: Map<Street, { t: number; side: number }[]> | null;
+  private readonly doors: Map<Street, { t: number; side: number; off: number }[]> | null;
 
   constructor(
     streets: Street[], zones: Zone[], stalls: Stall[], private readonly rand: () => number, n: number,
@@ -123,13 +123,14 @@ export class People {
       this.doors = new Map();
       for (const d of opts.doors) {
         for (const st of this.walkable) {
-          if (st.kind !== 'road') continue;
+          if (st.kind !== 'road' && st.kind !== 'arterial') continue;
           const t = (d.x - st.x0) * st.dx + (d.z - st.z0) * st.dz;
           if (t < 3 || t > st.len - 3) continue;
           const lat = -(d.x - st.x0) * st.dz + (d.z - st.z0) * st.dx;
-          if (Math.abs(lat) < st.width / 2 - 1 || Math.abs(lat) > st.width / 2 + 2) continue;
+          const line = this.doorOff(st); // the building line (a door stands about it: a shopfront's at it, a station's stair head some way in)
+          if (Math.abs(lat) < line - (st.kind === 'arterial' ? 6.5 : 1.7) || Math.abs(lat) > line + 2.0) continue;
           const l = this.doors.get(st) ?? [];
-          l.push({ t, side: Math.sign(lat) });
+          l.push({ t, side: Math.sign(lat), off: Math.abs(lat) });
           this.doors.set(st, l);
         }
       }
@@ -194,13 +195,16 @@ export class People {
   private landSide(st: Street): number {
     return st.kind === 'road' && st.dx === 0 && Math.abs(Math.abs(st.x0) - (CANAL.w / 2 + 7)) < 0.6 ? -Math.sign(st.x0) : 0;
   }
-  /** The door on this road, on this side, within a few steps of t — or, with no door list, anywhere (the tests' city). */
-  private doorNear(st: Street, t: number, side: number): number | null {
-    if (!this.doors) return t;
+  /** Where a door stands, from a street's axis: a road's building line, the arterial's. */
+  private doorOff(st: Street): number { return st.kind === 'arterial' ? ARTERIAL_ROW - 0.4 : st.width / 2 + 0.7; }
+  /** The door on this road, on this side, within a few steps of t (its parameter and how far out it stands) — or, with no
+   *  door list, one right here at the building line (the tests' city). */
+  private doorNear(st: Street, t: number, side: number): { t: number; off: number } | null {
+    if (!this.doors) return { t, off: this.doorOff(st) };
     const list = this.doors.get(st);
     if (!list) return null;
-    let best: number | null = null;
-    for (const d of list) if (d.side === side && Math.abs(d.t - t) < 3 && (best === null || Math.abs(d.t - t) < Math.abs(best - t))) best = d.t;
+    let best: { t: number; off: number } | null = null;
+    for (const d of list) if (d.side === side && Math.abs(d.t - t) < 3 && (best === null || Math.abs(d.t - t) < Math.abs(best.t - t))) best = d;
     return best;
   }
   /** The next cross street's carriageway along the way, when its near kerb is underfoot. */
@@ -339,6 +343,7 @@ export class People {
       const off = this.offOn(s, lat);
       const nx = s.x0 + s.dx * u - s.dz * off, nz = s.z0 + s.dz * u + s.dx * off;
       if (Math.hypot(nx - x, nz - z) > 2.4) continue; // the next pavement must begin where this one ends
+      if (this.solid && this.solid(nx, 0.9, nz)) continue; // and not inside a stair core or a kiosk
       options.push({ s, t: u, off });
     }
     if (options.length) {
@@ -388,7 +393,7 @@ export class People {
             const solid = this.solid;
             if (solid(x, 0.9, z)) {
               const [lo, hi] = this.band(st), sg = Math.sign(p.off || 1);
-              const tryOff = [sg * Math.max(lo, Math.abs(p.off) - 0.7), sg * Math.min(hi, Math.abs(p.off) + 0.7)] // toward the kerb (a vending machine at the wall), toward the wall (a leg at the kerb)
+              const tryOff = [sg * Math.max(lo, Math.abs(p.off) - 0.7), sg * Math.min(hi, Math.abs(p.off) + 0.7), sg * Math.max(lo, Math.abs(p.off) - 1.2), sg * Math.min(hi, Math.abs(p.off) + 1.2)] // toward the kerb (a vending machine at the wall), toward the wall (a leg at the kerb)
                 .find((o) => Math.abs(Math.abs(o) - Math.abs(p.off)) > 0.05 && !solid(st.x0 + st.dx * p.t - st.dz * o, 0.9, st.z0 + st.dz * p.t + st.dx * o));
               if (tryOff !== undefined) p.off = tryOff;
               else { p.t -= p.v; p.v = -p.v; p.goal = null; }
@@ -401,7 +406,8 @@ export class People {
             if (c) {
               if (this.mayCross(c)) p.cross = c;
               else { // wait at the kerb for the red, or for a gap (owner: they walked into the traffic)
-                p.t = c.tNear; p.act = 'wait'; p.cross = c; p.timer = 10 + r() * 14; p.frame = FRAME.stand;
+                if (!this.solid || !this.solid(st.x0 + st.dx * c.tNear - st.dz * p.off, 0.9, st.z0 + st.dz * c.tNear + st.dx * p.off)) p.t = c.tNear; // to the kerb line, unless something stands there
+                p.act = 'wait'; p.cross = c; p.timer = 10 + r() * 14; p.frame = FRAME.stand;
                 p.yaw = Math.atan2(st.dx * Math.sign(p.v), st.dz * Math.sign(p.v));
                 break;
               }
@@ -420,9 +426,9 @@ export class People {
           if (--p.timer <= 0) {
             const a = r();
             const here = p.st!;
-            if (a < 0.1 && here.kind === 'road' && !this.overWater(here, p.t) && !p.cross) { // in at a door — a real one, on this side, a step away (owner: people vanished into blank walls): gone a while, then out again
+            if (a < 0.1 && (here.kind === 'road' || here.kind === 'arterial') && !this.overWater(here, p.t) && !p.cross) { // in at a door — a real one, on this side, a step away (owner: people vanished into blank walls): gone a while, then out again
               const door = this.doorNear(here, p.t, Math.sign(p.off || 1));
-              if (door !== null) { p.act = 'enter'; p.t = door; p.offTo = Math.sign(p.off || 1) * (here.width / 2 + 0.7); p.timer = 300 + r() * 1500; }
+              if (door !== null) { p.act = 'enter'; p.t = door.t; p.offTo = Math.sign(p.off || 1) * door.off; p.timer = 300 + r() * 1500; }
               else p.timer = 200 + r() * 400;
             } else if (a < 0.45) { // a pause: a sit on the kerb (the elders often), or a stand
               if (here.kind !== 'alley' && here.kind !== 'catwalk' && r() < (CAST[p.kind].name === 'elder' ? 0.35 : 0.1)) { p.act = 'sit'; p.frame = this.sitFrame(); p.timer = 400 + r() * 900; p.off = this.sitOff(p, here); }
@@ -476,7 +482,7 @@ export class People {
           break;
         }
         case 'inside': {
-          if (--p.timer <= 0) { p.act = 'exit'; p.offTo = Math.sign(p.off || 1) * (p.st!.width / 2 - 1 + r() * 0.7); }
+          if (--p.timer <= 0) { p.act = 'exit'; p.offTo = this.sameSide(p, p.st!); } // back onto the pavement they came from
           break;
         }
         case 'talk': {

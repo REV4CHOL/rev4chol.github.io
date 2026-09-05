@@ -72,7 +72,7 @@ describe('People', () => {
     expect(people.crossings).toBeGreaterThan(20); // people do cross the streets, on the red
     // the knots are kept up: someone arrives when someone leaves
     const filled = people.knots.filter((k) => k.members.length > 0).length;
-    expect(filled / people.knots.length).toBeGreaterThan(0.6);
+    expect(filled / people.knots.length).toBeGreaterThan(0.5); // (a walker sent to fill a knot now waits at the kerbs on the way)
   });
 
   it('never moves anyone in a step, keeps them off the water and the bridges, and lets them in at doors', () => {
@@ -147,7 +147,7 @@ describe('People', () => {
       for (const p of held.people) {
         if (p.act === 'wait') waiting += 1;
         if (p.act === 'walk' && p.cross && ((p.v > 0 && p.t > p.cross.tNear + 0.5) || (p.v < 0 && p.t < p.cross.tNear - 0.5))) through += 1;
-        if ((p.act === 'walk' || p.act === 'wait' || p.act === 'stand') && p.st && (p.st.kind === 'road' || p.st.kind === 'arterial' || p.st.kind === 'diagonal') && solid(p.x, 0.9, p.z)) inSolid += 1;
+        if ((p.act === 'walk' || p.act === 'wait' || p.act === 'stand') && p.st && (p.st.kind === 'road' || p.st.kind === 'arterial' || p.st.kind === 'diagonal') && plan.grid.hit(p.x, 0.9, p.z, 0.12) !== null) inSolid += 1; // (a body's half-width: the sim keeps 0.3 clear)
       }
     }
     expect(waiting).toBeGreaterThan(50);

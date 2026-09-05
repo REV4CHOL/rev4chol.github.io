@@ -402,6 +402,20 @@ describe('The viaduct over its arterial (owner: roads that exist in real life)',
     for (const p of deckLamps) expect(Math.abs(Math.abs(arterialLat(p.x, p.z)) - 8.25)).toBeLessThan(0.05);
   });
 
+  it('gives the stations access towers and the city underground entrances, all of them doors', () => {
+    expect(plan.doors.length).toBeGreaterThan(300);
+    expect(plan.lifts.length).toBe(12); // two ends, two sides, three stations
+    for (const l of plan.lifts) expect(l.top).toBeCloseTo(RAIL.y - 0.4, 5);
+    const cores = plan.core.filter((s) => s.kind === 'facade' && s.arch === 'bridge' && Math.abs(s.h - (RAIL.y + 1.3)) < 0.01);
+    expect(cores.length).toBe(24); // a stair core and a lift shaft at each
+    for (const c of cores) expect(carriagewayAt(plan.streets, c.x, c.z), 'a tower in the road').toBeNull();
+    expect(plan.subways.length).toBe(8);
+    for (const s of plan.subways) {
+      expect(carriagewayAt(plan.streets, s.x, s.z), 'an entrance in the road').toBeNull();
+      expect(plan.doors.some((d) => Math.hypot(d.x - s.x, d.z - s.z) < 3), 'an entrance without its door').toBe(true);
+    }
+  });
+
   it('dresses the aprons: parked vehicles, stalls and shanties, none on the carriageway', () => {
     expect(plan.parked.length).toBeGreaterThan(10);
     for (const p of plan.parked) {

@@ -1119,6 +1119,22 @@ function asphaltTextures(aniso: number): { map: CanvasTexture; glow: CanvasTextu
   x.globalAlpha = 1;
   return { map: streetTex(c, aniso), glow: streetTex(glowTwin(c), aniso) };
 }
+/** A stairwell seen from above: steps descending into the dark toward −v, lit at the head. */
+function stairsTexture(): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 32; c.height = 96;
+  const x = c.getContext('2d')!;
+  for (let i = 0; i < 12; i++) { // the head at the top (v = 1): bright treads fading to nothing at the bottom
+    const k = i / 12;
+    x.fillStyle = `rgb(${Math.round(120 - 110 * k)},${Math.round(126 - 116 * k)},${Math.round(150 - 138 * k)})`;
+    x.fillRect(0, i * 8, 32, 6);
+    x.fillStyle = '#05060f'; x.fillRect(0, i * 8 + 6, 32, 2);
+  }
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace;
+  t.magFilter = NearestFilter; t.minFilter = LinearMipmapLinearFilter;
+  return t;
+}
 /** A zebra crossing: white bars across u, clear between them. */
 function zebraTexture(): CanvasTexture {
   const c = document.createElement('canvas');
@@ -2356,6 +2372,27 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     trainLights.g.setAttribute('color', new BufferAttribute(trainLights.col, 3));
     scene.add(new Points(trainLights.g, new PointsMaterial({ vertexColors: true, size: 2.6, sizeAttenuation: true, transparent: true, blending: AdditiveBlending, depthWrite: false })));
   }
+  // LIFT CABS: a lit box riding each station shaft between the pavement and the platform, dwelling at both ends
+  const cabMat = new MeshLambertMaterial({ color: '#dfe6ff', emissive: '#ffe9c9', emissiveIntensity: 0.9 });
+  lampHeads.push(cabMat);
+  const cabs = new InstancedMesh(geo.box, cabMat, Math.max(1, plan.lifts.length));
+  const runCabs = () => {
+    plan.lifts.forEach((l, i) => {
+      const period = 1500, ph = ((tick + i * 271) % period) / period; // up, dwell, down, dwell
+      const u = ph < 0.4 ? ph / 0.4 : ph < 0.5 ? 1 : ph < 0.9 ? 1 - (ph - 0.5) / 0.4 : 0;
+      const e = u * u * (3 - 2 * u);
+      dummy.rotation.set(0, 0, 0); dummy.position.set(l.x, 1.1 + (l.top - 1.1) * e, l.z); dummy.scale.set(0.8, 1.5, 0.8); dummy.updateMatrix(); cabs.setMatrixAt(i, dummy.matrix);
+    });
+    cabs.instanceMatrix.needsUpdate = true;
+  };
+  scene.add(cabs);
+  { // the underground entrances' stairs, painted into their insets
+    const steps = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new MeshBasicMaterial({ map: stairsTexture(), polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }), Math.max(1, plan.subways.length));
+    plan.subways.forEach((s, i) => { dummy.rotation.set(0, s.rotY, 0); dummy.position.set(s.x, 0.29, s.z); dummy.scale.set(1.7, 1, 4.4); dummy.updateMatrix(); steps.setMatrixAt(i, dummy.matrix); });
+    dummy.rotation.set(0, 0, 0);
+    steps.instanceMatrix.needsUpdate = true;
+    scene.add(steps);
+  }
   const railP = new Vector3(), railT = new Vector3();
   const RAIL_HEAD = new Color('#fff4d6'), RAIL_TAIL = new Color('#ff3b2f');
   const runTrains = () => {
@@ -3477,7 +3514,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     craftMat.opacity = tick % 40 < 20 ? 1 : 0.15;
     driveCars();
     if (tick % 6 === 0) tendSignals();
-    runTrains();
+    runTrains(); runCabs();
     walkPeople();
     fly();
     flyAir();
@@ -3485,7 +3522,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     cruiseCraft();
     breathe();
   };
-  driveCars(); runTrains(); walkPeople(); fly(); flyAir(); playMatch(); cruiseCraft(); breathe();
+  driveCars(); runTrains(); runCabs(); walkPeople(); fly(); flyAir(); playMatch(); cruiseCraft(); breathe();
   fit();
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(canvas);
 

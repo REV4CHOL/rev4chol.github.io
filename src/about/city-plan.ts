@@ -204,6 +204,11 @@ export interface Plan {
   strips: Strip[];
   /** The doors of the city (every lit shopfront, every station entrance): where people go in and come out. */
   doors: { x: number; z: number }[];
+  /** The stations' lift shafts: a cab rides each from the pavement to `top`. */
+  lifts: { x: number; z: number; top: number }[];
+  /** The underground stations' entrances: a stairwell going down at (x, z), its long side along yaw (the renderer paints
+   *  the steps), the door at its street end. */
+  subways: { x: number; z: number; rotY: number }[];
   leds: Strip[];
   awnings: Strip[];
   /** Tarpaulins over the shacks and the stalls, the washing on the balconies — lit dim, in their own colours. */
@@ -440,6 +445,8 @@ export function planCity(seed: number): Plan {
   const streets: Street[] = [];
   const ramps: Street[] = []; // planned before any lot is built — they cap what stands under them
   const doors: { x: number; z: number }[] = [];
+  const lifts: { x: number; z: number; top: number }[] = [];
+  const subways: { x: number; z: number; rotY: number }[] = [];
   const piers: { x: number; z: number }[] = [];
   const stacks: { x: number; z: number; top: number }[] = [];
   const tall: { x: number; z: number; top: number; w: number; d: number; bridges: number; flat: boolean }[] = [];
@@ -1620,6 +1627,30 @@ export function planCity(seed: number): Plan {
       }
       grid.add({ x, y: RAIL.y + 4.6, z, w: Math.abs(dx) > 0.5 ? 22 : 9.4, h: 0.4, d: Math.abs(dx) > 0.5 ? 9.4 : 22 }); // the canopy
       for (let u = -8; u <= 8; u += 4) lantern(x + dx * u, RAIL.y + 4.2, z + dz * u); // its lights
+      // ACCESS (owner: no way up to the platforms): at each end of each platform a stair core on the pavement, lit
+      // floor by floor, a glass lift shaft beside it whose cab rides (renderer), a landing bridge onto the platform,
+      // a lit entrance at the pavement — a door the walkers use
+      for (const u0 of [-11.4, 11.4]) {
+        for (const s of [-1, 1]) {
+          const lat = s * 6.5, along = Math.abs(dx) > 0.5; // on the pavement's wall side: the kerb side stays walked
+          let u = u0; // nearer the platform's middle where the boulevard's crossing takes the pavement
+          const inWay = (uu: number) => carriagewayAt(streets, x + dx * uu - dz * lat, z + dz * uu + dx * lat) !== null || carriagewayAt(streets, x + dx * (uu - Math.sign(u0) * 1.7) - dz * lat, z + dz * (uu - Math.sign(u0) * 1.7) + dx * lat) !== null;
+          while (Math.abs(u) > 5 && inWay(u)) u -= Math.sign(u0) * 3;
+          if (Math.abs(u) <= 5) continue;
+          const tx = x + dx * u - dz * lat, tz = z + dz * u + dx * lat;
+          solid(core, 'facade', 'bridge', texOf((q) => q.win === 'strip'), tx, (RAIL.y + 1.3) / 2, tz, along ? 2.2 : 1.0, RAIL.y + 1.3, along ? 1.0 : 2.2); // the stair core
+          const lx = tx - dx * Math.sign(u0) * 1.7, lz = tz - dz * Math.sign(u0) * 1.7; // the lift shaft, inboard of the core
+          solid(core, 'facade', 'bridge', texOf((q) => q.win === 'curtain'), lx, (RAIL.y + 1.3) / 2, lz, 1.0, RAIL.y + 1.3, 1.0);
+          lifts.push({ x: lx, z: lz, top: RAIL.y - 0.4 });
+          const inner = RAIL.w / 2 + 1.2 + 1.1, outer = 6.5 - 0.5; // the landing bridge: the platform's edge to the core's face
+          const bl = s * (inner + outer) / 2;
+          solid(core, 'dark', 'bridge', 0, x + dx * u - dz * bl, RAIL.y + 0.45, z + dz * u + dx * bl, along ? 1.6 : outer - inner, 0.3, along ? outer - inner : 1.6);
+          solid(core, 'dark', 'street', 0, tx - dz * s * 1.1, 2.75, tz + dx * s * 1.1, along ? 2.6 : 1.2, 0.16, along ? 1.2 : 2.6); // the entrance canopy, over the pavement
+          signs.push({ x: tx - dz * s * 0.6, y: 3.3, z: tz + dx * s * 0.6, rotY: Math.atan2(-dz * s, dx * s), w: 1.7, h: 0.7, color: '#5df2ff', kind: 'board' });
+          lantern(tx - dz * s * 1.1, 2.5, tz + dx * s * 1.1);
+          doors.push({ x: tx, z: tz });
+        }
+      }
     }
   }
   // -- the streets: open runs between closed segments, lamps on every kerb,
@@ -1781,6 +1812,32 @@ export function planCity(seed: number): Plan {
       if (lineDist(x, z, DIAGONAL.x0, DIAGONAL.z0, DIAGONAL.x1, DIAGONAL.z1) < 9) continue;
       solid(core, 'dark', 'street', 0, x, 1.2, z, 2.2, 2.4, 1.6);
       signs.push({ x, y: 1.5, z: z - sz * 0.85, rotY: sz > 0 ? Math.PI : 0, w: 1.8, h: 1.3, color: signColor(rand), kind: 'tag' });
+    }
+  }
+  // -- UNDERGROUND STATIONS (owner: I want underground train stations): eight entrances — a stairwell going down
+  // (a dark inset the renderer paints steps into), railings along it, a canopy on two posts, a lit sign block, a
+  // lantern — four in the tree-lined avenue's median beside its roads' pavements, four on the arterial's aprons;
+  // each is a door, at the stair head
+  {
+    const entrance = (x: number, z: number, rotY: number) => { // the stairwell's long side along rotY; the door at its +side end
+      const ux = Math.sin(rotY), uz = Math.cos(rotY), nx = uz, nz = -ux; // along, across
+      const alongX = Math.abs(ux) > 0.5;
+      subways.push({ x, z, rotY });
+      solid(core, 'dark', 'street', 0, x, 0.14, z, alongX ? 4.6 : 1.9, 0.28, alongX ? 1.9 : 4.6); // the inset (solid to the walkers)
+      for (const s of [-1, 1]) solid(core, 'dark', 'street', 0, x + nx * s * 0.95, 0.6, z + nz * s * 0.95, alongX ? 4.6 : 0.08, 1.0, alongX ? 0.08 : 4.6); // the railings
+      for (const s of [-1, 1]) solid(core, 'dark', 'street', 0, x - ux * 1.6 + nx * s * 1.0, 1.5, z - uz * 1.6 + nz * s * 1.0, 0.12, 3.0, 0.12); // the canopy's posts, at the far end
+      solid(core, 'dark', 'street', 0, x - ux * 1.5, 3.05, z - uz * 1.5, alongX ? 2.6 : 2.4, 0.14, alongX ? 2.4 : 2.6); // the canopy
+      signs.push({ x: x - ux * 1.5, y: 3.6, z: z - uz * 1.5, rotY: Math.atan2(ux, uz), w: 1.8, h: 0.8, color: '#ff4fd8', kind: 'board' }); // the lit sign block
+      lantern(x - ux * 1.5, 2.85, z - uz * 1.5);
+      doors.push({ x: x + ux * 2.4, z: z + uz * 2.4 }); // the stair head, where the walkers step in
+    };
+    for (const sx of [-1, 1]) for (const [k, sz] of [[3, 1], [5, -1]] as [number, number][]) { // mid-block in the median, its stairs along the road
+      entrance(sx * k * G, sz * 9.4, sx > 0 ? Math.PI / 2 : -Math.PI / 2);
+    }
+    const hd = Math.atan2(hdx, hdz); // along the arterial
+    for (const [ax, side] of [[-300, -1], [-105, 1], [74, -1], [300, 1]] as [number, number][]) { // mid-block on the aprons where no ramp comes down, the stairs along the arterial
+      const lat = side * 12.6;
+      entrance(ax + hnx * lat, arterialZ(ax) + hnz * lat, side > 0 ? hd : hd + Math.PI);
     }
   }
   // THE APRONS (owner: a lived-in boulevard): along the arterial between the kerb and the pavement, where no ramp comes
@@ -2025,7 +2082,7 @@ export function planCity(seed: number): Plan {
   }
   return {
     core, outer, sprawl, strips, leds, awnings, tarps, clutter, billboards, spots, signs, posts, lanterns, wires, vents, holos, stalls, sprawlLamps, neon,
-    beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead, air, pads, rail, piers, patches, parked, doors,
+    beacons, pois, streets, stadium, wheel, mega, stacks, bridges, styles, sprawlTex, grid, landmark, roomAhead, air, pads, rail, piers, patches, parked, doors, lifts, subways,
   };
 }
 
