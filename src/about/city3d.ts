@@ -2845,7 +2845,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       signalLamps!.setColorAt(i * 3, g ? OFF_RED : RED);
       signalLamps!.setColorAt(i * 3 + 1, g ? GREEN : OFF_GREEN);
       const w = traffic.walk(h.n, h.group, 300); // the pedestrian lamp: WALK white, FLASH a blinking red (finish, don't start), DONT red
-      signalLamps!.setColorAt(i * 3 + 2, w === 'walk' ? WALK : w === 'flash' ? ((tick >> 4) & 1 ? DONT : OFF_RED) : DONT);
+      signalLamps!.setColorAt(i * 3 + 2, w === 'walk' ? WALK : w === 'flash' ? ((traffic.tick >> 4) & 1 ? DONT : OFF_RED) : DONT); // (the traffic's own counter: this runs once before the frame clock exists)
     });
     if (signalLamps.instanceColor) signalLamps.instanceColor.needsUpdate = true;
   };
