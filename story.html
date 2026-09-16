@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script>try{if(localStorage.getItem('rvl-motion')==='calm')document.documentElement.classList.add('rvl-calm')}catch(e){}</script>
+  <style>html{background:#060606;color-scheme:dark}body{visibility:hidden}</style>
+  <script>/* stale-deploy self-heal: cached HTML can 404 its renamed chunks after a deploy - if the app never boots, fetch fresh HTML once and stop */addEventListener("load",function(){setTimeout(function(){if(window.rvlBooted)return;try{if(sessionStorage.getItem("rvl-heal"))return;sessionStorage.setItem("rvl-heal","1")}catch(e){return}location.reload()},1400)});</script>
+  <script>/* music boot (owner: continuous across pages, on before the loading screen): the last page's place, seeked and playing before any chunk loads; the music module adopts this element. Refused (a phone's cold load: iOS grants no sound before a gesture on the document) it plays inside the page's first activating gesture — pointerup, touchend, click, keydown */(function(){try{if(localStorage.getItem('rvl-music-v1')==='off')return;var s=sessionStorage.getItem('rvl-music-pos'),p=s?JSON.parse(s):null,a=document.createElement('audio');a.preload='auto';a.loop=true;a.volume=0;a.src='/content/music/night-road.mp3';a.addEventListener('loadedmetadata',function(){if(p&&a.duration>0){var t=p.held?p.t:p.t+Math.max(0,(Date.now()-p.at)/1000);a.currentTime=((t%a.duration)+a.duration)%a.duration}});a.addEventListener('playing',function(){if(!window.rvlMusicAt)window.rvlMusicAt=performance.now();if(a.volume<0.55){var k=0,f=function(){k++;a.volume=Math.min(0.55,0.055*k);if(k<10)setTimeout(f,12)};f()}});var r=a.play();if(r&&r.catch)r.catch(function(){var g=function(){var q=a.play();if(q&&q.catch)q.catch(function(){})};['pointerup','touchend','click','keydown'].forEach(function(t){document.addEventListener(t,g,{once:true,passive:true})})});window.rvlMusicBoot=a}catch(e){}})();</script>
+  <title>STORY — REVACHOL</title>
+  <meta name="description" content="The story of REVACHOL — the night city, live. Fly it." />
+</head>
+<body class="page-about">
+  <main id="app" class="about-main">
+
+    <canvas id="a3c" aria-hidden="true"></canvas>
+    <div class="a3-track" aria-hidden="true"></div>
+
+    <div class="a3-stations">
+
+      <section class="a3-st" data-st="0" aria-label="Signal">
+        <div class="a3-in a3-in-hero">
+          <p class="a-status micro"><span id="a-status-line"></span><span class="a-caret" aria-hidden="true">▮</span></p>
+          <h1 class="a-name-stack">
+            <span class="a-name" id="a-name"></span>
+          </h1>
+          <p class="a-name-plate micro" aria-hidden="true">OP-FILE ▸ ACTIVE ▪ LIVE FROM REVACHOL ▪ 2025—∞</p>
+          <p class="a-statement" id="a-statement"></p>
+          <p class="a3-cue micro" aria-hidden="true">SCROLL ▾ FLY THE CITY</p>
+        </div>
+      </section>
+
+      <section class="a3-st" data-st="1" aria-label="Subject">
+        <div class="a3-in a3-in-subj">
+          <span class="a-rail-tag a3-st-tag" aria-hidden="true">SUBJ:</span>
+          <div class="a-subject">
+            <i class="a-strut" aria-hidden="true"></i>
+            <i class="a-beacon" aria-hidden="true"></i>
+            <figure class="a-portrait" id="a-portrait">
+              <i class="a-echo a-echo-a" aria-hidden="true"></i>
+              <i class="a-echo a-echo-b" aria-hidden="true"></i>
+              <canvas id="a-specimen" width="720" height="900"></canvas>
+              <i class="a-sweep" aria-hidden="true"></i>
+              <figcaption class="micro" id="a-portrait-cap"></figcaption>
+            </figure>
+            <span class="a-subj-tag micro" aria-hidden="true">BILLBOARD ▸ REVACHOL ▪ LIVE FEED</span>
+            <div class="a-callouts micro" id="a-callouts"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="a3-st" data-st="2" aria-label="Operator dossier">
+        <div class="a3-in a3-in-op">
+          <span class="a-rail-tag a3-st-tag" aria-hidden="true">OP:</span>
+          <div class="a3-body">
+            <h2 class="visually-hidden">Operator dossier</h2>
+            <div class="a-bio" id="a-bio"></div>
+            <dl class="a-spec" id="a-facts"></dl>
+          </div>
+        </div>
+      </section>
+
+      <section class="a3-st a-cap-sec" data-st="3" aria-label="Capabilities">
+        <div class="a3-in a3-in-cap">
+          <span class="a-rail-tag a3-st-tag" aria-hidden="true">CAP:</span>
+          <div class="a3-body">
+            <h2 class="visually-hidden">Capabilities</h2>
+            <div class="a-caps" id="a-caps"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="a3-st" data-st="4" aria-label="Transmit">
+        <div class="a3-in a3-in-tx">
+          <nav class="a-transmit" id="a-transmit" aria-label="Contact"></nav>
+          <footer class="a-eof micro" id="a-eof"></footer>
+        </div>
+      </section>
+
+    </div>
+
+    <div class="a3-vig" aria-hidden="true"></div>
+    <nav class="a3-rail" id="a3-rail" aria-label="Journey"></nav>
+    <nav class="a3-fly" id="a3-fly" aria-label="Flight mode"></nav>
+    <nav class="a3-tod" id="a3-tod" aria-label="Time of day"></nav>
+    <p class="a3-hint micro" id="a3-hint" hidden>DRAG ▸ LOOK ▪ WASD ▸ MOVE ▪ E/Q ▸ RISE/SINK ▪ SHIFT ▸ BOOST ▪ T ▸ TIME</p>
+  </main>
+
+  <script type="module" src="/src/pages/story.ts"></script>
+</body>
+</html>

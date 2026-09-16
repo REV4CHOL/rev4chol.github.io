@@ -13,7 +13,13 @@ describe('shipped content files', () => {
   it('site.json is valid', () => {
     const site = parseSite(parseJson(read('site.json'), 'site.json'));
     expect(site.name).toBe('REVACHOL');
-    expect(site.nav.length).toBe(4);
+    expect(site.nav.map((n) => [n.label, n.href])).toEqual([
+      ['HOMEPAGE', '/index.html'],
+      ['ABOUT', '/about.html'],
+      ['WORK', '/works.html'],
+      ['CONTACT', '/contact.html'],
+      ['STORY', '/story.html'],
+    ]); // the chain IS the menu order: ABOUT between HOMEPAGE and WORK, STORY at the far right
   });
 
   it('projects.json is valid: 20 films per channel, 6 featured each', () => {

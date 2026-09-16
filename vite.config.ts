@@ -101,6 +101,7 @@ export default defineConfig({
         works: p('works.html'),
         about: p('about.html'),
         aboutOld: p('about-old.html'), // the pre-remake ABOUT, archived live
+        story: p('story.html'), // the city — the tour rides here now
         contact: p('contact.html'),
         project: p('project.html'),
       },

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 /** THE MUSIC BOOT (owner: the music must continue to play even during loading screens): every page's head carries
  *  the same inline script, which restarts the track where the last page left it before any chunk loads. */
-const PAGES = ['index.html', 'works.html', 'about.html', 'contact.html', 'project.html'];
+const PAGES = ['index.html', 'works.html', 'about.html', 'contact.html', 'project.html', 'story.html'];
 const bootOf = (page: string) => { const m = readFileSync(page, 'utf8').match(/<script>\/\* music boot[^\n]*<\/script>/); return m ? m[0] : null; };
 
 describe('The music boot in the page heads', () => {

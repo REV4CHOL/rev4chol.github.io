@@ -1,31 +1,27 @@
 import { AboutContent, loadAbout, SiteContent } from '../lib/content';
-import { music } from '../lib/music';
 import { escapeHtml } from '../lib/escape';
-import { armPosterLock } from '../lib/poster-lock';
-import { LOOKS, nextTime, parseTime, TimeOfDay, TIMES } from '../about/city-sky';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
+import { armStamps } from '../lib/stamps';
 import { capabilitiesFromTagline, portraitCandidates } from '../about/operator';
 import { mountSpecimen } from '../about/specimen';
+import { armPosterLock } from '../lib/poster-lock';
 import { armGlideNav, navNeighbors } from '../lib/swipe-nav';
 import { hashSlug } from '../project/dossier';
 import { startPage } from '../shell/page';
 import '../styles/about.css';
 
-/** The five stations of the flight — waypoints on the camera route. */
-const STOPS = ['SIGNAL', 'SUBJECT', 'DOSSIER', 'CAP', 'TRANSMIT'];
-
 startPage(
   'about',
   async ({ site }) => {
-    // the page rides the plate; the CITY keeps true viewport pixels
-    armPosterLock({ exempt: '#a3c' });
-    // this page scrolls (the scroll IS the flight), so the glide only arms
-    // at the ends of the runway — mid-flight thumb-scrolling just flies
+    // the page is a fixed 1440px plate — zoom and window width scale it as
+    // one poster, they never reflow it (owner decree: benchmark 100% only)
+    armPosterLock();
+    // this page scrolls, so the glide only arms at the respective end of the
+    // scroll — normal thumb-scrolling never drags the page itself
     const se = document.scrollingElement ?? document.documentElement;
     armGlideNav({
       ...navNeighbors(site.nav, location.pathname),
-      enabled: () => !document.body.classList.contains('a3-solo'), // a solo flight keeps its page
       allow: (dir) =>
         dir > 0
           ? se.scrollTop + window.innerHeight >= se.scrollHeight - 6
@@ -33,217 +29,39 @@ startPage(
     });
     const about = await loadAbout();
     render(site, about);
-    await armFlight(site);
   },
   [{ label: 'LOAD OPERATOR FILE', run: () => loadAbout() }],
 );
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-/** The time of day the page opens at: the address may ask (?tod=dawn), else the NIGHT (owner: always night; the
- *  switch works for the visit and is not remembered). */
-function startTime(): TimeOfDay {
-  const fromUrl = new URLSearchParams(location.search).get('tod');
-  return fromUrl ? parseTime(fromUrl) : 'night';
-}
-
-/** The city mounts lazily (three.js is the about page's private cargo);
- *  scroll drives the camera, and the stations light as their waypoints
- *  come into range. */
-async function armFlight(site: SiteContent): Promise<void> {
-  const canvas = document.getElementById('a3c') as HTMLCanvasElement | null;
-  if (!canvas) return;
-  await music.ready(); // (the build holds the main thread: the music is audibly on before it — a loading screen never cuts it)
-  const { mountCity3D } = await import('../about/city3d');
-  const ride = mountCity3D(canvas, hashSlug('revachol-night-city'));
-  // THE FILM LAYERS OFF THE CITY (owner: "the whole city is having this window glitch" — the site's grain, a 1:1 noise
-  // tile re-dealt every frame and composited overlay, lands hardest on mid-grey, and the city's dark glass is mid-grey:
-  // every unlit pane crawled with static; the scanlines banded the panes over it). The canvas fills the viewport, so
-  // the layers' punched hole (the one the film player uses) is the whole layer here: raw glass, the chrome keeps nothing
-  // it would miss.
-  for (const el of [document.getElementById('grain'), document.querySelector<HTMLElement>('.scan-layer')]) {
-    if (!el) continue;
-    el.classList.add('has-hole');
-    el.style.setProperty('--hole-x', '0px'); el.style.setProperty('--hole-y', '0px');
-    el.style.setProperty('--hole-w', '100%'); el.style.setProperty('--hole-h', '100%');
+/** HEAD-probe a list of urls; first real hit wins. Dev servers answer missing
+ *  files with the SPA's index.html, so a text/html body is a miss. */
+async function probeFirst(urls: string[]): Promise<string | null> {
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { method: 'HEAD' });
+      if (res.ok && !(res.headers.get('content-type') ?? '').includes('text/html')) return url;
+    } catch { /* next */ }
   }
-  (window as unknown as { rvlRide: typeof ride }).rvlRide = ride; // debug handle for verification
-
-  // -- the flight dial: TOUR (the scroll story) / AUTO (endless drift) /
-  // FREE (drag-look + WASD; on a phone a stick, lift buttons and a drag) --
-  type Mode = 'tour' | 'auto' | 'free';
-  const fly = document.getElementById('a3-fly')!;
-  const hint = document.getElementById('a3-hint')!;
-  const fine = window.matchMedia('(pointer: fine)').matches;
-  const modes: Mode[] = ['tour', 'auto', 'free'];
-  if (!fine) hint.textContent = 'DRAG ▸ LOOK ▪ STICK ▸ MOVE ▪ ▲▼ ▸ RISE/SINK';
-  fly.innerHTML = modes
-    .map((m) => `<button type="button" data-m="${m}"${m === 'tour' ? ' class="on"' : ''}>${m.toUpperCase()}</button>`)
-    .join('');
-  let mode: Mode = 'tour';
-  const setMode = (m: Mode) => {
-    mode = m;
-    ride.setMode(m);
-    document.body.classList.toggle('a3-solo', m !== 'tour');
-    document.body.classList.toggle('a3-touch-free', m === 'free' && !fine);
-    if (m !== 'free') ride.setStick(0, 0, 0);
-    hint.hidden = m !== 'free';
-    for (const b of fly.querySelectorAll('button')) b.classList.toggle('on', b.dataset.m === m);
-    sound.click();
-  };
-  fly.addEventListener('click', (e) => {
-    const b = (e.target as Element).closest('button');
-    if (b) setMode(b.dataset.m as Mode);
-  });
-  // -- the clock: NIGHT / DUSK / DAWN / HAZE / DAY (owner: a time-of-day
-  // system) — remembered, settable from the address (?tod=dawn), T cycles it
-  const clock = document.getElementById('a3-tod')!;
-  clock.innerHTML = TIMES.map((t) => `<button type="button" data-t="${t}">${LOOKS[t].label}</button>`).join('');
-  const status = document.getElementById('a-status-line');
-  let tod = startTime();
-  const setTime = (t: TimeOfDay, instant = false) => {
-    tod = t;
-    ride.setTime(t, instant);
-    for (const b of clock.querySelectorAll('button')) b.classList.toggle('on', b.dataset.t === t);
-    if (status && !instant) void scrambleEl(status, `SIGNAL :: LIVE FROM ${site.name.toUpperCase()} // ${LOOKS[t].label} FEED`, 700);
-  };
-  setTime(tod, true);
-  clock.addEventListener('click', (e) => {
-    const b = (e.target as Element).closest('button');
-    if (b) { setTime(b.dataset.t as TimeOfDay); sound.click(); }
-  });
-  // free flight: drag anywhere to look (the stations are inert in solo
-  // modes, so the whole page is the windshield), WASD/arrows to move —
-  // on a phone the drag looks, a stick moves, two buttons rise and sink
-  let lookId: number | null = null;
-  let lx = 0, ly = 0;
-  window.addEventListener('pointerdown', (e) => {
-    if (mode !== 'free' || lookId !== null) return;
-    if ((e.target as Element).closest?.('.a3-fly, .a3-tod, .a3-pad, .a3-lift, .nav, .hud, a, button')) return;
-    lookId = e.pointerId; lx = e.clientX; ly = e.clientY;
-  });
-  window.addEventListener('pointermove', (e) => {
-    if (lookId !== e.pointerId || mode !== 'free') return;
-    ride.look(e.clientX - lx, e.clientY - ly);
-    lx = e.clientX; ly = e.clientY;
-  });
-  const endLook = (e: PointerEvent) => { if (e.pointerId === lookId) lookId = null; };
-  window.addEventListener('pointerup', endLook);
-  window.addEventListener('pointercancel', endLook);
-  if (!fine) { // the stick and the lift buttons (owner: free fly mode on mobile, with touch controls)
-    const pad = document.createElement('div');
-    pad.className = 'a3-pad'; pad.setAttribute('aria-hidden', 'true');
-    const knob = document.createElement('div');
-    knob.className = 'a3-pad-knob';
-    pad.append(knob);
-    const lift = document.createElement('div');
-    lift.className = 'a3-lift'; lift.setAttribute('aria-label', 'Rise and sink');
-    lift.innerHTML = '<button type="button" data-l="1" aria-label="Rise">▲</button><button type="button" data-l="-1" aria-label="Sink">▼</button>';
-    document.body.append(pad, lift);
-    let padId: number | null = null;
-    let sx = 0, sy = 0, liftV = 0;
-    const R = 40;
-    const setKnob = (dx: number, dy: number) => { knob.style.translate = `${dx}px ${dy}px`; };
-    pad.addEventListener('pointerdown', (e) => {
-      if (padId !== null) return;
-      padId = e.pointerId; sx = e.clientX; sy = e.clientY;
-      try { pad.setPointerCapture(e.pointerId); } catch { /* a synthetic pointer: no capture to take */ }
-    });
-    pad.addEventListener('pointermove', (e) => {
-      if (e.pointerId !== padId) return;
-      let dx = e.clientX - sx, dy = e.clientY - sy;
-      const d = Math.hypot(dx, dy);
-      if (d > R) { dx *= R / d; dy *= R / d; }
-      setKnob(dx, dy);
-      ride.setStick(-dx / R, -dy / R, liftV); // (owner: left is left)
-    });
-    const endPad = (e: PointerEvent) => {
-      if (e.pointerId !== padId) return;
-      padId = null; setKnob(0, 0); ride.setStick(0, 0, liftV);
-    };
-    pad.addEventListener('pointerup', endPad);
-    pad.addEventListener('pointercancel', endPad);
-    for (const b of lift.querySelectorAll<HTMLButtonElement>('button')) {
-      const v = Number(b.dataset.l);
-      const on = (e: PointerEvent) => { e.preventDefault(); liftV = v; ride.setStick(padId === null ? 0 : undefined, undefined, liftV); };
-      const off = () => { if (liftV === v) { liftV = 0; ride.setStick(undefined, undefined, 0); } };
-      b.addEventListener('pointerdown', on);
-      b.addEventListener('pointerup', off);
-      b.addEventListener('pointercancel', off);
-      b.addEventListener('pointerleave', off);
-    }
-  }
-  window.addEventListener('keydown', (e) => {
-    ride.keys.add(e.key.toLowerCase());
-    if (e.key.toLowerCase() === 't' && !e.repeat && !(e.target as Element).closest?.('input, textarea')) { setTime(nextTime(tod)); sound.click(); }
-    // the windshield owns these keys mid-flight — the page must not scroll
-    if (mode === 'free' && ['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) {
-      e.preventDefault();
-    }
-  });
-  window.addEventListener('keyup', (e) => ride.keys.delete(e.key.toLowerCase()));
-  window.addEventListener('blur', () => ride.keys.clear());
-
-  const se = document.scrollingElement ?? document.documentElement;
-  const stations = [...document.querySelectorAll<HTMLElement>('.a3-st')];
-  const rail = document.getElementById('a3-rail')!;
-  rail.innerHTML = STOPS
-    .map((s, i) => `<button type="button" data-w="${i}">${pad2(i)} ${s}</button>`)
-    .join('');
-  const ticks = [...rail.querySelectorAll<HTMLButtonElement>('button')];
-  const wp = (i: number) => i / (STOPS.length - 1);
-  for (const b of ticks) {
-    b.addEventListener('click', () => {
-      const max = se.scrollHeight - window.innerHeight;
-      window.scrollTo({ top: wp(Number(b.dataset.w)) * max, behavior: 'smooth' });
-    });
-  }
-
-  const onScroll = () => {
-    const max = se.scrollHeight - window.innerHeight;
-    const p = max > 0 ? se.scrollTop / max : 0;
-    ride.setProgress(p);
-    let nearest = 0;
-    for (let i = 0; i < stations.length; i++) {
-      const d = Math.abs(p - wp(i));
-      stations[i].classList.toggle('on', d < 0.085);
-      if (d < Math.abs(p - wp(nearest))) nearest = i;
-    }
-    ticks.forEach((b, i) => b.classList.toggle('on', i === nearest));
-  };
-  // three delivery paths, all idempotent: an immediate call (nothing waits
-  // on a frame), the scroll/resize events, AND a frame-clock poll — some
-  // environments swallow the events, others starve rAF; between the three
-  // the flight can never strand.
-  onScroll();
-  window.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('resize', onScroll);
-  let lastTop = -1;
-  let lastMax = -1;
-  const sync = () => {
-    requestAnimationFrame(sync);
-    if (document.hidden) return;
-    const max = se.scrollHeight - window.innerHeight;
-    if (se.scrollTop === lastTop && max === lastMax) return;
-    lastTop = se.scrollTop;
-    lastMax = max;
-    onScroll();
-  };
-  sync();
+  return null;
 }
 
 function render(site: SiteContent, about: AboutContent): void {
-  // -- station 00: the signal -------------------------------------------
-  void scrambleEl(document.getElementById('a-status-line')!, `SIGNAL :: LIVE FROM ${site.name.toUpperCase()} // ${LOOKS.night.label} FEED`, 900);
+  // -- hero -------------------------------------------------------------
+  void scrambleEl(document.getElementById('a-status-line')!, `PERSONNEL :: ${site.name.toUpperCase()} // CLEARED`, 900);
   const nameEl = document.getElementById('a-name')!;
+  // the chromatic plate copies read attr(data-text): the full name from frame
+  // one, while the visible layer is still scrambling in
   const fullName = site.name.toUpperCase();
   nameEl.dataset.text = fullName;
+  // the name never leaves its column: measure the full glyphs at CSS size and
+  // cap the font to fit (the dossier-title fit-to-measure, fourth outing)
   nameEl.textContent = fullName;
-  // the landmark never leaves its station: measure and cap (fit-to-measure)
-  const heroCol = document.querySelector<HTMLElement>('.a3-in-hero')!;
+  const idCol = document.querySelector<HTMLElement>('.a-id')!;
   const fitName = () => {
     nameEl.style.fontSize = '';
-    const w = heroCol.clientWidth;
+    const w = idCol.clientWidth;
     if (nameEl.scrollWidth > w && w > 0) {
       const base = parseFloat(getComputedStyle(nameEl).fontSize);
       nameEl.style.fontSize = `${Math.floor(base * (w / nameEl.scrollWidth) * 98) / 100}px`;
@@ -268,10 +86,10 @@ function render(site: SiteContent, about: AboutContent): void {
     )
     .join('');
 
-  // -- station 01: the billboard ----------------------------------------
+  // -- the specimen (portrait through the machine) ----------------------
   void mountPortrait(site);
 
-  // -- station 02: the dossier ------------------------------------------
+  // -- OP: dossier ------------------------------------------------------
   const bioEl = document.getElementById('a-bio')!;
   if (about.bio.length) {
     bioEl.innerHTML = about.bio
@@ -291,15 +109,22 @@ function render(site: SiteContent, about: AboutContent): void {
     .map((f) => `<dt>${escapeHtml(f.k.toUpperCase())}</dt><dd><span>${escapeHtml(f.v.toUpperCase())}</span></dd>`)
     .join('');
 
-  // -- station 03: the wall of signs ------------------------------------
+  // -- CAP: the skill board ---------------------------------------------
+  // two banks in the ident grammar — creative rides the alert plate,
+  // technical rides the field plate, a hazard spine between them and an
+  // oversized ghost SKILL stamped behind. Falls back to the chip matrix
+  // when about.json carries no skills.
   const capsEl = document.getElementById('a-caps')!;
   const hasSkills = about.skills.creative.length > 0 || about.skills.technical.length > 0;
   if (hasSkills) {
+    // the machine rack: every skill is one uniform cartridge bar — index
+    // plate, name, machined rail, category cap — color-coded per bank and
+    // inverting on hover. Uniform hardware, so nothing can ever clip.
     const bank = (kind: 'c' | 't', label: string, items: string[]) => {
       const bars = items
         .map(
           (s, i) =>
-            `<div class="a-bar" data-kind="${kind}">
+            `<div class="a-bar" data-kind="${kind}" data-stamp>
               <em class="a-bar-idx micro">${kind.toUpperCase()}·${pad2(i + 1)}</em>
               <span class="a-bar-name">${escapeHtml(s.toUpperCase())}</span>
               <i class="a-bar-rail" aria-hidden="true"></i>
@@ -316,36 +141,26 @@ function render(site: SiteContent, about: AboutContent): void {
     </div>`;
   } else {
     capsEl.innerHTML = caps
-      .map((c, i) => `<span class="a-chip"><em>${pad2(i + 1)}</em> ▸ ${escapeHtml(c)}</span>`)
+      .map((c, i) => `<span class="a-chip" data-stamp><em>${pad2(i + 1)}</em> ▸ ${escapeHtml(c)}</span>`)
       .join('');
   }
 
-  // -- station 04: transmit ---------------------------------------------
+  // -- TRANSMIT? finale -------------------------------------------------
   const socials = site.socials
     .map((s) => `<a class="a-social" href="${escapeHtml(s.href)}" target="_blank" rel="noopener">${escapeHtml(s.label.toUpperCase())}</a>`)
     .join('');
   document.getElementById('a-transmit')!.innerHTML = `
-    <h2 class="a-transmit-q">TRANSMIT?</h2>
-    <div class="a-yesno">
+    <h2 class="a-transmit-q" data-stamp>TRANSMIT?</h2>
+    <div class="a-yesno" data-stamp>
       <a class="a-yes" href="/contact.html" data-internal data-cursor="SEND ▸">YES ▸ INITIATE CONTACT</a>
     </div>
-    ${site.email ? `<p class="a-mail micro">DIRECT LINE :: <a href="mailto:${escapeHtml(site.email)}">${escapeHtml(site.email.toUpperCase())}</a></p>` : ''}
-    ${socials ? `<div class="a-socials">${socials}</div>` : ''}`;
+    ${site.email ? `<p class="a-mail micro" data-stamp>DIRECT LINE :: <a href="mailto:${escapeHtml(site.email)}">${escapeHtml(site.email.toUpperCase())}</a></p>` : ''}
+    ${socials ? `<div class="a-socials" data-stamp>${socials}</div>` : ''}`;
 
   document.getElementById('a-eof')!.innerHTML =
-    `<span>EOF ▪ P·OP/01 ▪ ${escapeHtml(site.name.toUpperCase())} ▪ CITY LIMITS</span>`;
-}
+    `<span>EOF ▪ P·OP/01 ▪ ${escapeHtml(site.name.toUpperCase())}</span>`;
 
-/** HEAD-probe a list of urls; first real hit wins. Dev servers answer missing
- *  files with the SPA's index.html, so a text/html body is a miss. */
-async function probeFirst(urls: string[]): Promise<string | null> {
-  for (const url of urls) {
-    try {
-      const res = await fetch(url, { method: 'HEAD' });
-      if (res.ok && !(res.headers.get('content-type') ?? '').includes('text/html')) return url;
-    } catch { /* next */ }
-  }
-  return null;
+  armStamps();
 }
 
 async function mountPortrait(site: SiteContent): Promise<void> {
@@ -355,6 +170,7 @@ async function mountPortrait(site: SiteContent): Promise<void> {
 
   const url = await probeFirst(portraitCandidates());
   if (!url) {
+    // no portrait on file yet — the machine scans static instead
     cap.textContent = 'AWAITING SUBJECT // DROP PORTRAIT.JPG';
     const spec = mountSpecimen(canvas, null, 0, 0, seed);
     wireBursts(canvas, spec);
@@ -381,3 +197,4 @@ function wireBursts(canvas: HTMLCanvasElement, spec: { burst(ms?: number): void 
     sound.zap();
   });
 }
+

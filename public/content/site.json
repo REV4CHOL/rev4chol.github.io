@@ -8,16 +8,20 @@
       "href": "/index.html"
     },
     {
-      "label": "WORK",
-      "href": "/works.html"
-    },
-    {
       "label": "ABOUT",
       "href": "/about.html"
     },
     {
+      "label": "WORK",
+      "href": "/works.html"
+    },
+    {
       "label": "CONTACT",
       "href": "/contact.html"
+    },
+    {
+      "label": "STORY",
+      "href": "/story.html"
     }
   ],
   "socials": [

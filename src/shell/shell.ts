@@ -7,7 +7,7 @@ import { initCursor } from './cursor';
 import { mountAtmosphere } from './grain';
 import { Hud, mountHud } from './hud';
 
-export type PageKey = 'home' | 'work' | 'about' | 'contact' | 'project';
+export type PageKey = 'home' | 'work' | 'about' | 'contact' | 'story' | 'project';
 export interface ShellRefs { hud: Hud }
 
 const HREF_FOR: Record<PageKey, string> = {
@@ -15,6 +15,7 @@ const HREF_FOR: Record<PageKey, string> = {
   work: '/works.html',
   about: '/about.html',
   contact: '/contact.html',
+  story: '/story.html',
   project: '/works.html', // project pages highlight WORK
 };
 
