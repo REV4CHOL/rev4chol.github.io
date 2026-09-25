@@ -12,7 +12,7 @@
     "accent": "#8FCC6B",
     "tileSize": "large",
     "category": "human",
-    "synopsis": "Summer keeps a copy of everyone.",
+    "synopsis": "A ghost of the past, the present and the future.",
     "credits": [
       {
         "role": "Colorist",
@@ -268,23 +268,26 @@
     "tileSize": "normal"
   },
   {
-    "slug": "vhs-eden",
-    "title": "VHS Eden",
+    "slug": "soda-coast",
+    "title": "Soda Coast",
     "year": 2025,
-    "role": "Director / Edit",
-    "runtime": "08:12",
+    "role": "Director / Colorist / Editor / Sound Designer",
+    "runtime": "1:56",
     "tags": [
-      "experimental"
+      "experimental",
+      "supernatural"
     ],
-    "accent": "#FF2E63",
-    "synopsis": "A garden that exists only on a degraded tape. Every playback erases a little more of paradise.",
+    "accent": "#4FB3FF",
+    "aspect": "2.39:1",
+    "synopsis": "I see summer. And then the sea.",
     "credits": [
       {
-        "role": "Director",
+        "role": "Director / Colorist / Editor / Sound Designer",
         "name": "Revachol"
       }
     ],
     "film": null,
+    "filmPending": true,
     "category": "human",
     "tileSize": "large"
   },

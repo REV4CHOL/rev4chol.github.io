@@ -5,6 +5,7 @@ import { sound } from '../lib/sound';
 import { armGlideNav, navNeighbors } from '../lib/swipe-nav';
 import { colorWord, parseHsl } from '../home/loops';
 import { startPage } from '../shell/page';
+import { rolesLine } from '../home/roles';
 
 let heroBurst: () => void = () => {};
 
@@ -20,16 +21,9 @@ startPage('home', async ({ site }) => {
     await m.mountHero(host);
   }
 
-  // the roles bar: tagline is comma-separated roles, underscored internally
+  // the roles bar: tagline is comma-separated roles, underscored internally (home/roles.ts)
   const data = document.getElementById('tagline');
-  if (data) {
-    data.textContent = site.tagline
-      .toUpperCase()
-      .split(/,\s*/)
-      .map((r) => r.trim().replace(/ /g, '_'))
-      .filter(Boolean)
-      .join(' · ');
-  }
+  if (data) data.textContent = rolesLine(site.tagline);
 
   // touch visitors physically glide the page with their thumb — up = onward
   // to the page after HOMEPAGE in the nav. Armed BEFORE the type reveal below:

@@ -22,6 +22,42 @@ describe('shipped content files', () => {
     ]); // the chain IS the menu order: ABOUT between HOMEPAGE and WORK, STORY at the far right
   });
 
+  it('the homepage roles open with the AI generalist, the colorist next (owner 2026-09-26)', () => {
+    const site = parseSite(parseJson(read('site.json'), 'site.json'));
+    const roles = site.tagline.split(/,\s*/).map((r) => r.trim().toLowerCase());
+    expect(roles[0]).toBe('ai generalist');
+    expect(roles[1]).toBe('colorist');
+  });
+
+  it('SODA COAST holds VHS EDEN\'s slot in chapter 1, with its scope media (owner 2026-09-26)', () => {
+    const projects = parseProjects(parseJson(read('projects.json'), 'projects.json'));
+    expect(projects.some((p) => p.slug === 'vhs-eden')).toBe(false);
+    const i = projects.findIndex((p) => p.slug === 'soda-coast');
+    expect(i).toBe(12);
+    const p = projects[i];
+    expect(p.title).toBe('Soda Coast');
+    expect(p.year).toBe(2025);
+    expect(p.role).toBe('Director / Colorist / Editor / Sound Designer');
+    expect(p.runtime).toBe('1:56');
+    expect(p.tags).toEqual(['experimental', 'supernatural']);
+    expect(p.synopsis).toBe('I see summer. And then the sea.');
+    // (the owner's correction the same day: the ghost line is PHILIA's, the chapter's other real film)
+    expect(projects.find((q) => q.slug === 'philia')!.synopsis).toBe('A ghost of the past, the present and the future.');
+    expect(p.category).toBe('human');
+    expect(p.tileSize).toBe('large');
+    expect(p.aspect).toBe('2.39:1');
+    expect(p.film).toBeNull();
+    expect(p.filmPending).toBe(true); // no link yet: WATCH shows, greyed
+    const dir = `${root}projects/soda-coast/`;
+    expect(existsSync(`${dir}poster.jpg`)).toBe(true);
+    expect(existsSync(`${dir}preview.mp4`)).toBe(true);
+    const stills = readdirSync(`${dir}stills`).sort();
+    expect(stills).toHaveLength(51);
+    expect(stills[0]).toBe('01.jpg');
+    expect(stills[50]).toBe('51.jpg');
+    expect(existsSync(`${root}projects/vhs-eden`)).toBe(false);
+  });
+
   it('projects.json is valid: 20 films per channel, 6 featured each', () => {
     const projects = parseProjects(parseJson(read('projects.json'), 'projects.json'));
     const human = projects.filter((p) => p.category === 'human');
