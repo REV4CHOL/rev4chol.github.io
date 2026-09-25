@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Project } from '../src/lib/content';
-import { CHANNELS, channelFromSearch, channelProjects, NAME_OVER_INDEX, nameScale } from '../src/works/channels';
+import { readFileSync } from 'node:fs';
+import { CHANNELS, channelFromSearch, channelProjects } from '../src/works/channels';
 
 const proj = (slug: string, category: 'human' | 'machine'): Project => ({
   slug,
@@ -46,29 +47,23 @@ describe('the two channels', () => {
   });
 });
 
-describe('a chapter name reads bigger than its label (owner: "the AI must be bigger than ch02 on top. Same goes for COLORIST")', () => {
-  it('leaves names that already span the ratio alone', () => {
-    expect(nameScale([{ name: 90, index: 44 }])).toBe(1);
-    expect(nameScale([{ name: 48.4, index: 44 }])).toBe(1); // exactly 1.1 times
+describe('a chapter name reads bigger than its label (owner: "the AI must be bigger than ch02 on top. Same goes for COLORIST" — then, of 40 px names: "too damn big")', () => {
+  const css = readFileSync('src/styles/components.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''); // (comments out: a selector reads clean)
+  const blocks = (sel: string) =>
+    [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)]
+      .filter((m) => m[1].split(',').some((s) => s.trim() === sel))
+      .map((m) => m[2]);
+
+  it('sets the name in the label\'s own type times --ch-k — bigger letters, not a wide-as-the-label giant', () => {
+    const k = Number(/--ch-k:\s*([\d.]+)/.exec(blocks('.ch-switch').join(''))?.[1]);
+    expect(k).toBeGreaterThanOrEqual(2.2); // AI's letters stand well over CH·02's (16 px was the owner's fear)
+    expect(k).toBeLessThanOrEqual(2.8); // …and nowhere near the 4x (40 px) the width rule forced
+    expect(blocks('.ch-idx').join('')).toMatch(/font-size:\s*calc\(var\(--t-2xs\) \* var\(--uiz\)\)/);
   });
 
-  it('grows a short name until it spans NAME_OVER_INDEX times its label (AI measured 19.1 under CH·02 at 44)', () => {
-    expect(NAME_OVER_INDEX).toBeGreaterThan(1);
-    const s = nameScale([{ name: 19.1, index: 44 }]);
-    expect(s).toBeCloseTo((NAME_OVER_INDEX * 44) / 19.1, 6);
-    expect(19.1 * s).toBeGreaterThan(44); // wider than the label, not just taller
-  });
-
-  it('shares the largest need across the set, so the names stay one size', () => {
-    const s = nameScale([{ name: 90, index: 44 }, { name: 19.1, index: 44 }]);
-    expect(s).toBeCloseTo(nameScale([{ name: 19.1, index: 44 }]), 9);
-    expect(90 * s).toBeGreaterThan(19.1 * s); // COLORIST keeps its lead at the shared size
-  });
-
-  it('ignores what it cannot measure (fonts not in, a hidden dial)', () => {
-    expect(nameScale([])).toBe(1);
-    expect(nameScale([{ name: 0, index: 44 }])).toBe(1);
-    expect(nameScale([{ name: 19.1, index: 0 }])).toBe(1);
-    expect(nameScale([{ name: Number.NaN, index: 44 }, { name: 19.1, index: 44 }])).toBeCloseTo((NAME_OVER_INDEX * 44) / 19.1, 6);
+  it('holds on every screen: one font-size for the name, tied to the label, no phone override, no measured scale', () => {
+    const sizes = blocks('.ch-name').flatMap((b) => [...b.matchAll(/font-size:\s*([^;]+);/g)].map((m) => m[1].trim()));
+    expect(sizes).toEqual(['calc(var(--t-2xs) * var(--ch-k) * var(--uiz))']);
+    expect(css).not.toMatch(/--ch-scale/);
   });
 });

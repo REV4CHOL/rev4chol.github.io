@@ -48,3 +48,10 @@
 - [x] **Step 1:** `npx tsc --noEmit`, `npx vitest run`, `npx vite build` — green.
 - [x] **Step 2:** Pane (desktop 1440 × 900 and the phone preset): dial measures, ident measures after a flip, homepage roles bar, the soda-coast pane and dossier; screenshots.
 - [x] **Step 3:** "As built"; commit; push; `gh run watch --exit-status`; curl the live content; memory bullet; closing report.
+
+### Task 4: Revision — the names too big (owner, same day)
+
+- [x] **Step 1:** Specimen of the dial at 16–40 px; pick 24 px (2.4 × the label).
+- [x] **Step 2:** Tests: swap the four `nameScale` cases for two CSS pins (`--ch-k` 2.2–2.8; one `.ch-name` size, no phone override, no `--ch-scale`) — red.
+- [x] **Step 3:** `works.ts` and `components.css` back to their pre-rule state, then `--ch-k: 2.4` and the ratio size; `nameScale` out of `channels.ts` — green, 272.
+- [x] **Step 4:** Pane (desktop, phone, the flip ident); docs; commit; push; deploy; live check.

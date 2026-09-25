@@ -164,9 +164,9 @@ build step, no terminal.
   the band widens with the count, rows extend, the featured cluster
   re-centers. Nothing else to configure.
 - **The two channels:** the works floor broadcasts on `CH·01 COLORIST`
-  and `CH·02 AI` — the switcher sits bottom-center. A chapter name always
-  reads bigger than its CH·NN label: a short name (AI) grows until it spans
-  wider than the label, and both names grow together so they stay one size.
+  and `CH·02 AI` — the switcher sits bottom-center. A chapter name is always
+  set 2.4 times the size of its CH·NN label (`--ch-k` in components.css), so
+  even a two-letter name like AI reads bigger than its label.
   A film's `category` decides its channel. Give each channel a few
   `"large"` films so both floors get a featured centre cluster. Deep links:
   `works.html?ch=machine`.

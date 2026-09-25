@@ -57,3 +57,12 @@ Desktop 1440 × 900: the dial's `AI` and `COLORIST` each wider than their `CH·N
 - **The ident**, measured after each flip: AI grows from 96 to 130 px and spans exactly 1.1 × CH·02 ▸ TUNING; COLORIST keeps its 96 px (4.0 ×).
 - **Beyond the spec: the roles bar's wrap.** Four roles no longer fit a phone's line, and the old join left the second line opening with a stray dot ("· FILMMAKER"). The builder moved to `src/home/roles.ts` (`rolesLine`, tested): each separator is glued to the role before it with a no-break space, so the phone reads AI_GENERALIST · COLORIST · / EDITOR · FILMMAKER. The desktop line is one row (229 px).
 - Gates: tsc clean, 274 passed / 3 skipped (the names and four `nameScale` cases, two content cases, three roles cases), the build emits `soda-coast` into `dist/content` and its manifest.
+
+## Revision (2026-09-26, same day): "the COLORIST and AI is right now too damn big"
+
+The width rule forced both names to 40 px on every screen (AI had to out-span its CH·02, a five-glyph tracked mono label 44 px wide). A true-scale specimen of the dial at 16 / 22 / 24 / 26 / 28 / 40 px settled the fix: **"bigger" is the letters, not the span** — at 24 px, AI's letters stand 2.4 times CH·02's and the word plainly out-reads the label, while COLORIST falls from 280 px wide to ~155.
+
+- The rule is now a type ratio in CSS: `.ch-switch { --ch-k: 2.4 }`, `.ch-name { font-size: calc(var(--t-2xs) * var(--ch-k) * var(--uiz)) }` — the name is always 2.4 times its label's type, on every screen (the phone's own name size is gone: the label is 10 px there too). 24 px on desktop and phone.
+- The measuring machinery is gone: `nameScale` / `NAME_OVER_INDEX`, `sizeDial()`, `--ch-scale`, the `.ch-word` span and the ident's growth. The flip ident is back to its original design (`--t-2xl`: AI 96 px on desktop, 48 on a phone — 4.8 to 9.6 times its label).
+- Tests: the two `nameScale` cases became two CSS pins — `--ch-k` between 2.2 and 2.8 with the label on `--t-2xs`, and exactly one `.ch-name` font-size (the ratio) with no phone override and no measured scale. 272 passed.
+- The pane: desktop and phone compute 24 px names over 10 px labels; on a phone the two names still stack in two rows (the fixed dial's shrink-to-fit width is half the screen, as before), now ~110 px tall instead of ~150.

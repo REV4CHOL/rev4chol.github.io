@@ -5,7 +5,7 @@ import { armPosterLock, posterZoom } from '../lib/poster-lock';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { startPage } from '../shell/page';
-import { CHANNELS, ChannelKey, channelFromSearch, channelProjects, nameScale } from '../works/channels';
+import { CHANNELS, ChannelKey, channelFromSearch, channelProjects } from '../works/channels';
 import { mountWorksOverlay } from '../works/overlay';
 import { WorksWorld } from '../works/world';
 
@@ -50,24 +50,10 @@ startPage(
     for (const ch of CHANNELS) {
       const b = document.createElement('button');
       b.dataset.ch = ch.key;
-      b.innerHTML = `<span class="ch-idx micro">${ch.index}</span><span class="ch-name"><span class="ch-mark"></span><span class="ch-word">${ch.name}</span></span>`;
+      b.innerHTML = `<span class="ch-idx micro">${ch.index}</span><span class="ch-name"><span class="ch-mark"></span>${ch.name}</span>`;
       b.addEventListener('click', () => void flip(ch.key));
       sw.append(b);
     }
-    // every chapter name reads BIGGER than its CH·NN label (owner: "the AI must be bigger than ch02 on top.
-    // Same goes for COLORIST"): measured at scale 1 — the word alone, the ▸ mark outside the measure — and
-    // grown together, so the names stay one size; again when the fonts land and on every resize
-    const sizeDial = () => {
-      sw.style.setProperty('--ch-scale', '1');
-      const pairs = [...sw.querySelectorAll('button')].map((b) => ({
-        name: b.querySelector('.ch-word')!.getBoundingClientRect().width,
-        index: b.querySelector('.ch-idx')!.getBoundingClientRect().width,
-      }));
-      sw.style.setProperty('--ch-scale', nameScale(pairs).toFixed(4));
-    };
-    sizeDial();
-    void document.fonts?.ready?.then(sizeDial);
-    window.addEventListener('resize', sizeDial);
 
     const staticEl = document.getElementById('ch-static')!;
     const flip = async (key: ChannelKey) => {
@@ -81,26 +67,19 @@ startPage(
       // tuned-in name underneath; scrambleEl self-gates on calm mode
       const ch = CHANNELS.find((c) => c.key === key)!;
       const nameEl = document.getElementById('ch-ident-name')!;
-      const idxEl = document.getElementById('ch-ident-idx')!;
-      const tuning = `${ch.index} ▸ TUNING`;
       nameEl.dataset.text = ch.name;
       // the ident name never leaves the screen: measure the full name at its
       // CSS size and cap the font so the nowrap type fits 92% of any viewport
       // (the same fit-to-measure move as the dossier titles)
       nameEl.textContent = ch.name;
       nameEl.style.fontSize = '';
-      // …and never reads smaller than the label over it (owner: a short name like AI came out narrower than its
-      // CH·02 ▸ TUNING): the label's final text goes in before its scramble, both are measured, the name grows
-      idxEl.textContent = tuning;
-      const grow = nameScale([{ name: nameEl.getBoundingClientRect().width, index: idxEl.getBoundingClientRect().width }]);
-      if (grow > 1) nameEl.style.fontSize = `${parseFloat(getComputedStyle(nameEl).fontSize) * grow}px`;
       // the ident lives on the plate: fit against plate width, not viewport
       const fitW = (window.innerWidth / posterZoom()) * 0.92;
       if (nameEl.scrollWidth > fitW) {
         const base = parseFloat(getComputedStyle(nameEl).fontSize);
         nameEl.style.fontSize = `${Math.floor(base * (fitW / nameEl.scrollWidth) * 98) / 100}px`;
       }
-      void scrambleEl(idxEl, tuning, 320);
+      void scrambleEl(document.getElementById('ch-ident-idx')!, `${ch.index} ▸ TUNING`, 320);
       void scrambleEl(nameEl, ch.name, 480);
       sound.chime();
       staticEl.classList.add('on');
