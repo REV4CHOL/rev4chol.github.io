@@ -50,6 +50,12 @@ class FakeVideo {
     this.fire('pause');
   }
   load(): void {}
+  /** The download reaches `state` (3 HAVE_FUTURE_DATA, 4 HAVE_ENOUGH_DATA) and says so, as a real element does. */
+  reach(state: 3 | 4): void {
+    this.readyState = state;
+    this.fire('canplay');
+    if (state === 4) this.fire('canplaythrough');
+  }
   present(n: number): void {
     for (let i = 0; i < n; i++) {
       const due = [...this.frameCbs.values()];
@@ -105,6 +111,20 @@ describe('a loop texture uploads its new frames, never the display clock (owner:
     tick(120, 60);
     v.present(24);
     expect(uploads()).toBe(0);
+    tex.destroy(true);
+  });
+
+  it('a loop put to sleep while it loads stays asleep when it becomes playable — the page owns play and pause', async () => {
+    // a pane woken and slept again before its loop could play (the pointer crossing it, a quick drag) used to be
+    // restarted by Pixi's autoPlay at canplay: it decoded hidden for the rest of the visit
+    const v = new FakeVideo();
+    const tex = videoTexture(v as unknown as HTMLVideoElement);
+    await new Promise((r) => setTimeout(r, 0));
+    await v.play(); // the pane wakes…
+    v.pause(); // …and sleeps before its loop can play
+    v.reach(3);
+    v.reach(4);
+    expect(v.paused).toBe(true);
     tex.destroy(true);
   });
 

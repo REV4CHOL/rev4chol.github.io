@@ -50,6 +50,19 @@ The owner: "Optimise the work section's performance. It only takes seconds befor
 - So every pane the pointer has crossed adds eight blur passes to every frame for the rest of the visit. The floor grows heavier the longer anyone looks around.
 - Crossing every pane once cost 38 % more GPU work per frame.
 
+### Defect 3: a pane put back to sleep while its loop loads decodes hidden
+
+Found on the live site after the first two fixes shipped.
+
+- Pixi's `VideoSource` plays its video by itself when the video becomes playable (`autoPlay`, default on, at `canplay` and `canplaythrough`).
+- A pane woken and put back to sleep before its loop could play is restarted that way. This happens when the pointer crosses a pane outside the ten nearest, or on a quick drag.
+- It then decodes hidden for the rest of the visit, because `sleep()` on a sleeping pane does nothing.
+- Network latency opens the window: localhost answers too fast to show it. It appears on the live site and on dev with 200 ms of latency.
+- Measurements:
+  - A sweep hovering every pane 60 ms apart left nine panes decoding while asleep (19 loops decoding for 10 on screen, about 210 frames a second thrown away), three runs out of three.
+  - An ordinary 14 s pass of the pointer across the whole live screen left one, and it kept decoding after the pointer stopped.
+- The load grows the longer anyone moves around the floor.
+
 ### What did not reproduce here
 
 - This PC has so much headroom that the lag did not appear at a normal frame rate. The shipped floor kept every loop at real time:
@@ -74,8 +87,9 @@ Two fixes, each invisible on screen.
 
 1. **`src/lib/video-texture.ts`: `videoTexture(v)`.**
    - This is the one way a `<video>` becomes a texture, for the floor's tiles and the homepage reel.
-   - It is Pixi's default: the texture uploads when the video presents a new frame, never on the display's clock.
+   - Uploads follow Pixi's default: the texture uploads when the video presents a new frame, never on the display's clock.
    - No `updateFPS` appears anywhere in `src/`, and the module says why.
+   - The source is built with `autoPlay: false`. The page (a pane's wake and sleep, the reel's cuts) owns play and pause; the texture never starts a video.
 2. **`src/works/glow.ts`: `PaneGlow`.**
    - This is a pane's underglow and its fades.
    - It stands hidden whenever it is fully faded, so its blur runs only while it can be seen.
@@ -87,6 +101,7 @@ Two fixes, each invisible on screen.
   - Two seconds of a 120 Hz display upload nothing.
   - 48 presented frames upload 48 times.
   - A paused loop uploads nothing.
+  - A loop put to sleep while it loads stays asleep when it becomes playable. Red before the third fix.
   - No `updateFPS` appears in `src/`, and both call sites use `videoTexture`.
   - Red before the fix (240 uploads from the ticks alone).
 - **`tests/glow.test.ts`:**
@@ -105,7 +120,7 @@ Two fixes, each invisible on screen.
 
 ## As built
 
-- **Commits:** fae9850 (uploads) and the glow commit that follows it.
+- **Commits:** fae9850 (uploads), d14eda9 (glows), and the autoplay commit that follows them.
 - **Capacity at 4K, unthrottled:**
 
   | Floor | Capacity | GPU work per frame |
@@ -125,8 +140,7 @@ Two fixes, each invisible on screen.
   - The floor at rest and a featured pane hovered are pixel-identical before and after (SSIM 1.000000 and 0.999984).
   - After a hover, the only differences are inside the hovered panes' pictures, whose loops resume playing.
   - Every glow region matches.
-- **Latent, not fixed.** Pixi's `VideoSource` also plays a loop by itself when it reaches `canplay` / `canplaythrough` (`autoPlay`). A pane put to sleep in that window would decode hidden until it is woken again.
-  - A synthetic sweep hovering every pane 60 ms apart produced one such pane.
-  - Real sweeps and drags, on dev and live, produced none.
-  - The remedy is `autoPlay: false` on the source; the tiles and the reel already own play and pause.
+- **Hidden decoders (defect 3).** With `autoPlay: false`, the sweep hovering every pane 60 ms apart leaves 10 loops playing and none asleep, three runs out of three, on dev with 200 ms latency. Before: 19, with 9 asleep.
+  - The floor still starts every loop.
+  - The homepage reel still plays, at 29 uploads a second for 29.8 presented frames.
 - **Lesson.** After a quick run of edits, the dev server kept a stale `tile.ts`: `PaneGlow` was undefined at boot while `tsc` and the build were green. Touching the file fixed it, as with `tokens.css` earlier.
