@@ -102,3 +102,31 @@ Two fixes, each invisible on screen.
 - The owner's session replay (idle, sweep, rest, park) must keep every loop at real time.
 - Uploads must equal presented frames.
 - A hovered pane and the resting featured glows must look the same before and after.
+
+## As built
+
+- **Commits:** fae9850 (uploads) and the glow commit that follows it.
+- **Capacity at 4K, unthrottled:**
+
+  | Floor | Capacity | GPU work per frame |
+  |---|---|---|
+  | As shipped, idle | 669 fps | 1.49 ms |
+  | As shipped, after crossing every pane | 486 fps | 2.06 ms |
+  | Fixed, idle | 2,463 fps | 0.41 ms |
+  | Fixed, after crossing every pane | 2,459 fps | 0.41 ms |
+
+- **Uploads:** 254 a second, equal to the frames presented, with the page paced at 60, 120 and 240 Hz. As shipped it was 600, 1,190 and 2,381.
+- **The owner's session, replayed:**
+  - sweeping the panes, resting on one, parking, and dragging the floor around;
+  - on the dev build and on the live site;
+  - every loop kept real time once started;
+  - no pane decoded while asleep.
+- **The look:**
+  - The floor at rest and a featured pane hovered are pixel-identical before and after (SSIM 1.000000 and 0.999984).
+  - After a hover, the only differences are inside the hovered panes' pictures, whose loops resume playing.
+  - Every glow region matches.
+- **Latent, not fixed.** Pixi's `VideoSource` also plays a loop by itself when it reaches `canplay` / `canplaythrough` (`autoPlay`). A pane put to sleep in that window would decode hidden until it is woken again.
+  - A synthetic sweep hovering every pane 60 ms apart produced one such pane.
+  - Real sweeps and drags, on dev and live, produced none.
+  - The remedy is `autoPlay: false` on the source; the tiles and the reel already own play and pause.
+- **Lesson.** After a quick run of edits, the dev server kept a stale `tile.ts`: `PaneGlow` was undefined at boot while `tsc` and the build were green. Touching the file fixed it, as with `tokens.css` earlier.

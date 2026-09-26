@@ -37,15 +37,15 @@
 
 **Files:** create `src/works/glow.ts` and `tests/glow.test.ts`; modify `src/works/tile.ts`.
 
-- [ ] **Step 1: Refactor only.** Extract `PaneGlow` (sprite, blur, `fadeTo(alpha, d)`, `kill()`) with today's behaviour (always visible). The tile uses it, and the gates stay green.
-- [ ] **Step 2: Write the test and watch it fail.**
+- [x] **Step 1: Refactor only.** Extract `PaneGlow` (sprite, blur, `fadeTo(alpha, d)`, `kill()`) with today's behaviour (always visible). The tile uses it, and the gates stay green.
+- [x] **Step 2: Write the test and watch it fail.**
   - A glow faded to 0 is hidden. Today it stays visible, so this is RED.
   - A glow rising from 0 is visible at once.
   - A featured glow resting at 0.14 is visible.
   - A fade to 0 cut short by `fadeTo(0.4)` stays visible.
   - A new non-featured glow starts hidden.
-- [ ] **Step 3: The fix.** `fadeTo` shows the glow first. The fade's `onComplete` sets `visible = alpha > 0`, and the constructor sets `visible = rest > 0`. GREEN.
-- [ ] **Step 4:** Gates, then commit.
+- [x] **Step 3: The fix.** `fadeTo` shows the glow first. The fade's `onComplete` sets `visible = alpha > 0`, and the constructor sets `visible = rest > 0`. GREEN.
+- [x] **Step 4:** Gates, then commit.
 
 ### Task 3: Verify, ship
 

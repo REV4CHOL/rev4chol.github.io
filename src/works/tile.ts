@@ -1,10 +1,11 @@
-import { BlurFilter, Container, Graphics, Matrix, Sprite, Text, Texture } from 'pixi.js';
+import { Container, Graphics, Matrix, Sprite, Text, Texture } from 'pixi.js';
 import gsap from 'gsap';
 import type { Project } from '../lib/content';
 import { aspectRatio, loopSrcChain, projectAssetUrl } from '../lib/content';
 import { reducedMotion } from '../lib/env';
 import { videoTexture } from '../lib/video-texture';
 import { CARD_H, CARD_W, HOVER_M, ISO, SIZE_MUL_LARGE, cellToWorld } from './constants';
+import { PaneGlow } from './glow';
 import type { Placed } from './layout';
 import { loadPosterCanvas, type PosterResult } from './poster';
 
@@ -38,7 +39,7 @@ export class ProjectTile extends Container {
    *  restarted the loop (404 → fallback → reload → first-frame wait) and read
    *  as a stall each time the pointer touched the tile. */
   private hoverMissing = false;
-  private glow?: Sprite;
+  private glow?: PaneGlow;
   /** Featured tiles keep a faint resting underglow; hover raises it, exit returns here. */
   private baseGlowAlpha = 0;
 
@@ -229,17 +230,11 @@ export class ProjectTile extends Container {
     s.visible = this.mode !== 'sleep' && this.frameSeen;
   }
 
-  private ensureGlow(): Sprite {
+  private ensureGlow(): PaneGlow {
     if (!this.glow) {
-      const g = new Sprite(Texture.WHITE);
-      g.anchor.set(0.5);
-      g.width = this.cw * 1.18;
-      g.height = this.ch * 1.3;
-      g.tint = parseInt(this.project.accent.slice(1), 16);
-      g.alpha = 0;
-      g.filters = [new BlurFilter({ strength: 18 })];
-      this.card.addChildAt(g, 0); // behind the poster
-      this.glow = g;
+      const acc = parseInt(this.project.accent.slice(1), 16);
+      this.glow = new PaneGlow(acc, this.cw * 1.18, this.ch * 1.3, this.baseGlowAlpha);
+      this.card.addChildAt(this.glow.sprite, 0); // behind the poster
     }
     return this.glow;
   }
@@ -250,9 +245,7 @@ export class ProjectTile extends Container {
     const d = reducedMotion() ? 0.05 : 0.5;
     gsap.to(this.m, { ...HOVER_M, duration: d, ease: 'expo.out', onUpdate: () => this.applyMatrix() });
     gsap.to(this.card, { y: -26, duration: d, ease: 'expo.out' });
-    const glow = this.ensureGlow();
-    gsap.killTweensOf(glow);
-    gsap.to(glow, { alpha: 0.4, duration: d });
+    this.ensureGlow().fadeTo(0.4, d);
     this.zIndex = 10000;
   }
 
@@ -262,7 +255,7 @@ export class ProjectTile extends Container {
     const d = reducedMotion() ? 0.05 : 0.4;
     gsap.to(this.m, { ...ISO, duration: d, ease: 'expo.out', onUpdate: () => this.applyMatrix() });
     gsap.to(this.card, { y: 0, duration: d, ease: 'expo.out' });
-    if (this.glow) { gsap.killTweensOf(this.glow); gsap.to(this.glow, { alpha: this.baseGlowAlpha, duration: d }); }
+    this.glow?.fadeTo(this.baseGlowAlpha, d);
     this.zIndex = this.placed.col + this.placed.row;
   }
 
@@ -272,7 +265,7 @@ export class ProjectTile extends Container {
     gsap.killTweensOf(this);
     gsap.killTweensOf(this.m);
     gsap.killTweensOf(this.card);
-    if (this.glow) gsap.killTweensOf(this.glow);
+    this.glow?.kill();
   }
 
   constructor(project: Project, placed: Placed, poster: PosterResult) {
@@ -357,7 +350,7 @@ export class ProjectTile extends Container {
     this.addChild(this.card);
     if (featured) {
       this.baseGlowAlpha = 0.14;
-      this.ensureGlow().alpha = this.baseGlowAlpha;
+      this.ensureGlow(); // rests at baseGlowAlpha
     }
     this.applyMatrix();
     this.eventMode = 'static';
