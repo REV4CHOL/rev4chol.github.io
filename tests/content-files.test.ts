@@ -72,7 +72,8 @@ describe('shipped content files', () => {
       tileSize: 'normal', aspect: '2.39:1', youtube: 'dMbsrk9Eeiw', stills: 29 },
     // (the owner, mid-build: "MIST CHILD must be MISTCHILD" — one word, as its YouTube title has it;
     //  and after: "mistchild is 2025", as its folder says — the brief's 2026 was a slip)
-    { slug: 'mistchild', slot: 32, was: 'low-tide-gospel', title: 'MISTCHILD', year: 2025, role: 'Director / Colorist / Editor', runtime: '0:47',
+    // (…and on 2026-09-27 the owner moved it to NEON LITURGY's corner — a swap: json 18 ↔ 32)
+    { slug: 'mistchild', slot: 18, was: 'low-tide-gospel', title: 'MISTCHILD', year: 2025, role: 'Director / Colorist / Editor', runtime: '0:47',
       tags: ['experimental'], synopsis: 'The child must have felt so lonely, in the mist.', category: 'human',
       tileSize: 'normal', aspect: '2.39:1', youtube: 'dyqpjo4eKJI', stills: 16 },
   ];
@@ -141,7 +142,9 @@ describe('shipped content files', () => {
     expect(at.get('glass-harvest')).toEqual([0, 0]);
     expect(at.get('acid-pastoral')).toEqual([0, 1]);
     expect(at.get('gasoline-hymn')).toEqual([0, 2]);
-    expect(at.get('mistchild')).toEqual([4, 3]);
+    // (owner 2026-09-27: "Move MISTCHILD to neon liturgy" — the top-right corner; NEON LITURGY takes its old one)
+    expect(at.get('mistchild')).toEqual([4, 0]);
+    expect(at.get('neon-liturgy')).toEqual([4, 3]);
   });
 
   it('projects.json is valid: CH·02 holds 20 films (6 featured); CH·01 18 films (4 featured) and 2 held places', () => {

@@ -390,23 +390,27 @@
     "tileSize": "normal"
   },
   {
-    "slug": "neon-liturgy",
-    "title": "Neon Liturgy",
-    "year": 2024,
-    "role": "DoP",
-    "runtime": "07:20",
+    "slug": "mistchild",
+    "title": "MISTCHILD",
+    "year": 2025,
+    "role": "Director / Colorist / Editor",
+    "runtime": "0:47",
     "tags": [
-      "music video"
+      "experimental"
     ],
-    "accent": "#C8FF00",
-    "synopsis": "A midnight mass in a shuttered arcade. The congregation brought their own light.",
+    "accent": "#85AFE0",
+    "aspect": "2.39:1",
+    "synopsis": "The child must have felt so lonely, in the mist.",
     "credits": [
       {
-        "role": "Cinematography",
+        "role": "Director / Colorist / Editor",
         "name": "Revachol"
       }
     ],
-    "film": null,
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/dyqpjo4eKJI"
+    },
     "category": "human",
     "tileSize": "normal"
   },
@@ -689,27 +693,23 @@
     "tileSize": "normal"
   },
   {
-    "slug": "mistchild",
-    "title": "MISTCHILD",
-    "year": 2025,
-    "role": "Director / Colorist / Editor",
-    "runtime": "0:47",
+    "slug": "neon-liturgy",
+    "title": "Neon Liturgy",
+    "year": 2024,
+    "role": "DoP",
+    "runtime": "07:20",
     "tags": [
-      "experimental"
+      "music video"
     ],
-    "accent": "#85AFE0",
-    "aspect": "2.39:1",
-    "synopsis": "The child must have felt so lonely, in the mist.",
+    "accent": "#C8FF00",
+    "synopsis": "A midnight mass in a shuttered arcade. The congregation brought their own light.",
     "credits": [
       {
-        "role": "Director / Colorist / Editor",
+        "role": "Cinematography",
         "name": "Revachol"
       }
     ],
-    "film": {
-      "type": "youtube",
-      "src": "https://www.youtube.com/embed/dyqpjo4eKJI"
-    },
+    "film": null,
     "category": "human",
     "tileSize": "normal"
   },
