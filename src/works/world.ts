@@ -14,7 +14,7 @@ import { buildDebris } from './debris';
 import { buildFields } from './fields';
 import { GRAIN, joltCamera, misregister, streakBurst, type Burst, type Misreg } from './flipfx';
 import { PanController } from './input';
-import { layoutProjects, packRows } from './layout';
+import { layoutProjects, packRows, paneBand } from './layout';
 import { PlaybackManager } from './playback';
 import { loadPosterCanvas } from './poster';
 import type { ViewRect } from './priority';
@@ -193,7 +193,7 @@ export class WorksWorld {
   }
 
   hover(slug: string): void {
-    if (this.entering) return;
+    if (this.entering || this.exiting) return; // panes flying out under a still pointer must not wake
     if (this.hoveredSlug === slug) return;
     this.unhover();
     const tile = this.tiles.get(slug);
@@ -360,9 +360,10 @@ export class WorksWorld {
       });
     const tweens: Promise<void>[] = [];
     for (const tile of this.tiles.values()) {
-      const dir = tile.placed.row % 2 === 0 ? 1 : -1;
+      const band = paneBand(tile.placed); // alternate by the pane's row on the band, not the lattice's
+      const dir = band % 2 === 0 ? 1 : -1;
       const ease = Math.random() < 0.35 ? 'steps(6)' : 'power2.in'; // some panes leave "on 2s"
-      tweens.push(pull(tile, dir, (Math.abs(tile.placed.row) % 3) * 0.035 + Math.random() * 0.04, ease, span));
+      tweens.push(pull(tile, dir, (Math.abs(band) % 3) * 0.035 + Math.random() * 0.04, ease, span));
     }
     tweens.push(pull(this.fieldsC, 1, 0.02, 'power2.in', span * 1.9));
     tweens.push(pull(this.debrisC, -1, 0.05, 'power2.in', span * 1.9));
@@ -386,9 +387,10 @@ export class WorksWorld {
       gsap.to(o, { x: hx, y: hy, duration: 0.44, ease, delay });
     };
     for (const tile of this.tiles.values()) {
-      const dir = tile.placed.row % 2 === 0 ? -1 : 1;
+      const band = paneBand(tile.placed);
+      const dir = band % 2 === 0 ? -1 : 1;
       const ease = Math.random() < 0.25 ? 'steps(5)' : 'power3.out'; // a few land in chunks
-      drop(tile, dir, (Math.abs(tile.placed.row) % 3) * 0.045 + Math.random() * 0.05, ease, span);
+      drop(tile, dir, (Math.abs(band) % 3) * 0.045 + Math.random() * 0.05, ease, span);
     }
     drop(this.fieldsC, -1, 0.03, 'power3.out', span * 1.6);
     drop(this.debrisC, 1, 0.06, 'power3.out', span * 1.6);
@@ -403,7 +405,11 @@ export class WorksWorld {
     this.bursts = [];
     gsap.killTweensOf(this.pan.pos);
     gsap.killTweensOf(this.app.stage.position);
-    for (const tile of this.tiles.values()) tile.releaseVideo();
+    gsap.killTweensOf([this.tilesLayer, this.fieldsC, this.debrisC]);
+    for (const tile of this.tiles.values()) {
+      tile.killTweens(); // no tween may outlive the scene graph it writes into
+      tile.releaseVideo();
+    }
     this.pan.dispose();
     if (this.labelEl) this.labelEl.hidden = true;
     this.app.destroy(true, { children: true });

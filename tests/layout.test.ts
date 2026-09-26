@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { layoutProjects, packRows, Placed } from '../src/works/layout';
+import { layoutProjects, packRows, paneBand, Placed } from '../src/works/layout';
 
 const W169 = 400;
 const W43 = 300;
@@ -40,6 +40,17 @@ describe('packRows — the lego pass', () => {
     expect(u.get('r0')! - u.get('L')!).toBe(lW / 2 + SEAM + W169 / 2);
     expect(u.get('r1')).toBe(u.get('r0'));
   });
+
+  it('a row of equal 2×2 panes steps by two cells and a seam, whatever the widths', () => {
+    const placed: Placed[] = [
+      { slug: 'a', col: 0, row: 0, span: 2 },
+      { slug: 'scope', col: 2, row: 0, span: 2 },
+      { slug: 'c', col: 4, row: 0, span: 2 },
+    ];
+    const W239 = 538;
+    const u = packRows(placed, (p) => (p.slug === 'scope' ? W239 : W169), SEAM, STEP);
+    expect(u.get('scope')! - u.get('a')!).toBe((W169 * 2 + SEAM) / 2 + SEAM + (W239 * 2 + SEAM) / 2);
+  });
 });
 
 const item = (slug: string, tileSize: 'normal' | 'large' = 'normal', position: { col: number; row: number } | null = null) =>
@@ -52,32 +63,58 @@ const cellsOf = (p: Placed): string[] => {
   return out;
 };
 
-describe('layoutProjects (contiguous carpet)', () => {
+const noOverlaps = (placed: Placed[], tag = '') => {
+  const cells = new Set<string>();
+  for (const p of placed) {
+    for (const k of cellsOf(p)) {
+      expect(cells.has(k), `overlap at ${k} ${tag}`).toBe(false);
+      cells.add(k);
+    }
+  }
+  return cells;
+};
+
+/** A chapter as it ships: twenty panes, six featured, in json order. */
+const chapter = () => [
+  item('f0', 'large'), item('f1', 'large'), item('f2', 'large'),
+  ...Array.from({ length: 5 }, (_, i) => item(`a${i}`)),
+  item('f3', 'large'),
+  ...Array.from({ length: 4 }, (_, i) => item(`b${i}`)),
+  item('f4', 'large'), item('f5', 'large'),
+  ...Array.from({ length: 5 }, (_, i) => item(`c${i}`)),
+];
+
+// (owner 2026-09-26: "all panes outside the FEATURED must have the similar sizes as their FEATURED counterparts")
+describe('layoutProjects (a carpet of equal panes)', () => {
   it('is deterministic', () => {
-    const items = Array.from({ length: 9 }, (_, i) => item(`p${i}`));
-    expect(layoutProjects(items)).toEqual(layoutProjects(items));
+    expect(layoutProjects(chapter())).toEqual(layoutProjects(chapter()));
   });
 
-  it('never overlaps tiles, including large spans', () => {
-    const placed = layoutProjects([
-      item('big-a', 'large'),
-      ...Array.from({ length: 20 }, (_, i) => item(`p${i}`)),
-      item('big-b', 'large'),
-    ]);
-    const cells = new Set<string>();
+  it('lays every pane as a 2×2 block — the featured size — featured or not', () => {
+    const placed = layoutProjects(chapter());
+    expect(placed).toHaveLength(20);
+    for (const p of placed) expect(p.span, p.slug).toBe(2);
+  });
+
+  it('never overlaps panes', () => {
+    noOverlaps(layoutProjects(chapter()));
+  });
+
+  it('lays a shipped chapter (20 panes, 6 featured) as a clean 5 × 4 block: the featured 3 × 2, ringed by the rest', () => {
+    const placed = layoutProjects(chapter());
+    const slotC = (p: Placed) => p.col / 2;
+    const slotR = (p: Placed) => p.row / 2;
+    const cs = placed.map(slotC), rs = placed.map(slotR);
+    const [minC, maxC, minR, maxR] = [Math.min(...cs), Math.max(...cs), Math.min(...rs), Math.max(...rs)];
+    expect([maxC - minC + 1, maxR - minR + 1]).toEqual([5, 4]); // 20 slots, 20 panes: no ragged row
     for (const p of placed) {
-      for (const k of cellsOf(p)) {
-        expect(cells.has(k), `overlap at ${k}`).toBe(false);
-        cells.add(k);
-      }
+      const ring = slotC(p) === minC || slotC(p) === maxC || slotR(p) === minR || slotR(p) === maxR;
+      expect(ring, `${p.slug}: featured inside, the rest on the ring`).toBe(!p.slug.startsWith('f'));
     }
   });
 
-  it('packs a contiguous carpet — every tile shares an edge with another', () => {
-    const placed = layoutProjects([
-      item('big', 'large'),
-      ...Array.from({ length: 25 }, (_, i) => item(`p${i}`)),
-    ]);
+  it('packs a contiguous carpet — every pane shares an edge with another', () => {
+    const placed = layoutProjects([item('big', 'large'), ...Array.from({ length: 25 }, (_, i) => item(`p${i}`))]);
     const all = new Set(placed.flatMap(cellsOf));
     for (const p of placed) {
       const own = new Set(cellsOf(p));
@@ -91,99 +128,99 @@ describe('layoutProjects (contiguous carpet)', () => {
     }
   });
 
-  it('leaves no interior gaps in any row (first-fit refills holes)', () => {
-    // a large at a row end forces a temporary skip; later 1×1s must fill back in
-    const placed = layoutProjects([
-      ...Array.from({ length: 5 }, (_, i) => item(`a${i}`)),
-      item('big', 'large'),
-      ...Array.from({ length: 8 }, (_, i) => item(`b${i}`)),
-    ]);
+  it('leaves no holes in any band row — panes butt two cells apart', () => {
+    const placed = layoutProjects(chapter());
     const rows = new Map<number, number[]>();
-    for (const k of placed.flatMap(cellsOf)) {
-      const [c, r] = k.split(',').map(Number);
-      if (!rows.has(r)) rows.set(r, []);
-      rows.get(r)!.push(c);
+    for (const p of placed) {
+      if (!rows.has(p.row)) rows.set(p.row, []);
+      rows.get(p.row)!.push(p.col);
     }
-    let gaps = 0;
     for (const cols of rows.values()) {
       cols.sort((a, b) => a - b);
-      for (let i = 1; i < cols.length; i++) if (cols[i] - cols[i - 1] > 1) gaps++;
+      for (let i = 1; i < cols.length; i++) expect(cols[i] - cols[i - 1]).toBe(2);
     }
-    expect(gaps).toBe(0);
+    // and the band rows themselves stack two cells apart
+    const rs = [...rows.keys()].sort((a, b) => a - b);
+    for (let i = 1; i < rs.length; i++) expect(rs[i] - rs[i - 1]).toBe(2);
   });
 
-  it('large tiles occupy a full 2×2 block', () => {
-    const placed = layoutProjects([item('big', 'large'), item('a'), item('b')]);
-    expect(placed[0].span).toBe(2);
-    expect(cellsOf(placed[0])).toHaveLength(4);
-  });
-
-  it('concentrates featured larges into one solid centered cluster', () => {
-    // stream order must not matter: smalls arriving first cannot squat the centre
+  it('gathers the featured into one solid cluster at the heart, on the camera\'s opening view', () => {
+    // stream order must not matter: regular panes arriving first cannot squat the centre
     const placed = layoutProjects([
       ...Array.from({ length: 10 }, (_, i) => item(`s${i}`)),
       ...Array.from({ length: 6 }, (_, i) => item(`big${i}`, 'large')),
-      ...Array.from({ length: 10 }, (_, i) => item(`t${i}`)),
+      ...Array.from({ length: 4 }, (_, i) => item(`t${i}`)),
     ]);
-    const bigs = placed.filter((p) => p.span === 2);
-    expect(bigs).toHaveLength(6);
+    const bigs = placed.filter((p) => p.slug.startsWith('big'));
     const cells = bigs.flatMap(cellsOf).map((k) => k.split(',').map(Number));
     const minC = Math.min(...cells.map(([c]) => c));
     const maxC = Math.max(...cells.map(([c]) => c));
     const minR = Math.min(...cells.map(([, r]) => r));
     const maxR = Math.max(...cells.map(([, r]) => r));
-    // one solid block: the bounding box is exactly filled by the six larges
+    // one solid block: the bounding box is exactly filled by the six (3 × 2 panes)
     expect((maxC - minC + 1) * (maxR - minR + 1)).toBe(24);
-    expect(cells).toHaveLength(24);
-    // and it sits at the heart of the carpet
-    const all = placed.flatMap(cellsOf).map((k) => k.split(',').map(Number));
-    const cAll = all.reduce((s, [c]) => s + c, 0) / all.length;
-    const rAll = all.reduce((s, [, r]) => s + r, 0) / all.length;
-    expect(Math.abs((minC + maxC) / 2 - cAll)).toBeLessThanOrEqual(1);
-    expect(Math.abs((minR + maxR) / 2 - rAll)).toBeLessThanOrEqual(1);
+    expect(new Set(cells.map((c) => c.join(','))).size).toBe(24);
+    // centred on the world origin, where the camera opens (cell centres sit on integers)
+    expect(Math.abs((minC + maxC) / 2)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs((minR + maxR) / 2)).toBeLessThanOrEqual(0.5);
   });
 
   it('grows organically — future films can be appended at any scale, no cap', () => {
-    // Adding panes must never require touching the engine: the band widens
-    // with the count, rows extend as needed, every tile lands exactly once,
-    // and the featured larges stay inside their centred cluster envelope.
-    for (const [smalls, larges] of [[10, 3], [23, 3], [34, 6], [54, 6], [92, 8], [200, 12]] as const) {
+    for (const [smalls, larges] of [[10, 3], [14, 6], [23, 3], [34, 6], [54, 6], [92, 8], [200, 12], [7, 0]] as const) {
       const items = [
         ...Array.from({ length: smalls }, (_, i) => item(`s${i}`)),
         ...Array.from({ length: larges }, (_, i) => item(`big${i}`, 'large')),
       ];
       const placed = layoutProjects(items);
-      expect(placed, `${smalls}+${larges}: every film placed`).toHaveLength(items.length);
+      const tag = `(${smalls}+${larges})`;
+      expect(placed, `${tag}: every film placed`).toHaveLength(items.length);
+      expect(new Set(placed.map((p) => p.slug)).size, `${tag}: each once`).toBe(items.length);
+      noOverlaps(placed, tag);
+      for (const p of placed) expect(p.span).toBe(2);
 
-      const cells = new Set<string>();
-      for (const p of placed) {
-        for (const k of cellsOf(p)) {
-          expect(cells.has(k), `overlap at ${k} (${smalls}+${larges})`).toBe(false);
-          cells.add(k);
-        }
-      }
-
-      // the carpet stays a bounded landscape band — growth adds rows, and
-      // width never exceeds the derived band (or the cluster envelope)
-      const cellCount = smalls + larges * 4;
+      // a bounded landscape band — growth adds rows; the width stays between a
+      // square and a wide 2.2:1 (in panes), and the band leaves less than a row empty
+      const n = items.length;
       const clusterCols = Math.ceil(Math.sqrt(larges));
-      const expectedCols = Math.max(2, Math.round(Math.sqrt(cellCount * 1.6)), clusterCols * 2);
-      const colsUsed = [...cells].map((k) => Number(k.split(',')[0]));
-      expect(Math.max(...colsUsed) - Math.min(...colsUsed) + 1).toBeLessThanOrEqual(expectedCols);
+      const colsUsed = placed.map((p) => p.col);
+      const rowsUsed = placed.map((p) => p.row);
+      const width = (Math.max(...colsUsed) - Math.min(...colsUsed)) / 2 + 1;
+      const height = (Math.max(...rowsUsed) - Math.min(...rowsUsed)) / 2 + 1;
+      expect(width, `${tag}: band width`).toBeLessThanOrEqual(Math.max(2, clusterCols, Math.round(Math.sqrt(n * 2.2))));
+      expect(width, `${tag}: landscape`).toBeGreaterThanOrEqual(height);
+      expect(width * height - n, `${tag}: empty slots`).toBeLessThan(width);
 
-      // larges stay confined to the reserved centre cluster envelope
-      const bigCells = placed.filter((p) => p.span === 2).flatMap(cellsOf).map((k) => k.split(',').map(Number));
-      const bw = Math.max(...bigCells.map(([c]) => c)) - Math.min(...bigCells.map(([c]) => c)) + 1;
-      const bh = Math.max(...bigCells.map(([, r]) => r)) - Math.min(...bigCells.map(([, r]) => r)) + 1;
-      const clusterRows = Math.ceil(larges / clusterCols);
-      expect(bw, `${smalls}+${larges}: cluster width`).toBeLessThanOrEqual(clusterCols * 2);
-      expect(bh, `${smalls}+${larges}: cluster height`).toBeLessThanOrEqual(clusterRows * 2);
+      // the featured stay inside their centred cluster envelope
+      if (larges) {
+        const bigs = placed.filter((p) => p.slug.startsWith('big'));
+        const bw = (Math.max(...bigs.map((p) => p.col)) - Math.min(...bigs.map((p) => p.col))) / 2 + 1;
+        const bh = (Math.max(...bigs.map((p) => p.row)) - Math.min(...bigs.map((p) => p.row))) / 2 + 1;
+        expect(bw, `${tag}: cluster width`).toBeLessThanOrEqual(clusterCols);
+        expect(bh, `${tag}: cluster height`).toBeLessThanOrEqual(Math.ceil(larges / clusterCols));
+      }
     }
   });
 
-  it('honors explicit position overrides and keeps others clear of them', () => {
-    const placed = layoutProjects([item('pinned', 'normal', { col: 0, row: 0 }), item('auto')]);
-    expect(placed[0]).toEqual({ slug: 'pinned', col: 0, row: 0, span: 1 });
-    expect(cellsOf(placed[1])).not.toContain('0,0');
+  it('honors explicit pins in pane slots and keeps every other pane clear of them', () => {
+    const placed = layoutProjects([
+      item('pin-a', 'normal', { col: 0, row: 0 }),
+      item('auto-1'),
+      item('pin-b', 'normal', { col: 1, row: 0 }),
+      item('auto-2'),
+    ]);
+    const [a, , b] = placed;
+    expect(a.slug).toBe('pin-a');
+    expect(b.slug).toBe('pin-b');
+    // neighbouring slots on the band: the same band row, one pane (two cells) apart
+    expect(b.row).toBe(a.row);
+    expect(b.col - a.col).toBe(2);
+    noOverlaps(placed);
+  });
+
+  it('paneBand alternates row by row, so the flights keep their rhythm on even lattice rows', () => {
+    const placed = layoutProjects(chapter());
+    const bands = [...new Set(placed.map(paneBand))].sort((x, y) => x - y);
+    for (let i = 1; i < bands.length; i++) expect(bands[i] - bands[i - 1]).toBe(1);
+    expect(paneBand({ slug: 'x', col: 0, row: 3, span: 1 })).toBe(3); // a 1×1 is its own band
   });
 });

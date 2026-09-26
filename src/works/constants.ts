@@ -4,7 +4,7 @@ export const CARD_W = 400;
 export const CARD_H = 225;
 export const ISO = { a: 0.8, b: 0.4, c: -0.8, d: 0.4 }; // TUNE — resting 2:1 shear
 export const HOVER_M = { a: 1.18, b: 0, c: 0, d: 1.18 }; // upright, magnified
-export const SIZE_MUL_LARGE = 2; // large = exactly 2×2 cells so the carpet stays seamless
+export const SIZE_MUL_LARGE = 2; // every pane = exactly 2×2 cells (the featured size, for all since the owner's equal-panes rule) so the carpet stays seamless
 export const SEAM = 8; // TUNE — card-space gap between tiles (the only air in the carpet)
 export const WORLD_PAD = 220;
 

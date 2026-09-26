@@ -268,6 +268,15 @@ export class ProjectTile extends Container {
     this.zIndex = this.placed.col + this.placed.row;
   }
 
+  /** Stop every tween this pane owns — its world is about to be torn down, and a
+   *  tween outliving the scene graph writes into destroyed transforms. */
+  killTweens(): void {
+    gsap.killTweensOf(this);
+    gsap.killTweensOf(this.m);
+    gsap.killTweensOf(this.card);
+    if (this.glow) gsap.killTweensOf(this.glow);
+  }
+
   constructor(project: Project, placed: Placed, poster: PosterResult) {
     super();
     this.project = project;

@@ -45,14 +45,14 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | client | commissioning client — adds a CLIENT row to the spec sheet (leave out to hide) | `"Garena"` |
 | tags | list of words | `["short film","sci-fi"]` |
 | accent | this film's color, hex | `"#C8FF00"` |
-| tileSize | `"normal"` or `"large"` (large = double tile) | `"large"` |
+| tileSize | `"normal"` or `"large"` (large = FEATURED: the centre cluster and the featured dress — every pane is the same size) | `"large"` |
 | aspect | `"16:9"` (default), `"4:3"` or `"2.39:1"` — the floor pane AND the whole dossier (hero + stills) present in this ratio; the carpet packs neighbors tight around any width | `"4:3"` |
 | category | which works channel: `"human"` or `"machine"` (leave out = human) | `"machine"` |
 | synopsis | one short paragraph | |
 | credits | list of `{ "role": …, "name": … }` | |
 | film | where the full film lives — see below | |
 | stills | gallery file names, in order | `["01.jpg","02.jpg"]` |
-| position | leave out (auto layout) or pin: `{ "col": 4, "row": 0 }` | |
+| position | leave out (auto layout) or pin a pane slot on the band: `{ "col": 4, "row": 0 }` = the 5th pane of the top row | |
 
 **film** is what the WATCH button plays. It is one of:
 - `{ "type": "vimeo", "src": "https://vimeo.com/123456789" }`
@@ -154,10 +154,11 @@ build step, no terminal.
   folder, `preview.mp4` / `loop.mp4` win first, then A→Z decides.
   `hover.mp4` and a self-hosted film file are never picked.
 - **Reorder the floor:** reorder the entries in `projects.json`.
-- **Feature a film:** set its `tileSize` to `"large"`. Featured films render
-  at double size, gather as one cluster at the centre of the floor, and wear
+- **Feature a film:** set its `tileSize` to `"large"`. Featured films gather
+  as one cluster at the centre of the floor (where the page opens) and wear
   the featured dress (double frame, FEATURED tag, resting glow, photographic
-  poster). Six featured films make the best centre block.
+  poster). Every pane on the floor is the same size, featured or not.
+  Six featured films make the best centre block.
 - **Remove a film:** delete its entry from `projects.json` (the folder can stay).
 - **The floor has no size limit.** Add as many films as you like — append
   entries to `projects.json` and each channel's floor grows on its own:
