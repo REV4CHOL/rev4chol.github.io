@@ -61,14 +61,15 @@ describe('shipped content files', () => {
 
   // the owner's second batch (2026-09-26): three films into three placeholders' slots, each linked
   const BATCH = [
-    { slug: 'the-father', slot: 4, was: 'void-cartography', title: 'The Father', role: 'Colorist', runtime: '2:27',
+    { slug: 'the-father', slot: 4, was: 'void-cartography', title: 'The Father', year: 2026, role: 'Colorist', runtime: '2:27',
       tags: ['slice of life'], synopsis: 'A father hiding secrets from his own daughter.', category: 'machine',
       tileSize: 'large', aspect: '16:9', youtube: 'Idreboecojw', stills: 23 },
-    { slug: 'halide', slot: 31, was: 'paper-lantern-war', title: 'HALIDE', role: 'Director / Colorist / Editor', runtime: '1:06',
+    { slug: 'halide', slot: 31, was: 'paper-lantern-war', title: 'HALIDE', year: 2026, role: 'Director / Colorist / Editor', runtime: '1:06',
       tags: ['experimental'], synopsis: 'Whiter dreams and whiter lives.', category: 'human',
       tileSize: 'normal', aspect: '2.39:1', youtube: 'dMbsrk9Eeiw', stills: 29 },
-    // (the owner, mid-build: "MIST CHILD must be MISTCHILD" — one word, as its YouTube title has it)
-    { slug: 'mistchild', slot: 32, was: 'low-tide-gospel', title: 'MISTCHILD', role: 'Director / Colorist / Editor', runtime: '0:47',
+    // (the owner, mid-build: "MIST CHILD must be MISTCHILD" — one word, as its YouTube title has it;
+    //  and after: "mistchild is 2025", as its folder says — the brief's 2026 was a slip)
+    { slug: 'mistchild', slot: 32, was: 'low-tide-gospel', title: 'MISTCHILD', year: 2025, role: 'Director / Colorist / Editor', runtime: '0:47',
       tags: ['experimental'], synopsis: 'The child must have felt so lonely, in the mist.', category: 'human',
       tileSize: 'normal', aspect: '2.39:1', youtube: 'dyqpjo4eKJI', stills: 16 },
   ];
@@ -80,7 +81,7 @@ describe('shipped content files', () => {
     const p = projects[f.slot];
     expect(p.slug).toBe(f.slug);
     expect(p.title).toBe(f.title);
-    expect(p.year).toBe(2026);
+    expect(p.year).toBe(f.year);
     expect(p.role).toBe(f.role);
     expect(p.credits).toEqual([{ role: f.role, name: 'Revachol' }]); // no placeholder credit left behind
     expect(p.runtime).toBe(f.runtime);

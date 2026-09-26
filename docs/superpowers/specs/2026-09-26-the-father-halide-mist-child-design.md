@@ -31,14 +31,14 @@ The house forms: a YouTube film is `{"type": "youtube", "src": "https://www.yout
 | 31 | `halide` | HALIDE | Director / Colorist / Editor | 1:06 | experimental | `#FFFFFF` | 2.39:1 | human | normal |
 | 32 | `mistchild` | MISTCHILD | Director / Colorist / Editor | 0:47 | experimental | `#85AFE0` | 2.39:1 | human | normal |
 
-All three are dated 2026, carry the owner's synopsis, and credit their role line to Revachol. Each gets its YouTube film and no `filmPending`.
+THE FATHER and HALIDE are dated 2026 and MISTCHILD 2025 (see below). Each carries the owner's synopsis, and credit their role line to Revachol. Each gets its YouTube film and no `filmPending`.
 
 - **Accents, from the pictures.**
   - THE FATHER: the backlight that rims the father. Still 21's flare samples `#D6B18E`, lifted to read on the dark page (hue 29°, softer than JAECOO's tangerine `#FFA84D`).
   - HALIDE: pure white. The film is silver halide, black and white, and "whiter dreams and whiter lives". It is the floor's only pure white; the placeholders' warm bone is `#EDEDE6`.
   - MISTCHILD: the jelly-blue toy (`#22587E` sampled), misted. It is softer and more periwinkle than SODA COAST's sky `#4FB3FF`.
 - **Sizes.** HALIDE and MISTCHILD take regular screens. The placeholders they replace are regular, so each chapter keeps its six featured. Promoting either is one field (`tileSize: "large"`) plus a swap to keep the six.
-- **MISTCHILD's year.** The folder reads 2025, but the owner's line says 2026. The site carries 2026, the owner's words, and the closing report flags it.
+- **MISTCHILD's year.** The folder reads 2025, but the owner's line says 2026. The site carried 2026, the owner's words, and the closing report flagged it. **The owner then confirmed 2025** ("yeah mistchild is 2025"), and the entry and its test now say 2025.
 - **SODA COAST.** `film` becomes the YouTube `mrR8hRc4XF4` and `filmPending` goes, so WATCH is live.
 
 ### B. The media, by the house recipes
