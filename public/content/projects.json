@@ -72,7 +72,7 @@
     "slug": "katara",
     "title": "KATARA",
     "year": 2026,
-    "role": "Director / Editor / Colorist / Sound Mixer",
+    "role": "Director / Editor / Colorist / Sound Designer",
     "runtime": "1:20",
     "tags": [
       "experimental"
@@ -82,7 +82,7 @@
     "synopsis": "Human shadows fall across a garden that was never grown. An AI short film.",
     "credits": [
       {
-        "role": "Director / Editor / Colorist / Sound Mixer",
+        "role": "Director / Editor / Colorist / Sound Designer",
         "name": "Revachol"
       }
     ],
@@ -117,25 +117,29 @@
     "tileSize": "large"
   },
   {
-    "slug": "tender-machines",
-    "title": "Tender Machines",
-    "year": 2024,
-    "role": "Director",
-    "runtime": "09:57",
+    "slug": "forest-onsen",
+    "title": "FOREST ONSEN - Ecopark's Eco Retreat Commercial",
+    "year": 2026,
+    "role": "AI Lead / Colorist",
+    "runtime": "0:47",
     "tags": [
-      "short film"
+      "real estate",
+      "tv commercial"
     ],
-    "accent": "#EDEDE6",
-    "tileSize": "large",
-    "synopsis": "A repair shop for things nobody makes anymore, and the woman who refuses to let them die.",
+    "accent": "#EDCB8A",
+    "synopsis": "Change your life’s experience, with Forest Onsen.",
     "credits": [
       {
-        "role": "Director",
+        "role": "AI Lead / Colorist",
         "name": "Revachol"
       }
     ],
-    "film": null,
-    "category": "machine"
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/5drz5nwLdKM"
+    },
+    "category": "machine",
+    "tileSize": "large"
   },
   {
     "slug": "glass-harvest",
@@ -206,23 +210,27 @@
     "tileSize": "normal"
   },
   {
-    "slug": "copper-lullaby",
-    "title": "Copper Lullaby",
-    "year": 2023,
-    "role": "Director",
-    "runtime": "06:08",
+    "slug": "far-east",
+    "title": "FAR EAST",
+    "year": 2025,
+    "role": "Director / Editor / Colorist",
+    "runtime": "1:30",
     "tags": [
       "experimental"
     ],
-    "accent": "#FF2E63",
-    "synopsis": "Recorded inside a decommissioned power station: the building's last week of electrical hum, set to images.",
+    "accent": "#EFC468",
+    "aspect": "2.39:1",
+    "synopsis": "East of memory, the grass holds the sun and a house waits. Two silhouettes learn the horizon — the land keeping a warmth the day has already left.",
     "credits": [
       {
-        "role": "Director",
+        "role": "Director / Editor / Colorist",
         "name": "Revachol"
       }
     ],
-    "film": null,
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/DrezQ5zlHqI"
+    },
     "category": "human",
     "tileSize": "normal"
   },
@@ -271,7 +279,28 @@
     "tileSize": "normal"
   },
   {
-    "blank": true,
+    "slug": "an-hoi",
+    "title": "\"Ăn Hỏi\" Ceremony",
+    "year": 2026,
+    "role": "Director / Colorist / Editor / Sound Designer",
+    "runtime": "3:17",
+    "tags": [
+      "experimental",
+      "slice of life"
+    ],
+    "accent": "#CFDB9E",
+    "aspect": "4:3",
+    "synopsis": "Gathering together, saying the first words, for their time spent together for all eternity.",
+    "credits": [
+      {
+        "role": "Director / Colorist / Editor / Sound Designer",
+        "name": "Revachol"
+      }
+    ],
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/XKkHkLVUC40"
+    },
     "category": "human",
     "tileSize": "large"
   },
@@ -326,7 +355,7 @@
     "slug": "jaecoo-j5",
     "title": "JAECOO J5",
     "year": 2026,
-    "role": "Director / Editor / Colorist / Sound Mixer",
+    "role": "Director / Editor / Colorist / Sound Designer",
     "runtime": "2:43",
     "tags": [
       "spec advertisement"
@@ -335,7 +364,7 @@
     "synopsis": "A dog, a city and one long golden hour on the road. A machine-dreamt spec ad for the JAECOO J5.",
     "credits": [
       {
-        "role": "Director / Editor / Colorist / Sound Mixer",
+        "role": "Director / Editor / Colorist / Sound Designer",
         "name": "Revachol"
       }
     ],
@@ -347,23 +376,28 @@
     "tileSize": "large"
   },
   {
-    "slug": "rust-choir",
-    "title": "Rust Choir",
-    "year": 2024,
-    "role": "Director",
-    "runtime": "09:33",
+    "slug": "soda-coast",
+    "title": "Soda Coast",
+    "year": 2025,
+    "role": "Director / Colorist / Editor / Sound Designer",
+    "runtime": "1:56",
     "tags": [
-      "documentary"
+      "experimental",
+      "supernatural"
     ],
-    "accent": "#FF2E63",
-    "synopsis": "Wind through a decommissioned shipyard, recorded for a year. The hulls sing in winter.",
+    "accent": "#4FB3FF",
+    "aspect": "2.39:1",
+    "synopsis": "I see summer. And then the sea.",
     "credits": [
       {
-        "role": "Director",
+        "role": "Director / Colorist / Editor / Sound Designer",
         "name": "Revachol"
       }
     ],
-    "film": null,
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/mrR8hRc4XF4"
+    },
     "category": "human",
     "tileSize": "normal"
   },
@@ -418,7 +452,7 @@
     "slug": "electric-fish",
     "title": "mr_PURPLE_dreams_in_electric_fish",
     "year": 2026,
-    "role": "Director / Editor / Colorist / Sound Mixer",
+    "role": "Director / Editor / Colorist / Sound Designer",
     "runtime": "1:04",
     "tags": [
       "experimental"
@@ -428,7 +462,7 @@
     "synopsis": "Two morning cafés, and the street slips underwater. Stillness and voltage share one purple breath — the organic and the synthetic dreaming each other in the city's electric current.",
     "credits": [
       {
-        "role": "Director / Editor / Colorist / Sound Mixer",
+        "role": "Director / Editor / Colorist / Sound Designer",
         "name": "Revachol"
       }
     ],
@@ -527,18 +561,17 @@
     "tileSize": "normal"
   },
   {
-    "slug": "soda-coast",
-    "title": "Soda Coast",
+    "slug": "soft-hours-lonely-lands",
+    "title": "Soft Hours & Lonely Lands",
     "year": 2025,
     "role": "Director / Colorist / Editor / Sound Designer",
-    "runtime": "1:56",
+    "runtime": "1:46",
     "tags": [
-      "experimental",
-      "supernatural"
+      "experimental"
     ],
-    "accent": "#4FB3FF",
+    "accent": "#F39A7E",
     "aspect": "2.39:1",
-    "synopsis": "I see summer. And then the sea.",
+    "synopsis": "The stillness of ordinary moments, in familiar places that feel strangely distant, with the extraordinary emotions for the empty spaces.",
     "credits": [
       {
         "role": "Director / Colorist / Editor / Sound Designer",
@@ -547,7 +580,7 @@
     ],
     "film": {
       "type": "youtube",
-      "src": "https://www.youtube.com/embed/mrR8hRc4XF4"
+      "src": "https://www.youtube.com/embed/G_wItkJWT2o"
     },
     "category": "human",
     "tileSize": "normal"
@@ -580,27 +613,23 @@
     "film": null
   },
   {
-    "slug": "far-east",
-    "title": "FAR EAST",
-    "year": 2025,
-    "role": "Director / Editor / Colorist",
-    "runtime": "1:30",
+    "slug": "copper-lullaby",
+    "title": "Copper Lullaby",
+    "year": 2023,
+    "role": "Director",
+    "runtime": "06:08",
     "tags": [
       "experimental"
     ],
-    "accent": "#EFC468",
-    "aspect": "2.39:1",
-    "synopsis": "East of memory, the grass holds the sun and a house waits. Two silhouettes learn the horizon — the land keeping a warmth the day has already left.",
+    "accent": "#FF2E63",
+    "synopsis": "Recorded inside a decommissioned power station: the building's last week of electrical hum, set to images.",
     "credits": [
       {
-        "role": "Director / Editor / Colorist",
+        "role": "Director",
         "name": "Revachol"
       }
     ],
-    "film": {
-      "type": "youtube",
-      "src": "https://www.youtube.com/embed/DrezQ5zlHqI"
-    },
+    "film": null,
     "category": "human",
     "tileSize": "normal"
   },

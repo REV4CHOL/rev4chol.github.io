@@ -31,11 +31,12 @@ describe('shipped content files', () => {
     expect(roles[1]).toBe('colorist');
   });
 
-  it('SODA COAST: the owner\'s scope film, linked — since 2026-09-27 a regular pane in SODIUM HAZE\'s place', () => {
+  it('SODA COAST: the owner\'s scope film, linked — since 2026-09-27 a regular pane, now in RUST CHOIR\'s place', () => {
     const projects = parseProjects(rawProjects());
     const floor = parseFloor(rawProjects());
     expect(projects.some((p) => p.slug === 'vhs-eden')).toBe(false);
-    expect(floor.findIndex((it) => it.slug === 'soda-coast')).toBe(24);
+    // (first to SODIUM HAZE's place, json 24; then the owner, the same day: "move SODA COAST to RUST CHOIR")
+    expect(floor.findIndex((it) => it.slug === 'soda-coast')).toBe(16);
     const p = projects.find((q) => q.slug === 'soda-coast')!;
     expect(p.title).toBe('Soda Coast');
     expect(p.year).toBe(2025);
@@ -78,10 +79,39 @@ describe('shipped content files', () => {
       tileSize: 'normal', aspect: '2.39:1', youtube: 'dyqpjo4eKJI', stills: 16 },
   ];
 
+  // the owner's third batch (2026-09-27): FOREST ONSEN into TENDER MACHINES' place; SOFT HOURS & LONELY LANDS
+  // "at the pane where SODA COAST just left"; "ĂN HỎI" CEREMONY into the "upper blank space", featured.
+  // The owner's text verbatim — straight quotes, the ampersand, the diacritics (NFC), the curly apostrophe.
+  const BATCH3 = [
+    { slug: 'forest-onsen', slot: 5, where: 'takes TENDER MACHINES\' featured place in CH·02',
+      title: 'FOREST ONSEN - Ecopark\'s Eco Retreat Commercial', year: 2026, role: 'AI Lead / Colorist', runtime: '0:47',
+      tags: ['real estate', 'tv commercial'], synopsis: 'Change your life’s experience, with Forest Onsen.', category: 'machine',
+      tileSize: 'large', aspect: '16:9', youtube: '5drz5nwLdKM', stills: 10 },
+    { slug: 'soft-hours-lonely-lands', slot: 24, where: 'takes the pane SODA COAST left',
+      title: 'Soft Hours & Lonely Lands', year: 2025, role: 'Director / Colorist / Editor / Sound Designer', runtime: '1:46',
+      tags: ['experimental'],
+      synopsis: 'The stillness of ordinary moments, in familiar places that feel strangely distant, with the extraordinary emotions for the empty spaces.',
+      category: 'human', tileSize: 'normal', aspect: '2.39:1', youtube: 'G_wItkJWT2o', stills: 36 },
+    { slug: 'an-hoi', slot: 12, where: 'fills the upper held place, featured',
+      title: '"Ăn Hỏi" Ceremony', year: 2026, role: 'Director / Colorist / Editor / Sound Designer', runtime: '3:17',
+      tags: ['experimental', 'slice of life'],
+      synopsis: 'Gathering together, saying the first words, for their time spent together for all eternity.',
+      category: 'human', tileSize: 'large', aspect: '4:3', youtube: 'XKkHkLVUC40', stills: 35 },
+  ];
+
+  for (const f of BATCH3) it(`${f.title.toUpperCase()} ${f.where}, linked, with its media (owner 2026-09-27)`, () => {
+    checkFilm(f);
+  });
+
   for (const f of BATCH) it(`${f.title.toUpperCase()} takes ${f.was}'s slot, linked, with its media (owner 2026-09-26)`, () => {
     const projects = parseProjects(rawProjects());
     expect(projects.some((p) => p.slug === f.was)).toBe(false);
     expect(existsSync(`${root}projects/${f.was}`)).toBe(false);
+    checkFilm(f);
+  });
+
+  function checkFilm(f: Omit<(typeof BATCH)[number], 'was'>): void {
+    const projects = parseProjects(rawProjects());
     expect(parseFloor(rawProjects()).findIndex((it) => it.slug === f.slug)).toBe(f.slot);
     const p = projects.find((q) => q.slug === f.slug)!;
     expect(p.title).toBe(f.title);
@@ -103,61 +133,78 @@ describe('shipped content files', () => {
     expect(stills).toHaveLength(f.stills);
     expect(stills[0]).toBe('01.jpg');
     expect(stills[f.stills - 1]).toBe(`${String(f.stills).padStart(2, '0')}.jpg`);
+  }
+
+  // (owner 2026-09-27: "Change all Sound Mixer roles written on every project to Sound Designer")
+  it('no project credits a Sound Mixer: the owner\'s sound role is Sound Designer', () => {
+    expect(read('projects.json')).not.toMatch(/sound mixer/i);
+    const projects = parseProjects(rawProjects());
+    for (const slug of ['katara', 'jaecoo-j5', 'electric-fish']) {
+      const p = projects.find((q) => q.slug === slug)!;
+      expect(p.role, slug).toBe('Director / Editor / Colorist / Sound Designer');
+      expect(p.credits, slug).toEqual([{ role: 'Director / Editor / Colorist / Sound Designer', name: 'Revachol' }]);
+    }
   });
 
-  // (owner 2026-09-27: "move Soda Coast to Sodium Haze / And Far East to Motel Eden / Then leave the
-  //  original panes as they left blank, i am about to fill in two more to those two positions")
-  it('SODA COAST and FAR EAST take SODIUM HAZE\'s and MOTEL EDEN\'s places; two held places keep theirs', () => {
+  // (owner 2026-09-27, first: "move Soda Coast to Sodium Haze / And Far East to Motel Eden / Then leave the
+  //  original panes as they left blank, i am about to fill in two more to those two positions"; then, the same
+  //  day: "move FAR EAST to Copper Lullaby", "move SODA COAST to RUST CHOIR", SOFT HOURS "at the pane where
+  //  SODA COAST just left", "ĂN HỎI" CEREMONY into the "upper blank space")
+  it('the CH·01 moves: FAR EAST ↔ COPPER LULLABY, SODA COAST in RUST CHOIR\'s place; one held place left', () => {
     const floor = parseFloor(rawProjects());
     expect(floor).toHaveLength(40);
-    expect(floor.filter(isBlank)).toHaveLength(2);
-    expect(floor[12]).toEqual({ blank: true, slug: 'blank-12', category: 'human', tileSize: 'large', position: null });
+    expect(floor.filter(isBlank)).toHaveLength(1);
     expect(floor[25]).toEqual({ blank: true, slug: 'blank-25', category: 'human', tileSize: 'large', position: null });
-    expect([floor[24].slug, floor[24].tileSize]).toEqual(['soda-coast', 'normal']);
-    expect([floor[27].slug, floor[27].tileSize]).toEqual(['far-east', 'normal']);
-    for (const gone of ['sodium-haze', 'motel-eden']) {
+    const slot = (i: number) => [floor[i].slug, floor[i].tileSize];
+    expect(slot(9)).toEqual(['far-east', 'normal']); // COPPER LULLABY's place, top row
+    expect(slot(27)).toEqual(['copper-lullaby', 'normal']); // …which takes FAR EAST's old one: a swap
+    expect(slot(16)).toEqual(['soda-coast', 'normal']); // RUST CHOIR's place, top row
+    for (const gone of ['sodium-haze', 'motel-eden', 'rust-choir', 'tender-machines']) {
       expect(floor.some((it) => it.slug === gone), gone).toBe(false);
       expect(existsSync(`${root}projects/${gone}`), `${gone} folder`).toBe(false);
     }
-    // FAR EAST moves whole: only its size changed
+    // FAR EAST moves whole: only its place changed
     const fe = parseProjects(rawProjects()).find((p) => p.slug === 'far-east')!;
     expect(fe.film).toEqual({ type: 'youtube', src: 'https://www.youtube.com/embed/DrezQ5zlHqI' });
     expect([fe.title, fe.year, fe.aspect, fe.category]).toEqual(['FAR EAST', 2025, '2.39:1', 'human']);
   });
 
-  it('CH·01 lies as the owner asked: the held places where the two stood, the two just right of them, the rest unmoved', () => {
-    const human = parseFloor(rawProjects()).filter((it) => it.category === 'human');
-    const placed = layoutProjects(human.map((it) => ({ slug: it.slug, tileSize: it.tileSize, position: it.position })));
+  // a chapter's floor as the layout lays it: slug → [column, row] on its 5 × 4 pane grid
+  const cells = (category: 'human' | 'machine') => {
+    const items = parseFloor(rawProjects()).filter((it) => it.category === category);
+    const placed = layoutProjects(items.map((it) => ({ slug: it.slug, tileSize: it.tileSize, position: it.position })));
     const c0 = Math.min(...placed.map((p) => p.col));
     const r0 = Math.min(...placed.map((p) => p.row));
-    const at = new Map(placed.map((p) => [p.slug, [(p.col - c0) / 2, (p.row - r0) / 2]]));
-    expect(at.get('philia')).toEqual([1, 1]);
-    expect(at.get('mien-vien')).toEqual([2, 1]);
-    expect(at.get('blank-12')).toEqual([3, 1]); // where SODA COAST stood
-    expect(at.get('soda-coast')).toEqual([4, 1]); // where SODIUM HAZE stood
-    expect(at.get('lien-quan')).toEqual([1, 2]);
-    expect(at.get('electric-fish')).toEqual([2, 2]);
-    expect(at.get('blank-25')).toEqual([3, 2]); // where FAR EAST stood
-    expect(at.get('far-east')).toEqual([4, 2]); // where MOTEL EDEN stood
-    expect(at.get('glass-harvest')).toEqual([0, 0]);
-    expect(at.get('acid-pastoral')).toEqual([0, 1]);
-    expect(at.get('gasoline-hymn')).toEqual([0, 2]);
-    // (owner 2026-09-27: "Move MISTCHILD to neon liturgy" — the top-right corner; NEON LITURGY takes its old one)
-    expect(at.get('mistchild')).toEqual([4, 0]);
-    expect(at.get('neon-liturgy')).toEqual([4, 3]);
+    return Object.fromEntries(placed.map((p) => [p.slug, [(p.col - c0) / 2, (p.row - r0) / 2]]));
+  };
+
+  it('CH·01 lies as the owner asked, cell by cell', () => {
+    expect(cells('human')).toEqual({
+      'glass-harvest': [0, 0], 'saline-throne': [1, 0], 'far-east': [2, 0], 'soda-coast': [3, 0], mistchild: [4, 0],
+      'acid-pastoral': [0, 1], philia: [1, 1], 'mien-vien': [2, 1], 'an-hoi': [3, 1], 'soft-hours-lonely-lands': [4, 1],
+      'gasoline-hymn': [0, 2], 'lien-quan': [1, 2], 'electric-fish': [2, 2], 'blank-25': [3, 2], 'copper-lullaby': [4, 2],
+      'salt-cathedral': [0, 3], 'velvet-static': [1, 3], 'winter-arcade': [2, 3], halide: [3, 3], 'neon-liturgy': [4, 3],
+    });
   });
 
-  it('projects.json is valid: CH·02 holds 20 films (6 featured); CH·01 18 films (4 featured) and 2 held places', () => {
+  it('CH·02: FOREST ONSEN stands where TENDER MACHINES stood, in the featured cluster', () => {
+    const at = cells('machine');
+    expect(at['forest-onsen']).toEqual([1, 2]);
+    expect([at['static-hymn'], at.katara, at['the-father']]).toEqual([[1, 1], [2, 1], [3, 1]]);
+    expect([at['jaecoo-j5'], at['terminal-bloom']]).toEqual([[2, 2], [3, 2]]);
+  });
+
+  it('projects.json is valid: CH·02 holds 20 films (6 featured); CH·01 19 films (5 featured) and 1 held place', () => {
     const films = parseProjects(rawProjects());
     const human = films.filter((p) => p.category === 'human');
     const machine = films.filter((p) => p.category === 'machine');
     expect(machine).toHaveLength(20);
     expect(machine.filter((p) => p.tileSize === 'large')).toHaveLength(6);
-    expect(human).toHaveLength(18);
-    expect(human.filter((p) => p.tileSize === 'large')).toHaveLength(4);
+    expect(human).toHaveLength(19);
+    expect(human.filter((p) => p.tileSize === 'large')).toHaveLength(5);
     const humanFloor = parseFloor(rawProjects()).filter((it) => it.category === 'human');
     expect(humanFloor).toHaveLength(20); // still a full 5 × 4 floor
-    expect(humanFloor.filter((it) => it.tileSize === 'large')).toHaveLength(6); // its cluster: 4 films + 2 held
+    expect(humanFloor.filter((it) => it.tileSize === 'large')).toHaveLength(6); // its cluster: 5 films + 1 held
   });
 
   it('the homepage has a first frame: a hero image or at least one loop', () => {
