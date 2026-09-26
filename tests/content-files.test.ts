@@ -15,11 +15,11 @@ describe('shipped content files', () => {
     expect(site.name).toBe('REVACHOL');
     expect(site.nav.map((n) => [n.label, n.href])).toEqual([
       ['HOMEPAGE', '/index.html'],
-      ['ABOUT', '/about.html'],
       ['WORK', '/works.html'],
+      ['ABOUT', '/about.html'],
       ['CONTACT', '/contact.html'],
       ['STORY', '/story.html'],
-    ]); // the chain IS the menu order: ABOUT between HOMEPAGE and WORK, STORY at the far right
+    ]); // the chain IS the menu order (owner 2026-09-26: "Homepage => WORK => ABOUT => CONTACT"; STORY stays at the far right)
   });
 
   it('the homepage roles open with the AI generalist, the colorist next (owner 2026-09-26)', () => {

@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-/** THE SECTIONS (owner, 2026-09-16): ABOUT is the original full-fledged page again, between
- *  HOMEPAGE and WORK; the city — untouched — is the STORY section after CONTACT, the line's end.
+/** THE SECTIONS (owner, 2026-09-16): ABOUT is the original full-fledged page again; the city —
+ *  untouched — is the STORY section after CONTACT, the line's end. (Menu order, owner 2026-09-26:
+ *  HOMEPAGE, WORK, ABOUT, CONTACT — then STORY; content-files pins the chain.)
  *  The archive trio (about-old.*) is the frozen source the restored ABOUT was copied from.
  *  Same day, later: the tour left STORY entirely — the section is the windshield alone and
  *  opens in AUTO on every platform, FREE the only other seat. */
