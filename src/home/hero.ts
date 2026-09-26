@@ -1,8 +1,9 @@
-import { Application, Assets, Container, DisplacementFilter, Sprite, Texture, VideoSource } from 'pixi.js';
+import { Application, Assets, Container, DisplacementFilter, Sprite, Texture } from 'pixi.js';
 import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
 import { homeLoopFiles, loadLoopManifest } from '../lib/content';
 import { ditherImageToCanvas } from '../lib/dither';
 import { dprCap, reducedMotion } from '../lib/env';
+import { videoTexture } from '../lib/video-texture';
 import { CLIP_MS, coverScale, loopCandidates, nextClip } from './loops';
 
 /** The homepage hero. Two materials, one contract:
@@ -121,10 +122,8 @@ function loadVideoClip(url: string, autostart: boolean, eager = true): Promise<C
     // reason the works tiles always played: they play() immediately).
     v.addEventListener('loadedmetadata', () => {
       clearTimeout(bail);
-      const sprite = new Sprite(Texture.from(v));
+      const sprite = new Sprite(videoTexture(v));
       sprite.anchor.set(0.5);
-      // upload at content rate, not render rate — fullscreen frames are heavy
-      if (sprite.texture.source instanceof VideoSource) sprite.texture.source.updateFPS = 30;
       if (autostart) void v.play().catch(() => { /* poster frame remains */ });
       else v.pause();
       resolve({

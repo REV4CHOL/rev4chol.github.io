@@ -1,8 +1,9 @@
-import { BlurFilter, Container, Graphics, Matrix, Sprite, Text, Texture, VideoSource } from 'pixi.js';
+import { BlurFilter, Container, Graphics, Matrix, Sprite, Text, Texture } from 'pixi.js';
 import gsap from 'gsap';
 import type { Project } from '../lib/content';
 import { aspectRatio, loopSrcChain, projectAssetUrl } from '../lib/content';
 import { reducedMotion } from '../lib/env';
+import { videoTexture } from '../lib/video-texture';
 import { CARD_H, CARD_W, HOVER_M, ISO, SIZE_MUL_LARGE, cellToWorld } from './constants';
 import type { Placed } from './layout';
 import { loadPosterCanvas, type PosterResult } from './poster';
@@ -212,11 +213,8 @@ export class ProjectTile extends Container {
       this.videoSprite.visible = this.mode !== 'sleep' && this.frameSeen;
       return;
     }
-    const s = new Sprite(Texture.from(this.video));
+    const s = new Sprite(videoTexture(this.video));
     s.anchor.set(0.5);
-    // upload at content rate, not render rate — a 24fps clip gains nothing
-    // from 60Hz texture uploads, and the floor plays several at once
-    if (s.texture.source instanceof VideoSource) s.texture.source.updateFPS = 30;
     const fit = () => {
       const tex = s.texture;
       s.texture = Texture.EMPTY; // force the texture setter to re-run —
