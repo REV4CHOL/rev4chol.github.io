@@ -29,7 +29,7 @@ describe('shipped content files', () => {
     expect(roles[1]).toBe('colorist');
   });
 
-  it('SODA COAST holds VHS EDEN\'s slot in chapter 1, with its scope media (owner 2026-09-26)', () => {
+  it('SODA COAST holds VHS EDEN\'s slot in chapter 1, with its scope media and its link (owner 2026-09-26)', () => {
     const projects = parseProjects(parseJson(read('projects.json'), 'projects.json'));
     expect(projects.some((p) => p.slug === 'vhs-eden')).toBe(false);
     const i = projects.findIndex((p) => p.slug === 'soda-coast');
@@ -46,8 +46,9 @@ describe('shipped content files', () => {
     expect(p.category).toBe('human');
     expect(p.tileSize).toBe('large');
     expect(p.aspect).toBe('2.39:1');
-    expect(p.film).toBeNull();
-    expect(p.filmPending).toBe(true); // no link yet: WATCH shows, greyed
+    // (the link came with the second batch: WATCH is live, no longer greyed)
+    expect(p.film).toEqual({ type: 'youtube', src: 'https://www.youtube.com/embed/mrR8hRc4XF4' });
+    expect(p.filmPending).toBe(false);
     const dir = `${root}projects/soda-coast/`;
     expect(existsSync(`${dir}poster.jpg`)).toBe(true);
     expect(existsSync(`${dir}preview.mp4`)).toBe(true);
@@ -56,6 +57,47 @@ describe('shipped content files', () => {
     expect(stills[0]).toBe('01.jpg');
     expect(stills[50]).toBe('51.jpg');
     expect(existsSync(`${root}projects/vhs-eden`)).toBe(false);
+  });
+
+  // the owner's second batch (2026-09-26): three films into three placeholders' slots, each linked
+  const BATCH = [
+    { slug: 'the-father', slot: 4, was: 'void-cartography', title: 'The Father', role: 'Colorist', runtime: '2:27',
+      tags: ['slice of life'], synopsis: 'A father hiding secrets from his own daughter.', category: 'machine',
+      tileSize: 'large', aspect: '16:9', youtube: 'Idreboecojw', stills: 23 },
+    { slug: 'halide', slot: 31, was: 'paper-lantern-war', title: 'HALIDE', role: 'Director / Colorist / Editor', runtime: '1:06',
+      tags: ['experimental'], synopsis: 'Whiter dreams and whiter lives.', category: 'human',
+      tileSize: 'normal', aspect: '2.39:1', youtube: 'dMbsrk9Eeiw', stills: 29 },
+    // (the owner, mid-build: "MIST CHILD must be MISTCHILD" — one word, as its YouTube title has it)
+    { slug: 'mistchild', slot: 32, was: 'low-tide-gospel', title: 'MISTCHILD', role: 'Director / Colorist / Editor', runtime: '0:47',
+      tags: ['experimental'], synopsis: 'The child must have felt so lonely, in the mist.', category: 'human',
+      tileSize: 'normal', aspect: '2.39:1', youtube: 'dyqpjo4eKJI', stills: 16 },
+  ];
+
+  for (const f of BATCH) it(`${f.title.toUpperCase()} takes ${f.was}'s slot, linked, with its media (owner 2026-09-26)`, () => {
+    const projects = parseProjects(parseJson(read('projects.json'), 'projects.json'));
+    expect(projects.some((p) => p.slug === f.was)).toBe(false);
+    expect(existsSync(`${root}projects/${f.was}`)).toBe(false);
+    const p = projects[f.slot];
+    expect(p.slug).toBe(f.slug);
+    expect(p.title).toBe(f.title);
+    expect(p.year).toBe(2026);
+    expect(p.role).toBe(f.role);
+    expect(p.credits).toEqual([{ role: f.role, name: 'Revachol' }]); // no placeholder credit left behind
+    expect(p.runtime).toBe(f.runtime);
+    expect(p.tags).toEqual(f.tags);
+    expect(p.synopsis).toBe(f.synopsis);
+    expect(p.category).toBe(f.category);
+    expect(p.tileSize).toBe(f.tileSize); // the slot's own size: each chapter keeps its six featured
+    expect(p.aspect).toBe(f.aspect);
+    expect(p.film).toEqual({ type: 'youtube', src: `https://www.youtube.com/embed/${f.youtube}` });
+    expect(p.filmPending).toBe(false);
+    const dir = `${root}projects/${f.slug}/`;
+    expect(existsSync(`${dir}poster.jpg`)).toBe(true);
+    expect(existsSync(`${dir}preview.mp4`)).toBe(true);
+    const stills = readdirSync(`${dir}stills`).sort();
+    expect(stills).toHaveLength(f.stills);
+    expect(stills[0]).toBe('01.jpg');
+    expect(stills[f.stills - 1]).toBe(`${String(f.stills).padStart(2, '0')}.jpg`);
   });
 
   it('projects.json is valid: 20 films per channel, 6 featured each', () => {

@@ -93,25 +93,28 @@
     "category": "machine"
   },
   {
-    "slug": "void-cartography",
-    "title": "Void Cartography",
-    "year": 2025,
-    "role": "Director / DoP",
-    "runtime": "22:18",
+    "slug": "the-father",
+    "title": "The Father",
+    "year": 2026,
+    "role": "Colorist",
+    "runtime": "2:27",
     "tags": [
-      "documentary"
+      "slice of life"
     ],
-    "accent": "#C8FF00",
-    "tileSize": "large",
-    "synopsis": "Mapping the empty floors of a mall that never opened. The security guard has named every corridor.",
+    "accent": "#F4B67B",
+    "synopsis": "A father hiding secrets from his own daughter.",
     "credits": [
       {
-        "role": "Director",
+        "role": "Colorist",
         "name": "Revachol"
       }
     ],
-    "film": null,
-    "category": "machine"
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/Idreboecojw"
+    },
+    "category": "machine",
+    "tileSize": "large"
   },
   {
     "slug": "tender-machines",
@@ -286,8 +289,10 @@
         "name": "Revachol"
       }
     ],
-    "film": null,
-    "filmPending": true,
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/mrR8hRc4XF4"
+    },
     "category": "human",
     "tileSize": "large"
   },
@@ -691,47 +696,54 @@
     "film": null
   },
   {
-    "slug": "paper-lantern-war",
-    "title": "Paper Lantern War",
-    "year": 2023,
-    "role": "Editor",
-    "runtime": "05:40",
+    "slug": "halide",
+    "title": "HALIDE",
+    "year": 2026,
+    "role": "Director / Colorist / Editor",
+    "runtime": "1:06",
     "tags": [
-      "music video"
+      "experimental"
     ],
-    "accent": "#C8FF00",
-    "tileSize": "normal",
-    "category": "human",
-    "synopsis": "Two neighborhoods settle a decade-old feud with ten thousand lanterns. Cut to the drummer heartbeat.",
+    "accent": "#FFFFFF",
+    "aspect": "2.39:1",
+    "synopsis": "Whiter dreams and whiter lives.",
     "credits": [
       {
-        "role": "Director",
+        "role": "Director / Colorist / Editor",
         "name": "Revachol"
       }
     ],
-    "film": null
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/dMbsrk9Eeiw"
+    },
+    "category": "human",
+    "tileSize": "normal"
   },
   {
-    "slug": "low-tide-gospel",
-    "title": "Low Tide Gospel",
-    "year": 2025,
-    "role": "Director",
-    "runtime": "16:20",
+    "slug": "mistchild",
+    "title": "MISTCHILD",
+    "year": 2026,
+    "role": "Director / Colorist / Editor",
+    "runtime": "0:47",
     "tags": [
-      "short film",
-      "drama"
+      "experimental"
     ],
-    "accent": "#B79CFF",
-    "tileSize": "normal",
-    "category": "human",
-    "synopsis": "A congregation follows the tide out every morning to pray on the seabed. One day the tide stays.",
+    "accent": "#85AFE0",
+    "aspect": "2.39:1",
+    "synopsis": "The child must have felt so lonely, in the mist.",
     "credits": [
       {
-        "role": "Director",
+        "role": "Director / Colorist / Editor",
         "name": "Revachol"
       }
     ],
-    "film": null
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/dyqpjo4eKJI"
+    },
+    "category": "human",
+    "tileSize": "normal"
   },
   {
     "slug": "dream-compiler",
