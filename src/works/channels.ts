@@ -1,5 +1,3 @@
-import type { Project } from '../lib/content';
-
 /** The floor broadcasts on two channels. Same floor, different films. */
 export type ChannelKey = 'human' | 'machine';
 
@@ -14,7 +12,9 @@ export const CHANNELS: Channel[] = [
   { key: 'machine', index: 'CH·02', name: 'AI' },
 ];
 
-export function channelProjects(all: Project[], key: ChannelKey): Project[] {
+/** One chapter's slice of any list that knows its channel — the films, or the
+ *  floor's stream with its held places — in json order. */
+export function channelProjects<T extends { category: ChannelKey }>(all: T[], key: ChannelKey): T[] {
   return all.filter((p) => p.category === key);
 }
 

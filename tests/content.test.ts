@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   ContentError,
   getSlugFromSearch,
+  isBlank,
   loopSrcChain,
+  parseFloor,
   parseJson,
   parseProjects,
   parseSite,
@@ -100,6 +102,32 @@ describe('parseProjects', () => {
     } catch (e) {
       expect((e as ContentError).message).toContain('neon-dream');
     }
+  });
+});
+
+// (owner 2026-09-27: "leave the original panes as they left blank, i am about to fill in two more")
+describe('held places on the floor (blank entries)', () => {
+  const blank = (extra: Record<string, unknown> = {}) => ({ blank: true, category: 'human', tileSize: 'large', ...extra });
+
+  it('parseFloor keeps films and held places in json order; a held place is keyed blank-<json index>', () => {
+    const floor = parseFloor([validProject(), blank(), { ...validProject(), slug: 'b' }, blank({ tileSize: undefined })]);
+    expect(floor.map((it) => it.slug)).toEqual(['neon-dream', 'blank-1', 'b', 'blank-3']);
+    expect(floor.map(isBlank)).toEqual([false, true, false, true]);
+    const b = floor[1];
+    expect(b).toEqual({ blank: true, slug: 'blank-1', category: 'human', tileSize: 'large', position: null });
+    expect(floor[3]).toMatchObject({ tileSize: 'normal', category: 'human' }); // the same defaults a film gets
+  });
+
+  it('parseProjects is films only — no dossier, count or chain ever sees a held place', () => {
+    const films = parseProjects([validProject(), blank(), { ...validProject(), slug: 'b' }]);
+    expect(films.map((p) => p.slug)).toEqual(['neon-dream', 'b']);
+  });
+
+  it('refuses a bad held place, a film squatting a blank-N key, and a floor of held places only', () => {
+    expect(() => parseFloor([validProject(), blank({ category: 'robot' })])).toThrow(/category/);
+    expect(() => parseFloor([validProject(), blank({ tileSize: 'huge' })])).toThrow(/tileSize/);
+    expect(() => parseProjects([blank(), { ...validProject(), slug: 'blank-0' }])).toThrow(/duplicate|blank-0/);
+    expect(() => parseProjects([blank()])).toThrow(/at least one/);
   });
 });
 

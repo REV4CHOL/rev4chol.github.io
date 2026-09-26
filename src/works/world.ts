@@ -1,8 +1,8 @@
 import { Application, ColorMatrixFilter, Container } from 'pixi.js';
 import gsap from 'gsap';
 import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
-import type { Project } from '../lib/content';
-import { aspectRatio } from '../lib/content';
+import type { FloorItem, Project } from '../lib/content';
+import { aspectRatio, isBlank } from '../lib/content';
 import { dprCap, finePointer, reducedMotion } from '../lib/env';
 import { posterZoom } from '../lib/poster-lock';
 import { scrambleEl } from '../lib/scramble';
@@ -14,7 +14,8 @@ import { buildDebris } from './debris';
 import { buildFields } from './fields';
 import { GRAIN, joltCamera, misregister, streakBurst, type Burst, type Misreg } from './flipfx';
 import { PanController } from './input';
-import { layoutProjects, packRows, paneBand } from './layout';
+import { BlankPane } from './blank';
+import { layoutProjects, packRows, paneBand, type Placed } from './layout';
 import { PlaybackManager } from './playback';
 import { loadPosterCanvas } from './poster';
 import type { ViewRect } from './priority';
@@ -41,7 +42,15 @@ export class WorksWorld {
   private labelEl = document.getElementById('tile-label');
   private entering = false;
 
-  static async create(host: HTMLElement, projects: Project[], hooks: WorldHooks): Promise<WorksWorld> {
+  /** the floor's held places — unlit screens keeping spots for films to come */
+  protected blanks: BlankPane[] = [];
+
+  /** every pane on the floor, lit or not — what the flights and the bounds move over */
+  protected panes(): Array<Container & { placed: Placed; extentX(): number; extentY(): number }> {
+    return [...this.tiles.values(), ...this.blanks];
+  }
+
+  static async create(host: HTMLElement, stream: FloorItem[], hooks: WorldHooks): Promise<WorksWorld> {
     const w = new WorksWorld();
     w.hooks = hooks;
 
@@ -56,27 +65,41 @@ export class WorksWorld {
     host.append(app.canvas);
     w.app = app;
 
+    // the layout runs on the whole stream (held places keep their spots); only films get posters
+    const projects = stream.filter((it): it is Project => !isBlank(it));
     const posters = await Promise.all(projects.map((p) => loadPosterCanvas(p)));
     const placed = layoutProjects(
-      projects.map((p) => ({ slug: p.slug, tileSize: p.tileSize, position: p.position })),
+      stream.map((it) => ({ slug: it.slug, tileSize: it.tileSize, position: it.position })),
     );
     const placedBySlug = new Map(placed.map((pl) => [pl.slug, pl]));
     // the lego pass: pack each row by the panes' REAL widths, so a 4:3 card
     // sits brick-tight against its 16:9 neighbors instead of on fixed columns
     const widthBySlug = new Map(
-      projects.map((p) => [p.slug, p.aspect === '16:9' ? CARD_W : Math.round(CARD_H * aspectRatio(p.aspect))]),
+      stream.map((it) => [
+        it.slug,
+        isBlank(it) || it.aspect === '16:9' ? CARD_W : Math.round(CARD_H * aspectRatio(it.aspect)),
+      ]),
     );
     const packedU = packRows(placed, (pl) => widthBySlug.get(pl.slug) ?? CARD_W, SEAM, STEP_W);
+    const at = (pl: Placed) => rowAxisWorld(packedU.get(pl.slug)!, pl.row + (pl.span - 1) / 2);
 
     w.tilesLayer.sortableChildren = true;
     projects.forEach((p, i) => {
       const pl = placedBySlug.get(p.slug)!;
       const tile = new ProjectTile(p, pl, posters[i]);
-      const pos = rowAxisWorld(packedU.get(p.slug)!, pl.row + (pl.span - 1) / 2);
+      const pos = at(pl);
       tile.position.set(pos.x, pos.y);
       w.tiles.set(p.slug, tile);
       w.tilesLayer.addChild(tile);
     });
+    for (const it of stream) {
+      if (!isBlank(it)) continue;
+      const pane = new BlankPane(placedBySlug.get(it.slug)!);
+      const pos = at(pane.placed);
+      pane.position.set(pos.x, pos.y);
+      w.blanks.push(pane);
+      w.tilesLayer.addChild(pane);
+    }
     w.playback = new PlaybackManager(w.tiles);
 
     w.desat.saturate(-0.35, false);
@@ -103,7 +126,7 @@ export class WorksWorld {
     });
 
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    for (const t of w.tiles.values()) {
+    for (const t of w.panes()) {
       minX = Math.min(minX, t.x - t.extentX());
       maxX = Math.max(maxX, t.x + t.extentX());
       minY = Math.min(minY, t.y - t.extentY());
@@ -359,7 +382,7 @@ export class WorksWorld {
           .to(o, { x: o.x + dir * dist * GRAIN.x, y: o.y + dir * dist * GRAIN.y, duration: 0.34, ease });
       });
     const tweens: Promise<void>[] = [];
-    for (const tile of this.tiles.values()) {
+    for (const tile of this.panes()) {
       const band = paneBand(tile.placed); // alternate by the pane's row on the band, not the lattice's
       const dir = band % 2 === 0 ? 1 : -1;
       const ease = Math.random() < 0.35 ? 'steps(6)' : 'power2.in'; // some panes leave "on 2s"
@@ -386,7 +409,7 @@ export class WorksWorld {
       o.y = hy + dir * dist * GRAIN.y;
       gsap.to(o, { x: hx, y: hy, duration: 0.44, ease, delay });
     };
-    for (const tile of this.tiles.values()) {
+    for (const tile of this.panes()) {
       const band = paneBand(tile.placed);
       const dir = band % 2 === 0 ? -1 : 1;
       const ease = Math.random() < 0.25 ? 'steps(5)' : 'power3.out'; // a few land in chunks
@@ -405,7 +428,7 @@ export class WorksWorld {
     this.bursts = [];
     gsap.killTweensOf(this.pan.pos);
     gsap.killTweensOf(this.app.stage.position);
-    gsap.killTweensOf([this.tilesLayer, this.fieldsC, this.debrisC]);
+    gsap.killTweensOf([this.tilesLayer, this.fieldsC, this.debrisC, ...this.blanks]);
     for (const tile of this.tiles.values()) {
       tile.killTweens(); // no tween may outlive the scene graph it writes into
       tile.releaseVideo();

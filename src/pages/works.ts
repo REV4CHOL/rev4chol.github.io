@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import { loadLoopManifest, loadProjects, projectAssetUrl, type Project } from '../lib/content';
+import { loadFloor, loadLoopManifest, loadProjects, projectAssetUrl, type Project } from '../lib/content';
 import { reducedMotion } from '../lib/env';
 import { armPosterLock, posterZoom } from '../lib/poster-lock';
 import { scrambleEl } from '../lib/scramble';
@@ -17,6 +17,7 @@ startPage(
     // their true full-viewport world, untouched by the lock
     armPosterLock({ exempt: '#floor' });
     const projects = await loadProjects();
+    const floor = await loadFloor(); // the films AND the held places, in json order
     await loadLoopManifest(); // tiles build their loop chains synchronously
     mountWorksOverlay();
     const host = document.getElementById('floor')!;
@@ -28,8 +29,8 @@ startPage(
 
     const mount = async (key: ChannelKey) => {
       const list = channelProjects(projects, key);
-      hud.setCount(list.length);
-      world = await WorksWorld.create(host, list, {
+      hud.setCount(list.length); // films only — a held place is not a project
+      world = await WorksWorld.create(host, channelProjects(floor, key), {
         onCoords: (x, y) => hud.setCoords(x, y),
       });
       (window as unknown as { rvlWorld: WorksWorld }).rvlWorld = world; // debug handle for verification

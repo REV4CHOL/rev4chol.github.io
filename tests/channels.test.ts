@@ -38,6 +38,14 @@ describe('the two channels', () => {
     expect(channelProjects(all, 'machine').map((p) => p.slug)).toEqual(['b', 'd']);
   });
 
+  it('filters a floor stream too — held places stay in their chapter, in order', () => {
+    const held = (slug: string, category: 'human' | 'machine') =>
+      ({ blank: true as const, slug, category, tileSize: 'large' as const, position: null });
+    const floor = [proj('a', 'human'), held('blank-1', 'human'), proj('b', 'machine'), held('blank-3', 'machine')];
+    expect(channelProjects(floor, 'human').map((p) => p.slug)).toEqual(['a', 'blank-1']);
+    expect(channelProjects(floor, 'machine').map((p) => p.slug)).toEqual(['b', 'blank-3']);
+  });
+
   it('tunes from the url, defaulting to CH·01 on anything unknown', () => {
     expect(channelFromSearch('?ch=machine')).toBe('machine');
     expect(channelFromSearch('?ch=human')).toBe('human');

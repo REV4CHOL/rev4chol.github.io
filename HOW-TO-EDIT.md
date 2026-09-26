@@ -160,6 +160,11 @@ build step, no terminal.
   poster). Every pane on the floor is the same size, featured or not.
   Six featured films make the best centre block.
 - **Remove a film:** delete its entry from `projects.json` (the folder can stay).
+- **Hold a place for a film to come:** put `{ "blank": true, "category": "human",
+  "tileSize": "large" }` where the entry was. The floor shows an unlit screen in
+  that exact spot (no page, not counted), and nothing else moves. To fill it,
+  replace that line with the film's entry, same `category` and `tileSize`, and
+  the film lands right there. (`"large"` holds a spot in the featured centre.)
 - **The floor has no size limit.** Add as many films as you like — append
   entries to `projects.json` and each channel's floor grows on its own:
   the band widens with the count, rows extend, the featured cluster

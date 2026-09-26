@@ -37,6 +37,27 @@ export interface Project {
   position: GridPos | null;
 }
 
+/** A held place on the works floor: an unlit screen keeping a spot for a film
+ *  to come (owner 2026-09-27: "leave the original panes as they left blank, i am
+ *  about to fill in two more to those two positions"). In projects.json it is
+ *  `{ "blank": true, "category": …, "tileSize": … }`; filling it is replacing
+ *  that line with the film's entry, which then lands in the very same spot. */
+export interface FloorBlank {
+  blank: true;
+  /** internal key, `blank-<json index>` — never a page, never a count */
+  slug: string;
+  category: Project['category'];
+  tileSize: Project['tileSize'];
+  position: GridPos | null;
+}
+
+/** The works floor's stream, in json order: films and held places. */
+export type FloorItem = Project | FloorBlank;
+
+export function isBlank(it: FloorItem): it is FloorBlank {
+  return (it as FloorBlank).blank === true;
+}
+
 export class ContentError extends Error {
   constructor(public file: string, public detail: string) {
     super(`[${file}] ${detail}`);
@@ -114,16 +135,13 @@ export function parseProject(raw: unknown, i: number): Project {
   const accent = r.accent === undefined ? '#C8FF00' : str(r.accent, file, `${where} accent`);
   if (!HEX.test(accent)) fail(file, `${where} accent must look like "#C8FF00"`);
 
-  const tileSize = r.tileSize === undefined ? 'normal' : r.tileSize;
-  if (tileSize !== 'normal' && tileSize !== 'large') fail(file, `${where} tileSize must be "normal" or "large"`);
+  const tileSize = tileSizeOf(r.tileSize, file, where);
 
   const aspect = r.aspect === undefined ? '16:9' : r.aspect;
   if (aspect !== '16:9' && aspect !== '4:3' && aspect !== '2.39:1')
     fail(file, `${where} aspect must be "16:9", "4:3" or "2.39:1"`);
 
-  const category = r.category === undefined ? 'human' : r.category;
-  if (category !== 'human' && category !== 'machine')
-    fail(file, `${where} category must be "human" or "machine"`);
+  const category = categoryOf(r.category, file, where);
 
   const tags = r.tags ?? [];
   if (!Array.isArray(tags) || tags.some((t) => typeof t !== 'string'))
@@ -155,16 +173,7 @@ export function parseProject(raw: unknown, i: number): Project {
     film = { type: f.type, src: str(f.src, file, `${where} film.src`) };
   }
 
-  let position: GridPos | null = null;
-  if (r.position !== undefined && r.position !== null) {
-    const p = obj(r.position, file, `${where} position`);
-    if (
-      typeof p.col !== 'number' || !Number.isInteger(p.col) ||
-      typeof p.row !== 'number' || !Number.isInteger(p.row)
-    )
-      fail(file, `${where} position needs integer "col" and "row"`);
-    position = { col: p.col, row: p.row };
-  }
+  const position = gridPosOf(r.position, file, where);
 
   return {
     slug,
@@ -188,17 +197,68 @@ export function parseProject(raw: unknown, i: number): Project {
   };
 }
 
-export function parseProjects(raw: unknown): Project[] {
+function tileSizeOf(v: unknown, file: string, where: string): Project['tileSize'] {
+  const t = v === undefined ? 'normal' : v;
+  if (t !== 'normal' && t !== 'large') fail(file, `${where} tileSize must be "normal" or "large"`);
+  return t;
+}
+
+function categoryOf(v: unknown, file: string, where: string): Project['category'] {
+  const c = v === undefined ? 'human' : v;
+  if (c !== 'human' && c !== 'machine') fail(file, `${where} category must be "human" or "machine"`);
+  return c;
+}
+
+function gridPosOf(v: unknown, file: string, where: string): GridPos | null {
+  if (v === undefined || v === null) return null;
+  const p = obj(v, file, `${where} position`);
+  if (
+    typeof p.col !== 'number' || !Number.isInteger(p.col) ||
+    typeof p.row !== 'number' || !Number.isInteger(p.row)
+  )
+    fail(file, `${where} position needs integer "col" and "row"`);
+  return { col: p.col, row: p.row };
+}
+
+const BLANK_KEY = /^blank-\d+$/;
+
+function parseBlank(r: Record<string, unknown>, i: number): FloorBlank {
+  const file = 'projects.json';
+  const where = `held place #${i}`;
+  return {
+    blank: true,
+    slug: `blank-${i}`,
+    category: categoryOf(r.category, file, where),
+    tileSize: tileSizeOf(r.tileSize, file, where),
+    position: gridPosOf(r.position, file, where),
+  };
+}
+
+/** The works floor's stream: every film AND every held place, in json order —
+ *  a pane's place on the floor is fixed by its json index and its size. */
+export function parseFloor(raw: unknown): FloorItem[] {
   const file = 'projects.json';
   if (!Array.isArray(raw)) fail(file, 'root must be an array of projects');
-  if (raw.length === 0) fail(file, 'add at least one project');
-  const out = raw.map((r, i) => parseProject(r, i));
+  const out: FloorItem[] = raw.map((r, i) =>
+    r !== null && typeof r === 'object' && (r as { blank?: unknown }).blank === true
+      ? parseBlank(r as Record<string, unknown>, i)
+      : parseProject(r, i),
+  );
+  if (!out.some((it) => !isBlank(it))) fail(file, 'add at least one project');
   const seen = new Set<string>();
-  for (const p of out) {
-    if (seen.has(p.slug)) fail(file, `duplicate slug "${p.slug}" — slugs must be unique`);
-    seen.add(p.slug);
+  for (const it of out) {
+    if (!isBlank(it) && BLANK_KEY.test(it.slug))
+      fail(file, `slug "${it.slug}" is reserved for held places — pick another`);
+    if (seen.has(it.slug)) fail(file, `duplicate slug "${it.slug}" — slugs must be unique`);
+    seen.add(it.slug);
   }
   return out;
+}
+
+/** The films alone — what every page but the floor reads: no held place is a
+ *  dossier, a count or a stop on the prev/next chain. */
+export function parseProjects(raw: unknown): Project[] {
+  return parseFloor(raw).filter((it): it is Project => !isBlank(it));
 }
 
 const CONTENT_BASE = '/content';
@@ -292,9 +352,17 @@ export function loadSite(): Promise<SiteContent> {
   return (sitePromise ??= fetchParsed(`${CONTENT_BASE}/site.json`, 'site.json').then(parseSite));
 }
 
+let projectsRaw: Promise<unknown> | null = null;
+const rawProjects = () => (projectsRaw ??= fetchParsed(`${CONTENT_BASE}/projects.json`, 'projects.json'));
+
 let projectsPromise: Promise<Project[]> | null = null;
 export function loadProjects(): Promise<Project[]> {
-  return (projectsPromise ??= fetchParsed(`${CONTENT_BASE}/projects.json`, 'projects.json').then(parseProjects));
+  return (projectsPromise ??= rawProjects().then(parseProjects));
+}
+
+let floorPromise: Promise<FloorItem[]> | null = null;
+export function loadFloor(): Promise<FloorItem[]> {
+  return (floorPromise ??= rawProjects().then(parseFloor));
 }
 
 /* ------------------------------------------------ about (operator file) -- */

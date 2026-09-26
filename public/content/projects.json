@@ -271,28 +271,7 @@
     "tileSize": "normal"
   },
   {
-    "slug": "soda-coast",
-    "title": "Soda Coast",
-    "year": 2025,
-    "role": "Director / Colorist / Editor / Sound Designer",
-    "runtime": "1:56",
-    "tags": [
-      "experimental",
-      "supernatural"
-    ],
-    "accent": "#4FB3FF",
-    "aspect": "2.39:1",
-    "synopsis": "I see summer. And then the sea.",
-    "credits": [
-      {
-        "role": "Director / Colorist / Editor / Sound Designer",
-        "name": "Revachol"
-      }
-    ],
-    "film": {
-      "type": "youtube",
-      "src": "https://www.youtube.com/embed/mrR8hRc4XF4"
-    },
+    "blank": true,
     "category": "human",
     "tileSize": "large"
   },
@@ -544,48 +523,33 @@
     "tileSize": "normal"
   },
   {
-    "slug": "sodium-haze",
-    "title": "Sodium Haze",
-    "year": 2021,
-    "role": "Director / DoP",
-    "runtime": "11:11",
-    "tags": [
-      "experimental"
-    ],
-    "accent": "#B79CFF",
-    "synopsis": "Every streetlight in one district, filmed the week before the city switched them to white LED.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null,
-    "category": "human",
-    "tileSize": "normal"
-  },
-  {
-    "slug": "far-east",
-    "title": "FAR EAST",
+    "slug": "soda-coast",
+    "title": "Soda Coast",
     "year": 2025,
-    "role": "Director / Editor / Colorist",
-    "runtime": "1:30",
+    "role": "Director / Colorist / Editor / Sound Designer",
+    "runtime": "1:56",
     "tags": [
-      "experimental"
+      "experimental",
+      "supernatural"
     ],
-    "accent": "#EFC468",
+    "accent": "#4FB3FF",
     "aspect": "2.39:1",
-    "synopsis": "East of memory, the grass holds the sun and a house waits. Two silhouettes learn the horizon — the land keeping a warmth the day has already left.",
+    "synopsis": "I see summer. And then the sea.",
     "credits": [
       {
-        "role": "Director / Editor / Colorist",
+        "role": "Director / Colorist / Editor / Sound Designer",
         "name": "Revachol"
       }
     ],
     "film": {
       "type": "youtube",
-      "src": "https://www.youtube.com/embed/DrezQ5zlHqI"
+      "src": "https://www.youtube.com/embed/mrR8hRc4XF4"
     },
+    "category": "human",
+    "tileSize": "normal"
+  },
+  {
+    "blank": true,
     "category": "human",
     "tileSize": "large"
   },
@@ -612,25 +576,29 @@
     "film": null
   },
   {
-    "slug": "motel-eden",
-    "title": "Motel Eden",
-    "year": 2023,
-    "role": "Director / DoP",
-    "runtime": "14:03",
+    "slug": "far-east",
+    "title": "FAR EAST",
+    "year": 2025,
+    "role": "Director / Editor / Colorist",
+    "runtime": "1:30",
     "tags": [
-      "short film"
+      "experimental"
     ],
-    "accent": "#C8FF00",
-    "tileSize": "normal",
-    "category": "human",
-    "synopsis": "A cleaner keeps room 14 exactly as its last guest left it. Nobody ever checks in.",
+    "accent": "#EFC468",
+    "aspect": "2.39:1",
+    "synopsis": "East of memory, the grass holds the sun and a house waits. Two silhouettes learn the horizon — the land keeping a warmth the day has already left.",
     "credits": [
       {
-        "role": "Director",
+        "role": "Director / Editor / Colorist",
         "name": "Revachol"
       }
     ],
-    "film": null
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/DrezQ5zlHqI"
+    },
+    "category": "human",
+    "tileSize": "normal"
   },
   {
     "slug": "salt-cathedral",
