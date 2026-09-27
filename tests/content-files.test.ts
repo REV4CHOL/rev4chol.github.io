@@ -73,8 +73,10 @@ describe('shipped content files', () => {
       tileSize: 'normal', aspect: '2.39:1', youtube: 'dMbsrk9Eeiw', stills: 29 },
     // (the owner, mid-build: "MIST CHILD must be MISTCHILD" — one word, as its YouTube title has it;
     //  and after: "mistchild is 2025", as its folder says — the brief's 2026 was a slip)
-    // (…and on 2026-09-27 the owner moved it to NEON LITURGY's corner — a swap: json 18 ↔ 32)
-    { slug: 'mistchild', slot: 18, was: 'low-tide-gospel', title: 'MISTCHILD', year: 2025, role: 'Director / Colorist / Editor', runtime: '0:47',
+    // (…and on 2026-09-27 the owner moved it to NEON LITURGY's corner — a swap: json 18 ↔ 32; then, the same day,
+    //  "bring MISTCHILD down to Neon Liturgy (chapter 1), then remove the pane where MISTCHILD once stood": back to
+    //  json 32 for good, NEON LITURGY off the site, json 18 an open gap)
+    { slug: 'mistchild', slot: 32, was: 'low-tide-gospel', title: 'MISTCHILD', year: 2025, role: 'Director / Colorist / Editor', runtime: '0:47',
       tags: ['experimental'], synopsis: 'The child must have felt so lonely, in the mist.', category: 'human',
       tileSize: 'normal', aspect: '2.39:1', youtube: 'dyqpjo4eKJI', stills: 16 },
   ];
@@ -153,8 +155,8 @@ describe('shipped content files', () => {
   it('the CH·01 moves: FAR EAST ↔ COPPER LULLABY, SODA COAST in RUST CHOIR\'s place; one held place left', () => {
     const floor = parseFloor(rawProjects());
     expect(floor).toHaveLength(40);
-    expect(floor.filter(isBlank)).toHaveLength(1);
-    expect(floor[25]).toEqual({ blank: true, slug: 'blank-25', category: 'human', tileSize: 'large', position: null });
+    expect(floor.filter((it) => isBlank(it) && !it.gap)).toHaveLength(1); // (the open gap is the next test's)
+    expect(floor[25]).toEqual({ blank: true, gap: false, slug: 'blank-25', category: 'human', tileSize: 'large', position: null });
     const slot = (i: number) => [floor[i].slug, floor[i].tileSize];
     expect(slot(9)).toEqual(['far-east', 'normal']); // COPPER LULLABY's place, top row
     expect(slot(27)).toEqual(['copper-lullaby', 'normal']); // …which takes FAR EAST's old one: a swap
@@ -169,6 +171,19 @@ describe('shipped content files', () => {
     expect([fe.title, fe.year, fe.aspect, fe.category]).toEqual(['FAR EAST', 2025, '2.39:1', 'human']);
   });
 
+  // (owner 2026-09-27: "bring MISTCHILD down to Neon Liturgy (chapter 1), then remove the pane where MISTCHILD once
+  //  stood" — MISTCHILD takes NEON LITURGY's json 32, the bottom-right corner; the top-right corner it left keeps its
+  //  turn in the fill order as an open gap, so no neighbour slides up into it, and nothing is drawn there)
+  it('MISTCHILD back down in NEON LITURGY\'s place; the corner it left is open floor, no pane', () => {
+    const floor = parseFloor(rawProjects());
+    expect(floor).toHaveLength(40);
+    expect(floor[18]).toEqual({ blank: true, gap: true, slug: 'gap-18', category: 'human', tileSize: 'normal', position: null });
+    expect(floor.filter((it) => isBlank(it) && it.gap)).toHaveLength(1);
+    expect(floor[32].slug).toBe('mistchild');
+    expect(floor.some((it) => it.slug === 'neon-liturgy')).toBe(false);
+    expect(existsSync(`${root}projects/neon-liturgy`)).toBe(false);
+  });
+
   // a chapter's floor as the layout lays it: slug → [column, row] on its 5 × 4 pane grid
   const cells = (category: 'human' | 'machine') => {
     const items = parseFloor(rawProjects()).filter((it) => it.category === category);
@@ -180,10 +195,10 @@ describe('shipped content files', () => {
 
   it('CH·01 lies as the owner asked, cell by cell', () => {
     expect(cells('human')).toEqual({
-      'glass-harvest': [0, 0], 'saline-throne': [1, 0], 'far-east': [2, 0], 'soda-coast': [3, 0], mistchild: [4, 0],
+      'glass-harvest': [0, 0], 'saline-throne': [1, 0], 'far-east': [2, 0], 'soda-coast': [3, 0], 'gap-18': [4, 0],
       'acid-pastoral': [0, 1], philia: [1, 1], 'mien-vien': [2, 1], 'an-hoi': [3, 1], 'soft-hours-lonely-lands': [4, 1],
       'gasoline-hymn': [0, 2], 'lien-quan': [1, 2], 'electric-fish': [2, 2], 'blank-25': [3, 2], 'copper-lullaby': [4, 2],
-      'salt-cathedral': [0, 3], 'velvet-static': [1, 3], 'winter-arcade': [2, 3], halide: [3, 3], 'neon-liturgy': [4, 3],
+      'salt-cathedral': [0, 3], 'velvet-static': [1, 3], 'winter-arcade': [2, 3], halide: [3, 3], mistchild: [4, 3],
     });
   });
 
@@ -194,16 +209,16 @@ describe('shipped content files', () => {
     expect([at['jaecoo-j5'], at['terminal-bloom']]).toEqual([[2, 2], [3, 2]]);
   });
 
-  it('projects.json is valid: CH·02 holds 20 films (6 featured); CH·01 19 films (5 featured) and 1 held place', () => {
+  it('projects.json is valid: CH·02 holds 20 films (6 featured); CH·01 18 films (5 featured), 1 held place, 1 open gap', () => {
     const films = parseProjects(rawProjects());
     const human = films.filter((p) => p.category === 'human');
     const machine = films.filter((p) => p.category === 'machine');
     expect(machine).toHaveLength(20);
     expect(machine.filter((p) => p.tileSize === 'large')).toHaveLength(6);
-    expect(human).toHaveLength(19);
+    expect(human).toHaveLength(18);
     expect(human.filter((p) => p.tileSize === 'large')).toHaveLength(5);
     const humanFloor = parseFloor(rawProjects()).filter((it) => it.category === 'human');
-    expect(humanFloor).toHaveLength(20); // still a full 5 × 4 floor
+    expect(humanFloor).toHaveLength(20); // still a 5 × 4 band: 18 films, the held place, the open gap
     expect(humanFloor.filter((it) => it.tileSize === 'large')).toHaveLength(6); // its cluster: 5 films + 1 held
   });
 

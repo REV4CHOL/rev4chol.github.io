@@ -41,10 +41,15 @@ export interface Project {
  *  to come (owner 2026-09-27: "leave the original panes as they left blank, i am
  *  about to fill in two more to those two positions"). In projects.json it is
  *  `{ "blank": true, "category": …, "tileSize": … }`; filling it is replacing
- *  that line with the film's entry, which then lands in the very same spot. */
+ *  that line with the film's entry, which then lands in the very same spot.
+ *  Its sibling, the open gap — `{ "gap": true, "category": …, "tileSize": … }` —
+ *  keeps its place the same way but draws nothing: open floor where a pane was
+ *  removed (owner 2026-09-27: "remove the pane where MISTCHILD once stood"). */
 export interface FloorBlank {
   blank: true;
-  /** internal key, `blank-<json index>` — never a page, never a count */
+  /** true: an open gap, nothing drawn; false: an unlit screen */
+  gap: boolean;
+  /** internal key, `blank-<json index>` or `gap-<json index>` — never a page, never a count */
   slug: string;
   category: Project['category'];
   tileSize: Project['tileSize'];
@@ -226,27 +231,30 @@ function gridPosOf(v: unknown, file: string, where: string): GridPos | null {
   return { col: p.col, row: p.row };
 }
 
-const BLANK_KEY = /^blank-\d+$/;
+const BLANK_KEY = /^(blank|gap)-\d+$/;
 
 function parseBlank(r: Record<string, unknown>, i: number): FloorBlank {
   const file = 'projects.json';
-  const where = `held place #${i}`;
+  const gap = r.gap === true;
+  const where = `${gap ? 'open gap' : 'held place'} #${i}`;
   return {
     blank: true,
-    slug: `blank-${i}`,
+    gap,
+    slug: `${gap ? 'gap' : 'blank'}-${i}`,
     category: categoryOf(r.category, file, where),
     tileSize: tileSizeOf(r.tileSize, file, where),
     position: gridPosOf(r.position, file, where),
   };
 }
 
-/** The works floor's stream: every film AND every held place, in json order —
- *  a pane's place on the floor is fixed by its json index and its size. */
+/** The works floor's stream: every film AND every held place and open gap, in
+ *  json order — a pane's place on the floor is fixed by its json index and its size. */
 export function parseFloor(raw: unknown): FloorItem[] {
   const file = 'projects.json';
   if (!Array.isArray(raw)) fail(file, 'root must be an array of projects');
   const out: FloorItem[] = raw.map((r, i) =>
-    r !== null && typeof r === 'object' && (r as { blank?: unknown }).blank === true
+    r !== null && typeof r === 'object' &&
+    ((r as { blank?: unknown }).blank === true || (r as { gap?: unknown }).gap === true)
       ? parseBlank(r as Record<string, unknown>, i)
       : parseProject(r, i),
   );
@@ -254,7 +262,7 @@ export function parseFloor(raw: unknown): FloorItem[] {
   const seen = new Set<string>();
   for (const it of out) {
     if (!isBlank(it) && BLANK_KEY.test(it.slug))
-      fail(file, `slug "${it.slug}" is reserved for held places — pick another`);
+      fail(file, `slug "${it.slug}" is reserved for the floor's held places and gaps — pick another`);
     if (seen.has(it.slug)) fail(file, `duplicate slug "${it.slug}" — slugs must be unique`);
     seen.add(it.slug);
   }

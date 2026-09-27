@@ -30,15 +30,21 @@ describe('the homepage footage is a door (testers clicked the picture and got a 
   });
 });
 
-describe("the cursor's label (ENTER ▸ never showed on the first pane hovered)", () => {
-  it('a canvas owns its label: the DOM listener stands aside', () => {
-    expect(cursorLabelFor(target(['canvas']))).toBeUndefined();
+describe("the cursor's label (ENTER ▸ never showed on the first pane hovered; SWITCH ▸ stuck over the floor)", () => {
+  it("a canvas keeps a label its own code wrote: the DOM listener stands aside", () => {
+    expect(cursorLabelFor(target(['canvas']), false)).toBeUndefined();
   });
 
-  it('a labelled ancestor names the label; nothing labelled clears it', () => {
-    expect(cursorLabelFor(target(['[data-cursor]'], { cursor: 'SEND ▸' }))).toBe('SEND ▸');
-    expect(cursorLabelFor(target(['[data-cursor]'], { cursor: '' }))).toBeNull();
-    expect(cursorLabelFor(target(['div']))).toBeNull();
+  it("…but a label the page's chrome left does not ride out onto a canvas (owner: \"that Switch still stick\")", () => {
+    expect(cursorLabelFor(target(['canvas']), true)).toBeNull();
+  });
+
+  it('a labelled ancestor names the label; nothing labelled clears it — whoever wrote the last one', () => {
+    for (const chromeWrote of [false, true]) {
+      expect(cursorLabelFor(target(['[data-cursor]'], { cursor: 'SEND ▸' }), chromeWrote)).toBe('SEND ▸');
+      expect(cursorLabelFor(target(['[data-cursor]'], { cursor: '' }), chromeWrote)).toBeNull();
+      expect(cursorLabelFor(target(['div']), chromeWrote)).toBeNull();
+    }
   });
 });
 
@@ -58,7 +64,13 @@ describe('the signposts are wired (pins)', () => {
     ['src/works/world.ts', 'openingFrame('],
     ['src/works/world.ts', 'markFloorOpened('],
     ['src/works/tile.ts', "text: 'PLACEHOLDER'"],
-    ['src/shell/cursor.ts', 'cursorLabelFor(e.target'],
+    ['src/shell/cursor.ts', 'cursorLabelFor(e.target as Element, chromeWrote)'],
+    // only the floor itself wakes a pane — never one lying under a tab, a nav link or a HUD button
+    ['src/works/world.ts', 'document.elementFromPoint(e.clientX, e.clientY) === app.canvas'],
+    // an open gap (owner: "remove the pane where MISTCHILD once stood") keeps its place and draws nothing — but it is
+    // measured, so the carpet keeps its footprint and the furniture ringing it stays put (the corner is an extreme)
+    ['src/works/world.ts', 'if (it.gap) { w.gaps.push(pane); continue; }'],
+    ['src/works/world.ts', 'for (const t of [...w.panes(), ...w.gaps]) {'],
     ['src/styles/components.css', '.floor-hint {'],
     ['src/styles/components.css', '.floor-hint.is-fresh'],
     ['src/styles/components.css', '.ch-switch button:not(.is-on) .ch-name'],

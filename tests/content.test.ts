@@ -114,7 +114,7 @@ describe('held places on the floor (blank entries)', () => {
     expect(floor.map((it) => it.slug)).toEqual(['neon-dream', 'blank-1', 'b', 'blank-3']);
     expect(floor.map(isBlank)).toEqual([false, true, false, true]);
     const b = floor[1];
-    expect(b).toEqual({ blank: true, slug: 'blank-1', category: 'human', tileSize: 'large', position: null });
+    expect(b).toEqual({ blank: true, gap: false, slug: 'blank-1', category: 'human', tileSize: 'large', position: null });
     expect(floor[3]).toMatchObject({ tileSize: 'normal', category: 'human' }); // the same defaults a film gets
   });
 
@@ -128,6 +128,29 @@ describe('held places on the floor (blank entries)', () => {
     expect(() => parseFloor([validProject(), blank({ tileSize: 'huge' })])).toThrow(/tileSize/);
     expect(() => parseProjects([blank(), { ...validProject(), slug: 'blank-0' }])).toThrow(/duplicate|blank-0/);
     expect(() => parseProjects([blank()])).toThrow(/at least one/);
+  });
+});
+
+// (owner 2026-09-27: "remove the pane where MISTCHILD once stood" — the place keeps its turn in the fill order, so
+//  no neighbour slides into it, and nothing is drawn there)
+describe('open gaps on the floor (gap entries)', () => {
+  const gap = (extra: Record<string, unknown> = {}) => ({ gap: true, category: 'human', ...extra });
+
+  it('parseFloor reads a gap as a floor item that is no film, keyed gap-<json index>, normal-sized by default', () => {
+    const floor = parseFloor([validProject(), gap(), { ...validProject(), slug: 'b' }]);
+    expect(floor.map((it) => it.slug)).toEqual(['neon-dream', 'gap-1', 'b']);
+    expect(floor.map(isBlank)).toEqual([false, true, false]);
+    expect(floor[1]).toEqual({ blank: true, gap: true, slug: 'gap-1', category: 'human', tileSize: 'normal', position: null });
+  });
+
+  it('parseProjects never sees a gap', () => {
+    const films = parseProjects([validProject(), gap(), { ...validProject(), slug: 'b' }]);
+    expect(films.map((p) => p.slug)).toEqual(['neon-dream', 'b']);
+  });
+
+  it('refuses a bad gap and a film squatting a gap-N key', () => {
+    expect(() => parseFloor([validProject(), gap({ category: 'robot' })])).toThrow(/category/);
+    expect(() => parseProjects([validProject(), { ...validProject(), slug: 'gap-7' }])).toThrow(/reserved/);
   });
 });
 

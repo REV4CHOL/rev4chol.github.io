@@ -46,6 +46,8 @@ export class WorksWorld {
 
   /** the floor's held places — unlit screens keeping spots for films to come */
   protected blanks: BlankPane[] = [];
+  /** the floor's open gaps — measured like held places, never put on the floor: nothing drawn, nothing to hover */
+  protected gaps: BlankPane[] = [];
 
   /** every pane on the floor, lit or not — what the flights and the bounds move over */
   protected panes(): Array<Container & { placed: Placed; extentX(): number; extentY(): number }> {
@@ -67,7 +69,7 @@ export class WorksWorld {
     host.append(app.canvas);
     w.app = app;
 
-    // the layout runs on the whole stream (held places keep their spots); only films get posters
+    // the layout runs on the whole stream (held places and open gaps keep their spots); only films get posters
     const projects = stream.filter((it): it is Project => !isBlank(it));
     const posters = await Promise.all(projects.map((p) => loadPosterCanvas(p)));
     const placed = layoutProjects(
@@ -99,6 +101,10 @@ export class WorksWorld {
       const pane = new BlankPane(placedBySlug.get(it.slug)!);
       const pos = at(pane.placed);
       pane.position.set(pos.x, pos.y);
+      // an open gap (owner 2026-09-27: "remove the pane where MISTCHILD once stood") is measured but never put on the
+      // floor — the cell grid shows through, as all around the carpet; measured, because a corner of the band is an
+      // extreme of the carpet: unmeasured, the carpet shrank and the furniture ringing it slid in toward the corner
+      if (it.gap) { w.gaps.push(pane); continue; }
       w.blanks.push(pane);
       w.tilesLayer.addChild(pane);
     }
@@ -107,8 +113,11 @@ export class WorksWorld {
     w.desat.saturate(-0.35, false);
     for (const tile of w.tiles.values()) {
       const slug = tile.project.slug;
-      tile.on('pointerover', () => {
-        if (finePointer() && !w.pan.dragging) w.hover(slug);
+      tile.on('pointerover', (e) => {
+        // only the floor itself wakes a pane: Pixi hit-tests every pointer move on the whole document, so a pane
+        // lying under the page's chrome woke — lifted, looped, and took the cursor's label as ENTER ▸ — while the
+        // pointer was on a chapter tab (found fixing the owner's stuck SWITCH ▸, 2026-09-27)
+        if (finePointer() && !w.pan.dragging && document.elementFromPoint(e.clientX, e.clientY) === app.canvas) w.hover(slug);
       });
       tile.on('pointerout', () => {
         if (finePointer() && w.hoveredSlug === slug) w.unhover();
@@ -128,7 +137,7 @@ export class WorksWorld {
     });
 
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    for (const t of w.panes()) {
+    for (const t of [...w.panes(), ...w.gaps]) {
       minX = Math.min(minX, t.x - t.extentX());
       maxX = Math.max(maxX, t.x + t.extentX());
       minY = Math.min(minY, t.y - t.extentY());
@@ -455,6 +464,7 @@ export class WorksWorld {
     }
     this.pan.dispose();
     if (this.labelEl) this.labelEl.hidden = true;
+    for (const g of this.gaps) g.destroy({ children: true }); // (never on the scene graph, so the app's teardown misses them)
     this.app.destroy(true, { children: true });
   }
 
