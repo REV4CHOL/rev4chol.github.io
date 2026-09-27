@@ -491,3 +491,6 @@
   .p-confirm { padding: 72px 18px 64px; }
   .p-back, .p-nextlink { font-size: var(--t-lg); }
 }
+
+/* PLACEHOLDER (owner's testers, 2026-09-27): where WATCH would stand on a stand-in's dossier, the truth in one line */
+.p-placeholder { margin-top: 38px; color: color-mix(in srgb, var(--bone) 55%, transparent); letter-spacing: 0.22em; }

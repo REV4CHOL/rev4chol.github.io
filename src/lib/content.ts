@@ -58,6 +58,12 @@ export function isBlank(it: FloorItem): it is FloorBlank {
   return (it as FloorBlank).blank === true;
 }
 
+/** A placeholder pane: no film and none on its way (a film awaiting its link is `filmPending` — a film). Owner's
+ *  testers, 2026-09-27: a pane that stands in for a film to come now says so, on the floor and in its dossier. */
+export function isPlaceholder(p: Pick<Project, 'film' | 'filmPending'>): boolean {
+  return !p.film && !p.filmPending;
+}
+
 export class ContentError extends Error {
   constructor(public file: string, public detail: string) {
     super(`[${file}] ${detail}`);

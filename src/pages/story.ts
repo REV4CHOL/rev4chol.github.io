@@ -59,7 +59,10 @@ async function armFlight(): Promise<void> {
   const hint = document.getElementById('a3-hint')!;
   const fine = window.matchMedia('(pointer: fine)').matches;
   const modes: Mode[] = ['auto', 'free'];
-  if (!fine) hint.textContent = 'DRAG ▸ LOOK ▪ STICK ▸ MOVE ▪ ▲▼ ▸ RISE/SINK';
+  // the one line of controls: FREE's from the markup (a phone's stick version here); AUTO names the two seats
+  // (owner's testers, 2026-09-27: a visitor arriving mid-drift had no idea the city could be flown)
+  const FREE_HINT = fine ? hint.textContent! : 'DRAG ▸ LOOK ▪ STICK ▸ MOVE ▪ ▲▼ ▸ RISE/SINK';
+  const AUTO_HINT = 'AUTO ▸ THE CITY DRIVES ▪ FREE ▸ YOU FLY';
   fly.innerHTML = modes
     .map((m) => `<button type="button" data-m="${m}"${m === 'auto' ? ' class="on"' : ''}>${m.toUpperCase()}</button>`)
     .join('');
@@ -68,7 +71,8 @@ async function armFlight(): Promise<void> {
     ride.setMode(m);
     document.body.classList.toggle('a3-touch-free', m === 'free' && !fine);
     if (m !== 'free') ride.setStick(0, 0, 0);
-    hint.hidden = m !== 'free';
+    hint.hidden = false;
+    hint.textContent = m === 'free' ? FREE_HINT : AUTO_HINT;
     for (const b of fly.querySelectorAll('button')) b.classList.toggle('on', b.dataset.m === m);
     if (!boot) sound.click(); // (the opening seat is set by the house, not a click)
   };

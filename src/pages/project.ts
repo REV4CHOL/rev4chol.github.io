@@ -1,4 +1,4 @@
-import { aspectRatio, getSlugFromSearch, loadLoopManifest, loadProjects, loopSrcChain, manifestStills, Project, projectAssetUrl } from '../lib/content';
+import { aspectRatio, getSlugFromSearch, isPlaceholder, loadLoopManifest, loadProjects, loopSrcChain, manifestStills, Project, projectAssetUrl } from '../lib/content';
 import { ditherImageToCanvas } from '../lib/dither';
 import { embedSrc } from '../lib/embeds';
 import { mulberry32 } from '../lib/rng';
@@ -161,7 +161,8 @@ function mountHero(p: Project, stamp: string): void {
   posterImg.onerror = () => veil.remove();
   posterImg.src = projectAssetUrl(p.slug, 'poster.jpg');
 
-  void scrambleEl(document.getElementById('p-status-line')!, `PROCEDURE :: ${p.slug.toUpperCase()} // ONLINE`, 900);
+  // a stand-in's dossier says so from its first line (owner's testers, 2026-09-27)
+  void scrambleEl(document.getElementById('p-status-line')!, `PROCEDURE :: ${p.slug.toUpperCase()} // ${isPlaceholder(p) ? 'PLACEHOLDER' : 'ONLINE'}`, 900);
 
   document.getElementById('p-index')!.innerHTML = `<span>${stamp}</span>`;
 
@@ -243,6 +244,13 @@ function mountSynopsis(p: Project): void {
       watch.hidden = false;
       watch.disabled = true;
       watch.title = 'TRANSMISSION PENDING';
+    } else {
+      // PLACEHOLDER (owner's testers, 2026-09-27: a full dossier for a film that does not exist read as a broken
+      // site): where WATCH would stand, the truth in one line
+      const note = document.createElement('p');
+      note.className = 'p-placeholder micro';
+      note.textContent = 'PLACEHOLDER PANE ▪ NO FILM HERE YET';
+      watch.after(note);
     }
     return;
   }
@@ -476,7 +484,7 @@ function mountEndNav(all: Project[], idx: number): void {
   const solo = all.length < 2;
   document.getElementById('p-confirm')!.innerHTML = `
     <div class="p-endnav" data-stamp>
-      <a class="p-back" href="/works.html" data-internal data-cursor="FLOOR ◂">◂ RETURN</a>
-      ${solo ? '' : `<a class="p-nextlink" href="/project.html?p=${next.slug}" data-internal data-cursor="NEXT ▸">${escapeHtml(next.title.toUpperCase())} ▸</a>`}
+      <a class="p-back" href="/works.html" data-internal data-cursor="FLOOR ◂">◂ BACK TO THE FLOOR</a>
+      ${solo ? '' : `<a class="p-nextlink" href="/project.html?p=${next.slug}" data-internal data-cursor="NEXT ▸">NEXT ▸ ${escapeHtml(next.title.toUpperCase())}</a>`}
     </div>`;
 }

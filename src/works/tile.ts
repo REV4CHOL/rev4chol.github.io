@@ -1,7 +1,7 @@
 import { Container, Graphics, Matrix, Sprite, Text, Texture } from 'pixi.js';
 import gsap from 'gsap';
 import type { Project } from '../lib/content';
-import { aspectRatio, loopSrcChain, projectAssetUrl } from '../lib/content';
+import { aspectRatio, isPlaceholder, loopSrcChain, projectAssetUrl } from '../lib/content';
 import { reducedMotion } from '../lib/env';
 import { videoTexture } from '../lib/video-texture';
 import { CARD_H, CARD_W, HOVER_M, ISO, SIZE_MUL_LARGE, cellToWorld } from './constants';
@@ -338,6 +338,18 @@ export class ProjectTile extends Container {
     // between tiles for a label to sit on
     id.position.set(-this.cw / 2 + 12, this.ch / 2 - 18);
     this.card.addChild(id);
+
+    if (isPlaceholder(project)) {
+      // PLACEHOLDER (owner's testers, 2026-09-27): a pane standing in for a film to come says so on its strip,
+      // right-aligned after the year · slug, so nobody takes the specimen for the work
+      const ph = new Text({
+        text: 'PLACEHOLDER',
+        style: { fontFamily: 'Martian Mono', fontSize: 8, fill: 0xedede6, letterSpacing: 2 },
+      });
+      ph.alpha = 0.7;
+      ph.position.set(this.cw / 2 - ph.width - 12, this.ch / 2 - 17);
+      this.card.addChild(ph);
+    }
 
     const code = new Text({
       text: `RVL/${String(Math.abs(placed.col * 7 + placed.row * 13) % 9000 + 1000)}`,

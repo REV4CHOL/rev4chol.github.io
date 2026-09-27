@@ -3,6 +3,8 @@ import { armPosterLock, posterZoom } from '../lib/poster-lock';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { armGlideNav, navNeighbors } from '../lib/swipe-nav';
+import { leaveTo } from '../lib/transitions';
+import { doorFromVoidClick } from '../home/door';
 import { colorWord, parseHsl } from '../home/loops';
 import { startPage } from '../shell/page';
 import { rolesLine } from '../home/roles';
@@ -118,14 +120,14 @@ startPage('home', async ({ site }) => {
     }),
   );
   document.querySelector('.home-main')?.classList.add('is-revealed');
-  initHomeEffects();
+  initHomeEffects(site.nav.find((n) => n.label === 'WORK')?.href ?? '/works.html');
 
 });
 
 /** Every text reacts, the room reacts: hover scrambles any [data-glitch],
  *  ambient jolts keep the chrome alive, clicking the void fires a datamosh
  *  burst on the hero. All of it stands down under reduced motion. */
-function initHomeEffects(): void {
+function initHomeEffects(workHref: string): void {
   document.addEventListener('pointerover', (e) => {
     const t = (e.target as Element).closest?.('[data-glitch]') as HTMLElement | null;
     if (!t || t.dataset.busy) return;
@@ -164,7 +166,7 @@ function initHomeEffects(): void {
   // punctuation now, seconds apart, not a metronome
   const glitchables = [
     ...document.querySelectorAll<HTMLElement>(
-      '[data-glitch], .nav-links a, .brand, .hud-bl, .hud-br, .hud-tr, .home-data, .hk-spine, .hk-ticks, .cta-prompt',
+      '[data-glitch], .nav-links a, .brand, .hud-bl, .hud-br, .hud-tr, .home-data, .home-door, .hk-spine, .hk-ticks, .cta-prompt',
     ),
   ];
   const scheduleJolt = () => {
@@ -179,10 +181,21 @@ function initHomeEffects(): void {
   };
   scheduleJolt();
 
+  // THE FOOTAGE IS A DOOR (owner's testers, 2026-09-27: they clicked the picture and got a glitch, not a place). The
+  // burst still answers the pointerdown; a clean pointerup — no drag, not a link or button, not the poster's words,
+  // which keep the toy — leaves for WORK (home/door.ts decides)
+  let down: { id: number; x: number; y: number } | null = null;
   document.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return; // middle/right clicks (autoscroll, menus) stay silent
     if ((e.target as Element).closest?.('a, button')) return;
     heroBurst();
     sound.drop(); // the burst stays loud on screen — the sound answers softly
+    down = { id: e.pointerId, x: e.clientX, y: e.clientY };
+  });
+  document.addEventListener('pointerup', (e) => {
+    if (!down || e.pointerId !== down.id) return;
+    const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+    down = null;
+    if (doorFromVoidClick(e.target as Element, moved)) leaveTo(workHref);
   });
 }

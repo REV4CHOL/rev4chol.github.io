@@ -9,6 +9,19 @@ export function setCursorLabel(text: string | null): void {
   labelEl.parentElement?.classList.toggle('has-label', !!text);
 }
 
+/** What the pointer's target says the label should be: the nearest `data-cursor`'s text, `null` when nothing is
+ *  labelled — and `undefined` over a canvas, which owns its own label (the works floor sets ENTER ▸ per pane).
+ *  Before this, the DOM `pointerover` of the pointer entering the canvas bubbled here, found no `data-cursor` and
+ *  wiped the label the floor had just set: the first pane hovered never showed ENTER ▸ (owner's testers,
+ *  2026-09-27: "what to click on"). */
+export function cursorLabelFor(
+  target: { closest?: (selector: string) => unknown } | null | undefined,
+): string | null | undefined {
+  if (target?.closest?.('canvas')) return undefined;
+  const t = target?.closest?.('[data-cursor]') as { dataset?: Record<string, string | undefined> } | null | undefined;
+  return t ? t.dataset?.cursor || null : null;
+}
+
 export function initCursor(): void {
   if (!finePointer() || reducedMotion()) return;
   const c = document.createElement('div');
@@ -32,7 +45,7 @@ export function initCursor(): void {
     });
   });
   document.addEventListener('pointerover', (e) => {
-    const t = (e.target as Element).closest?.('[data-cursor]');
-    setCursorLabel(t ? (t as HTMLElement).dataset.cursor || null : null);
+    const label = cursorLabelFor(e.target as Element);
+    if (label !== undefined) setCursorLabel(label);
   });
 }

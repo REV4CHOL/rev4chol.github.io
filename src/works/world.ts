@@ -9,6 +9,8 @@ import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { leaveTo } from '../lib/transitions';
 import { setCursorLabel } from '../shell/cursor';
+import { captionMeta, markFloorOpened } from './legend';
+import { openingFrame } from './opening';
 import { CARD_H, CARD_W, ISO, SEAM, STEP_W, WORLD_PAD, rowAxisWorld } from './constants';
 import { buildDebris } from './debris';
 import { buildFields } from './fields';
@@ -144,6 +146,9 @@ export class WorksWorld {
     w.worldC.addChild(w.fieldsC, w.debrisC, w.tilesLayer, w.fxLayer);
     app.stage.addChild(w.worldC);
 
+    // full pinch-out on any device reveals what a ~1920px desktop sees —
+    // a phone reaches ~0.2, a tablet ~0.4, a wide screen keeps 0.5
+    const minZoom = () => Math.max(0.16, Math.min(0.5, app.screen.width / 1920));
     w.pan = new PanController(
       host,
       { minX: -maxX, maxX: -minX, minY: -maxY, maxY: -minY },
@@ -154,11 +159,23 @@ export class WorksWorld {
         get: () => w.worldC.scale.x || 1,
         set: (s) => w.worldC.scale.set(s),
         center: () => ({ x: app.screen.width / 2, y: app.screen.height / 2 }),
-        // full pinch-out on any device reveals what a ~1920px desktop sees —
-        // a phone reaches ~0.2, a tablet ~0.4, a wide screen keeps 0.5
-        min: () => Math.max(0.16, Math.min(0.5, app.screen.width / 1920)),
+        min: minZoom,
       },
     );
+
+    // THE PHONE'S FIRST FRAME (owner's testers, 2026-09-27): a touch screen opens on one whole featured pane, fitted
+    // and centred, not on the seam between two (works/opening.ts); a fine pointer keeps the cluster
+    if (!finePointer()) {
+      const frame = openingFrame(
+        [...w.tiles.values()].map((t) => ({ x: t.x, y: t.y, halfW: t.extentX(), featured: t.project.tileSize === 'large' })),
+        app.screen.width,
+        minZoom(),
+      );
+      if (frame) {
+        w.worldC.scale.set(frame.scale);
+        w.pan.panTo(frame.x, frame.y);
+      }
+    }
 
     let coordsClock = 0;
     app.ticker.add((tk) => {
@@ -271,6 +288,9 @@ export class WorksWorld {
     if (!tile) return;
     this.entering = true;
     sound.click();
+    // the legend has done its first job (owner's testers, 2026-09-27): remembered, and dimmed from here on
+    try { markFloorOpened(localStorage); } catch { /* no storage */ }
+    document.getElementById('floor-hint')?.classList.remove('is-fresh');
     const dest = `/project.html?p=${encodeURIComponent(slug)}`;
     // failsafe: if navigation stalls (dev-server hiccup, network), a latched
     // `entering` would deaden every hover until a manual reload — self-heal
@@ -452,7 +472,7 @@ export class WorksWorld {
     this.labelEl.style.top = `${Math.min(ph - 120, Math.max(70, global.y / z - 40))}px`;
     const title = this.labelEl.querySelector('.tl-title') as HTMLElement;
     const meta = this.labelEl.querySelector('.tl-meta') as HTMLElement;
-    meta.textContent = [p.year, p.role, p.runtime].filter(Boolean).join(' · ').toUpperCase();
+    meta.textContent = captionMeta(p, finePointer()); // …ending with the verb that opens the pane
     meta.style.color = p.accent;
     void scrambleEl(title, (p.short || p.title).toUpperCase(), 420);
   }

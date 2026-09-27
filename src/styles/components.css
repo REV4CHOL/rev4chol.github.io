@@ -51,9 +51,10 @@
 /* coarse-gated: the phone nav is for phones — a desktop viewport narrowed by
    browser zoom keeps the desktop chrome (the 100%-benchmark zoom law) */
 @media (max-width: 640px) and (pointer: coarse) {
-  .nav { flex-direction: column; align-items: flex-start; gap: 8px; padding: 14px 16px; }
-  .nav-links { gap: 16px; flex-wrap: wrap; }
-  .nav-links a { font-size: 0.65rem; }
+  .nav { flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 16px; }
+  .nav-links { gap: 0 18px; flex-wrap: wrap; }
+  /* a thumb's targets (owner's testers, 2026-09-27): 44px tall links, the type a notch up from 0.65rem */
+  .nav-links a { font-size: 0.7rem; padding: 13px 0; }
 }
 
 /* ---- buttons ---- */
@@ -78,6 +79,7 @@
   .hud-bl { left: 16px; bottom: 14px; }
   .hud-br { right: 16px; bottom: 34px; text-align: right; }
   .hud-tr { right: 16px; top: 96px; }
+  .floor-hint { top: 134px; white-space: normal; max-width: 300px; line-height: 1.8; } /* under the HUD's top line */
 }
 
 /* ---- zoom-fixed chrome ----
@@ -111,7 +113,7 @@
 @media (max-width: 640px) and (pointer: coarse) {
   .nav { padding: calc(14px * var(--uiz)) calc(16px * var(--uiz)); }
   .nav-links { gap: calc(16px * var(--uiz)); }
-  .nav-links a { font-size: calc(0.65rem * var(--uiz)); }
+  .nav-links a { font-size: calc(0.7rem * var(--uiz)); }
   .hud-bl { left: calc(16px * var(--uiz)); bottom: calc(14px * var(--uiz)); }
   .hud-br { right: calc(16px * var(--uiz)); bottom: calc(34px * var(--uiz)); }
   .hud-tr { right: calc(16px * var(--uiz)); top: calc(108px * var(--uiz)); }
@@ -264,6 +266,22 @@
   text-shadow: 0 2px 14px rgba(6, 6, 6, 0.8);
 }
 .home-cta:hover { color: var(--accent); animation: rgb-flick 0.32s steps(2) 1; }
+/* THE DOOR (owner's testers, 2026-09-27: "not knowing what to do, where to go"): the poster's one button, under the
+   roles bar and in its clothes — mono caps, accent ink, a 1px rule, the bar's void tint; hover inverts */
+.home-cta-row { margin-top: clamp(16px, calc(2.6vh / var(--plate, 1)), 26px); }
+.home-door {
+  display: inline-block; font-family: var(--f-mono); font-size: var(--t-sm); font-weight: 500;
+  letter-spacing: 0.16em; text-transform: uppercase; text-decoration: none; color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  background: color-mix(in srgb, var(--void) 55%, transparent);
+  padding: 13px 22px 14px; text-shadow: 0 0 6px rgba(6, 6, 6, 0.9);
+  transition: background 0.2s, color 0.2s;
+}
+.home-door:hover { background: var(--accent); color: var(--void); text-shadow: none; animation: rgb-flick 0.32s steps(2) 1; }
+/* the statement's boxes span the whole poster (block rows, the giant &); only its glitch-text leaves are "the words"
+   that keep the burst — everywhere else a click falls through to the footage, which is a door (home/door.ts) */
+.home-statement { pointer-events: none; }
+.home-statement [data-glitch] { pointer-events: auto; }
 
 /* ---- home corner furniture: the frame is part of the poster ---- */
 .hk-spine {
@@ -370,6 +388,7 @@
      timecode, no session id — SFX/MTN top-right stay, they're controls */
   .page-home .hud-bl, .page-home .hud-br { display: none; }
   .home-main { padding-bottom: 84px; }
+  .home-door { padding: 14px 20px; } /* a thumb's target: 44px tall */
   /* the poster must FIT the phone: any horizontal overflow expands the mobile
      layout viewport, the browser fit-zooms, and the whole page ghost-doubles
      under that zoom (fixed elements + composited layers paint twice) */
@@ -450,6 +469,23 @@
 .ch-switch button:hover .ch-name { color: var(--bone); }
 .ch-switch button:hover { animation: rgb-flick 0.32s steps(2) 1; }
 .ch-switch button.is-on .ch-name, .ch-switch button.is-on .ch-idx { color: var(--signal); }
+/* the chapter not showing reads as a tab, not a caption (owner's testers, 2026-09-27): a hairline under its name */
+.ch-switch button:not(.is-on) .ch-name {
+  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.28em;
+  text-decoration-color: color-mix(in srgb, var(--bone) 35%, transparent);
+}
+.ch-switch button:not(.is-on):hover .ch-name { text-decoration-color: var(--signal); }
+
+/* THE FLOOR'S LEGEND (owner's testers, 2026-09-27: "not knowing what to do … what to click on"): the controls in one
+   line — the STORY page's idiom — top centre under the nav; lit in the signal colour until the visitor has opened a
+   pane once, then a quiet reminder */
+.floor-hint {
+  position: fixed; left: 50%; translate: -50% 0; top: calc(104px * var(--uiz)); z-index: 945; pointer-events: none;
+  text-align: center; white-space: nowrap; letter-spacing: 0.2em; font-size: calc(var(--t-2xs) * var(--uiz));
+  color: color-mix(in srgb, var(--bone) 55%, transparent); text-shadow: 0 0 8px rgba(6, 6, 6, 0.95);
+}
+.floor-hint.is-fresh { color: var(--signal); }
+.floor-hint:empty { display: none; }
 
 /* channel change: NO filter over the floor — the panes themselves do the
    moving (world.exit/arrive). This layer only carries the station ident. */
@@ -576,10 +612,8 @@
   0%, 100% { transform: translateY(0); opacity: 0.45; }
   55% { transform: translateY(5px); opacity: 1; }
 }
-@media (pointer: coarse) {
-  /* the weather line is desktop flavor — thumbs get the glide instead */
-  .page-home .home-cta-row { display: none; }
-}
+/* (the coarse-pointer rule that hid .home-cta-row — the retired weather line — is gone: the row now holds THE DOOR,
+   which a thumb needs most; owner's testers, 2026-09-27) */
 .rvl-calm .swc-chevron { animation: none; }
 
 /* the station card behind the gliding page: a child of <html> at z -1 paints

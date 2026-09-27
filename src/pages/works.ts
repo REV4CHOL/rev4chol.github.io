@@ -1,11 +1,12 @@
 import gsap from 'gsap';
-import { loadFloor, loadLoopManifest, loadProjects, projectAssetUrl, type Project } from '../lib/content';
-import { reducedMotion } from '../lib/env';
+import { isPlaceholder, loadFloor, loadLoopManifest, loadProjects, projectAssetUrl, type Project } from '../lib/content';
+import { finePointer, reducedMotion } from '../lib/env';
 import { armPosterLock, posterZoom } from '../lib/poster-lock';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { startPage } from '../shell/page';
 import { CHANNELS, ChannelKey, channelFromSearch, channelProjects } from '../works/channels';
+import { floorOpened, legendText } from '../works/legend';
 import { mountWorksOverlay } from '../works/overlay';
 import { WorksWorld } from '../works/world';
 
@@ -20,6 +21,15 @@ startPage(
     const floor = await loadFloor(); // the films AND the held places, in json order
     await loadLoopManifest(); // tiles build their loop chains synchronously
     mountWorksOverlay();
+    // THE LEGEND (owner's testers, 2026-09-27: "not knowing what to do … what to click on"): the floor's controls in
+    // one line, lit until the visitor has opened a pane once (world.enter dims it), then a quiet reminder
+    const hint = document.getElementById('floor-hint');
+    if (hint) {
+      hint.textContent = legendText(finePointer());
+      let opened = false;
+      try { opened = floorOpened(localStorage); } catch { /* no storage: stays lit */ }
+      hint.classList.toggle('is-fresh', !opened);
+    }
     const host = document.getElementById('floor')!;
 
     let world: WorksWorld | null = null;
@@ -51,6 +61,7 @@ startPage(
     for (const ch of CHANNELS) {
       const b = document.createElement('button');
       b.dataset.ch = ch.key;
+      b.dataset.cursor = 'SWITCH ▸'; // the cursor names the tab's job (owner's testers, 2026-09-27)
       b.innerHTML = `<span class="ch-idx micro">${ch.index}</span><span class="ch-name"><span class="ch-mark"></span>${ch.name}</span>`;
       b.addEventListener('click', () => void flip(ch.key));
       sw.append(b);
@@ -140,7 +151,7 @@ function buildSemanticList(projects: Project[], world: WorksWorld): void {
     const li = document.createElement('li');
     const a = document.createElement('a');
     a.href = `/project.html?p=${p.slug}`;
-    a.textContent = `${p.title} (${p.year})`;
+    a.textContent = `${p.title} (${p.year})${isPlaceholder(p) ? ' — placeholder' : ''}`;
     a.addEventListener('focus', () => world.focusProject(p.slug));
     li.append(a);
     ul.append(li);
