@@ -15,6 +15,7 @@ import { CARD_H, CARD_W, ISO, SEAM, STEP_W, WORLD_PAD, rowAxisWorld } from './co
 import { buildDebris } from './debris';
 import { buildFields } from './fields';
 import { GRAIN, joltCamera, misregister, streakBurst, type Burst, type Misreg } from './flipfx';
+import { paneToWake } from './hover';
 import { PanController } from './input';
 import { BlankPane } from './blank';
 import { layoutProjects, packRows, paneBand, type Placed } from './layout';
@@ -113,15 +114,6 @@ export class WorksWorld {
     w.desat.saturate(-0.35, false);
     for (const tile of w.tiles.values()) {
       const slug = tile.project.slug;
-      tile.on('pointerover', (e) => {
-        // only the floor itself wakes a pane: Pixi hit-tests every pointer move on the whole document, so a pane
-        // lying under the page's chrome woke — lifted, looped, and took the cursor's label as ENTER ▸ — while the
-        // pointer was on a chapter tab (found fixing the owner's stuck SWITCH ▸, 2026-09-27)
-        if (finePointer() && !w.pan.dragging && document.elementFromPoint(e.clientX, e.clientY) === app.canvas) w.hover(slug);
-      });
-      tile.on('pointerout', () => {
-        if (finePointer() && w.hoveredSlug === slug) w.unhover();
-      });
       tile.on('pointertap', () => {
         if (w.pan.lastGestureDist > 8) return; // that was a drag, not a tap
         if (finePointer()) { w.enter(slug); return; }
@@ -135,6 +127,23 @@ export class WorksWorld {
     app.stage.on('pointertap', (e) => {
       if (e.target === app.stage && w.pan.lastGestureDist <= 8) w.unhover();
     });
+    // hover follows the pointer: on every move, the pane under it is the one awake (paneToWake says why the panes'
+    // own pointerover/pointerout could not be trusted)
+    app.stage.on('globalpointermove', (e) => {
+      if (!finePointer()) return;
+      let hit: string | null = null;
+      for (let o = e.target as Container | null; o; o = o.parent) if (o instanceof ProjectTile) { hit = o.project.slug; break; }
+      // only the floor itself wakes a pane: Pixi hit-tests every pointer move on the whole document, so a pane lying
+      // under the page's chrome woke — lifted, looped, and took the cursor's label as ENTER ▸ — while the pointer was
+      // on a chapter tab (found fixing the owner's stuck SWITCH ▸, 2026-09-27)
+      const onFloor = hit !== null && document.elementFromPoint(e.clientX, e.clientY) === app.canvas;
+      const next = paneToWake(hit, onFloor, w.hoveredSlug, w.pan.dragging);
+      if (next === w.hoveredSlug) return;
+      if (next) w.hover(next);
+      else w.unhover();
+    });
+    // the pointer left the floor's canvas, for the page's chrome or out of the window: no pane stays awake
+    app.canvas.addEventListener('pointerleave', () => { if (finePointer()) w.unhover(); });
 
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     for (const t of [...w.panes(), ...w.gaps]) {

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { doorFromVoidClick } from '../src/home/door';
 import { cursorLabelFor } from '../src/shell/cursor';
+import { paneToWake } from '../src/works/hover';
 
 /** A stand-in for an event target: `ancestors` lists what it and its parents match ('a', '#statement', 'canvas',
  *  '[data-cursor]'); `closest(sel)` answers for any comma-separated token, as the DOM would. */
@@ -48,6 +49,32 @@ describe("the cursor's label (ENTER ▸ never showed on the first pane hovered; 
   });
 });
 
+describe('the pane under the pointer is the one awake (a pane crossed in one quick move stayed awake)', () => {
+  it('a pane on the floor wakes; another pane takes over; bare floor puts the awake one to sleep', () => {
+    expect(paneToWake('halide', true, null, false)).toBe('halide');
+    expect(paneToWake('mistchild', true, 'halide', false)).toBe('mistchild');
+    expect(paneToWake(null, true, 'halide', false)).toBeNull();
+    expect(paneToWake(null, true, null, false)).toBeNull();
+  });
+
+  it("the page's chrome never keeps a pane awake — not even the one lying under it", () => {
+    expect(paneToWake('halide', false, 'halide', false)).toBeNull();
+    expect(paneToWake('halide', false, null, false)).toBeNull();
+  });
+
+  it('a drag wakes nothing and lets the awake pane go — but keeps the one moving along under the pointer', () => {
+    expect(paneToWake('mistchild', true, null, true)).toBeNull();
+    expect(paneToWake('mistchild', true, 'halide', true)).toBeNull();
+    expect(paneToWake('halide', true, 'halide', true)).toBe('halide');
+  });
+
+  it("the floor asks on every move, not through the panes' own pointerover/pointerout (their path went stale)", () => {
+    const src = readFileSync('src/works/world.ts', 'utf8');
+    expect(src).not.toContain("tile.on('pointerover'");
+    expect(src).not.toContain("tile.on('pointerout'");
+  });
+});
+
 describe('the signposts are wired (pins)', () => {
   const pins: Array<[string, string]> = [
     ['index.html', 'id="home-door"'],
@@ -67,6 +94,10 @@ describe('the signposts are wired (pins)', () => {
     ['src/shell/cursor.ts', 'cursorLabelFor(e.target as Element, chromeWrote)'],
     // only the floor itself wakes a pane — never one lying under a tab, a nav link or a HUD button
     ['src/works/world.ts', 'document.elementFromPoint(e.clientX, e.clientY) === app.canvas'],
+    // …decided on every pointer move from what is under the pointer; and leaving the canvas puts the pane to sleep
+    ['src/works/world.ts', "app.stage.on('globalpointermove', (e) => {"],
+    ['src/works/world.ts', 'paneToWake(hit, onFloor, w.hoveredSlug, w.pan.dragging)'],
+    ['src/works/world.ts', "app.canvas.addEventListener('pointerleave', () => { if (finePointer()) w.unhover(); });"],
     // an open gap (owner: "remove the pane where MISTCHILD once stood") keeps its place and draws nothing — but it is
     // measured, so the carpet keeps its footprint and the furniture ringing it stays put (the corner is an extreme)
     ['src/works/world.ts', 'if (it.gap) { w.gaps.push(pane); continue; }'],
