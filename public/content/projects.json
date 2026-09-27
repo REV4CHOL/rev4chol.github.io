@@ -353,10 +353,10 @@
   },
   {
     "slug": "jaecoo-j5",
-    "title": "JAECOO J5",
+    "title": "JAECOO J5: Every Road Leads Home",
     "year": 2026,
     "role": "Director / Editor / Colorist / Sound Designer",
-    "runtime": "2:43",
+    "runtime": "2:46",
     "tags": [
       "spec advertisement"
     ],
@@ -370,7 +370,7 @@
     ],
     "film": {
       "type": "youtube",
-      "src": "https://www.youtube.com/embed/EGIm1gD-KTE"
+      "src": "https://www.youtube.com/embed/IXWAZwI5Xug"
     },
     "category": "machine",
     "tileSize": "large"
@@ -566,7 +566,27 @@
     "tileSize": "normal"
   },
   {
-    "blank": true,
+    "slug": "remnants-of-a-dream",
+    "title": "Remnants of a Dream",
+    "year": 2026,
+    "role": "Colorist",
+    "runtime": "24:16",
+    "tags": [
+      "drama",
+      "indie short film"
+    ],
+    "accent": "#ED6B85",
+    "synopsis": "Avalon promises a bright future, but at what cost?",
+    "credits": [
+      {
+        "role": "Colorist",
+        "name": "Revachol"
+      }
+    ],
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/tKWevMRBOzY"
+    },
     "category": "human",
     "tileSize": "large"
   },
@@ -593,23 +613,28 @@
     "film": null
   },
   {
-    "slug": "copper-lullaby",
-    "title": "Copper Lullaby",
-    "year": 2023,
-    "role": "Director",
-    "runtime": "06:08",
+    "slug": "mission-impassible",
+    "title": "Mission: Impassible",
+    "year": 2025,
+    "role": "Colorist",
+    "runtime": "1:36",
     "tags": [
-      "experimental"
+      "comedy",
+      "indie short film"
     ],
-    "accent": "#FF2E63",
-    "synopsis": "Recorded inside a decommissioned power station: the building's last week of electrical hum, set to images.",
+    "accent": "#F5AE4A",
+    "aspect": "2.39:1",
+    "synopsis": "Failure is not an option. Neither is studying.",
     "credits": [
       {
-        "role": "Director",
+        "role": "Colorist",
         "name": "Revachol"
       }
     ],
-    "film": null,
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/R3tSyucJERw"
+    },
     "category": "human",
     "tileSize": "normal"
   },

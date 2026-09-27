@@ -105,6 +105,41 @@ describe('shipped content files', () => {
     checkFilm(f);
   });
 
+  // the owner's fourth batch (2026-09-27): REMNANTS OF A DREAM for "the empty blank space in chapter 1" — the held
+  // place at json 25, kept that morning for "two more" films (ĂN HỎI took the other) — and MISSION: IMPASSIBLE to
+  // "Replace Copper Lullaby in chapter 1". MISSION's folder holds five stills twice (the same frames, exported with
+  // two letterbox sizes): its wall shows each once, 19 of the 24.
+  const BATCH4 = [
+    { slug: 'remnants-of-a-dream', slot: 25, where: 'fills the last held place, featured',
+      title: 'Remnants of a Dream', year: 2026, role: 'Colorist', runtime: '24:16',
+      tags: ['drama', 'indie short film'], synopsis: 'Avalon promises a bright future, but at what cost?',
+      category: 'human', tileSize: 'large', aspect: '16:9', youtube: 'tKWevMRBOzY', stills: 40, accent: '#ED6B85' },
+    { slug: 'mission-impassible', slot: 27, where: 'takes COPPER LULLABY\'s pane',
+      title: 'Mission: Impassible', year: 2025, role: 'Colorist', runtime: '1:36',
+      tags: ['comedy', 'indie short film'], synopsis: 'Failure is not an option. Neither is studying.',
+      category: 'human', tileSize: 'normal', aspect: '2.39:1', youtube: 'R3tSyucJERw', stills: 19, accent: '#F5AE4A' },
+  ];
+
+  for (const f of BATCH4) it(`${f.title.toUpperCase()} ${f.where}, linked, with its media (owner 2026-09-27)`, () => {
+    checkFilm(f);
+    expect(parseProjects(rawProjects()).find((p) => p.slug === f.slug)!.accent).toBe(f.accent);
+  });
+
+  // (owner 2026-09-27: "Change JAECOO J5 to JAECOO J5: Every Road Leads Home, and also change its embed code for
+  //  watch to" IXWAZwI5Xug. The old link, EGIm1gD-KTE, is gone from YouTube; the new cut runs 2:46, not 2:43.)
+  it('JAECOO J5: its new title and cut; the rest of it as it was', () => {
+    expect(parseFloor(rawProjects()).findIndex((it) => it.slug === 'jaecoo-j5')).toBe(15);
+    const p = parseProjects(rawProjects()).find((q) => q.slug === 'jaecoo-j5')!;
+    expect(p.title).toBe('JAECOO J5: Every Road Leads Home');
+    expect(p.film).toEqual({ type: 'youtube', src: 'https://www.youtube.com/embed/IXWAZwI5Xug' });
+    expect(p.runtime).toBe('2:46');
+    expect([p.year, p.role, p.tags, p.accent, p.aspect, p.category, p.tileSize]).toEqual(
+      [2026, 'Director / Editor / Colorist / Sound Designer', ['spec advertisement'], '#FFA84D', '16:9', 'machine', 'large']);
+    expect(p.synopsis).toBe('A dog, a city and one long golden hour on the road. A machine-dreamt spec ad for the JAECOO J5.');
+    expect(read('projects.json')).not.toContain('EGIm1gD-KTE');
+    expect(readdirSync(`${root}projects/jaecoo-j5/stills`)).toHaveLength(54); // its media stay
+  });
+
   for (const f of BATCH) it(`${f.title.toUpperCase()} takes ${f.was}'s slot, linked, with its media (owner 2026-09-26)`, () => {
     const projects = parseProjects(rawProjects());
     expect(projects.some((p) => p.slug === f.was)).toBe(false);
@@ -151,17 +186,19 @@ describe('shipped content files', () => {
   // (owner 2026-09-27, first: "move Soda Coast to Sodium Haze / And Far East to Motel Eden / Then leave the
   //  original panes as they left blank, i am about to fill in two more to those two positions"; then, the same
   //  day: "move FAR EAST to Copper Lullaby", "move SODA COAST to RUST CHOIR", SOFT HOURS "at the pane where
-  //  SODA COAST just left", "ĂN HỎI" CEREMONY into the "upper blank space")
-  it('the CH·01 moves: FAR EAST ↔ COPPER LULLABY, SODA COAST in RUST CHOIR\'s place; one held place left', () => {
+  //  SODA COAST just left", "ĂN HỎI" CEREMONY into the "upper blank space"; and last, REMNANTS OF A DREAM into
+  //  "the empty blank space", MISSION: IMPASSIBLE in place of "Copper Lullaby")
+  it('the CH·01 moves: FAR EAST and SODA COAST on the top row; both held places filled, none left', () => {
     const floor = parseFloor(rawProjects());
     expect(floor).toHaveLength(40);
-    expect(floor.filter((it) => isBlank(it) && !it.gap)).toHaveLength(1); // (the open gap is the next test's)
-    expect(floor[25]).toEqual({ blank: true, gap: false, slug: 'blank-25', category: 'human', tileSize: 'large', position: null });
+    expect(floor.filter((it) => isBlank(it) && !it.gap)).toHaveLength(0); // (the open gap is the next test's)
     const slot = (i: number) => [floor[i].slug, floor[i].tileSize];
+    expect(slot(12)).toEqual(['an-hoi', 'large']); // the upper held place
+    expect(slot(25)).toEqual(['remnants-of-a-dream', 'large']); // the lower one
     expect(slot(9)).toEqual(['far-east', 'normal']); // COPPER LULLABY's place, top row
-    expect(slot(27)).toEqual(['copper-lullaby', 'normal']); // …which takes FAR EAST's old one: a swap
+    expect(slot(27)).toEqual(['mission-impassible', 'normal']); // FAR EAST's old one: COPPER LULLABY's, until the fourth batch
     expect(slot(16)).toEqual(['soda-coast', 'normal']); // RUST CHOIR's place, top row
-    for (const gone of ['sodium-haze', 'motel-eden', 'rust-choir', 'tender-machines']) {
+    for (const gone of ['sodium-haze', 'motel-eden', 'rust-choir', 'tender-machines', 'copper-lullaby']) {
       expect(floor.some((it) => it.slug === gone), gone).toBe(false);
       expect(existsSync(`${root}projects/${gone}`), `${gone} folder`).toBe(false);
     }
@@ -197,7 +234,7 @@ describe('shipped content files', () => {
     expect(cells('human')).toEqual({
       'glass-harvest': [0, 0], 'saline-throne': [1, 0], 'far-east': [2, 0], 'soda-coast': [3, 0], 'gap-18': [4, 0],
       'acid-pastoral': [0, 1], philia: [1, 1], 'mien-vien': [2, 1], 'an-hoi': [3, 1], 'soft-hours-lonely-lands': [4, 1],
-      'gasoline-hymn': [0, 2], 'lien-quan': [1, 2], 'electric-fish': [2, 2], 'blank-25': [3, 2], 'copper-lullaby': [4, 2],
+      'gasoline-hymn': [0, 2], 'lien-quan': [1, 2], 'electric-fish': [2, 2], 'remnants-of-a-dream': [3, 2], 'mission-impassible': [4, 2],
       'salt-cathedral': [0, 3], 'velvet-static': [1, 3], 'winter-arcade': [2, 3], halide: [3, 3], mistchild: [4, 3],
     });
   });
@@ -209,17 +246,17 @@ describe('shipped content files', () => {
     expect([at['jaecoo-j5'], at['terminal-bloom']]).toEqual([[2, 2], [3, 2]]);
   });
 
-  it('projects.json is valid: CH·02 holds 20 films (6 featured); CH·01 18 films (5 featured), 1 held place, 1 open gap', () => {
+  it('projects.json is valid: CH·02 holds 20 films (6 featured); CH·01 19 films (6 featured) and 1 open gap', () => {
     const films = parseProjects(rawProjects());
     const human = films.filter((p) => p.category === 'human');
     const machine = films.filter((p) => p.category === 'machine');
     expect(machine).toHaveLength(20);
     expect(machine.filter((p) => p.tileSize === 'large')).toHaveLength(6);
-    expect(human).toHaveLength(18);
-    expect(human.filter((p) => p.tileSize === 'large')).toHaveLength(5);
+    expect(human).toHaveLength(19);
+    expect(human.filter((p) => p.tileSize === 'large')).toHaveLength(6);
     const humanFloor = parseFloor(rawProjects()).filter((it) => it.category === 'human');
-    expect(humanFloor).toHaveLength(20); // still a 5 × 4 band: 18 films, the held place, the open gap
-    expect(humanFloor.filter((it) => it.tileSize === 'large')).toHaveLength(6); // its cluster: 5 films + 1 held
+    expect(humanFloor).toHaveLength(20); // still a 5 × 4 band: 19 films and the open gap
+    expect(humanFloor.filter((it) => it.tileSize === 'large')).toHaveLength(6); // its cluster: 6 films
   });
 
   it('the homepage has a first frame: a hero image or at least one loop', () => {
