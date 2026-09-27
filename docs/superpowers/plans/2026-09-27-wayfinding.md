@@ -53,4 +53,4 @@ pointers), `src/styles/components.css` (`.floor-hint`, tab underline, phone nav 
 
 - [x] Gates: tsc, vitest (all), build.
 - [x] Dev pane walk (spec § Verification) + real-Chrome CDP checks (cursor label on first hover, phone frame, legend).
-- [ ] Commit(s), push, `gh run watch --exit-status`, live re-check, memory bullet, report.
+- [x] Commit(s), push, `gh run watch --exit-status`, live re-check, memory bullet, report.
