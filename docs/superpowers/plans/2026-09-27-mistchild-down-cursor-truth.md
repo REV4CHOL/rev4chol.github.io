@@ -113,5 +113,5 @@ Spec: `docs/superpowers/specs/2026-09-27-mistchild-down-cursor-truth-design.md`.
   - the first-hover ENTER ▸ (`verify.mjs` section B);
   - a flip each way;
   - the dossiers.
-- [ ] Commit, push, `gh run watch --exit-status`, then the same CDP checks with `BASE=https://rev4chol.github.io`.
-- [ ] Memory bullet; closing report with the design call flagged.
+- [x] Commit, push, `gh run watch --exit-status`, then the same CDP checks with `BASE=https://rev4chol.github.io`.
+- [x] Memory bullet; closing report with the design call flagged.
