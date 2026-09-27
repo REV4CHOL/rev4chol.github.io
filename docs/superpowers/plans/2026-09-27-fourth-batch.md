@@ -111,15 +111,15 @@
 
 ### Task 6: Ship
 
-- [ ] **Step 1:** Stage explicitly, in two commits: (1) the batch: projects.json, the two new folders, the removed folder, the content tests, the spec and the plan; (2) the hover fix: hover.ts, world.ts, wayfinding.test.ts.
-- [ ] **Step 2:** `git -c core.safecrlf=false commit`, then `git push -q origin master`.
-- [ ] **Step 3:** `gh run watch --exit-status`.
-- [ ] **Step 4:** Run the Task 5 script with BASE=https://rev4chol.github.io (after the Pages cache settles).
+- [x] **Step 1:** Stage explicitly, in two commits: (1) the batch: projects.json, the two new folders, the removed folder, the content tests, the spec and the plan; (2) the hover fix: hover.ts, world.ts, wayfinding.test.ts.
+- [x] **Step 2:** `git -c core.safecrlf=false commit`, then `git push -q origin master`.
+- [x] **Step 3:** `gh run watch --exit-status`.
+- [x] **Step 4:** Run the Task 5 script with BASE=https://rev4chol.github.io (after the Pages cache settles).
 
 ### Task 7: Close
 
-- [ ] **Step 1:** Memory: the bullet and the description line.
-- [ ] **Step 2:** Report to the owner, flagging the design calls:
+- [x] **Step 1:** Memory: the bullet and the description line.
+- [x] **Step 2:** Report to the owner, flagging the design calls:
   - "the empty blank space" read as the held place;
   - JAECOO's runtime set to 2:46;
   - MISSION's five repeated stills left out;
