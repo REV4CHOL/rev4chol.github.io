@@ -4,13 +4,14 @@ import { describe, expect, it } from 'vitest';
 import { isPlaceholder, parseJson, parseProjects, type Project } from '../src/lib/content';
 import { FLOOR_LEGEND, captionMeta, floorOpened, legendText, markFloorOpened } from '../src/works/legend';
 
-type Meta = Pick<Project, 'year' | 'role' | 'runtime' | 'film' | 'filmPending'>;
+type Meta = Pick<Project, 'year' | 'role' | 'runtime' | 'film' | 'filmPending' | 'filmPrivate'>;
 const film = (over: Partial<Meta> = {}): Meta => ({
   year: 2025,
   role: 'Director / Editor / Colorist',
   runtime: '1:30',
   film: { type: 'youtube', src: 'abc' },
   filmPending: false,
+  filmPrivate: false,
   ...over,
 });
 
@@ -27,9 +28,10 @@ describe("the floor's legend (owner's testers, 2026-09-27: 'not knowing what to 
     expect(captionMeta(film({ runtime: '' }), true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST ▪ CLICK TO OPEN'); // empty fields drop out, as before
   });
 
-  it('a placeholder says so first, and what that means; a film awaiting its link is a film', () => {
+  it('a placeholder says so first, and what that means; a film awaiting its link, or kept private, is a film', () => {
     expect(captionMeta(film({ film: null }), true)).toBe('PLACEHOLDER · NO FILM YET ▪ 2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK TO OPEN');
     expect(captionMeta(film({ film: null, filmPending: true }), true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK TO OPEN');
+    expect(captionMeta(film({ film: null, filmPrivate: true }), true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK TO OPEN');
   });
 
   it("no instruction on the floor speaks the house's VERB ▸ NOUN code any more", () => {
@@ -53,11 +55,20 @@ describe("the floor's legend (owner's testers, 2026-09-27: 'not knowing what to 
   });
 });
 
-describe('placeholders: no film and none pending (16 films + MIEN VIEN pending; the rest stand in)', () => {
+describe('placeholders: no film, none pending, none private (16 films + MIEN VIEN, private; the rest stand in)', () => {
   it('isPlaceholder', () => {
     expect(isPlaceholder(film())).toBe(false);
     expect(isPlaceholder(film({ film: null, filmPending: true }))).toBe(false);
+    expect(isPlaceholder(film({ film: null, filmPrivate: true }))).toBe(false);
     expect(isPlaceholder(film({ film: null }))).toBe(true);
+  });
+
+  it('MIEN VIEN is private for good, and no film waits on a link (owner 2026-09-28: "it will never arrive")', () => {
+    const root = fileURLToPath(new URL('../public/content/', import.meta.url));
+    const projects = parseProjects(parseJson(readFileSync(root + 'projects.json', 'utf8'), 'projects.json'));
+    const mien = projects.find((p) => p.slug === 'mien-vien')!;
+    expect([mien.film, mien.filmPending, mien.filmPrivate]).toEqual([null, false, true]);
+    expect(projects.filter((p) => p.filmPending).map((p) => p.slug)).toEqual([]);
   });
 
   it('projects.json today: 22 placeholders, none with a film; mien-vien is not one', () => {
@@ -66,7 +77,7 @@ describe('placeholders: no film and none pending (16 films + MIEN VIEN pending; 
     const ph = projects.filter(isPlaceholder);
     // (24 until NEON LITURGY left; 23 until MISSION: IMPASSIBLE took COPPER LULLABY's pane, owner 2026-09-27)
     expect(ph.length).toBe(22);
-    expect(ph.every((p) => p.film === null && !p.filmPending)).toBe(true);
+    expect(ph.every((p) => p.film === null && !p.filmPending && !p.filmPrivate)).toBe(true);
     expect(ph.some((p) => p.slug === 'mien-vien')).toBe(false);
     expect(projects.length - ph.length).toBe(17);
   });

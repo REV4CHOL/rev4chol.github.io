@@ -33,6 +33,8 @@ export interface Project {
   film: FilmRef | null;
   /** film not linkable yet — the dossier shows a greyed-out WATCH button */
   filmPending: boolean;
+  /** a real film that will never be online (owner 2026-09-28, MIEN VIEN) — no WATCH; the dossier says so instead */
+  filmPrivate: boolean;
   stills: string[];
   position: GridPos | null;
 }
@@ -63,10 +65,11 @@ export function isBlank(it: FloorItem): it is FloorBlank {
   return (it as FloorBlank).blank === true;
 }
 
-/** A placeholder pane: no film and none on its way (a film awaiting its link is `filmPending` — a film). Owner's
- *  testers, 2026-09-27: a pane that stands in for a film to come now says so, on the floor and in its dossier. */
-export function isPlaceholder(p: Pick<Project, 'film' | 'filmPending'>): boolean {
-  return !p.film && !p.filmPending;
+/** A placeholder pane: no film and none on its way (a film awaiting its link is `filmPending`, a film kept off the
+ *  public web is `filmPrivate` — both films). Owner's testers, 2026-09-27: a pane that stands in for a film to come
+ *  now says so, on the floor and in its dossier. */
+export function isPlaceholder(p: Pick<Project, 'film' | 'filmPending' | 'filmPrivate'>): boolean {
+  return !p.film && !p.filmPending && !p.filmPrivate;
 }
 
 export class ContentError extends Error {
@@ -175,6 +178,11 @@ export function parseProject(raw: unknown, i: number): Project {
   if (r.filmPending !== undefined && typeof r.filmPending !== 'boolean')
     fail(file, `${where} filmPending must be true or false`);
   const filmPending = r.filmPending === true;
+  if (r.filmPrivate !== undefined && typeof r.filmPrivate !== 'boolean')
+    fail(file, `${where} filmPrivate must be true or false`);
+  const filmPrivate = r.filmPrivate === true;
+  if (filmPending && filmPrivate)
+    fail(file, `${where} filmPending and filmPrivate cannot both be true (a link on its way, or private for good)`);
 
   let film: FilmRef | null = null;
   if (r.film !== undefined && r.film !== null) {
@@ -203,6 +211,7 @@ export function parseProject(raw: unknown, i: number): Project {
     credits,
     film,
     filmPending,
+    filmPrivate,
     stills: stills as string[],
     position,
   };

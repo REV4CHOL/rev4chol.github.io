@@ -16,7 +16,7 @@ export function legendText(fine: boolean): string {
   return fine ? FLOOR_LEGEND.fine : FLOOR_LEGEND.coarse;
 }
 
-type CaptionFields = Pick<Project, 'year' | 'role' | 'runtime' | 'film' | 'filmPending'>;
+type CaptionFields = Pick<Project, 'year' | 'role' | 'runtime' | 'film' | 'filmPending' | 'filmPrivate'>;
 
 /** `2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK TO OPEN`; a placeholder's starts `PLACEHOLDER · NO FILM YET ▪`. */
 export function captionMeta(p: CaptionFields, fine: boolean): string {

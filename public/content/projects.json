@@ -65,7 +65,7 @@
       }
     ],
     "film": null,
-    "filmPending": true,
+    "filmPrivate": true,
     "category": "human"
   },
   {

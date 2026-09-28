@@ -61,7 +61,9 @@ You never need to rebuild the site for content changes — edit, save, refresh.
   (Facebook, TikTok, …): paste the platform's full Share ▸ Embed iframe code
   straight in, the player address is pulled out of it
 - `{ "type": "local", "src": "film.mp4" }` — put `film.mp4` in the folder
-- `null` — no WATCH button (trailer-only project)
+- `null` — no film at all: the pane is a **placeholder** (its floor strip
+  and its dossier say PLACEHOLDER). For a real film without a link, add
+  one of the two flags below.
 
 For vimeo/youtube, `src` accepts any link form — a watch URL, a share
 link, or the **full embed code** pasted straight from the platform's
@@ -70,6 +72,11 @@ Share ▸ Embed box (the video id is extracted from it either way).
 No link yet but the film is coming? Set `"film": null` plus
 `"filmPending": true` — the dossier shows the WATCH button greyed out
 until you swap in the real link.
+
+A film that will never be online (kept private)? Set `"film": null` plus
+`"filmPrivate": true` — the dossier shows no WATCH button, and where it
+would stand it says PRIVATE FILM ▪ NOT AVAILABLE TO WATCH ONLINE. The pane
+stays a film on the floor. Never set both flags on one film.
 
 ## The project page (the dossier)
 

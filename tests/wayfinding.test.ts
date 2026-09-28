@@ -116,6 +116,10 @@ describe('the signposts are wired (pins)', () => {
     ['src/pages/project.ts', 'BACK TO ALL FILMS ▸'],
     ['src/pages/project.ts', 'PLACEHOLDER ▪ NO FILM HERE YET'],
     ['src/pages/project.ts', "watch.title = 'FILM LINK COMING SOON'"],
+    // a film kept off the public web says so where WATCH would stand (owner 2026-09-28, MIEN VIEN)
+    ['src/pages/project.ts', "note.textContent = 'PRIVATE FILM ▪ NOT AVAILABLE TO WATCH ONLINE'"],
+    ['src/styles/project.css', '.p-placeholder, .p-private {'],
+    ['src/styles/project.css', '.p-private { grid-column: 1; grid-row: 2; justify-self: start; }'], // where WATCH stands
     ['src/pages/project.ts', "isPlaceholder(p) ? 'PLACEHOLDER' : 'ONLINE'"],
     ['src/styles/project.css', '.p-placeholder'],
     ['src/pages/story.ts', "'AUTOPILOT IS ON ▪ PRESS FREE TO FLY THE CITY YOURSELF'"],

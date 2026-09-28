@@ -239,7 +239,14 @@ function mountSynopsis(p: Project): void {
   const watch = document.getElementById('p-watch-btn') as HTMLButtonElement;
   const player = document.getElementById('p-player') as HTMLDivElement;
   if (!p.film) {
-    if (p.filmPending) {
+    if (p.filmPrivate) {
+      // PRIVATE (owner 2026-09-28, MIEN VIEN: the link "will never arrive"): no WATCH, and where it would stand, what
+      // a visitor can and cannot do in one line, in the placeholder line's quiet style (the reason stays off the site)
+      const note = document.createElement('p');
+      note.className = 'p-private micro';
+      note.textContent = 'PRIVATE FILM ▪ NOT AVAILABLE TO WATCH ONLINE';
+      watch.after(note);
+    } else if (p.filmPending) {
       // the film exists but isn't linkable yet — the button stands, greyed
       watch.hidden = false;
       watch.disabled = true;

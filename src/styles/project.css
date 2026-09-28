@@ -492,5 +492,12 @@
   .p-back, .p-nextlink { font-size: var(--t-lg); }
 }
 
-/* PLACEHOLDER (owner's testers, 2026-09-27): where WATCH would stand on a stand-in's dossier, the truth in one line */
-.p-placeholder { margin-top: 38px; color: color-mix(in srgb, var(--bone) 55%, transparent); letter-spacing: 0.22em; }
+/* PLACEHOLDER (owner's testers, 2026-09-27): where WATCH would stand on a stand-in's dossier, the truth in one line.
+   PRIVATE (owner 2026-09-28): a film kept off the public web says so in the same quiet line */
+.p-placeholder, .p-private { margin-top: 38px; color: color-mix(in srgb, var(--bone) 55%, transparent); letter-spacing: 0.22em; }
+/* the private line stands exactly where WATCH does (under the synopsis: the wide grid's column 1, row 2) and reads
+   above the plus marks and the arc — no plate behind it */
+.p-private { position: relative; z-index: 2; }
+@media (min-width: 1100px), (pointer: fine) {
+  .p-private { grid-column: 1; grid-row: 2; justify-self: start; }
+}

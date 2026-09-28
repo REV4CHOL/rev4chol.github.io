@@ -197,6 +197,15 @@ describe('helpers', () => {
     expect(() => parseProjects([{ ...validProject(), filmPending: 'yes' }])).toThrow(ContentError);
   });
 
+  it('filmPrivate: defaults false, accepts true, rejects junk — and never beside filmPending (owner 2026-09-28)', () => {
+    // a real film that will never be online (MIEN VIEN: the director keeps it off the public web)
+    expect(parseProjects([validProject()])[0].filmPrivate).toBe(false);
+    expect(parseProjects([{ ...validProject(), film: null, filmPrivate: true }])[0].filmPrivate).toBe(true);
+    expect(() => parseProjects([{ ...validProject(), filmPrivate: 'yes' }])).toThrow(ContentError);
+    // "private for good" and "link coming soon" say opposite things
+    expect(() => parseProjects([{ ...validProject(), film: null, filmPending: true, filmPrivate: true }])).toThrow(/filmPending and filmPrivate/);
+  });
+
   it('loop chain: preview.mp4 first, then the loop spellings — pane and hero share it', () => {
     expect(loopSrcChain('x')).toEqual([
       '/content/projects/x/preview.mp4',
