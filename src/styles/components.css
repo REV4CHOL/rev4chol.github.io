@@ -79,7 +79,6 @@
   .hud-bl { left: 16px; bottom: 14px; }
   .hud-br { right: 16px; bottom: 34px; text-align: right; }
   .hud-tr { right: 16px; top: 96px; }
-  .floor-hint { top: 134px; white-space: normal; max-width: 300px; line-height: 1.8; } /* under the HUD's top line */
 }
 
 /* ---- zoom-fixed chrome ----
@@ -499,6 +498,11 @@
 }
 .floor-hint.is-fresh { color: var(--signal); }
 .floor-hint:empty { display: none; }
+/* a phone: the legend wraps under the HUD's two lines (this override once stood above the rule it overrides, so it
+   never applied — from 81d985e to 2026-09-28 the legend ran one line across the HUD and off the screen's edge) */
+@media (max-width: 640px) and (pointer: coarse) {
+  .floor-hint { top: calc(150px * var(--uiz)); white-space: normal; width: max-content; max-width: min(300px, calc(100vw - 32px)); line-height: 1.8; text-wrap: balance; }
+}
 
 /* channel change: NO filter over the floor — the panes themselves do the
    moving (world.exit/arrive). This layer only carries the station ident. */

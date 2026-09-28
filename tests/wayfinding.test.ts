@@ -174,6 +174,17 @@ describe('the signposts are wired (pins)', () => {
     expect(a3).toContain('font-size: var(--t-xs)');
   });
 
+  // (its phone override once stood above the rule it overrides, so it never applied: from 81d985e to 2026-09-28 the
+  //  legend ran one line across the HUD's top line and off a phone's edge)
+  it("a phone's legend wraps under the HUD: the override comes after the rule it overrides", () => {
+    const css = readFileSync('src/styles/components.css', 'utf8');
+    const base = css.indexOf('\n.floor-hint {');
+    const phone = css.search(/\n[ \t]+\.floor-hint \{ top: /);
+    expect(base).toBeGreaterThan(-1);
+    expect(phone).toBeGreaterThan(base);
+    expect(css.slice(phone, css.indexOf('}', phone))).toContain('white-space: normal');
+  });
+
   it("the door row is not hidden from thumbs, and only the statement's words intercept a click", () => {
     const css = readFileSync('src/styles/components.css', 'utf8');
     expect(css).not.toContain('.page-home .home-cta-row { display: none; }');
