@@ -46,6 +46,36 @@ function mp4Facts(file: string): { boxes: string[]; seconds: number; bytes: numb
   return { boxes, seconds, bytes: b.length };
 }
 
+/** An mp4's picture size from moov/trak/tkhd (16.16 fixed point): the first track that has one. */
+function mp4Size(file: string): [number, number] | null {
+  const b = readFileSync(file);
+  const walk = (from: number, to: number): [number, number] | null => {
+    for (let at = from; at + 8 <= to; ) {
+      let size = b.readUInt32BE(at);
+      let head = 8;
+      if (size === 1) {
+        size = Number(b.readBigUInt64BE(at + 8));
+        head = 16;
+      } else if (size === 0) size = to - at;
+      if (size < 8) return null;
+      const type = b.toString('latin1', at + 4, at + 8);
+      if (type === 'tkhd') {
+        // FullBox; v0 = 32-bit times: width at +84, height at +88; v1 = 64-bit times: +96, +100
+        const v1 = b[at + 8] === 1;
+        const w = b.readUInt32BE(at + (v1 ? 96 : 84)) / 65536;
+        const h = b.readUInt32BE(at + (v1 ? 100 : 88)) / 65536;
+        if (w > 0 && h > 0) return [w, h];
+      } else if (type === 'moov' || type === 'trak') {
+        const found = walk(at + head, at + size);
+        if (found) return found;
+      }
+      at += size;
+    }
+    return null;
+  };
+  return walk(0, b.length);
+}
+
 describe('shipped content files', () => {
   it('site.json is valid', () => {
     const site = parseSite(parseJson(read('site.json'), 'site.json'));
@@ -175,6 +205,42 @@ describe('shipped content files', () => {
     expect(readdirSync(`${root}projects/jaecoo-j5/stills`)).toHaveLength(54); // its media stay
   });
 
+  // (owner 2026-09-28: "Replace Terminal Bloom in chapter 2 with this" — two vertical digital ads, 867 × 1541 each:
+  //  "one watch will spawn two embed YouTube videos at once, on the same row together"; and "the Stills has film1 and
+  //  film2, be sure to include them all, with left pillar being ad #1, and right pillar being ad #2")
+  it("GALAXY Z FOLD 8 ULTRA takes TERMINAL BLOOM's featured pane: a vertical film in two parts, every still", () => {
+    expect(parseFloor(rawProjects()).findIndex((it) => it.slug === 'galaxy-z-fold-8-ultra')).toBe(21);
+    const p = parseProjects(rawProjects()).find((q) => q.slug === 'galaxy-z-fold-8-ultra')!;
+    expect(p.title).toBe('GALAXY Z FOLD 8 ULTRA | DIGITAL AD');
+    expect([p.year, p.role, p.runtime, p.tags, p.synopsis]).toEqual(
+      [2026, 'AI Generalist', '0:24 & 0:37', ['commercial advertising'], 'Welcome to the fold.']);
+    expect(p.credits).toEqual([{ role: 'AI Generalist', name: 'Revachol' }]);
+    expect([p.aspect, p.category, p.tileSize, p.accent]).toEqual(['9:16', 'machine', 'large', '#8C9EFF']);
+    expect(p.films).toEqual([
+      { type: 'youtube', src: 'https://www.youtube.com/embed/hfq64ykkQs4', label: 'Digital Ad #1' },
+      { type: 'youtube', src: 'https://www.youtube.com/embed/60ga3V46lk4', label: 'Digital Ad #2' },
+    ]);
+    expect(p.film).toBe(p.films[0]);
+    expect([p.filmPending, p.filmPrivate]).toEqual([false, false]);
+    const dir = `${root}projects/galaxy-z-fold-8-ultra/`;
+    expect(existsSync(`${dir}poster.jpg`)).toBe(true);
+    const loop = mp4Facts(`${dir}preview.mp4`);
+    expect(loop.seconds).toBeCloseTo(5.97, 1); // the source's 179 frames at 29.97 fps
+    expect(loop.boxes.indexOf('moov')).toBeGreaterThanOrEqual(0);
+    expect(loop.boxes.indexOf('moov')).toBeLessThan(loop.boxes.indexOf('mdat')); // faststart
+    expect(loop.bytes).toBeLessThan(3 * 1024 * 1024);
+    expect(mp4Size(`${dir}preview.mp4`)).toEqual([720, 1280]); // native and vertical: never cropped to 16:9
+    // every still, named by its part: 1- is ad #1 (the left pillar), 2- is ad #2 (the right)
+    const stills = readdirSync(`${dir}stills`).sort();
+    expect(stills.filter((s) => s.startsWith('1-'))).toEqual(['01', '02', '03', '04', '05', '06'].map((n) => `1-${n}.jpg`));
+    expect(stills.filter((s) => s.startsWith('2-'))).toEqual(
+      ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11'].map((n) => `2-${n}.jpg`));
+    expect(stills).toHaveLength(17);
+    // TERMINAL BLOOM is off the site, folder and all
+    expect(parseFloor(rawProjects()).some((it) => it.slug === 'terminal-bloom')).toBe(false);
+    expect(existsSync(`${root}projects/terminal-bloom`)).toBe(false);
+  });
+
   for (const f of BATCH) it(`${f.title.toUpperCase()} takes ${f.was}'s slot, linked, with its media (owner 2026-09-26)`, () => {
     const projects = parseProjects(rawProjects());
     expect(projects.some((p) => p.slug === f.was)).toBe(false);
@@ -278,7 +344,7 @@ describe('shipped content files', () => {
     const at = cells('machine');
     expect(at['forest-onsen']).toEqual([1, 2]);
     expect([at['static-hymn'], at.katara, at['the-father']]).toEqual([[1, 1], [2, 1], [3, 1]]);
-    expect([at['jaecoo-j5'], at['terminal-bloom']]).toEqual([[2, 2], [3, 2]]);
+    expect([at['jaecoo-j5'], at['galaxy-z-fold-8-ultra']]).toEqual([[2, 2], [3, 2]]); // GALAXY in TERMINAL BLOOM's cell
   });
 
   it('projects.json is valid: CH·02 holds 20 films (6 featured); CH·01 19 films (6 featured) and 1 open gap', () => {

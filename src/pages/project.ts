@@ -8,6 +8,8 @@ import { scrambleEl } from '../lib/scramble';
 import { music } from '../lib/music';
 import { sound } from '../lib/sound';
 import { hashSlug, stillSlotUrls, wallRhythm } from '../project/dossier';
+import { linkParts } from '../project/parts';
+import { pillarColumns, stillParts } from '../project/pillars';
 import { armStamps } from '../lib/stamps';
 import { startPage } from '../shell/page';
 import '../styles/project.css';
@@ -267,8 +269,12 @@ function mountSynopsis(p: Project): void {
     watch.hidden = true;
     player.hidden = false;
     music.hold(); // WATCH (owner): the music stops, and stays stopped until the next section or page
-    armEffectHole('player', player);
     sound.zap();
+    if (p.films.length > 1) {
+      armEffectHole('player', mountParts(p, player));
+      return;
+    }
+    armEffectHole('player', player);
     if (p.film!.type === 'local') {
       const v = document.createElement('video');
       v.controls = true;
@@ -286,6 +292,57 @@ function mountSynopsis(p: Project): void {
       }
     }
   });
+}
+
+/** A film in parts (owner 2026-09-28, GALAXY Z FOLD 8 ULTRA: "one watch will spawn two embed YouTube videos at once,
+ *  on the same row together. So make special design for this"): one stage, every part at once, left to right in the
+ *  project's own shape, a hinge between two, each numbered and labeled underneath. The first plays (the click is the
+ *  gesture), the rest wait their turn: one plays at a time, and the next starts when one ends. Returns the stage. */
+function mountParts(p: Project, player: HTMLElement): HTMLElement {
+  player.classList.add('p-player--multi');
+  const parts = p.films.filter((f) => f.type === 'local' || embedSrc(f) !== null);
+  const stage = document.createElement('div');
+  stage.className = 'p-parts';
+  stage.dataset.uplink = `UPLINK ▸ ${parts.length} TRANSMISSIONS`;
+  stage.style.setProperty('--parts', String(parts.length));
+  // vertical footage stands vertical; any other film's parts stand 16:9, like its single player
+  const ratio = aspectRatio(p.aspect);
+  stage.style.setProperty('--part-ratio', String(ratio < 1 ? ratio : 16 / 9));
+  const frames: HTMLIFrameElement[] = [];
+  parts.forEach((film, i) => {
+    if (i > 0) {
+      const hinge = document.createElement('span');
+      hinge.className = 'p-hinge';
+      hinge.setAttribute('aria-hidden', 'true');
+      stage.append(hinge);
+    }
+    const label = (film.label ?? `PART ${i + 1}`).toUpperCase();
+    const fig = document.createElement('figure');
+    fig.className = 'p-part';
+    if (film.type === 'local') {
+      const v = document.createElement('video');
+      v.controls = true;
+      v.src = projectAssetUrl(p.slug, film.src);
+      v.setAttribute('aria-label', `${p.title}: ${label}`);
+      fig.append(v);
+      if (i === 0) void v.play().catch(() => {});
+    } else {
+      const f = document.createElement('iframe');
+      f.src = embedSrc(film, { autoplay: i === 0, origin: location.origin })!;
+      f.title = `${p.title}: ${label}`;
+      f.allow = 'autoplay; fullscreen; picture-in-picture';
+      f.allowFullscreen = true;
+      fig.append(f);
+      if (film.type === 'youtube') frames.push(f);
+    }
+    const cap = document.createElement('figcaption');
+    cap.innerHTML = `<span class="p-part-num" aria-hidden="true">${pad2(i + 1)}</span><span class="p-part-label micro">${escapeHtml(label)}</span>`;
+    fig.append(cap);
+    stage.append(fig);
+  });
+  player.append(stage);
+  if (frames.length > 1) linkParts(frames);
+  return stage;
 }
 
 /** The site's film layers (grain + scanlines) must never land on an open
@@ -431,12 +488,17 @@ async function mountWall(p: Project): Promise<void> {
   );
 
   let cursor = 0;
-  const figureFor = (url: string, n: number): HTMLElement => {
+  const figureFor = (
+    url: string,
+    n: number,
+    caption = `STL·${pad2(n)} // ${p.slug.toUpperCase()}`,
+    alt = `${p.title} — still ${n}`,
+  ): HTMLElement => {
     const wrap = document.createElement('figure');
     wrap.className = 'p-still';
     const im = new Image();
     im.loading = 'lazy';
-    im.alt = `${p.title} — still ${n}`;
+    im.alt = alt;
     im.src = url;
     const veilC = document.createElement('canvas');
     im.addEventListener('load', () => {
@@ -467,11 +529,51 @@ async function mountWall(p: Project): Promise<void> {
     num.textContent = pad2(n);
     const cap = document.createElement('figcaption');
     cap.className = 'micro';
-    cap.textContent = `STL·${pad2(n)} // ${p.slug.toUpperCase()}`;
+    cap.textContent = caption;
     wrap.append(im, veilC, num, cap);
     io.observe(wrap);
     return wrap;
   };
+
+  if (aspectRatio(p.aspect) < 1) {
+    // a vertical film's wall (owner 2026-09-28: "design vertical stills for all vertical projects"): portrait cells,
+    // 4 across (3 on a tablet, 2 on a phone), gapless and full-bleed like every wall. Stills named by part (1-01,
+    // 2-01, …) stand in pillars, part 1 on the left: "left pillar being ad #1, and right pillar being ad #2"
+    wall.classList.add('p-wall--vertical');
+    const parts = stillParts(urls);
+    if (parts.length > 1 && parts.every((g) => g.part > 0)) {
+      const counts = parts.map((g) => g.urls.length);
+      const wide = pillarColumns(counts, 2, 4); // the pillars stand as one height
+      const mid = pillarColumns(counts, 1, 3);
+      const pillars = document.createElement('div');
+      pillars.className = 'p-pillars';
+      parts.forEach((g, k) => {
+        const label = (p.films[g.part - 1]?.label ?? `PART ${g.part}`).toUpperCase();
+        const col = document.createElement('div');
+        col.className = 'p-stillcol';
+        col.innerHTML =
+          `<div class="p-stillcol-head"><span class="p-stillcol-num" aria-hidden="true">${pad2(g.part)}</span>` +
+          `<span class="p-stillcol-label micro">${escapeHtml(label)}</span>` +
+          `<span class="p-stillcol-count micro">${pad2(g.urls.length)} STILLS</span></div>`;
+        const grid = document.createElement('div');
+        grid.className = 'p-vgrid';
+        grid.style.setProperty('--cols-wide', String(wide[k]));
+        grid.style.setProperty('--cols-mid', String(mid[k]));
+        g.urls.forEach((url, i) =>
+          grid.append(figureFor(url, i + 1, `STL·${g.part}-${pad2(i + 1)}`, `${p.title}: ${label}, still ${i + 1}`)),
+        );
+        col.append(grid);
+        pillars.append(col);
+      });
+      wall.append(pillars);
+    } else {
+      const grid = document.createElement('div');
+      grid.className = 'p-vgrid';
+      urls.forEach((url, i) => grid.append(figureFor(url, i + 1, `STL·${pad2(i + 1)}`)));
+      wall.append(grid);
+    }
+    return;
+  }
 
   for (const kind of wallRhythm(urls.length)) {
     const row = document.createElement('div');

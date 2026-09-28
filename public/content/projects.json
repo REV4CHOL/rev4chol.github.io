@@ -475,24 +475,35 @@
     "tileSize": "normal"
   },
   {
-    "slug": "terminal-bloom",
-    "title": "Terminal Bloom",
-    "year": 2023,
-    "role": "Director / Edit",
-    "runtime": "10:59",
+    "slug": "galaxy-z-fold-8-ultra",
+    "title": "GALAXY Z FOLD 8 ULTRA | DIGITAL AD",
+    "year": 2026,
+    "role": "AI Generalist",
+    "runtime": "0:24 & 0:37",
     "tags": [
-      "short film",
-      "sci-fi"
+      "commercial advertising"
     ],
-    "accent": "#B79CFF",
-    "synopsis": "Flowers grow through the keyboard of an abandoned air-traffic terminal. Someone still waters them.",
+    "accent": "#8C9EFF",
+    "aspect": "9:16",
+    "synopsis": "Welcome to the fold.",
     "credits": [
       {
-        "role": "Director",
+        "role": "AI Generalist",
         "name": "Revachol"
       }
     ],
-    "film": null,
+    "film": [
+      {
+        "type": "youtube",
+        "src": "https://www.youtube.com/embed/hfq64ykkQs4",
+        "label": "Digital Ad #1"
+      },
+      {
+        "type": "youtube",
+        "src": "https://www.youtube.com/embed/60ga3V46lk4",
+        "label": "Digital Ad #2"
+      }
+    ],
     "category": "machine",
     "tileSize": "large"
   },

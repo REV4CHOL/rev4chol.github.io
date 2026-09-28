@@ -21,6 +21,7 @@ const proj = (slug: string, category: 'human' | 'machine'): Project => ({
   synopsis: '',
   credits: [],
   film: null,
+  films: [],
   stills: [],
   position: null,
 });

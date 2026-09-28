@@ -46,7 +46,7 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | tags | list of words | `["short film","sci-fi"]` |
 | accent | this film's color, hex | `"#C8FF00"` |
 | tileSize | `"normal"` or `"large"` (large = FEATURED: the centre cluster and the featured dress — every pane is the same size) | `"large"` |
-| aspect | `"16:9"` (default), `"4:3"` or `"2.39:1"` — the floor pane AND the whole dossier (hero + stills) present in this ratio; the carpet packs neighbors tight around any width | `"4:3"` |
+| aspect | `"16:9"` (default), `"4:3"`, `"2.39:1"` or `"9:16"` (vertical footage) — the floor pane AND the whole dossier (hero + stills) present in this ratio; the carpet packs neighbors tight around any width. A `"9:16"` film gets the vertical pane (its name runs up a spine on the left edge), a vertical hero and a wall of portrait stills | `"4:3"` |
 | category | which works channel: `"human"` or `"machine"` (leave out = human) | `"machine"` |
 | synopsis | one short paragraph | |
 | credits | list of `{ "role": …, "name": … }` | |
@@ -64,6 +64,12 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 - `null` — no film at all: the pane is a **placeholder** (its floor strip
   and its dossier say PLACEHOLDER). For a real film without a link, add
   one of the two flags below.
+- a **list** of films, for a film in parts (two ads of one campaign, say):
+  `[ { "type": "youtube", "src": "…", "label": "Digital Ad #1" },
+  { "type": "youtube", "src": "…", "label": "Digital Ad #2" } ]` — one
+  WATCH opens every part at once, side by side on one row, numbered and
+  labeled; the first plays, and when it ends the next one starts. Each part
+  is written like a single film; `label` is optional.
 
 For vimeo/youtube, `src` accepts any link form — a watch URL, a share
 link, or the **full embed code** pasted straight from the platform's
@@ -98,6 +104,14 @@ from the fields above — nothing extra to maintain:
   full-width, repeat — edge to edge, no gaps, every frame 16:9. A lone
   leftover goes full-width. (A `stills` list in projects.json still works
   as a manual override; all placeholder stills are labeled SWAP ME.)
+- **A vertical film (`"aspect": "9:16"`) gets a portrait wall**: 4 stills
+  across on a wide screen, 3 on a tablet, 2 on a phone. For a film in
+  parts, name each still by its part — `1-01.jpg`, `1-02.jpg`, … for part 1,
+  `2-01.jpg`, `2-02.jpg`, … for part 2 — and the wall stands in **pillars**
+  side by side: part 1 on the left, part 2 on the right, each with its own
+  number, label and still count. The pillars' widths balance themselves
+  so they end at about the same height; on a phone they stack, part 1
+  first.
 - The bottom bar is navigation: `◂ RETURN TO FLOOR` on the left,
   `(NEXT FILM) ▸` on the right (next = the following entry in
   `projects.json`).

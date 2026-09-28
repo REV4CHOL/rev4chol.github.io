@@ -7,7 +7,12 @@ export interface SiteContent {
   nav: NavItem[];
   socials: Social[];
 }
-export interface FilmRef { type: 'vimeo' | 'youtube' | 'local' | 'embed'; src: string }
+export interface FilmRef {
+  type: 'vimeo' | 'youtube' | 'local' | 'embed';
+  src: string;
+  /** a part's name, when the film comes in parts ("Digital Ad #1") */
+  label?: string;
+}
 export interface Credit { role: string; name: string }
 export interface GridPos { col: number; row: number }
 export interface Project {
@@ -24,13 +29,18 @@ export interface Project {
   tags: string[];
   accent: string;
   tileSize: 'normal' | 'large';
-  /** picture aspect of the pane and all dossier media (default 16:9) */
-  aspect: '16:9' | '4:3' | '2.39:1';
+  /** picture aspect of the pane and all dossier media (default 16:9); 9:16 is vertical footage, shown vertical
+   *  everywhere (owner 2026-09-28: "whenever I bring you vertical footage, you gonna make a special vertical pane") */
+  aspect: '16:9' | '4:3' | '2.39:1' | '9:16';
   /** which works channel the film broadcasts on (default "human") */
   category: 'human' | 'machine';
   synopsis: string;
   credits: Credit[];
+  /** the film, or its first part */
   film: FilmRef | null;
+  /** every part, in order: one for a film, two or more for a film in parts (owner 2026-09-28, GALAXY Z FOLD 8
+   *  ULTRA: "one watch will spawn two embed YouTube videos at once"); none without a film */
+  films: FilmRef[];
   /** film not linkable yet — the dossier shows a greyed-out WATCH button */
   filmPending: boolean;
   /** a real film that will never be online (owner 2026-09-28, MIEN VIEN) — no WATCH; the dossier says so instead */
@@ -152,8 +162,8 @@ export function parseProject(raw: unknown, i: number): Project {
   const tileSize = tileSizeOf(r.tileSize, file, where);
 
   const aspect = r.aspect === undefined ? '16:9' : r.aspect;
-  if (aspect !== '16:9' && aspect !== '4:3' && aspect !== '2.39:1')
-    fail(file, `${where} aspect must be "16:9", "4:3" or "2.39:1"`);
+  if (aspect !== '16:9' && aspect !== '4:3' && aspect !== '2.39:1' && aspect !== '9:16')
+    fail(file, `${where} aspect must be "16:9", "4:3", "2.39:1" or "9:16"`);
 
   const category = categoryOf(r.category, file, where);
 
@@ -184,13 +194,15 @@ export function parseProject(raw: unknown, i: number): Project {
   if (filmPending && filmPrivate)
     fail(file, `${where} filmPending and filmPrivate cannot both be true (a link on its way, or private for good)`);
 
-  let film: FilmRef | null = null;
+  // one film object, or a list of parts played from one WATCH
+  const films: FilmRef[] = [];
   if (r.film !== undefined && r.film !== null) {
-    const f = obj(r.film, file, `${where} film`);
-    if (f.type !== 'vimeo' && f.type !== 'youtube' && f.type !== 'local' && f.type !== 'embed')
-      fail(file, `${where} film.type must be "vimeo", "youtube", "local" or "embed"`);
-    film = { type: f.type, src: str(f.src, file, `${where} film.src`) };
+    if (Array.isArray(r.film)) {
+      if (r.film.length === 0) fail(file, `${where} film list is empty — write null for no film`);
+      r.film.forEach((f, fi) => films.push(filmRefOf(f, file, `${where} film[${fi}]`)));
+    } else films.push(filmRefOf(r.film, file, `${where} film`));
   }
+  const film = films[0] ?? null;
 
   const position = gridPosOf(r.position, file, where);
 
@@ -210,11 +222,21 @@ export function parseProject(raw: unknown, i: number): Project {
     synopsis: str(r.synopsis, file, `${where} synopsis`, ''),
     credits,
     film,
+    films,
     filmPending,
     filmPrivate,
     stills: stills as string[],
     position,
   };
+}
+
+function filmRefOf(v: unknown, file: string, name: string): FilmRef {
+  const f = obj(v, file, name);
+  if (f.type !== 'vimeo' && f.type !== 'youtube' && f.type !== 'local' && f.type !== 'embed')
+    fail(file, `${name}.type must be "vimeo", "youtube", "local" or "embed"`);
+  const ref: FilmRef = { type: f.type, src: str(f.src, file, `${name}.src`) };
+  if (f.label !== undefined && f.label !== null) ref.label = str(f.label, file, `${name}.label`);
+  return ref;
 }
 
 function tileSizeOf(v: unknown, file: string, where: string): Project['tileSize'] {
@@ -295,6 +317,7 @@ export function projectAssetUrl(slug: string, file: string): string {
 export function aspectRatio(a: Project['aspect']): number {
   if (a === '4:3') return 4 / 3;
   if (a === '2.39:1') return 2.39;
+  if (a === '9:16') return 9 / 16;
   return 16 / 9;
 }
 

@@ -84,4 +84,13 @@ describe('embedSrc', () => {
     expect(embedSrc({ type: 'local', src: 'film.mp4' })).toBeNull();
     expect(embedSrc({ type: 'youtube', src: 'https://example.com/x' })).toBeNull();
   });
+  it("a film in parts (owner 2026-09-28): a part that waits has no autoplay, and each part's player talks", () => {
+    const f = { type: 'youtube' as const, src: 'https://www.youtube.com/embed/60ga3V46lk4' };
+    expect(embedSrc(f, { autoplay: false, origin: 'https://rev4chol.github.io' })).toBe(
+      'https://www.youtube-nocookie.com/embed/60ga3V46lk4?autoplay=0&rel=0&enablejsapi=1&origin=https%3A%2F%2Frev4chol.github.io',
+    );
+    expect(embedSrc({ type: 'vimeo', src: 'https://vimeo.com/76979871' }, { autoplay: false })).toBe(
+      'https://player.vimeo.com/video/76979871?autoplay=0',
+    );
+  });
 });

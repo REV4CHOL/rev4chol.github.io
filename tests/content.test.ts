@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  aspectRatio,
   ContentError,
   getSlugFromSearch,
   isBlank,
@@ -195,6 +196,27 @@ describe('helpers', () => {
     expect(parseProjects([validProject()])[0].filmPending).toBe(false);
     expect(parseProjects([{ ...validProject(), filmPending: true }])[0].filmPending).toBe(true);
     expect(() => parseProjects([{ ...validProject(), filmPending: 'yes' }])).toThrow(ContentError);
+  });
+
+  it('aspect 9:16, a vertical film (owner 2026-09-28: "a special vertical pane … vertical stills for all vertical projects")', () => {
+    expect(parseProjects([{ ...validProject(), aspect: '9:16' }])[0].aspect).toBe('9:16');
+    expect(aspectRatio('9:16')).toBeCloseTo(0.5625, 6);
+    expect(() => parseProjects([{ ...validProject(), aspect: '1:1' }])).toThrow(ContentError);
+  });
+
+  it('film as a list (owner 2026-09-28: "one watch will spawn two"): every part in order as films, the first as film', () => {
+    const [p] = parseProjects([{ ...validProject(), film: [
+      { type: 'youtube', src: 'https://www.youtube.com/embed/hfq64ykkQs4', label: 'Digital Ad #1' },
+      { type: 'youtube', src: 'https://www.youtube.com/embed/60ga3V46lk4', label: 'Digital Ad #2' },
+    ] }]);
+    expect(p.films.map((f) => [f.src.slice(-11), f.label])).toEqual([['hfq64ykkQs4', 'Digital Ad #1'], ['60ga3V46lk4', 'Digital Ad #2']]);
+    expect(p.film).toBe(p.films[0]);
+    // one object is a one-part list, none an empty one
+    expect(parseProjects([validProject()])[0].films).toEqual([{ type: 'vimeo', src: 'https://vimeo.com/76979871' }]);
+    expect(parseProjects([{ ...validProject(), film: null }])[0].films).toEqual([]);
+    expect(() => parseProjects([{ ...validProject(), film: [] }])).toThrow(/film list is empty/);
+    expect(() => parseProjects([{ ...validProject(), film: [{ type: 'youtube', src: 'x' }, { type: 'tv', src: 'y' }] }])).toThrow(/film\[1\]\.type/);
+    expect(() => parseProjects([{ ...validProject(), film: [{ type: 'youtube', src: 'x', label: 7 }] }])).toThrow(ContentError);
   });
 
   it('filmPrivate: defaults false, accepts true, rejects junk — and never beside filmPending (owner 2026-09-28)', () => {

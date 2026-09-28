@@ -19,14 +19,19 @@ export function iframeSrc(input: string): string | null {
   return /^https:\/\//i.test(url) ? url : null;
 }
 
-export function embedSrc(film: FilmRef): string | null {
+/** The player url for a film. `autoplay` (default true): a part of a film in parts that waits its turn starts
+ *  without it. `origin`: a YouTube player that talks back over postMessage (enablejsapi) to this page. */
+export function embedSrc(film: FilmRef, opts: { autoplay?: boolean; origin?: string } = {}): string | null {
+  const auto = opts.autoplay === false ? 0 : 1;
   if (film.type === 'youtube') {
     const id = youtubeId(film.src);
-    return id ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0` : null;
+    if (!id) return null;
+    const api = opts.origin ? `&enablejsapi=1&origin=${encodeURIComponent(opts.origin)}` : '';
+    return `https://www.youtube-nocookie.com/embed/${id}?autoplay=${auto}&rel=0${api}`;
   }
   if (film.type === 'vimeo') {
     const id = vimeoId(film.src);
-    return id ? `https://player.vimeo.com/video/${id}?autoplay=1` : null;
+    return id ? `https://player.vimeo.com/video/${id}?autoplay=${auto}` : null;
   }
   if (film.type === 'embed') return iframeSrc(film.src);
   return null;

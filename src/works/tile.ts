@@ -9,6 +9,10 @@ import { CARD_H, CARD_W, HOVER_M, ISO, SIZE_MUL_LARGE, cellToWorld } from './con
 import { PaneGlow } from './glow';
 import type { Placed } from './layout';
 import { loadPosterCanvas, type PosterResult } from './poster';
+import { spineFit } from './spine';
+
+/** A vertical pane's spine: the id strip turned up its left edge */
+const SPINE = 20;
 
 export type TileMode = 'sleep' | 'live' | 'hover';
 
@@ -301,12 +305,15 @@ export class ProjectTile extends Container {
 
     // --- panel furniture. without a hard edge a tile is a swatch, not a screen.
     const featured = project.tileSize === 'large';
+    // a vertical film's pane (owner 2026-09-28: "whenever I bring you vertical footage, you gonna make a special
+    // vertical pane"): the strip turns into a spine up the left edge, the marks move off it, the ticks fit the card
+    const vertical = aspectRatio(project.aspect) < 1;
     const hw = this.cw / 2;
     const hh = this.ch / 2;
     const acc = parseInt(project.accent.slice(1), 16);
     const frame = new Graphics();
     frame.rect(-hw, -hh, this.cw, this.ch).stroke({ color: acc, alpha: 0.42, width: 1 });
-    const L = featured ? 38 : 30;
+    const L = Math.min(featured ? 38 : 30, vertical ? Math.round(this.cw * 0.22) : Infinity);
     for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
       frame.moveTo(sx * hw, sy * hh).lineTo(sx * hw - sx * L, sy * hh);
       frame.moveTo(sx * hw, sy * hh).lineTo(sx * hw, sy * hh - sy * L);
@@ -320,9 +327,16 @@ export class ProjectTile extends Container {
         .stroke({ color: acc, alpha: 0.5, width: 1 });
     }
     // slug plate + index tab, so the mono type has something to sit on
-    frame.rect(-hw, hh - 20, this.cw, 20).fill({ color: 0x060606, alpha: 0.6 });
-    frame.rect(-hw, hh - 20, 4, 20).fill({ color: acc, alpha: 1 });
-    frame.rect(-hw + 8, -hh + 8, 30, 8).fill({ color: acc, alpha: 0.9 });
+    if (vertical) {
+      // the spine, its index tab at the foot where the id starts, the accent bar just right of it
+      frame.rect(-hw, -hh, SPINE, this.ch).fill({ color: 0x060606, alpha: 0.6 });
+      frame.rect(-hw, hh - 4, SPINE, 4).fill({ color: acc, alpha: 1 });
+      frame.rect(-hw + SPINE + 8, -hh + 8, 16, 8).fill({ color: acc, alpha: 0.9 });
+    } else {
+      frame.rect(-hw, hh - 20, this.cw, 20).fill({ color: 0x060606, alpha: 0.6 });
+      frame.rect(-hw, hh - 20, 4, 20).fill({ color: acc, alpha: 1 });
+      frame.rect(-hw + 8, -hh + 8, 30, 8).fill({ color: acc, alpha: 0.9 });
+    }
     this.card.addChild(frame);
 
     if (featured) {
@@ -344,20 +358,32 @@ export class ProjectTile extends Container {
       style: { fontFamily: 'Martian Mono', fontSize: 10, fill: project.accent, letterSpacing: 2 },
     });
     id.alpha = 0.92;
-    // inside the card's bottom edge — on a contiguous carpet there is no floor
-    // between tiles for a label to sit on
-    id.position.set(-this.cw / 2 + 12, this.ch / 2 - 18);
-    this.card.addChild(id);
 
-    if (isPlaceholder(project)) {
-      // PLACEHOLDER (owner's testers, 2026-09-27): a pane standing in for a film to come says so on its strip,
-      // right-aligned after the year · slug, so nobody takes the specimen for the work
-      const ph = new Text({
-        text: 'PLACEHOLDER',
-        style: { fontFamily: 'Martian Mono', fontSize: 8, fill: 0xedede6, letterSpacing: 2 },
-      });
+    // PLACEHOLDER (owner's testers, 2026-09-27): a pane standing in for a film to come says so on its strip,
+    // right-aligned after the year · slug (on a spine: at its top end), so nobody takes the specimen for the work
+    const ph = isPlaceholder(project)
+      ? new Text({ text: 'PLACEHOLDER', style: { fontFamily: 'Martian Mono', fontSize: 8, fill: 0xedede6, letterSpacing: 2 } })
+      : null;
+    if (vertical) {
+      // up the spine, bottom to top from just above its foot, clear of the top corner; scaled down only if it
+      // would overrun the room
+      const room = this.ch - 40 - (ph ? ph.width + 10 : 0);
+      id.scale.set(spineFit(id.width, room));
+      id.rotation = -Math.PI / 2;
+      id.position.set(-hw + (SPINE - id.height) / 2, hh - 12);
+      if (ph) {
+        ph.rotation = -Math.PI / 2;
+        ph.position.set(-hw + (SPINE - ph.height) / 2, -hh + 28 + ph.width);
+      }
+    } else {
+      // inside the card's bottom edge — on a contiguous carpet there is no floor
+      // between tiles for a label to sit on
+      id.position.set(-this.cw / 2 + 12, this.ch / 2 - 18);
+      if (ph) ph.position.set(this.cw / 2 - ph.width - 12, this.ch / 2 - 17);
+    }
+    this.card.addChild(id);
+    if (ph) {
       ph.alpha = 0.7;
-      ph.position.set(this.cw / 2 - ph.width - 12, this.ch / 2 - 17);
       this.card.addChild(ph);
     }
 
@@ -366,7 +392,9 @@ export class ProjectTile extends Container {
       style: { fontFamily: 'Martian Mono', fontSize: 8, fill: 0xedede6, letterSpacing: 1.5 },
     });
     code.alpha = 0.5;
-    code.position.set(-this.cw / 2 + 44, -this.ch / 2 + 6);
+    // (a vertical pane's top is the accent bar's and the FEATURED tag's: the code stands at its foot, right)
+    if (vertical) code.position.set(hw - code.width - 12, hh - 20);
+    else code.position.set(-this.cw / 2 + 44, -this.ch / 2 + 6);
     this.card.addChild(code);
 
     this.addChild(this.card);

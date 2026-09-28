@@ -91,6 +91,8 @@
 }
 @media (max-width: 760px) and (pointer: coarse) {
   .p-band-t::after { font-size: var(--t-xl); right: 16px; }
+  /* a vertical picture fills a phone's width: its bands are a sprocket row thin, too thin for the stamp */
+  .p-band-t[data-ratio="9:16"]::after { display: none; }
 }
 
 /* the side fields are RACK PANELS, not blank void: gate hairline, an
@@ -313,13 +315,13 @@
   width: min(100%, 1080px); aspect-ratio: 16 / 9; border: 0; background: #000;
   outline: 1px solid rgba(200, 255, 0, 0.4); display: block;
 }
-/* the player wears the works-tile dress: uplink tag + corner ticks */
-.p-player::before {
+/* the player wears the works-tile dress: uplink tag + corner ticks (a film in parts: its stage, .p-parts) */
+.p-player::before, .p-parts::before {
   content: 'UPLINK ▸ FULL TRANSMISSION'; position: absolute; top: -24px; left: 2px;
   font-family: var(--f-micro); font-size: var(--t-2xs); letter-spacing: 0.22em;
   color: var(--signal);
 }
-.p-player::after {
+.p-player::after, .p-parts::after {
   content: ''; position: absolute; inset: -10px; pointer-events: none;
   background-image:
     linear-gradient(var(--signal), var(--signal)), linear-gradient(var(--signal), var(--signal)),
@@ -357,6 +359,48 @@
   }
   /* fill the dark field, a breath short of the edge */
   .p-player iframe, .p-player video { width: 100%; max-width: none; }
+  /* a film in parts: the stage takes the full width under the synopsis, starting where WATCH stood */
+  .p-player--multi { grid-column: 1 / -1; grid-row: 2; margin-top: 56px; margin-right: 0; }
+}
+
+/* A FILM IN PARTS (owner 2026-09-28, GALAXY Z FOLD 8 ULTRA: "one watch will spawn two embed YouTube videos at once,
+   on the same row together. So make special design for this"). The parts stand left to right in the film's own shape
+   (--part-ratio: 9:16 for vertical footage), as tall as the screen allows and never wider than their share of the
+   row (100cqw: the player is the parts' container); a hinge between two, the fold; under each, its outlined number
+   and its label. The stage, not the container, wears the player's dress. */
+.p-player--multi { container-type: inline-size; margin-top: 56px; }
+.p-player--multi::before, .p-player--multi::after { content: none; }
+.p-parts {
+  --hinge: 36px;
+  --part-h: min(calc(72svh / var(--plate, 1)), 680px);
+  --part-w: min(
+    calc(var(--part-h) * var(--part-ratio, 1.7778)),
+    calc((100cqw - var(--hinge) * (var(--parts, 2) - 1)) / var(--parts, 2))
+  );
+  position: relative; display: flex; align-items: flex-start; width: max-content; max-width: 100%;
+}
+.p-parts::before { content: attr(data-uplink); }
+.p-part { flex: none; width: var(--part-w); margin: 0; }
+.p-part iframe, .p-part video { width: 100%; max-width: none; aspect-ratio: var(--part-ratio, 16 / 9); }
+.p-part figcaption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin-top: 14px; }
+.p-part-num {
+  font-family: var(--f-display); font-weight: 700; font-size: var(--t-xl); line-height: 0.8;
+  color: transparent; -webkit-text-stroke: 1.5px var(--signal); opacity: 0.85;
+}
+.p-part:nth-of-type(2n) .p-part-num { -webkit-text-stroke-color: var(--alert); }
+.p-part-label { color: var(--bone); letter-spacing: 0.18em; }
+@supports not (-webkit-text-stroke: 1px #000) {
+  .p-part-num { color: var(--signal); opacity: 0.5; }
+  .p-part:nth-of-type(2n) .p-part-num { color: var(--alert); }
+}
+/* the hinge: the fold between two parts, as tall as the players: a hairline with a ruler's ticks, the minor ones
+   every 24 px, a pink major every 120 (the scope hero's timecode ruler, stood upright) */
+.p-hinge {
+  flex: none; width: var(--hinge); height: calc(var(--part-w) / var(--part-ratio, 1.7778));
+  background:
+    linear-gradient(rgba(200, 255, 0, 0.55), rgba(200, 255, 0, 0.55)) 50% 0 / 1px 100% no-repeat,
+    repeating-linear-gradient(180deg, rgba(200, 255, 0, 0.65) 0 1.5px, transparent 1.5px 24px) 50% 0 / 10px 100% no-repeat,
+    repeating-linear-gradient(180deg, rgba(255, 46, 99, 0.8) 0 2px, transparent 2px 120px) 50% 0 / 18px 100% no-repeat;
 }
 
 /* -------------------------------------------------------------- ticker -- */
@@ -437,6 +481,62 @@
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
 }
 .p-still:hover figcaption { color: var(--signal); }
+
+/* A VERTICAL FILM'S WALL (owner 2026-09-28: "design vertical stills for all vertical projects"): portrait cells
+   (--pratio 9/16) in one grid, 4 across (3 on a tablet, 2 on a phone), gapless and full-bleed like every wall.
+   A cell a last row leaves empty, and a pillar's foot, is hatched: never blank. */
+.p-vgrid {
+  --cols: var(--cols-wide, 4);
+  display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); align-content: start; gap: 0;
+  background: repeating-linear-gradient(135deg, rgba(237, 237, 230, 0.13) 0 1px, transparent 1px 12px);
+}
+.p-wall--vertical .p-still-num { font-size: var(--t-xl); }
+
+/* STILLS IN PILLARS: a film in parts' stills, named by part (1-01 …, 2-01 …), stand side by side, part 1 on the left
+   (the owner: "left pillar being ad #1, and right pillar being ad #2"). Each pillar's column count (pillarColumns, set
+   from JS as --cols-wide / --cols-mid) stands the pillars as one height; a signal seam between them; a head on each:
+   the part's outlined number (signal, then alert), its label, its still count. The first head's text starts on the
+   page's content column, clear of the REC: rail. The heads share one row (a subgrid), so the grids start level
+   even when a head wraps. */
+.p-pillars { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; gap: 0; }
+.p-stillcol {
+  position: relative; display: grid; grid-row: span 2; grid-template-rows: subgrid; grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+.p-stillcol + .p-stillcol::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 1px; z-index: 4;
+  background: rgba(200, 255, 0, 0.6); pointer-events: none;
+}
+.p-stillcol-head {
+  display: flex; align-items: baseline; gap: 14px; padding: 22px 24px 18px 20px;
+  border-bottom: 1px solid rgba(200, 255, 0, 0.35);
+}
+.p-stillcol:first-child .p-stillcol-head { padding-left: calc(var(--p-pad-l) + var(--p-rail) + var(--p-gap)); }
+.p-stillcol-num {
+  font-family: var(--f-display); font-weight: 700; font-size: var(--t-2xl); line-height: 0.8;
+  color: transparent; -webkit-text-stroke: 1.5px var(--signal);
+}
+.p-stillcol:nth-child(2n) .p-stillcol-num { -webkit-text-stroke-color: var(--alert); }
+.p-stillcol:nth-child(2n) .p-stillcol-head { border-bottom-color: rgba(255, 46, 99, 0.45); }
+.p-stillcol-label { color: var(--bone); letter-spacing: 0.18em; }
+.p-stillcol-count { margin-left: auto; color: color-mix(in srgb, var(--bone) 55%, transparent); letter-spacing: 0.16em; }
+@supports not (-webkit-text-stroke: 1px #000) {
+  .p-stillcol-num { color: var(--signal); opacity: 0.5; }
+  .p-stillcol:nth-child(2n) .p-stillcol-num { color: var(--alert); }
+}
+@media (max-width: 1099px) and (pointer: coarse) {
+  .p-wall--vertical .p-vgrid { --cols: var(--cols-mid, 3); }
+}
+@media (max-width: 760px) and (pointer: coarse) {
+  .p-wall--vertical .p-vgrid { --cols: 2; }
+  /* a phone stacks the pillars, part 1 first; the seam lies across */
+  .p-pillars { grid-auto-flow: row; grid-auto-columns: auto; grid-template-rows: none; }
+  .p-stillcol + .p-stillcol::before { right: 0; bottom: auto; width: auto; height: 1px; }
+  .p-stillcol-head { padding: 20px 18px 16px; }
+  .p-stillcol-num { font-size: var(--t-xl); }
+  .p-parts { --hinge: 18px; }
+  .p-part-num { font-size: var(--t-lg); }
+}
 
 /* --------------------------------------------------- NAV: end of file -- */
 

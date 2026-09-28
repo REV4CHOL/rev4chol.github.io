@@ -1,7 +1,8 @@
 import type { Project } from '../lib/content';
-import { projectAssetUrl } from '../lib/content';
+import { aspectRatio, projectAssetUrl } from '../lib/content';
 import { ditherImageToCanvas } from '../lib/dither';
 import { mulberry32 } from '../lib/rng';
+import { CARD_H, CARD_W } from './constants';
 
 export interface PosterResult {
   canvas: HTMLCanvasElement;
@@ -21,14 +22,20 @@ export function posterMix(p: Project): number {
   return [0, 0, 0.5, 0.72][h % 4];
 }
 
+/** The dithered poster's width. 640: a 400pt card at ~1.6x, so the Bayer pattern stays a fine screen instead of
+ *  upscaling into a visible mosaic. Every landscape card keeps its 640; a portrait card's poster scales with the card
+ *  (203 for 9:16), or its narrow pane would shrink the screen into grey. */
+export function posterWidthFor(p: Pick<Project, 'aspect'>): number {
+  const ratio = aspectRatio(p.aspect);
+  return ratio < 1 ? Math.round((640 * CARD_H * ratio) / CARD_W) : 640;
+}
+
 export async function loadPosterCanvas(p: Project): Promise<PosterResult> {
   const url = projectAssetUrl(p.slug, 'poster.jpg');
   try {
     const img = await loadImage(url);
-    // 640 wide: a 400pt card at ~1.6x, so the Bayer pattern stays a fine screen
-    // instead of upscaling into a visible mosaic
     return {
-      canvas: ditherImageToCanvas(img, img.naturalWidth, img.naturalHeight, 640, '#060606', p.accent, posterMix(p)),
+      canvas: ditherImageToCanvas(img, img.naturalWidth, img.naturalHeight, posterWidthFor(p), '#060606', p.accent, posterMix(p)),
       degraded: false,
     };
   } catch {
@@ -47,16 +54,20 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 function fallbackPoster(p: Project): HTMLCanvasElement {
+  // a vertical film's fallback stands portrait, like its pane
+  const portrait = aspectRatio(p.aspect) < 1;
+  const w = portrait ? 135 : 240;
+  const h = portrait ? 240 : 135;
   const c = document.createElement('canvas');
-  c.width = 240;
-  c.height = 135;
+  c.width = w;
+  c.height = h;
   const ctx = c.getContext('2d')!;
   ctx.fillStyle = '#0A0A12';
-  ctx.fillRect(0, 0, 240, 135);
+  ctx.fillRect(0, 0, w, h);
   const rand = mulberry32(p.slug.length * 7919);
   ctx.fillStyle = p.accent;
   for (let i = 0; i < 260; i++) {
-    ctx.fillRect(Math.floor(rand() * 240), Math.floor(rand() * 135), 2, 2);
+    ctx.fillRect(Math.floor(rand() * w), Math.floor(rand() * h), 2, 2);
   }
   return c;
 }

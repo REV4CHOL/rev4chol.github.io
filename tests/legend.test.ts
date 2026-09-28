@@ -55,7 +55,7 @@ describe("the floor's legend (owner's testers, 2026-09-27: 'not knowing what to 
   });
 });
 
-describe('placeholders: no film, none pending, none private (16 films + MIEN VIEN, private; the rest stand in)', () => {
+describe('placeholders: no film, none pending, none private (17 films + MIEN VIEN, private; the rest stand in)', () => {
   it('isPlaceholder', () => {
     expect(isPlaceholder(film())).toBe(false);
     expect(isPlaceholder(film({ film: null, filmPending: true }))).toBe(false);
@@ -71,14 +71,15 @@ describe('placeholders: no film, none pending, none private (16 films + MIEN VIE
     expect(projects.filter((p) => p.filmPending).map((p) => p.slug)).toEqual([]);
   });
 
-  it('projects.json today: 22 placeholders, none with a film; mien-vien is not one', () => {
+  it('projects.json today: 21 placeholders, none with a film; mien-vien is not one', () => {
     const root = fileURLToPath(new URL('../public/content/', import.meta.url));
     const projects = parseProjects(parseJson(readFileSync(root + 'projects.json', 'utf8'), 'projects.json'));
     const ph = projects.filter(isPlaceholder);
-    // (24 until NEON LITURGY left; 23 until MISSION: IMPASSIBLE took COPPER LULLABY's pane, owner 2026-09-27)
-    expect(ph.length).toBe(22);
+    // (24 until NEON LITURGY left; 23 until MISSION: IMPASSIBLE took COPPER LULLABY's pane, owner 2026-09-27;
+    // 22 until GALAXY Z FOLD 8 ULTRA took TERMINAL BLOOM's, owner 2026-09-28)
+    expect(ph.length).toBe(21);
     expect(ph.every((p) => p.film === null && !p.filmPending && !p.filmPrivate)).toBe(true);
     expect(ph.some((p) => p.slug === 'mien-vien')).toBe(false);
-    expect(projects.length - ph.length).toBe(17);
+    expect(projects.length - ph.length).toBe(18);
   });
 });
