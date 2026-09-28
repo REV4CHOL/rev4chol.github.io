@@ -1,4 +1,4 @@
-import { Texture, VideoSource } from 'pixi.js';
+import { glUploadVideoResource, Texture, VideoSource } from 'pixi.js';
 
 /** The one way a <video> becomes a texture — the floor's panes and the homepage reel. Two rules, both learned from
  *  "every video loop … lagging" (owner, 2026-09-27):
@@ -16,3 +16,25 @@ import { Texture, VideoSource } from 'pixi.js';
 export function videoTexture(v: HTMLVideoElement): Texture {
   return new Texture({ source: new VideoSource({ resource: v, autoPlay: false }) });
 }
+
+/** THE FRAMELESS FIRST UPLOAD (owner, 2026-09-28: "homepage right now have blackout loops, cant see the videos").
+ *  Pixi 8.20's video uploader allocates and fills the GL texture in ONE texImage2D(video). A video that has its
+ *  metadata but no decoded frame yet — the reel's clips resolve at loadedmetadata; every clip is rewound (a seek)
+ *  the instant it comes on — makes that call fail: nothing is allocated, Pixi still records the size, and every later
+ *  frame is a texSubImage2D onto nothing (Chrome: "glCopySubTextureCHROMIUM: The destination level of the destination
+ *  texture must be defined", once per frame) — the clip is black for the whole visit. Until the video holds a frame,
+ *  allocate a 1×1 black and leave the recorded size stale, so the first real frame re-allocates. (The floor's panes
+ *  also gate their sprite on a presented frame; the reel now does too — this is the floor under both.) */
+const uploadVideo = glUploadVideoResource.upload;
+glUploadVideoResource.upload = function (source, glTexture, gl, webGLVersion, targetOverride, forceAllocation) {
+  const v = source.resource as unknown;
+  const unallocated = glTexture.width !== source.pixelWidth || glTexture.height !== source.pixelHeight;
+  if (unallocated && v instanceof HTMLVideoElement && v.readyState < v.HAVE_CURRENT_DATA) {
+    const target = targetOverride ?? glTexture.target;
+    gl.texImage2D(target, 0, glTexture.internalFormat, 1, 1, 0, glTexture.format, glTexture.type, null);
+    glTexture.width = 1;
+    glTexture.height = 1;
+    return;
+  }
+  uploadVideo.call(glUploadVideoResource, source, glTexture, gl, webGLVersion, targetOverride, forceAllocation);
+};

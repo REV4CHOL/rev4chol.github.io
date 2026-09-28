@@ -407,6 +407,19 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     const el = c.sample();
     return !(el instanceof HTMLVideoElement) || el.readyState >= 2;
   };
+  /** Run `fn` once the clip has PRESENTED a frame (requestVideoFrameCallback) — a sprite drawn before its video holds
+   *  a frame uploads nothing and painted black for good until lib/video-texture.ts caught it (owner, 2026-09-28:
+   *  "blackout loops"); now the switch itself waits for the frame, so no black lands on screen. At once for a gif or
+   *  a browser without the callback; a deadline keeps a stalled clip from holding the reel. */
+  const onFrame = (c: Clip | undefined, fn: () => void, maxMs = 600) => {
+    const el = c?.sample();
+    const rvfc = (el as { requestVideoFrameCallback?: (cb: () => void) => number } | null | undefined)?.requestVideoFrameCallback;
+    if (!(el instanceof HTMLVideoElement) || typeof rvfc !== 'function') { fn(); return; }
+    let done = false;
+    const once = () => { if (done) return; done = true; fn(); };
+    rvfc.call(el, once);
+    window.setTimeout(once, maxMs);
+  };
   const warm = (c: Clip | undefined) => {
     const el = c?.sample();
     if (!(el instanceof HTMLVideoElement)) return;
@@ -445,14 +458,18 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     // opens dark gets one mid-window retry (during darkness — invisible).
     ensureCropped(cur);
     window.setTimeout(() => ensureCropped(cur), 450);
-    prev.sprite.visible = false;
-    prev.pause();
     // every window replays its loop from the top — the first rotation was
     // clean because every clip began at 0; later rotations resumed mid-GOP
     // and opened on decoder-held duplicate frames
     cur.rewind();
-    cur.sprite.visible = true;
     cur.play();
+    // the cut lands when the incoming clip has presented a frame after its rewind (a seek empties the frame for a
+    // moment; a sprite drawn in that moment used to stay black — see onFrame); the outgoing clip holds until then
+    onFrame(cur, () => {
+      prev.sprite.visible = false;
+      prev.pause();
+      cur.sprite.visible = true;
+    });
     warm(clips[nextClip(active, clips.length)]); // buffer the next window ahead
     clipClock = 0;
     sampleClipAccent(cur);
@@ -462,10 +479,13 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     clips = loaded;
     clips.forEach((c, i) => {
       fitSprite(c.sprite, c.width, c.height);
-      c.sprite.visible = i === 0;
+      c.sprite.visible = false; // (the first clip shows once it has presented a frame: onFrame below)
       if (i === 0) c.play(); else c.pause();
       root.addChild(c.sprite);
     });
+    // the opening clip resolves at loadedmetadata, frameless: drawn then, its texture uploaded nothing and stayed
+    // black (owner, 2026-09-28) — it comes on with its first presented frame
+    onFrame(clips[0], () => { clips[0].sprite.visible = true; }, 1500);
     if (imageSprite) {
       // the poster hands over to the reel inside a tear — but only once the first
       // clip has a real decoded frame to show. Clips resolve at loadedmetadata now,
@@ -474,13 +494,7 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
       burstLeft = Math.max(burstLeft, 200);
       const poster = imageSprite;
       imageSprite = null;
-      const hide = () => setTimeout(() => { poster.visible = false; }, 90);
-      const el = clips[0]?.sample();
-      if (el instanceof HTMLVideoElement && 'requestVideoFrameCallback' in el) {
-        el.requestVideoFrameCallback(() => hide());
-      } else {
-        hide();
-      }
+      onFrame(clips[0], () => setTimeout(() => { poster.visible = false; }, 90), 1500);
     }
     sampleClipAccent(clips[0]);
     (window as unknown as { rvlReel: unknown }).rvlReel = {

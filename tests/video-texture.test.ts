@@ -15,6 +15,7 @@ class FakeVideo {
   readyState = 1; // HAVE_METADATA: a pane builds its texture at loadedmetadata
   HAVE_ENOUGH_DATA = 4;
   HAVE_FUTURE_DATA = 3;
+  HAVE_CURRENT_DATA = 2;
   paused = true;
   ended = false;
   playbackRate = 1;
@@ -144,5 +145,57 @@ describe('a loop texture uploads its new frames, never the display clock (owner:
       expect(s, f).toMatch(/videoTexture\(/);
       expect(s, f).not.toMatch(/Texture\.from\((this\.)?video\)|Texture\.from\(v\)/);
     }
+  });
+});
+
+/** Pixi's GL video uploader, as the module leaves it: a fake GL records the calls, a fake GlTexture the recorded size. */
+const TEXTURE_2D = 3553, RGBA = 6408, UNSIGNED_BYTE = 5121;
+const fakeGl = () => {
+  const calls: unknown[][] = [];
+  return { calls, texImage2D: (...a: unknown[]) => { calls.push(['texImage2D', ...a]); }, texSubImage2D: (...a: unknown[]) => { calls.push(['texSubImage2D', ...a]); } };
+};
+const sourceOf = (v: FakeVideo) => ({ resource: v, pixelWidth: 1280, pixelHeight: 720, resourceWidth: 1280, resourceHeight: 720, isValid: true });
+const glTextureOf = (width: number, height: number) => ({ target: TEXTURE_2D, width, height, internalFormat: RGBA, format: RGBA, type: UNSIGNED_BYTE });
+
+describe('the frameless first upload (owner 2026-09-28: "homepage right now have blackout loops")', () => {
+  it('a video with its metadata but no frame yet gets a 1×1 placeholder, and the recorded size stays stale', async () => {
+    const { glUploadVideoResource } = await import('pixi.js');
+    const v = new FakeVideo(); // readyState 1: HAVE_METADATA
+    const glTexture = glTextureOf(-1, -1);
+    const gl = fakeGl();
+    glUploadVideoResource.upload(sourceOf(v) as never, glTexture as never, gl as never, 2);
+    expect(gl.calls).toEqual([['texImage2D', TEXTURE_2D, 0, RGBA, 1, 1, 0, RGBA, UNSIGNED_BYTE, null]]);
+    expect([glTexture.width, glTexture.height], 'stale on purpose: the first real frame must re-allocate').toEqual([1, 1]);
+  });
+
+  it('the first real frame allocates at the video size (Pixi\'s own path, untouched)', async () => {
+    const { glUploadVideoResource } = await import('pixi.js');
+    const v = new FakeVideo();
+    v.readyState = 2; // HAVE_CURRENT_DATA: a frame to upload
+    const glTexture = glTextureOf(1, 1);
+    const gl = fakeGl();
+    glUploadVideoResource.upload(sourceOf(v) as never, glTexture as never, gl as never, 2);
+    expect(gl.calls.length).toBe(1);
+    expect(gl.calls[0].slice(0, 6)).toEqual(['texImage2D', TEXTURE_2D, 0, RGBA, 1280, 720]);
+    expect(gl.calls[0][9]).toBe(v);
+    expect([glTexture.width, glTexture.height]).toEqual([1280, 720]);
+  });
+
+  it('a clip mid-seek keeps its last frame: an allocated texture is left to Pixi (a sub-upload), never re-placeholdered', async () => {
+    const { glUploadVideoResource } = await import('pixi.js');
+    const v = new FakeVideo(); // readyState 1 again: the frame is gone while the seek lands
+    const glTexture = glTextureOf(1280, 720);
+    const gl = fakeGl();
+    glUploadVideoResource.upload(sourceOf(v) as never, glTexture as never, gl as never, 2);
+    expect(gl.calls.length).toBe(1);
+    expect(gl.calls[0][0]).toBe('texSubImage2D');
+    expect([glTexture.width, glTexture.height]).toEqual([1280, 720]);
+  });
+
+  it('the reel shows a clip only once it has presented a frame — at the start and at every cut', () => {
+    const s = readFileSync('src/home/hero.ts', 'utf8');
+    expect(s).toMatch(/onFrame\(clips\[0\]/);
+    expect(s).toMatch(/onFrame\(cur,/);
+    expect(s).not.toMatch(/c\.sprite\.visible = i === 0/);
   });
 });

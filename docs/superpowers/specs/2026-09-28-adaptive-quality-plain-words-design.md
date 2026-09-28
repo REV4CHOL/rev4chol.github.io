@@ -247,3 +247,18 @@ and scanlines hidden, resolution 1, ticker 30, 3 loops, no glows, no desaturatio
 flip (no rig, no streaks); the pin carried to ABOUT (sweep and echoes still); the homepage at LITE with no filter pass
 between bursts, the drifts still, the reel playing; `?gfx=full` → 10 loops, grain back. Screenshots of the floor and
 the homepage at both tiers and of the legend in `scratchpad/ux/shots/`.
+
+### 4.3 Found on live after the deploy: the reel's black loops
+
+The owner, minutes after 9566369: "homepage right now have blackout loops, cant see the videos". Not the tiers — the
+previous production build rendered the same black in the same Chrome, and on a black page the chain could be rebuilt
+any way without effect. The cause (Pixi 8.20): a video texture is allocated and filled in one `texImage2D(video)`; a
+video with metadata but no decoded frame fails that call, nothing is allocated, and every later frame lands on nothing
+(`glCopySubTextureCHROMIUM: The destination level … must be defined`, 256 times in six seconds) — the clip is black
+for the visit. The reel's clips resolve at `loadedmetadata` and the opening clip was drawn at once; every cut rewinds
+the incoming clip (a seek empties the frame) and showed it in that moment. Which clips went black was timing, so it
+came and went between builds and machines (the works panes never had it: they gate on a presented frame). Fixed at
+the site's one video-texture entry (`lib/video-texture.ts`: Pixi's video uploader guarded — a 1×1 placeholder until
+the video holds a frame, the recorded size left stale so the first frame re-allocates; an allocated texture mid-seek
+is left alone) and in the reel (`onFrame`: the opening clip and every cut wait for a presented frame). A full rotation
+of the seven clips on dev: zero black samples, zero upload errors.
