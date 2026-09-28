@@ -46,6 +46,46 @@ describe('the pillars are equal: one column count, one still size', () => {
   });
 });
 
+// (owner 2026-09-28: "the galaxy fold page have some grain error in the still column of digital ad 1. Fix.") Ad #1's
+// pillar ends in the hatch, and the hatch was a hard-edged line 1 px wide: sampled at device pixels, a line that thin
+// renders by luck of phase, a solid staircase and then a chain of lone dots, and a field of those reads as grain.
+describe("the pillars' hatch: every line drawn soft, all alike", () => {
+  // the hatch as project.css draws it: its angle, and its stops (a stop with two positions counted as two)
+  const hatch = () => {
+    const css = readFileSync('src/styles/project.css', 'utf8');
+    const m = /\.p-vgrid \{[^}]*?background: repeating-linear-gradient\((.*?)\);/s.exec(css);
+    if (!m) throw new Error('.p-vgrid has no repeating hatch');
+    const args = m[1].split(/,(?![^(]*\))/).map((s) => s.trim());
+    const stops = args.slice(1).flatMap((s) => {
+      const [, color, at] = /^(rgba\([^)]*\)|transparent)\s*(.*)$/.exec(s)!;
+      const alpha = color === 'transparent' ? 0 : Number(color.slice(5, -1).split(',')[3]);
+      return at.split(/\s+/).filter(Boolean).map((p) => ({ alpha, at: parseFloat(p) }));
+    });
+    return { angle: args[0], stops };
+  };
+
+  it('a line every 12 px at 135°, as before', () => {
+    const { angle, stops } = hatch();
+    expect(angle).toBe('135deg');
+    expect(stops[0].at).toBe(0);
+    expect(stops.at(-1)!.at).toBe(12);
+  });
+
+  it('no hard edge: every change of tone runs over a pixel at least', () => {
+    const { stops } = hatch();
+    for (let i = 1; i < stops.length; i++) {
+      if (stops[i].alpha !== stops[i - 1].alpha) expect(stops[i].at - stops[i - 1].at, `stop ${i}`).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("the same ink as the hard line it replaced: 0.13 px of bone per line", () => {
+    const { stops } = hatch();
+    let ink = 0;
+    for (let i = 1; i < stops.length; i++) ink += ((stops[i].alpha + stops[i - 1].alpha) / 2) * (stops[i].at - stops[i - 1].at);
+    expect(ink).toBeCloseTo(0.13, 4);
+  });
+});
+
 // (owner 2026-09-28: "The verticle pane must be bigger and larger, as they are allowed to run irregular sizing")
 describe("a pane's card: the carpet's row height, or two rows and the seam for a tall (vertical) pane", () => {
   it('every landscape card as before; the 9:16 card 258 × 458', () => {

@@ -55,7 +55,7 @@ describe("the floor's legend (owner's testers, 2026-09-27: 'not knowing what to 
   });
 });
 
-describe('placeholders: no film, none pending, none private (none left: 17 films + MIEN VIEN, private)', () => {
+describe('placeholders: no film, none pending, none private (none left: 16 films + MIEN VIEN, private)', () => {
   it('isPlaceholder', () => {
     expect(isPlaceholder(film())).toBe(false);
     expect(isPlaceholder(film({ film: null, filmPending: true }))).toBe(false);
@@ -71,14 +71,14 @@ describe('placeholders: no film, none pending, none private (none left: 17 films
     expect(projects.filter((p) => p.filmPending).map((p) => p.slug)).toEqual([]);
   });
 
-  it('projects.json today: no placeholder at all, 18 films; mien-vien is not one', () => {
+  it('projects.json today: no placeholder at all, 17 films; mien-vien is not one', () => {
     const root = fileURLToPath(new URL('../public/content/', import.meta.url));
     const projects = parseProjects(parseJson(readFileSync(root + 'projects.json', 'utf8'), 'projects.json'));
     // (24 until NEON LITURGY left; 23 until MISSION: IMPASSIBLE took COPPER LULLABY's pane, owner 2026-09-27;
     // 22 until GALAXY Z FOLD 8 ULTRA took TERMINAL BLOOM's; 21 until the owner, 2026-09-28: "also completely remove
-    // all placeholder panes from the work section")
+    // all placeholder panes from the work section"; 18 until the last of them, SALINE THRONE, went the same day)
     expect(projects.filter(isPlaceholder).map((p) => p.slug)).toEqual([]);
     expect(isPlaceholder(projects.find((p) => p.slug === 'mien-vien')!)).toBe(false);
-    expect(projects).toHaveLength(18);
+    expect(projects).toHaveLength(17);
   });
 });

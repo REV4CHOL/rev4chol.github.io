@@ -484,11 +484,14 @@
 
 /* A VERTICAL FILM'S WALL (owner 2026-09-28: "design vertical stills for all vertical projects"): portrait cells
    (--pratio 9/16) in one grid, 4 across (3 on a tablet, 2 on a phone), gapless and full-bleed like every wall.
-   A cell a last row leaves empty, and a pillar's foot, is hatched: never blank. */
+   A cell a last row leaves empty, and a pillar's foot, is hatched: never blank. Each line of the hatch is a soft ramp
+   two pixels wide with the ink of the 1 px line it replaced: a hard-edged line that thin renders by luck of phase (a
+   solid staircase, then a chain of lone dots), and under ad #1's six stills a field of those read as grain (the owner:
+   "some grain error in the still column of digital ad 1"). */
 .p-vgrid {
   --cols: 4;
   display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); align-content: start; gap: 0;
-  background: repeating-linear-gradient(135deg, rgba(237, 237, 230, 0.13) 0 1px, transparent 1px 12px);
+  background: repeating-linear-gradient(135deg, rgba(237, 237, 230, 0) 0, rgba(237, 237, 230, 0.13) 1px, rgba(237, 237, 230, 0) 2px 12px);
 }
 .p-wall--vertical .p-still-num { font-size: var(--t-xl); }
 

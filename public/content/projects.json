@@ -121,31 +121,6 @@
     "tileSize": "large"
   },
   {
-    "slug": "saline-throne",
-    "title": "Saline Throne",
-    "year": 2023,
-    "role": "Director / DoP",
-    "runtime": "16:20",
-    "tags": [
-      "short film",
-      "fantasy"
-    ],
-    "accent": "#EDEDE6",
-    "synopsis": "A salt-flat kingdom with a population of one. Shot over six days of white horizon.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": {
-      "type": "local",
-      "src": "film.mp4"
-    },
-    "category": "human",
-    "tileSize": "normal"
-  },
-  {
     "slug": "far-east",
     "title": "FAR EAST",
     "year": 2025,
