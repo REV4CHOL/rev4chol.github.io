@@ -1,15 +1,16 @@
 import { isPlaceholder, type Project } from '../lib/content';
 
 /** THE FLOOR'S SIGNPOSTS (owner's testers, 2026-09-27: "confused, not knowing what to do, where to go … what to
- *  click on, like completely lost"). The floor's controls in one line — the STORY page's idiom — and the hover
- *  caption ends with the verb that opens the pane, since the cursor's ENTER ▸ alone went unseen. */
+ *  click on, like completely lost"; owner, 2026-09-28: "still unclear … imagine a not so tech-savvy person read
+ *  it"). The floor's controls in one line, and the hover caption ends with what opens the pane. PLAIN WORDS: an
+ *  instruction is a sentence a stranger can follow — the house's arrow-between-verb-and-noun code read as code. */
 export const FLOOR_LEGEND = {
-  fine: 'DRAG ▸ ROAM ▪ SCROLL ▸ ZOOM ▪ HOVER ▸ PREVIEW ▪ CLICK ▸ OPEN',
-  coarse: 'DRAG ▸ ROAM ▪ PINCH ▸ ZOOM ▪ TAP ▸ SELECT ▪ TAP AGAIN ▸ OPEN',
+  fine: 'DRAG TO MOVE AROUND ▪ SCROLL TO ZOOM ▪ HOVER A FILM TO PREVIEW IT ▪ CLICK IT TO OPEN',
+  coarse: 'DRAG TO MOVE AROUND ▪ PINCH TO ZOOM ▪ TAP A FILM TO PREVIEW IT ▪ TAP IT AGAIN TO OPEN',
 } as const;
 
 /** On a touch screen the first tap only selects (wakes and captions) a pane; the caption says what the second does. */
-export const OPEN_VERB = { fine: 'CLICK ▸ OPEN', coarse: 'TAP AGAIN ▸ OPEN' } as const;
+export const OPEN_VERB = { fine: 'CLICK TO OPEN', coarse: 'TAP AGAIN TO OPEN' } as const;
 
 export function legendText(fine: boolean): string {
   return fine ? FLOOR_LEGEND.fine : FLOOR_LEGEND.coarse;
@@ -17,10 +18,10 @@ export function legendText(fine: boolean): string {
 
 type CaptionFields = Pick<Project, 'year' | 'role' | 'runtime' | 'film' | 'filmPending'>;
 
-/** `2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK ▸ OPEN`; a placeholder's starts `PLACEHOLDER ▪`. */
+/** `2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK TO OPEN`; a placeholder's starts `PLACEHOLDER · NO FILM YET ▪`. */
 export function captionMeta(p: CaptionFields, fine: boolean): string {
   const facts = [p.year, p.role, p.runtime].filter(Boolean).join(' · ').toUpperCase();
-  return [isPlaceholder(p) ? 'PLACEHOLDER' : '', facts, fine ? OPEN_VERB.fine : OPEN_VERB.coarse]
+  return [isPlaceholder(p) ? 'PLACEHOLDER · NO FILM YET' : '', facts, fine ? OPEN_VERB.fine : OPEN_VERB.coarse]
     .filter(Boolean)
     .join(' ▪ ');
 }

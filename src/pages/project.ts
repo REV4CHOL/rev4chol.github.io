@@ -41,7 +41,7 @@ function renderNotFound(): void {
     <div class="p-notfound">
       <h1 class="statement">SIGNAL LOST</h1>
       <p class="micro">SPECIMEN NOT IN THE INDEX</p>
-      <p><a class="btn" href="/works.html" data-internal>BACK TO THE FLOOR ▸</a></p>
+      <p><a class="btn" href="/works.html" data-internal>BACK TO ALL FILMS ▸</a></p>
     </div>`;
 }
 
@@ -243,13 +243,13 @@ function mountSynopsis(p: Project): void {
       // the film exists but isn't linkable yet — the button stands, greyed
       watch.hidden = false;
       watch.disabled = true;
-      watch.title = 'TRANSMISSION PENDING';
+      watch.title = 'FILM LINK COMING SOON';
     } else {
       // PLACEHOLDER (owner's testers, 2026-09-27: a full dossier for a film that does not exist read as a broken
       // site): where WATCH would stand, the truth in one line
       const note = document.createElement('p');
       note.className = 'p-placeholder micro';
-      note.textContent = 'PLACEHOLDER PANE ▪ NO FILM HERE YET';
+      note.textContent = 'PLACEHOLDER ▪ NO FILM HERE YET';
       watch.after(note);
     }
     return;
@@ -484,7 +484,7 @@ function mountEndNav(all: Project[], idx: number): void {
   const solo = all.length < 2;
   document.getElementById('p-confirm')!.innerHTML = `
     <div class="p-endnav" data-stamp>
-      <a class="p-back" href="/works.html" data-internal data-cursor="FLOOR ◂">◂ BACK TO THE FLOOR</a>
-      ${solo ? '' : `<a class="p-nextlink" href="/project.html?p=${next.slug}" data-internal data-cursor="NEXT ▸">NEXT ▸ ${escapeHtml(next.title.toUpperCase())}</a>`}
+      <a class="p-back" href="/works.html" data-internal data-cursor="BACK ◂">◂ BACK TO ALL FILMS</a>
+      ${solo ? '' : `<a class="p-nextlink" href="/project.html?p=${next.slug}" data-internal data-cursor="NEXT ▸">NEXT FILM ▸ ${escapeHtml(next.title.toUpperCase())}</a>`}
     </div>`;
 }

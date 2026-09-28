@@ -59,10 +59,11 @@ async function armFlight(): Promise<void> {
   const hint = document.getElementById('a3-hint')!;
   const fine = window.matchMedia('(pointer: fine)').matches;
   const modes: Mode[] = ['auto', 'free'];
-  // the one line of controls: FREE's from the markup (a phone's stick version here); AUTO names the two seats
-  // (owner's testers, 2026-09-27: a visitor arriving mid-drift had no idea the city could be flown)
-  const FREE_HINT = fine ? hint.textContent! : 'DRAG ▸ LOOK ▪ STICK ▸ MOVE ▪ ▲▼ ▸ RISE/SINK';
-  const AUTO_HINT = 'AUTO ▸ THE CITY DRIVES ▪ FREE ▸ YOU FLY';
+  // the one line of controls: FREE's from the markup (a phone's stick version here); AUTO says what is happening and
+  // what the other button does (owner's testers, 2026-09-27: a visitor arriving mid-drift had no idea the city could
+  // be flown; owner 2026-09-28: plain words — a sentence a stranger can follow, not the house's VERB ▸ NOUN code)
+  const FREE_HINT = fine ? hint.textContent! : 'DRAG TO LOOK AROUND ▪ STICK TO MOVE ▪ ▲ ▼ TO RISE / SINK';
+  const AUTO_HINT = 'AUTOPILOT IS ON ▪ PRESS FREE TO FLY THE CITY YOURSELF';
   fly.innerHTML = modes
     .map((m) => `<button type="button" data-m="${m}"${m === 'auto' ? ' class="on"' : ''}>${m.toUpperCase()}</button>`)
     .join('');

@@ -481,8 +481,8 @@
    pane once, then a quiet reminder */
 .floor-hint {
   position: fixed; left: 50%; translate: -50% 0; top: calc(104px * var(--uiz)); z-index: 945; pointer-events: none;
-  text-align: center; white-space: nowrap; letter-spacing: 0.2em; font-size: calc(var(--t-2xs) * var(--uiz));
-  color: color-mix(in srgb, var(--bone) 55%, transparent); text-shadow: 0 0 8px rgba(6, 6, 6, 0.95);
+  text-align: center; white-space: nowrap; letter-spacing: 0.16em; font-size: calc(var(--t-xs) * var(--uiz));
+  color: color-mix(in srgb, var(--bone) 70%, transparent); text-shadow: 0 0 8px rgba(6, 6, 6, 0.95);
 }
 .floor-hint.is-fresh { color: var(--signal); }
 .floor-hint:empty { display: none; }

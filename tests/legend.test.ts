@@ -14,22 +14,28 @@ const film = (over: Partial<Meta> = {}): Meta => ({
   ...over,
 });
 
-describe("the floor's legend (owner's testers, 2026-09-27: 'not knowing what to do … what to click on')", () => {
-  it('names the controls for a mouse and for a thumb', () => {
-    expect(legendText(true)).toBe('DRAG ▸ ROAM ▪ SCROLL ▸ ZOOM ▪ HOVER ▸ PREVIEW ▪ CLICK ▸ OPEN');
-    expect(legendText(false)).toBe('DRAG ▸ ROAM ▪ PINCH ▸ ZOOM ▪ TAP ▸ SELECT ▪ TAP AGAIN ▸ OPEN');
+describe("the floor's legend (owner's testers, 2026-09-27: 'not knowing what to do … what to click on'; 09-28: 'still unclear … a not so tech-savvy person')", () => {
+  it('tells a stranger what to do, in sentences — for a mouse and for a thumb', () => {
+    expect(legendText(true)).toBe('DRAG TO MOVE AROUND ▪ SCROLL TO ZOOM ▪ HOVER A FILM TO PREVIEW IT ▪ CLICK IT TO OPEN');
+    expect(legendText(false)).toBe('DRAG TO MOVE AROUND ▪ PINCH TO ZOOM ▪ TAP A FILM TO PREVIEW IT ▪ TAP IT AGAIN TO OPEN');
     expect(FLOOR_LEGEND.fine).toBe(legendText(true));
   });
 
-  it('the caption ends with the verb that opens the pane', () => {
-    expect(captionMeta(film(), true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK ▸ OPEN');
-    expect(captionMeta(film(), false)).toBe('2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ TAP AGAIN ▸ OPEN');
-    expect(captionMeta(film({ runtime: '' }), true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST ▪ CLICK ▸ OPEN'); // empty fields drop out, as before
+  it('the caption ends with what opens the pane, said plainly', () => {
+    expect(captionMeta(film(), true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK TO OPEN');
+    expect(captionMeta(film(), false)).toBe('2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ TAP AGAIN TO OPEN');
+    expect(captionMeta(film({ runtime: '' }), true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST ▪ CLICK TO OPEN'); // empty fields drop out, as before
   });
 
-  it('a placeholder says so first; a film awaiting its link is a film', () => {
-    expect(captionMeta(film({ film: null }), true)).toBe('PLACEHOLDER ▪ 2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK ▸ OPEN');
-    expect(captionMeta(film({ film: null, filmPending: true }), true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK ▸ OPEN');
+  it('a placeholder says so first, and what that means; a film awaiting its link is a film', () => {
+    expect(captionMeta(film({ film: null }), true)).toBe('PLACEHOLDER · NO FILM YET ▪ 2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK TO OPEN');
+    expect(captionMeta(film({ film: null, filmPending: true }), true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK TO OPEN');
+  });
+
+  it("no instruction on the floor speaks the house's VERB ▸ NOUN code any more", () => {
+    for (const s of [legendText(true), legendText(false), captionMeta(film(), true), captionMeta(film(), false)]) {
+      expect(s).not.toMatch(/[A-Z] ▸ [A-Z]/);
+    }
   });
 
   it('remembers the first opened pane; a storage that throws reads as never opened', () => {

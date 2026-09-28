@@ -265,7 +265,7 @@ export class WorksWorld {
     tile.wake();
     tile.swapToMontage();
     tile.enterHover();
-    setCursorLabel('ENTER ▸');
+    setCursorLabel('OPEN ▸'); // (the legend says "click it to open": the cursor says the same word)
     this.showLabel(tile);
     this.playback.update(this.viewRect(), this.hoveredSlug);
   }

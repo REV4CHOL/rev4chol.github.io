@@ -79,14 +79,18 @@ describe('the signposts are wired (pins)', () => {
   const pins: Array<[string, string]> = [
     ['index.html', 'id="home-door"'],
     ['index.html', 'class="home-cta-row"'],
-    ['index.html', 'href="/works.html" data-internal data-cursor="ENTER ▸">ENTER MY WORK ▸</a>'],
+    // the door (owner, 2026-09-28: "ENTER MY WORK" → "ENTER" only; the arrow is the house's button arrow, as on WATCH ▸)
+    ['index.html', 'href="/works.html" data-internal data-cursor="ENTER ▸">ENTER ▸</a>'],
     ['src/pages/index.ts', 'doorFromVoidClick('],
     ['src/pages/index.ts', 'leaveTo('],
     ['src/styles/components.css', '.home-door {'],
     ['works.html', '<p class="floor-hint micro" id="floor-hint"></p>'],
     ['src/pages/works.ts', 'legendText('],
     ['src/pages/works.ts', 'floorOpened('],
-    ['src/pages/works.ts', "dataset.cursor = 'SWITCH ▸'"],
+    // PLAIN WORDS (owner, 2026-09-28: "still unclear … imagine a not so tech-savvy person"): every instruction is a
+    // sentence a stranger can follow; the arrows stay on buttons and links, where an arrow reads as an arrow
+    ['src/pages/works.ts', "dataset.cursor = 'SWITCH CHAPTER ▸'"],
+    ['src/works/world.ts', "setCursorLabel('OPEN ▸')"],
     ['src/works/world.ts', 'captionMeta('],
     ['src/works/world.ts', 'openingFrame('],
     ['src/works/world.ts', 'markFloorOpened('],
@@ -106,12 +110,24 @@ describe('the signposts are wired (pins)', () => {
     ['src/styles/components.css', '.floor-hint.is-fresh'],
     ['src/styles/components.css', '.ch-switch button:not(.is-on) .ch-name'],
     ['src/styles/components.css', '.nav-links a { font-size: 0.7rem; padding: 13px 0; }'],
-    ['src/pages/project.ts', '◂ BACK TO THE FLOOR'],
-    ['src/pages/project.ts', 'NEXT ▸ ${'],
-    ['src/pages/project.ts', 'PLACEHOLDER PANE ▪ NO FILM HERE YET'],
+    ['src/pages/project.ts', '◂ BACK TO ALL FILMS'],
+    ['src/pages/project.ts', 'data-cursor="BACK ◂"'],
+    ['src/pages/project.ts', 'NEXT FILM ▸ ${'],
+    ['src/pages/project.ts', 'BACK TO ALL FILMS ▸'],
+    ['src/pages/project.ts', 'PLACEHOLDER ▪ NO FILM HERE YET'],
+    ['src/pages/project.ts', "watch.title = 'FILM LINK COMING SOON'"],
     ['src/pages/project.ts', "isPlaceholder(p) ? 'PLACEHOLDER' : 'ONLINE'"],
     ['src/styles/project.css', '.p-placeholder'],
-    ['src/pages/story.ts', 'AUTO ▸ THE CITY DRIVES ▪ FREE ▸ YOU FLY'],
+    ['src/pages/story.ts', "'AUTOPILOT IS ON ▪ PRESS FREE TO FLY THE CITY YOURSELF'"],
+    ['src/pages/story.ts', "'DRAG TO LOOK AROUND ▪ STICK TO MOVE ▪ ▲ ▼ TO RISE / SINK'"],
+    ['story.html', 'DRAG TO LOOK AROUND ▪ W A S D TO MOVE ▪ E / Q TO RISE / SINK ▪ SHIFT TO GO FASTER ▪ T TO CHANGE THE TIME OF DAY'],
+    ['src/lib/swipe-nav.ts', "kicker.textContent = 'SCROLL DOWN ▾'"],
+    ['src/lib/swipe-nav.ts', "'NEXT PAGE ▸' : '◂ PREVIOUS PAGE'"],
+    ['src/pages/contact.ts', "copy.textContent = 'COPY EMAIL'"],
+    ['contact.html', '>COPY EMAIL</button>'],
+    ['src/shell/hud.ts', 'SFX ${'],
+    ['src/shell/hud.ts', 'MUSIC ${'],
+    ['src/shell/hud.ts', 'MOTION ${'],
   ];
   for (const [file, needle] of pins) {
     it(`${file} carries ${needle}`, () => {
@@ -119,9 +135,39 @@ describe('the signposts are wired (pins)', () => {
     });
   }
 
-  it('the button says ENTER MY WORK and nothing about a film count (owner)', () => {
+  it('the button says ENTER and nothing else — no "MY WORK", no film count (owner)', () => {
     const html = readFileSync('index.html', 'utf8');
     expect(html).not.toMatch(/\d+ FILMS/);
+    expect(html).not.toContain('ENTER MY WORK');
+  });
+
+  it("no instruction speaks the house's code any more (the old pairs, the house nouns, the abbreviations)", () => {
+    const gone: Array<[string, string[]]> = [
+      ['src/works/legend.ts', ['▸ ROAM', '▸ ZOOM', '▸ PREVIEW', '▸ OPEN', '▸ SELECT', 'PLACEHOLDER ▪']],
+      ['src/works/world.ts', ["setCursorLabel('ENTER ▸')"]],
+      ['src/pages/works.ts', ["'SWITCH ▸'"]],
+      ['src/pages/story.ts', ['▸ LOOK', '▸ MOVE', '▸ BOOST', '▸ TIME', 'THE CITY DRIVES', 'YOU FLY']],
+      ['story.html', ['▸ LOOK', '▸ MOVE', '▸ BOOST', '▸ TIME']],
+      ['src/pages/project.ts', ['THE FLOOR', 'PLACEHOLDER PANE', 'TRANSMISSION PENDING', 'FLOOR ◂']],
+      ['src/lib/swipe-nav.ts', ['TUNING ▸']],
+      ['src/pages/contact.ts', ['COPY FREQ']],
+      ['contact.html', ['COPY FREQ']],
+      ['src/shell/hud.ts', ['MUS ${', 'MTN ${']],
+    ];
+    for (const [file, needles] of gone) {
+      const src = readFileSync(file, 'utf8');
+      for (const n of needles) expect(src, `${file} still says ${n}`).not.toContain(n);
+    }
+  });
+
+  it('the legends are readable: 12 px at 70 % bone on the floor, 12 px on the city', () => {
+    // the top-level rules start their line; the phone overrides inside @media are indented
+    const rule = (css: string, sel: string) => { const at = css.indexOf(`\n${sel} {`); return css.slice(at, css.indexOf('}', at)); };
+    const hint = rule(readFileSync('src/styles/components.css', 'utf8'), '.floor-hint');
+    expect(hint).toContain('font-size: calc(var(--t-xs) * var(--uiz))');
+    expect(hint).toContain('color-mix(in srgb, var(--bone) 70%, transparent)');
+    const a3 = rule(readFileSync('src/styles/story.css', 'utf8'), '.a3-hint');
+    expect(a3).toContain('font-size: var(--t-xs)');
   });
 
   it("the door row is not hidden from thumbs, and only the statement's words intercept a click", () => {

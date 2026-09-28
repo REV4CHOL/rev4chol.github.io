@@ -36,7 +36,7 @@ startPage('contact', ({ site }) => {
     copy.classList.add('is-done');
     clearTimeout(copyTimer);
     copyTimer = window.setTimeout(() => {
-      copy.textContent = 'COPY FREQ';
+      copy.textContent = 'COPY EMAIL';
       copy.classList.remove('is-done');
     }, 1600);
   };

@@ -86,9 +86,9 @@
 body.a3-touch-free .a3-pad { display: block; }
 body.a3-touch-free .a3-lift { display: flex; }
 
-.a3-hint { /* the controls' one line: up top under the HUD, where the crowded bottom edge never reaches it */
+.a3-hint { /* the controls' one line: up top under the HUD, where the crowded bottom edge never reaches it; 12 px (plain words, owner 2026-09-28) */
   position: fixed; left: 50%; translate: -50% 0; top: 112px; z-index: 3; text-align: center;
-  color: color-mix(in srgb, var(--bone) 70%, transparent); letter-spacing: 0.2em;
+  color: color-mix(in srgb, var(--bone) 70%, transparent); letter-spacing: 0.16em; font-size: var(--t-xs);
   text-shadow: 0 0 8px rgba(6, 6, 6, 0.95);
 }
 

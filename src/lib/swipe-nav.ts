@@ -74,7 +74,7 @@ export function armGlideNav(opts: GlideOptions): void {
     cue.setAttribute('data-internal', '');
     const kicker = document.createElement('span');
     kicker.className = 'swc-kicker';
-    kicker.textContent = 'SCROLL ▾';
+    kicker.textContent = 'SCROLL DOWN ▾';
     kicker.setAttribute('aria-hidden', 'true');
     cue.append(kicker);
     const label = document.createElement('span');
@@ -129,7 +129,7 @@ export function armGlideNav(opts: GlideOptions): void {
   const engage = (dir: 1 | -1) => {
     engaged = dir;
     const stop = stopFor(dir)!;
-    kicker.textContent = dir > 0 ? 'TUNING ▸ NEXT' : 'TUNING ▸ BACK';
+    kicker.textContent = dir > 0 ? 'NEXT PAGE ▸' : '◂ PREVIOUS PAGE'; // (plain words, owner 2026-09-28: "tuning" was the house's)
     name.textContent = stop.label;
     panel.classList.toggle('glide-panel--above', dir < 0);
     panel.classList.add('on');

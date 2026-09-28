@@ -61,7 +61,7 @@ startPage(
     for (const ch of CHANNELS) {
       const b = document.createElement('button');
       b.dataset.ch = ch.key;
-      b.dataset.cursor = 'SWITCH ▸'; // the cursor names the tab's job (owner's testers, 2026-09-27)
+      b.dataset.cursor = 'SWITCH CHAPTER ▸'; // the cursor names the tab's job, in full (owner's testers, 2026-09-27; plain words 09-28)
       b.innerHTML = `<span class="ch-idx micro">${ch.index}</span><span class="ch-name"><span class="ch-mark"></span>${ch.name}</span>`;
       b.addEventListener('click', () => void flip(ch.key));
       sw.append(b);

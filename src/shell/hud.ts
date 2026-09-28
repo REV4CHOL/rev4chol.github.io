@@ -26,7 +26,8 @@ export function mountHud(): Hud {
 
   const tr = document.createElement('div');
   tr.className = 'hud hud-tr micro';
-  tr.innerHTML = `<span id="hud-count"></span> <button id="hud-snd" aria-pressed="${sound.enabled}" title="Sound effects: on / off">SFX ${sound.enabled ? '●' : '○'}</button> <button id="hud-mus" aria-pressed="${music.enabled}" title="Music: on / off">MUS ${music.enabled ? '●' : '○'}</button> <button id="hud-mtn" aria-pressed="${!calmActive()}" title="Motion: full / calm">MTN ${calmActive() ? '○' : '●'}</button>`;
+  // the switches in full words (owner 2026-09-28, plain words: MUS and MTN were the house's abbreviations)
+  tr.innerHTML = `<span id="hud-count"></span> <button id="hud-snd" aria-pressed="${sound.enabled}" title="Sound effects: on / off">SFX ${sound.enabled ? '●' : '○'}</button> <button id="hud-mus" aria-pressed="${music.enabled}" title="Music: on / off">MUSIC ${music.enabled ? '●' : '○'}</button> <button id="hud-mtn" aria-pressed="${!calmActive()}" title="Motion: full / calm">MOTION ${calmActive() ? '○' : '●'}</button>`;
 
   document.body.append(bl, br, tr);
 
@@ -52,7 +53,7 @@ export function mountHud(): Hud {
   const mus = tr.querySelector('#hud-mus') as HTMLButtonElement; // MUSIC (owner): the one track, site-wide, its own switch
   mus.addEventListener('click', () => {
     const on = music.toggle();
-    mus.textContent = `MUS ${on ? '●' : '○'}`;
+    mus.textContent = `MUSIC ${on ? '●' : '○'}`;
     mus.setAttribute('aria-pressed', String(on));
     sound.click();
   });
