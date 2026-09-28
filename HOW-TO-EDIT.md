@@ -45,8 +45,8 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | client | commissioning client — adds a CLIENT row to the spec sheet (leave out to hide) | `"Garena"` |
 | tags | list of words | `["short film","sci-fi"]` |
 | accent | this film's color, hex | `"#C8FF00"` |
-| tileSize | `"normal"` or `"large"` (large = FEATURED: the centre cluster and the featured dress — every pane is the same size) | `"large"` |
-| aspect | `"16:9"` (default), `"4:3"`, `"2.39:1"` or `"9:16"` (vertical footage) — the floor pane AND the whole dossier (hero + stills) present in this ratio; the carpet packs neighbors tight around any width. A `"9:16"` film gets the vertical pane (its name runs up a spine on the left edge), a vertical hero and a wall of portrait stills | `"4:3"` |
+| tileSize | `"normal"` or `"large"` (large = FEATURED: the centre cluster and the featured dress — every landscape pane is the same size; a vertical film's stands two rows tall) | `"large"` |
+| aspect | `"16:9"` (default), `"4:3"`, `"2.39:1"` or `"9:16"` (vertical footage) — the floor pane AND the whole dossier (hero + stills) present in this ratio; the carpet packs neighbors tight around any width. A `"9:16"` film gets the tall vertical pane (two pane rows high, its name up a spine on the left edge; featured, it stands in the right-hand column of the centre cluster), a vertical hero and a wall of portrait stills | `"4:3"` |
 | category | which works channel: `"human"` or `"machine"` (leave out = human) | `"machine"` |
 | synopsis | one short paragraph | |
 | credits | list of `{ "role": …, "name": … }` | |
@@ -103,14 +103,16 @@ from the fields above — nothing extra to maintain:
   The rhythm: two half-width side-by-side, two side-by-side, one
   full-width, repeat — edge to edge, no gaps, every frame 16:9. A lone
   leftover goes full-width. (A `stills` list in projects.json still works
-  as a manual override; all placeholder stills are labeled SWAP ME.)
+  as a manual override.)
 - **A vertical film (`"aspect": "9:16"`) gets a portrait wall**: 4 stills
   across on a wide screen, 3 on a tablet, 2 on a phone. For a film in
   parts, name each still by its part — `1-01.jpg`, `1-02.jpg`, … for part 1,
   `2-01.jpg`, `2-02.jpg`, … for part 2 — and the wall stands in **pillars**
   side by side: part 1 on the left, part 2 on the right, each with its own
-  number, label and still count. The pillars' widths balance themselves
-  so they end at about the same height; on a phone they stack, part 1
+  number, label and still count. Every pillar takes the same column
+  count — 3 stills across on a wide screen, 2 on a tablet or a phone — so
+  every still is the same size; the shorter part's pillar ends in a hatch
+  and its end mark (`EOF ▪` and its label). On a phone they stack, part 1
   first.
 - The bottom bar is navigation: `◂ RETURN TO FLOOR` on the left,
   `(NEXT FILM) ▸` on the right (next = the following entry in
@@ -178,7 +180,8 @@ build step, no terminal.
 - **Feature a film:** set its `tileSize` to `"large"`. Featured films gather
   as one cluster at the centre of the floor (where the page opens) and wear
   the featured dress (double frame, FEATURED tag, resting glow, photographic
-  poster). Every pane on the floor is the same size, featured or not.
+  poster). Every pane on the floor is the same size, featured or not —
+  except a vertical (`"9:16"`) film's, which stands two rows tall.
   Six featured films make the best centre block.
 - **Remove a film:** delete its entry from `projects.json` (the folder can stay).
 - **Hold a place for a film to come:** put `{ "blank": true, "category": "human",

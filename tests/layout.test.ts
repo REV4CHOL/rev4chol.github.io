@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { layoutProjects, packRows, paneBand, Placed } from '../src/works/layout';
+import { layoutProjects, packRows, paneBand, Placed, rowsOf } from '../src/works/layout';
 
 const W169 = 400;
 const W43 = 300;
@@ -59,7 +59,7 @@ const item = (slug: string, tileSize: 'normal' | 'large' = 'normal', position: {
 const cellsOf = (p: Placed): string[] => {
   const out: string[] = [];
   for (let dc = 0; dc < p.span; dc++)
-    for (let dr = 0; dr < p.span; dr++) out.push(`${p.col + dc},${p.row + dr}`);
+    for (let dr = 0; dr < rowsOf(p); dr++) out.push(`${p.col + dc},${p.row + dr}`);
   return out;
 };
 
@@ -222,5 +222,49 @@ describe('layoutProjects (a carpet of equal panes)', () => {
     const bands = [...new Set(placed.map(paneBand))].sort((x, y) => x - y);
     for (let i = 1; i < bands.length; i++) expect(bands[i] - bands[i - 1]).toBe(1);
     expect(paneBand({ slug: 'x', col: 0, row: 3, span: 1 })).toBe(3); // a 1×1 is its own band
+  });
+});
+
+// (owner 2026-09-28: "The verticle pane must be bigger and larger, as they are allowed to run irregular sizing")
+describe('a tall pane: a vertical film stands two pane rows high', () => {
+  const tall = (slug: string, tileSize: 'normal' | 'large' = 'large') => ({ slug, tileSize, position: null, tall: true });
+  const slots = (placed: Placed[]) => {
+    const c0 = Math.min(...placed.map((p) => p.col));
+    const r0 = Math.min(...placed.map((p) => p.row));
+    return Object.fromEntries(placed.map((p) => [p.slug, [(p.col - c0) / 2, (p.row - r0) / 2]]));
+  };
+
+  it('covers twice its lattice rows', () => {
+    expect(rowsOf({ span: 2 })).toBe(2);
+    expect(rowsOf({ span: 2, tall: true })).toBe(4);
+    expect(rowsOf({ span: 1 })).toBe(1);
+  });
+
+  it("CH·02's five: the four landscape featured 2 × 2, the tall one standing both rows at their right", () => {
+    const placed = layoutProjects([item('katara', 'large'), item('father', 'large'), item('onsen', 'large'), item('jaecoo', 'large'), tall('galaxy')]);
+    expect(slots(placed)).toEqual({ katara: [0, 0], father: [1, 0], galaxy: [2, 0], onsen: [0, 1], jaecoo: [1, 1] });
+    expect(placed.find((p) => p.slug === 'galaxy')!.tall).toBe(true);
+    expect(placed.filter((p) => p.tall)).toHaveLength(1); // a landscape pane never carries it
+    noOverlaps(placed);
+  });
+
+  it('a regular tall pane takes the first column with two free slots stacked', () => {
+    const placed = layoutProjects([item('a'), item('b'), item('c'), tall('v', 'normal'), item('d'), item('e'), item('f')]);
+    expect(slots(placed)).toEqual({ a: [0, 0], b: [1, 0], c: [2, 0], v: [3, 0], d: [0, 1], e: [1, 1], f: [2, 1] });
+    noOverlaps(placed);
+  });
+
+  it('the lego pass advances all four lattice rows of a tall pane together', () => {
+    const placed: Placed[] = [
+      { slug: 'a', col: 0, row: 0, span: 2 },
+      { slug: 'b', col: 0, row: 2, span: 2 },
+      { slug: 'v', col: 2, row: 0, span: 2, tall: true },
+      { slug: 'c', col: 4, row: 0, span: 2 },
+      { slug: 'd', col: 4, row: 2, span: 2 },
+    ];
+    const W916 = 258; // the tall card's width: 458 units high at 9:16
+    const u = packRows(placed, (p) => (p.slug === 'v' ? W916 : W169), SEAM, STEP);
+    expect(u.get('c')).toBe(u.get('d'));
+    expect(u.get('c')! - u.get('v')!).toBe((W916 * 2 + SEAM) / 2 + SEAM + (W169 * 2 + SEAM) / 2);
   });
 });

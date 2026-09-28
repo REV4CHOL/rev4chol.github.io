@@ -12,14 +12,14 @@ import { leaveTo } from '../lib/transitions';
 import { setCursorLabel } from '../shell/cursor';
 import { captionMeta, markFloorOpened } from './legend';
 import { openingFrame } from './opening';
-import { CARD_H, CARD_W, ISO, SEAM, STEP_W, WORLD_PAD, rowAxisWorld } from './constants';
+import { CARD_W, ISO, SEAM, STEP_W, WORLD_PAD, cardSize, hoverFit, rowAxisWorld } from './constants';
 import { buildDebris } from './debris';
 import { buildFields } from './fields';
 import { GRAIN, joltCamera, misregister, streakBurst, type Burst, type Misreg } from './flipfx';
 import { paneToWake } from './hover';
 import { PanController } from './input';
 import { BlankPane } from './blank';
-import { layoutProjects, packRows, paneBand, type Placed } from './layout';
+import { layoutProjects, packRows, paneBand, rowsOf, type Placed } from './layout';
 import { PlaybackManager } from './playback';
 import { loadPosterCanvas } from './poster';
 import type { ViewRect } from './priority';
@@ -77,20 +77,21 @@ export class WorksWorld {
     // the layout runs on the whole stream (held places and open gaps keep their spots); only films get posters
     const projects = stream.filter((it): it is Project => !isBlank(it));
     const posters = await Promise.all(projects.map((p) => loadPosterCanvas(p)));
+    // a vertical film's pane stands tall, two pane rows high (owner 2026-09-28: "The verticle pane must be bigger and
+    // larger, as they are allowed to run irregular sizing")
     const placed = layoutProjects(
-      stream.map((it) => ({ slug: it.slug, tileSize: it.tileSize, position: it.position })),
+      stream.map((it) => ({
+        slug: it.slug, tileSize: it.tileSize, position: it.position, tall: !isBlank(it) && aspectRatio(it.aspect) < 1,
+      })),
     );
     const placedBySlug = new Map(placed.map((pl) => [pl.slug, pl]));
     // the lego pass: pack each row by the panes' REAL widths, so a 4:3 card
     // sits brick-tight against its 16:9 neighbors instead of on fixed columns
     const widthBySlug = new Map(
-      stream.map((it) => [
-        it.slug,
-        isBlank(it) || it.aspect === '16:9' ? CARD_W : Math.round(CARD_H * aspectRatio(it.aspect)),
-      ]),
+      stream.map((it) => [it.slug, isBlank(it) ? CARD_W : cardSize(aspectRatio(it.aspect), placedBySlug.get(it.slug)!.tall === true).cw]),
     );
     const packedU = packRows(placed, (pl) => widthBySlug.get(pl.slug) ?? CARD_W, SEAM, STEP_W);
-    const at = (pl: Placed) => rowAxisWorld(packedU.get(pl.slug)!, pl.row + (pl.span - 1) / 2);
+    const at = (pl: Placed) => rowAxisWorld(packedU.get(pl.slug)!, pl.row + (rowsOf(pl) - 1) / 2);
 
     w.tilesLayer.sortableChildren = true;
     projects.forEach((p, i) => {
@@ -281,7 +282,9 @@ export class WorksWorld {
     gsap.to(this.tilesLayer, { alpha: 0.62, duration: 0.35 });
     tile.wake();
     tile.swapToMontage();
-    tile.enterHover();
+    // a tall pane (a vertical film's) stands up twice a landscape pane's height: its hover fits the screen's height at
+    // the floor's zoom, so the whole frame shows; a landscape pane keeps the plain lift at every zoom
+    tile.enterHover(tile.placed.tall ? hoverFit(tile.ch, tile.sizeMul, this.worldC.scale.x || 1, this.app.screen.height) : 1);
     setCursorLabel('OPEN ▸'); // (the legend says "click it to open": the cursor says the same word)
     this.showLabel(tile);
     this.playback.update(this.viewRect(), this.hoveredSlug);

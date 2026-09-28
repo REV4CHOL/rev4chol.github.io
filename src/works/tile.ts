@@ -5,9 +5,9 @@ import { aspectRatio, isPlaceholder, loopSrcChain, projectAssetUrl } from '../li
 import { reducedMotion } from '../lib/env';
 import { quality } from '../lib/quality';
 import { videoTexture } from '../lib/video-texture';
-import { CARD_H, CARD_W, HOVER_M, ISO, SIZE_MUL_LARGE, cellToWorld } from './constants';
+import { HOVER_M, ISO, SIZE_MUL_LARGE, cardSize, cellToWorld } from './constants';
 import { PaneGlow } from './glow';
-import type { Placed } from './layout';
+import { rowsOf, type Placed } from './layout';
 import { loadPosterCanvas, type PosterResult } from './poster';
 import { spineFit } from './spine';
 
@@ -22,9 +22,9 @@ export class ProjectTile extends Container {
   readonly card = new Container();
   readonly m = { ...ISO }; // live matrix state — tweened for hover/enter
   readonly sizeMul: number;
-  /** card dimensions — height is always 225, width follows the film's true
-   *  ratio (400 for 16:9, 300 for 4:3, 538 for scope); the packed carpet
-   *  (layout.packRows) pulls neighbors tight against whatever the width is */
+  /** card dimensions (constants.cardSize) — height is the carpet's 225, or 458 for a tall (vertical) pane, two rows
+   *  and their seam; width follows the film's true ratio (400 for 16:9, 300 for 4:3, 538 for scope, 258 for 9:16);
+   *  the packed carpet (layout.packRows) pulls neighbors tight against whatever the width is */
   readonly cw: number;
   readonly ch: number;
   mode: TileMode = 'sleep';
@@ -244,11 +244,13 @@ export class ProjectTile extends Container {
     return this.glow;
   }
 
-  enterHover(): void {
+  /** `fit` scales the lift (constants.hoverFit): a tall pane's upright card must not overrun the screen's height */
+  enterHover(fit = 1): void {
     gsap.killTweensOf(this.m);
     gsap.killTweensOf(this.card);
     const d = reducedMotion() ? 0.05 : 0.5;
-    gsap.to(this.m, { ...HOVER_M, duration: d, ease: 'expo.out', onUpdate: () => this.applyMatrix() });
+    const m = { a: HOVER_M.a * fit, b: HOVER_M.b, c: HOVER_M.c, d: HOVER_M.d * fit };
+    gsap.to(this.m, { ...m, duration: d, ease: 'expo.out', onUpdate: () => this.applyMatrix() });
     gsap.to(this.card, { y: -26, duration: d, ease: 'expo.out' });
     // the glow is a blurred sprite the size of the pane — LITE (lib/quality.ts) lifts the pane without it
     if (quality.tier() > 0) this.ensureGlow().fadeTo(0.4, d);
@@ -286,14 +288,14 @@ export class ProjectTile extends Container {
     super();
     this.project = project;
     this.placed = placed;
-    this.ch = CARD_H;
-    this.cw = project.aspect === '16:9' ? CARD_W : Math.round(CARD_H * aspectRatio(project.aspect));
+    const { cw, ch } = cardSize(aspectRatio(project.aspect), placed.tall === true);
+    this.cw = cw;
+    this.ch = ch;
     this.srcChain = loopSrcChain(project.slug);
     this.posterDegraded = poster.degraded;
     this.sizeMul = placed.span === 2 ? SIZE_MUL_LARGE : 1;
-    // a span-2 tile is centered over its 2×2 cell block so the carpet stays seamless
-    const off = (placed.span - 1) / 2;
-    const { x, y } = cellToWorld(placed.col + off, placed.row + off);
+    // a span-2 tile is centered over its 2×2 cell block (a tall one over its 2×4) so the carpet stays seamless
+    const { x, y } = cellToWorld(placed.col + (placed.span - 1) / 2, placed.row + (rowsOf(placed) - 1) / 2);
     this.position.set(x, y);
     this.zIndex = placed.col + placed.row;
 
@@ -331,7 +333,7 @@ export class ProjectTile extends Container {
       // the spine, its index tab at the foot where the id starts, the accent bar just right of it
       frame.rect(-hw, -hh, SPINE, this.ch).fill({ color: 0x060606, alpha: 0.6 });
       frame.rect(-hw, hh - 4, SPINE, 4).fill({ color: acc, alpha: 1 });
-      frame.rect(-hw + SPINE + 8, -hh + 8, 16, 8).fill({ color: acc, alpha: 0.9 });
+      frame.rect(-hw + SPINE + 8, -hh + 8, 30, 8).fill({ color: acc, alpha: 0.9 });
     } else {
       frame.rect(-hw, hh - 20, this.cw, 20).fill({ color: 0x060606, alpha: 0.6 });
       frame.rect(-hw, hh - 20, 4, 20).fill({ color: acc, alpha: 1 });

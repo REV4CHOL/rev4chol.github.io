@@ -9,7 +9,7 @@ import { music } from '../lib/music';
 import { sound } from '../lib/sound';
 import { hashSlug, stillSlotUrls, wallRhythm } from '../project/dossier';
 import { linkParts } from '../project/parts';
-import { pillarColumns, stillParts } from '../project/pillars';
+import { stillParts } from '../project/pillars';
 import { armStamps } from '../lib/stamps';
 import { startPage } from '../shell/page';
 import '../styles/project.css';
@@ -542,12 +542,12 @@ async function mountWall(p: Project): Promise<void> {
     wall.classList.add('p-wall--vertical');
     const parts = stillParts(urls);
     if (parts.length > 1 && parts.every((g) => g.part > 0)) {
-      const counts = parts.map((g) => g.urls.length);
-      const wide = pillarColumns(counts, 2, 4); // the pillars stand as one height
-      const mid = pillarColumns(counts, 1, 3);
+      // one column count for every pillar (project.css; owner 2026-09-28, of pillars 2 and 3 across: "the two columns
+      // must be equal-sized, not mismatch like this"), so every still is the same size: the shorter pillar ends in the
+      // hatch, and each pillar's first empty cell carries its end mark
       const pillars = document.createElement('div');
       pillars.className = 'p-pillars';
-      parts.forEach((g, k) => {
+      parts.forEach((g) => {
         const label = (p.films[g.part - 1]?.label ?? `PART ${g.part}`).toUpperCase();
         const col = document.createElement('div');
         col.className = 'p-stillcol';
@@ -557,8 +557,7 @@ async function mountWall(p: Project): Promise<void> {
           `<span class="p-stillcol-count micro">${pad2(g.urls.length)} STILLS</span></div>`;
         const grid = document.createElement('div');
         grid.className = 'p-vgrid';
-        grid.style.setProperty('--cols-wide', String(wide[k]));
-        grid.style.setProperty('--cols-mid', String(mid[k]));
+        grid.dataset.eof = `EOF ▪ ${label}`;
         g.urls.forEach((url, i) =>
           grid.append(figureFor(url, i + 1, `STL·${g.part}-${pad2(i + 1)}`, `${p.title}: ${label}, still ${i + 1}`)),
         );

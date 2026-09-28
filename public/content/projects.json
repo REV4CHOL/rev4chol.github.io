@@ -25,27 +25,6 @@
     }
   },
   {
-    "slug": "static-hymn",
-    "title": "Static Hymn",
-    "year": 2026,
-    "role": "Director",
-    "runtime": "04:12",
-    "tags": [
-      "music video"
-    ],
-    "accent": "#FF2E63",
-    "tileSize": "large",
-    "synopsis": "A choir sings through dead televisions. One take, four broken CRTs, no cuts.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null,
-    "category": "machine"
-  },
-  {
     "slug": "mien-vien",
     "title": "MIEN VIEN",
     "year": 2026,
@@ -142,49 +121,6 @@
     "tileSize": "large"
   },
   {
-    "slug": "glass-harvest",
-    "title": "Glass Harvest",
-    "year": 2024,
-    "role": "DoP",
-    "runtime": "14:44",
-    "tags": [
-      "short film",
-      "thriller"
-    ],
-    "accent": "#B79CFF",
-    "synopsis": "Sea glass collectors work a beach that used to be a city. High tide keeps returning pieces of it.",
-    "credits": [
-      {
-        "role": "Cinematography",
-        "name": "Revachol"
-      }
-    ],
-    "film": null,
-    "category": "human",
-    "tileSize": "normal"
-  },
-  {
-    "slug": "midnight-protocol",
-    "title": "Midnight Protocol",
-    "year": 2024,
-    "role": "Director / Edit",
-    "runtime": "03:26",
-    "tags": [
-      "music video"
-    ],
-    "accent": "#C8FF00",
-    "synopsis": "A dance piece performed for security cameras across one city block. The cameras were the only audience.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null,
-    "category": "machine",
-    "tileSize": "normal"
-  },
-  {
     "slug": "saline-throne",
     "title": "Saline Throne",
     "year": 2023,
@@ -232,50 +168,6 @@
       "src": "https://www.youtube.com/embed/DrezQ5zlHqI"
     },
     "category": "human",
-    "tileSize": "normal"
-  },
-  {
-    "slug": "signal-decay",
-    "title": "Signal Decay",
-    "year": 2023,
-    "role": "Director / Edit",
-    "runtime": "11:11",
-    "tags": [
-      "short film",
-      "sci-fi"
-    ],
-    "accent": "#B79CFF",
-    "synopsis": "The last analog TV transmitter in the country shuts down, and one viewer refuses to change channels.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null,
-    "category": "machine",
-    "tileSize": "normal"
-  },
-  {
-    "slug": "last-transmission",
-    "title": "Last Transmission",
-    "year": 2022,
-    "role": "Director / DoP",
-    "runtime": "19:59",
-    "tags": [
-      "short film",
-      "drama"
-    ],
-    "accent": "#C8FF00",
-    "synopsis": "A radio operator keeps broadcasting to a station that stopped answering years ago. Then someone answers.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null,
-    "category": "machine",
     "tileSize": "normal"
   },
   {
@@ -331,27 +223,6 @@
     "client": "Garena"
   },
   {
-    "slug": "pale-circuitry",
-    "title": "Pale Circuitry",
-    "year": 2025,
-    "role": "Director",
-    "runtime": "05:44",
-    "tags": [
-      "music video"
-    ],
-    "accent": "#EDEDE6",
-    "synopsis": "A dancer learns choreography from a machine that learned it from her. Neither remembers who started.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null,
-    "category": "machine",
-    "tileSize": "normal"
-  },
-  {
     "slug": "jaecoo-j5",
     "title": "JAECOO J5: Every Road Leads Home",
     "year": 2026,
@@ -402,33 +273,6 @@
     "tileSize": "normal"
   },
   {
-    "slug": "hollow-signal",
-    "title": "Hollow Signal",
-    "year": 2024,
-    "role": "Director / Edit",
-    "runtime": "12:01",
-    "tags": [
-      "short film",
-      "horror"
-    ],
-    "accent": "#B79CFF",
-    "synopsis": "A numbers station starts reading tomorrow's news. One listener starts writing it down.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null,
-    "category": "machine",
-    "tileSize": "normal"
-  },
-  {
-    "gap": true,
-    "category": "human",
-    "tileSize": "normal"
-  },
-  {
     "slug": "electric-fish",
     "title": "mr_PURPLE_dreams_in_electric_fish",
     "year": 2026,
@@ -452,27 +296,6 @@
     },
     "category": "human",
     "tileSize": "large"
-  },
-  {
-    "slug": "acid-pastoral",
-    "title": "Acid Pastoral",
-    "year": 2023,
-    "role": "Director",
-    "runtime": "06:15",
-    "tags": [
-      "experimental"
-    ],
-    "accent": "#FF2E63",
-    "synopsis": "A countryside filmed through broadcast equipment left in a field since 1987. The grass remembers television.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null,
-    "category": "human",
-    "tileSize": "normal"
   },
   {
     "slug": "galaxy-z-fold-8-ultra",
@@ -506,50 +329,6 @@
     ],
     "category": "machine",
     "tileSize": "large"
-  },
-  {
-    "slug": "dead-channel",
-    "title": "Dead Channel",
-    "year": 2022,
-    "role": "Director",
-    "runtime": "13:26",
-    "tags": [
-      "short film",
-      "thriller"
-    ],
-    "accent": "#C8FF00",
-    "synopsis": "The sky above the port was the color of television, tuned to a channel that refuses to die.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null,
-    "category": "machine",
-    "tileSize": "normal"
-  },
-  {
-    "slug": "iron-lullaby",
-    "title": "Iron Lullaby",
-    "year": 2022,
-    "role": "DoP",
-    "runtime": "18:40",
-    "tags": [
-      "short film",
-      "drama"
-    ],
-    "accent": "#FF2E63",
-    "synopsis": "A night-shift crane operator sings to the containers. The harbor sings back, off-key.",
-    "credits": [
-      {
-        "role": "Cinematography",
-        "name": "Revachol"
-      }
-    ],
-    "film": null,
-    "category": "machine",
-    "tileSize": "normal"
   },
   {
     "slug": "soft-hours-lonely-lands",
@@ -602,28 +381,6 @@
     "tileSize": "large"
   },
   {
-    "slug": "gasoline-hymn",
-    "title": "Gasoline Hymn",
-    "year": 2024,
-    "role": "Director",
-    "runtime": "09:12",
-    "tags": [
-      "short film",
-      "drama"
-    ],
-    "accent": "#FF2E63",
-    "tileSize": "normal",
-    "category": "human",
-    "synopsis": "Two sisters sell the family petrol station the night before demolition. Shot in one continuous dusk.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null
-  },
-  {
     "slug": "mission-impassible",
     "title": "Mission: Impassible",
     "year": 2025,
@@ -648,69 +405,6 @@
     },
     "category": "human",
     "tileSize": "normal"
-  },
-  {
-    "slug": "salt-cathedral",
-    "title": "Salt Cathedral",
-    "year": 2024,
-    "role": "DoP",
-    "runtime": "11:48",
-    "tags": [
-      "documentary"
-    ],
-    "accent": "#B79CFF",
-    "tileSize": "normal",
-    "category": "human",
-    "synopsis": "Miners sing vespers four hundred meters under the sea floor. The acoustics forgive everyone.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null
-  },
-  {
-    "slug": "velvet-static",
-    "title": "Velvet Static",
-    "year": 2025,
-    "role": "Colorist",
-    "runtime": "03:58",
-    "tags": [
-      "music video"
-    ],
-    "accent": "#FF2E63",
-    "tileSize": "normal",
-    "category": "human",
-    "synopsis": "A band performs on a dead broadcast frequency. Graded entirely between channels.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null
-  },
-  {
-    "slug": "winter-arcade",
-    "title": "Winter Arcade",
-    "year": 2022,
-    "role": "Director / Edit",
-    "runtime": "07:26",
-    "tags": [
-      "short film"
-    ],
-    "accent": "#2418FF",
-    "tileSize": "normal",
-    "category": "human",
-    "synopsis": "The last day of a seaside arcade, told by its machines. Nobody wins the big prize.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null
   },
   {
     "slug": "halide",
@@ -761,156 +455,5 @@
     },
     "category": "human",
     "tileSize": "normal"
-  },
-  {
-    "slug": "dream-compiler",
-    "title": "Dream Compiler",
-    "year": 2026,
-    "role": "AI Generalist",
-    "runtime": "06:06",
-    "tags": [
-      "ai film",
-      "experimental"
-    ],
-    "accent": "#C8FF00",
-    "tileSize": "normal",
-    "category": "machine",
-    "synopsis": "A model trained only on home videos invents a family. Every frame is a memory nobody had.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null
-  },
-  {
-    "slug": "latent-scripture",
-    "title": "Latent Scripture",
-    "year": 2026,
-    "role": "AI Generalist / Edit",
-    "runtime": "04:44",
-    "tags": [
-      "ai film"
-    ],
-    "accent": "#FF2E63",
-    "tileSize": "normal",
-    "category": "machine",
-    "synopsis": "Scripture generated letter by letter until the language stops being ours. Illuminated by machine.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null
-  },
-  {
-    "slug": "neural-drift",
-    "title": "Neural Drift",
-    "year": 2025,
-    "role": "AI Generalist",
-    "runtime": "08:15",
-    "tags": [
-      "ai film",
-      "experimental"
-    ],
-    "accent": "#2418FF",
-    "tileSize": "normal",
-    "category": "machine",
-    "synopsis": "A city dreamed by a network falling asleep. Streets rearrange when you stop watching.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null
-  },
-  {
-    "slug": "oracle-fatigue",
-    "title": "Oracle Fatigue",
-    "year": 2026,
-    "role": "Director / AI",
-    "runtime": "05:31",
-    "tags": [
-      "ai film"
-    ],
-    "accent": "#B79CFF",
-    "tileSize": "normal",
-    "category": "machine",
-    "synopsis": "An oracle answers its ten-millionth question and begins to lie beautifully.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null
-  },
-  {
-    "slug": "phantom-dataset",
-    "title": "Phantom Dataset",
-    "year": 2025,
-    "role": "AI Generalist",
-    "runtime": "07:07",
-    "tags": [
-      "experimental"
-    ],
-    "accent": "#FF2E63",
-    "tileSize": "normal",
-    "category": "machine",
-    "synopsis": "Portraits of the people deleted from the training set. The gaps have faces.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null
-  },
-  {
-    "slug": "silicon-vespers",
-    "title": "Silicon Vespers",
-    "year": 2024,
-    "role": "AI Generalist / Colorist",
-    "runtime": "03:33",
-    "tags": [
-      "ai film",
-      "music video"
-    ],
-    "accent": "#C8FF00",
-    "tileSize": "normal",
-    "category": "machine",
-    "synopsis": "Server-farm cooling fans tuned into evensong. The machines pray at seven.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null
-  },
-  {
-    "slug": "weight-of-ghosts",
-    "title": "Weight of Ghosts",
-    "year": 2026,
-    "role": "Director / AI",
-    "runtime": "12:58",
-    "tags": [
-      "ai film",
-      "drama"
-    ],
-    "accent": "#2418FF",
-    "tileSize": "normal",
-    "category": "machine",
-    "synopsis": "A model carries every face it was ever shown. Some nights it sets them down.",
-    "credits": [
-      {
-        "role": "Director",
-        "name": "Revachol"
-      }
-    ],
-    "film": null
   }
 ]

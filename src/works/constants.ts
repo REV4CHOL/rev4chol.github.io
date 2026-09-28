@@ -11,6 +11,19 @@ export const WORLD_PAD = 220;
 export const STEP_W = CARD_W + SEAM;
 export const STEP_H = CARD_H + SEAM;
 
+/** A pane's card: the carpet's row height, the width its film's ratio gives (400 for 16:9, 300 for 4:3, 538 for
+    scope); a tall pane (a vertical film's, layout.ts) is two rows and the seam between them high — 258 × 458 at 9:16. */
+export function cardSize(ratio: number, tall: boolean): { cw: number; ch: number } {
+  const ch = tall ? 2 * CARD_H + SEAM : CARD_H;
+  return { cw: Math.round(ch * ratio), ch };
+}
+
+/** The hover's scale on HOVER_M for a card `ch` units high at the floor's `zoom`: upright and lifted, it stands at most
+    84% of the screen's height, so a tall pane's whole frame shows; never more than the plain lift. */
+export function hoverFit(ch: number, sizeMul: number, zoom: number, screenH: number): number {
+  return Math.min(1, (screenH * 0.84) / (ch * sizeMul * HOVER_M.d * zoom));
+}
+
 /** Lattice basis = the card's own projected edges, so tiles butt edge-to-edge
     into one contiguous floor (the floor796 read) instead of floating apart. */
 export function cellToWorld(col: number, row: number): { x: number; y: number } {

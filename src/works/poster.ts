@@ -2,7 +2,7 @@ import type { Project } from '../lib/content';
 import { aspectRatio, projectAssetUrl } from '../lib/content';
 import { ditherImageToCanvas } from '../lib/dither';
 import { mulberry32 } from '../lib/rng';
-import { CARD_H, CARD_W } from './constants';
+import { CARD_W, cardSize } from './constants';
 
 export interface PosterResult {
   canvas: HTMLCanvasElement;
@@ -23,11 +23,11 @@ export function posterMix(p: Project): number {
 }
 
 /** The dithered poster's width. 640: a 400pt card at ~1.6x, so the Bayer pattern stays a fine screen instead of
- *  upscaling into a visible mosaic. Every landscape card keeps its 640; a portrait card's poster scales with the card
- *  (203 for 9:16), or its narrow pane would shrink the screen into grey. */
+ *  upscaling into a visible mosaic. Every landscape card keeps its 640; a portrait card's poster scales with its tall
+ *  card (413 for 9:16's 258), the same 1.6 poster pixels per card unit. */
 export function posterWidthFor(p: Pick<Project, 'aspect'>): number {
   const ratio = aspectRatio(p.aspect);
-  return ratio < 1 ? Math.round((640 * CARD_H * ratio) / CARD_W) : 640;
+  return ratio < 1 ? Math.round((640 * cardSize(ratio, true).cw) / CARD_W) : 640;
 }
 
 export async function loadPosterCanvas(p: Project): Promise<PosterResult> {

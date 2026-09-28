@@ -1,10 +1,18 @@
-export interface Placed { slug: string; col: number; row: number; span: 1 | 2 }
+/** `tall`: a vertical film's pane, standing two pane rows high (owner 2026-09-28: "The verticle pane must be bigger
+    and larger, as they are allowed to run irregular sizing") — two slots, one over the other. */
+export interface Placed { slug: string; col: number; row: number; span: 1 | 2; tall?: boolean }
+
+/** The lattice rows a pane covers: its span, twice over for a tall pane. */
+export function rowsOf(p: Pick<Placed, 'span' | 'tall'>): number {
+  return p.span * (p.tall ? 2 : 1);
+}
 
 /** Lego pass: turn the integer grid into packed rows. Each pane advances its
     row cursor by its own width plus the seam, so a narrower pane (4:3 in a
     16:9 carpet) pulls every later neighbor in its row(s) tight against it —
     no air. A 2-row large takes the max cursor of both its rows and advances
-    them together, which keeps the carpet overlap-free by construction.
+    them together (a tall pane all four of its rows), which keeps the carpet
+    overlap-free by construction.
     Uniform widths reproduce the classic lattice exactly (centers stepW
     apart). Returns each slug's u-CENTER in card-space px along the row axis. */
 export function packRows(
@@ -15,7 +23,7 @@ export function packRows(
 ): Map<string, number> {
   const rowStart = new Map<number, number>();
   for (const p of placed) {
-    for (let k = 0; k < p.span; k++) {
+    for (let k = 0; k < rowsOf(p); k++) {
       const r = p.row + k;
       rowStart.set(r, Math.min(rowStart.get(r) ?? Infinity, p.col));
     }
@@ -25,7 +33,7 @@ export function packRows(
   const items = [...placed].sort((a, b) => a.col - b.col || a.row - b.row);
   for (const p of items) {
     const w = widthOf(p) * p.span + seam * (p.span - 1);
-    const myRows = Array.from({ length: p.span }, (_, k) => p.row + k);
+    const myRows = Array.from({ length: rowsOf(p) }, (_, k) => p.row + k);
     const start = Math.max(...myRows.map((r) => cursor.get(r) ?? (rowStart.get(r) ?? 0) * stepW));
     for (const r of myRows) cursor.set(r, start + w + seam);
     out.set(p.slug, start + w / 2);
@@ -37,6 +45,7 @@ interface LayoutInput {
   slug: string;
   tileSize: 'normal' | 'large';
   position: { col: number; row: number } | null;
+  tall?: boolean;
 }
 
 /** Contiguous carpet of EQUAL panes (owner 2026-09-26: "all panes outside the
@@ -48,12 +57,21 @@ interface LayoutInput {
     pane fills around them first-fit, row-major (always rescanning from the
     top), so the band has no holes. The cluster's centre lands on the world
     origin, where the camera opens. Explicit positions pin a pane's SLOT on the
-    band and are placed first. Deterministic. */
+    band and are placed first. A tall pane takes two slots, one over the other:
+    a featured one a right-hand column of the cluster, top to bottom; any other
+    the first column with two free slots stacked. Deterministic. */
 export function layoutProjects(items: LayoutInput[]): Placed[] {
-  const n = items.length;
-  const featured = items.filter((it) => !it.position && it.tileSize === 'large').length;
-  const clusterCols = featured > 0 ? Math.ceil(Math.sqrt(featured)) : 0;
-  const clusterRows = clusterCols > 0 ? Math.ceil(featured / clusterCols) : 0;
+  const slotsOf = (it: LayoutInput) => (it.tall ? 2 : 1);
+  const n = items.reduce((s, it) => s + slotsOf(it), 0);
+  const cluster = items.filter((it) => !it.position && it.tileSize === 'large');
+  const featured = cluster.reduce((s, it) => s + slotsOf(it), 0);
+  const tallFeatured = cluster.filter((it) => it.tall).length;
+  let clusterCols = featured > 0 ? Math.ceil(Math.sqrt(featured)) : 0;
+  let clusterRows = clusterCols > 0 ? Math.ceil(featured / clusterCols) : 0;
+  if (tallFeatured > 0 && clusterRows < 2) {
+    clusterRows = 2; // a tall pane needs two rows to stand in
+    clusterCols = Math.ceil(featured / 2);
+  }
   // the band: of the landscape shapes (square to 2.2:1, in panes) the one that
   // leaves the fewest empty slots, nearest the classic 1.6 on a tie — so twenty
   // panes lie as a clean 5 × 4 block, six featured framed by a one-pane ring
@@ -73,45 +91,59 @@ export function layoutProjects(items: LayoutInput[]): Placed[] {
   const occupied = new Set<string>();
   const key = (c: number, r: number) => `${c},${r}`;
   const slot = new Map<string, { c: number; r: number }>();
-  const take = (slug: string, c: number, r: number) => {
+  const free = (c: number, r: number, tall?: boolean) => !occupied.has(key(c, r)) && !(tall && occupied.has(key(c, r + 1)));
+  const take = (it: LayoutInput, c: number, r: number) => {
     occupied.add(key(c, r));
-    slot.set(slug, { c, r });
+    if (it.tall) occupied.add(key(c, r + 1));
+    slot.set(it.slug, { c, r });
   };
 
   // pins first, so nothing auto-placed can squat on them
-  for (const it of items) if (it.position) take(it.slug, it.position.col, it.position.row);
+  for (const it of items) if (it.position) take(it, it.position.col, it.position.row);
 
-  // the featured cluster at the band's heart
+  // the featured cluster at the band's heart: each tall pane a right-hand column of it, top to bottom (the first the
+  // rightmost), the other featured in the slots left, row by row
   const cc0 = c0 + Math.floor((cols - clusterCols) / 2);
   const rr0 = r0 + Math.floor((rows - clusterRows) / 2);
+  const tallSlots: { c: number; r: number }[] = [];
+  for (let t = 0; t < Math.min(tallFeatured, clusterCols); t++) {
+    const c = cc0 + clusterCols - 1 - t;
+    if (!free(c, rr0, true)) continue;
+    tallSlots.push({ c, r: rr0 });
+    occupied.add(key(c, rr0)).add(key(c, rr0 + 1));
+  }
   const clusterSlots: { c: number; r: number }[] = [];
   for (let ri = 0; ri < clusterRows; ri++)
     for (let ci = 0; ci < clusterCols; ci++)
-      if (clusterSlots.length < featured && !occupied.has(key(cc0 + ci, rr0 + ri)))
+      if (clusterSlots.length < cluster.length - tallFeatured && free(cc0 + ci, rr0 + ri))
         clusterSlots.push({ c: cc0 + ci, r: rr0 + ri });
   for (const s of clusterSlots) occupied.add(key(s.c, s.r));
   let next = 0;
+  let nextTall = 0;
 
-  const firstFit = (slug: string): void => {
+  const firstFit = (it: LayoutInput): void => {
     for (let r = r0; ; r++) {
       for (let c = c0; c < c0 + cols; c++) {
-        if (!occupied.has(key(c, r))) {
-          take(slug, c, r);
+        if (free(c, r, it.tall)) {
+          take(it, c, r);
           return;
         }
       }
-      if (r > r0 + rows + 1000) throw new Error(`layout overflow placing "${slug}"`);
+      if (r > r0 + rows + 1000) throw new Error(`layout overflow placing "${it.slug}"`);
     }
   };
 
   for (const it of items) {
     if (it.position) continue;
-    if (it.tileSize === 'large' && next < clusterSlots.length) {
-      const s = clusterSlots[next++];
-      slot.set(it.slug, s);
+    if (it.tileSize === 'large' && it.tall && nextTall < tallSlots.length) {
+      slot.set(it.slug, tallSlots[nextTall++]);
       continue;
     }
-    firstFit(it.slug);
+    if (it.tileSize === 'large' && !it.tall && next < clusterSlots.length) {
+      slot.set(it.slug, clusterSlots[next++]);
+      continue;
+    }
+    firstFit(it);
   }
 
   // slots → lattice cells: every pane a 2×2 block; shift the whole band so the
@@ -121,7 +153,7 @@ export function layoutProjects(items: LayoutInput[]): Placed[] {
   const dy = -Math.round(2 * mr0 + mrows - 0.5);
   return items.map((it) => {
     const s = slot.get(it.slug)!;
-    return { slug: it.slug, col: 2 * s.c + dx, row: 2 * s.r + dy, span: 2 as const };
+    return { slug: it.slug, col: 2 * s.c + dx, row: 2 * s.r + dy, span: 2 as const, ...(it.tall ? { tall: true } : {}) };
   });
 }
 

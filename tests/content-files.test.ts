@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { isBlank, parseFloor, parseJson, parseProjects, parseSite } from '../src/lib/content';
+import { aspectRatio, isBlank, isPlaceholder, parseFloor, parseJson, parseProjects, parseSite } from '../src/lib/content';
 import { loopCandidates } from '../src/home/loops';
 import { pickLoopFiles } from '../src/lib/loop-files';
 import { layoutProjects } from '../src/works/layout';
@@ -100,8 +100,9 @@ describe('shipped content files', () => {
     const projects = parseProjects(rawProjects());
     const floor = parseFloor(rawProjects());
     expect(projects.some((p) => p.slug === 'vhs-eden')).toBe(false);
-    // (first to SODIUM HAZE's place, json 24; then the owner, the same day: "move SODA COAST to RUST CHOIR")
-    expect(floor.findIndex((it) => it.slug === 'soda-coast')).toBe(16);
+    // (first to SODIUM HAZE's place, json 24; then the owner, the same day: "move SODA COAST to RUST CHOIR"; json 10
+    //  since the placeholders left the stream, 2026-09-28)
+    expect(floor.findIndex((it) => it.slug === 'soda-coast')).toBe(10);
     const p = projects.find((q) => q.slug === 'soda-coast')!;
     expect(p.title).toBe('Soda Coast');
     expect(p.year).toBe(2025);
@@ -128,20 +129,22 @@ describe('shipped content files', () => {
   });
 
   // the owner's second batch (2026-09-26): three films into three placeholders' slots, each linked;
-  // `slot` is the json position — the floor's stream order, held places included
+  // `slot` is the json position — the floor's stream order (renumbered 2026-09-28, when the placeholders and the
+  // open gap left it)
   const BATCH = [
-    { slug: 'the-father', slot: 4, was: 'void-cartography', title: 'The Father', year: 2026, role: 'Colorist', runtime: '2:27',
+    { slug: 'the-father', slot: 3, was: 'void-cartography', title: 'The Father', year: 2026, role: 'Colorist', runtime: '2:27',
       tags: ['slice of life'], synopsis: 'A father hiding secrets from his own daughter.', category: 'machine',
       tileSize: 'large', aspect: '16:9', youtube: 'Idreboecojw', stills: 23 },
-    { slug: 'halide', slot: 31, was: 'paper-lantern-war', title: 'HALIDE', year: 2026, role: 'Director / Colorist / Editor', runtime: '1:06',
+    { slug: 'halide', slot: 16, was: 'paper-lantern-war', title: 'HALIDE', year: 2026, role: 'Director / Colorist / Editor', runtime: '1:06',
       tags: ['experimental'], synopsis: 'Whiter dreams and whiter lives.', category: 'human',
       tileSize: 'normal', aspect: '2.39:1', youtube: 'dMbsrk9Eeiw', stills: 29 },
     // (the owner, mid-build: "MIST CHILD must be MISTCHILD" — one word, as its YouTube title has it;
     //  and after: "mistchild is 2025", as its folder says — the brief's 2026 was a slip)
     // (…and on 2026-09-27 the owner moved it to NEON LITURGY's corner — a swap: json 18 ↔ 32; then, the same day,
     //  "bring MISTCHILD down to Neon Liturgy (chapter 1), then remove the pane where MISTCHILD once stood": back to
-    //  json 32 for good, NEON LITURGY off the site, json 18 an open gap)
-    { slug: 'mistchild', slot: 32, was: 'low-tide-gospel', title: 'MISTCHILD', year: 2025, role: 'Director / Colorist / Editor', runtime: '0:47',
+    //  json 32 for good, NEON LITURGY off the site, json 18 an open gap; since 2026-09-28, the placeholders and the
+    //  gap gone, json 17)
+    { slug: 'mistchild', slot: 17, was: 'low-tide-gospel', title: 'MISTCHILD', year: 2025, role: 'Director / Colorist / Editor', runtime: '0:47',
       tags: ['experimental'], synopsis: 'The child must have felt so lonely, in the mist.', category: 'human',
       tileSize: 'normal', aspect: '2.39:1', youtube: 'dyqpjo4eKJI', stills: 16 },
   ];
@@ -150,16 +153,16 @@ describe('shipped content files', () => {
   // "at the pane where SODA COAST just left"; "ĂN HỎI" CEREMONY into the "upper blank space", featured.
   // The owner's text verbatim — straight quotes, the ampersand, the diacritics (NFC), the curly apostrophe.
   const BATCH3 = [
-    { slug: 'forest-onsen', slot: 5, where: 'takes TENDER MACHINES\' featured place in CH·02',
+    { slug: 'forest-onsen', slot: 4, where: 'takes TENDER MACHINES\' featured place in CH·02',
       title: 'FOREST ONSEN - Ecopark\'s Eco Retreat Commercial', year: 2026, role: 'AI Lead / Colorist', runtime: '0:47',
       tags: ['real estate', 'tv commercial'], synopsis: 'Change your life’s experience, with Forest Onsen.', category: 'machine',
       tileSize: 'large', aspect: '16:9', youtube: '5drz5nwLdKM', stills: 10 },
-    { slug: 'soft-hours-lonely-lands', slot: 24, where: 'takes the pane SODA COAST left',
+    { slug: 'soft-hours-lonely-lands', slot: 13, where: 'takes the pane SODA COAST left',
       title: 'Soft Hours & Lonely Lands', year: 2025, role: 'Director / Colorist / Editor / Sound Designer', runtime: '1:46',
       tags: ['experimental'],
       synopsis: 'The stillness of ordinary moments, in familiar places that feel strangely distant, with the extraordinary emotions for the empty spaces.',
       category: 'human', tileSize: 'normal', aspect: '2.39:1', youtube: 'G_wItkJWT2o', stills: 36 },
-    { slug: 'an-hoi', slot: 12, where: 'fills the upper held place, featured',
+    { slug: 'an-hoi', slot: 7, where: 'fills the upper held place, featured',
       title: '"Ăn Hỏi" Ceremony', year: 2026, role: 'Director / Colorist / Editor / Sound Designer', runtime: '3:17',
       tags: ['experimental', 'slice of life'],
       synopsis: 'Gathering together, saying the first words, for their time spent together for all eternity.',
@@ -175,11 +178,11 @@ describe('shipped content files', () => {
   // "Replace Copper Lullaby in chapter 1". MISSION's folder holds five stills twice (the same frames, exported with
   // two letterbox sizes): its wall shows each once, 19 of the 24.
   const BATCH4 = [
-    { slug: 'remnants-of-a-dream', slot: 25, where: 'fills the last held place, featured',
+    { slug: 'remnants-of-a-dream', slot: 14, where: 'fills the last held place, featured',
       title: 'Remnants of a Dream', year: 2026, role: 'Colorist', runtime: '24:16',
       tags: ['drama', 'indie short film'], synopsis: 'Avalon promises a bright future, but at what cost?',
       category: 'human', tileSize: 'large', aspect: '16:9', youtube: 'tKWevMRBOzY', stills: 40, accent: '#ED6B85' },
-    { slug: 'mission-impassible', slot: 27, where: 'takes COPPER LULLABY\'s pane',
+    { slug: 'mission-impassible', slot: 15, where: 'takes COPPER LULLABY\'s pane',
       title: 'Mission: Impassible', year: 2025, role: 'Colorist', runtime: '1:36',
       tags: ['comedy', 'indie short film'], synopsis: 'Failure is not an option. Neither is studying.',
       category: 'human', tileSize: 'normal', aspect: '2.39:1', youtube: 'R3tSyucJERw', stills: 19, accent: '#F5AE4A' },
@@ -193,7 +196,7 @@ describe('shipped content files', () => {
   // (owner 2026-09-27: "Change JAECOO J5 to JAECOO J5: Every Road Leads Home, and also change its embed code for
   //  watch to" IXWAZwI5Xug. The old link, EGIm1gD-KTE, is gone from YouTube; the new cut runs 2:46, not 2:43.)
   it('JAECOO J5: its new title and cut; the rest of it as it was', () => {
-    expect(parseFloor(rawProjects()).findIndex((it) => it.slug === 'jaecoo-j5')).toBe(15);
+    expect(parseFloor(rawProjects()).findIndex((it) => it.slug === 'jaecoo-j5')).toBe(9);
     const p = parseProjects(rawProjects()).find((q) => q.slug === 'jaecoo-j5')!;
     expect(p.title).toBe('JAECOO J5: Every Road Leads Home');
     expect(p.film).toEqual({ type: 'youtube', src: 'https://www.youtube.com/embed/IXWAZwI5Xug' });
@@ -209,7 +212,7 @@ describe('shipped content files', () => {
   //  "one watch will spawn two embed YouTube videos at once, on the same row together"; and "the Stills has film1 and
   //  film2, be sure to include them all, with left pillar being ad #1, and right pillar being ad #2")
   it("GALAXY Z FOLD 8 ULTRA takes TERMINAL BLOOM's featured pane: a vertical film in two parts, every still", () => {
-    expect(parseFloor(rawProjects()).findIndex((it) => it.slug === 'galaxy-z-fold-8-ultra')).toBe(21);
+    expect(parseFloor(rawProjects()).findIndex((it) => it.slug === 'galaxy-z-fold-8-ultra')).toBe(12);
     const p = parseProjects(rawProjects()).find((q) => q.slug === 'galaxy-z-fold-8-ultra')!;
     expect(p.title).toBe('GALAXY Z FOLD 8 ULTRA | DIGITAL AD');
     expect([p.year, p.role, p.runtime, p.tags, p.synopsis]).toEqual(
@@ -289,16 +292,17 @@ describe('shipped content files', () => {
   //  day: "move FAR EAST to Copper Lullaby", "move SODA COAST to RUST CHOIR", SOFT HOURS "at the pane where
   //  SODA COAST just left", "ĂN HỎI" CEREMONY into the "upper blank space"; and last, REMNANTS OF A DREAM into
   //  "the empty blank space", MISSION: IMPASSIBLE in place of "Copper Lullaby")
-  it('the CH·01 moves: FAR EAST and SODA COAST on the top row; both held places filled, none left', () => {
+  // (the json positions renumbered 2026-09-28, when the placeholders and the open gap left the stream)
+  it('the CH·01 moves: FAR EAST and SODA COAST in their new places; both held places filled, none left', () => {
     const floor = parseFloor(rawProjects());
-    expect(floor).toHaveLength(40);
-    expect(floor.filter((it) => isBlank(it) && !it.gap)).toHaveLength(0); // (the open gap is the next test's)
+    expect(floor).toHaveLength(18);
+    expect(floor.some(isBlank)).toBe(false);
     const slot = (i: number) => [floor[i].slug, floor[i].tileSize];
-    expect(slot(12)).toEqual(['an-hoi', 'large']); // the upper held place
-    expect(slot(25)).toEqual(['remnants-of-a-dream', 'large']); // the lower one
-    expect(slot(9)).toEqual(['far-east', 'normal']); // COPPER LULLABY's place, top row
-    expect(slot(27)).toEqual(['mission-impassible', 'normal']); // FAR EAST's old one: COPPER LULLABY's, until the fourth batch
-    expect(slot(16)).toEqual(['soda-coast', 'normal']); // RUST CHOIR's place, top row
+    expect(slot(7)).toEqual(['an-hoi', 'large']); // the upper held place
+    expect(slot(14)).toEqual(['remnants-of-a-dream', 'large']); // the lower one
+    expect(slot(6)).toEqual(['far-east', 'normal']); // COPPER LULLABY's place
+    expect(slot(15)).toEqual(['mission-impassible', 'normal']); // FAR EAST's old one: COPPER LULLABY's, until the fourth batch
+    expect(slot(10)).toEqual(['soda-coast', 'normal']); // RUST CHOIR's place
     for (const gone of ['sodium-haze', 'motel-eden', 'rust-choir', 'tender-machines', 'copper-lullaby']) {
       expect(floor.some((it) => it.slug === gone), gone).toBe(false);
       expect(existsSync(`${root}projects/${gone}`), `${gone} folder`).toBe(false);
@@ -310,54 +314,79 @@ describe('shipped content files', () => {
   });
 
   // (owner 2026-09-27: "bring MISTCHILD down to Neon Liturgy (chapter 1), then remove the pane where MISTCHILD once
-  //  stood" — MISTCHILD takes NEON LITURGY's json 32, the bottom-right corner; the top-right corner it left keeps its
-  //  turn in the fill order as an open gap, so no neighbour slides up into it, and nothing is drawn there)
-  it('MISTCHILD back down in NEON LITURGY\'s place; the corner it left is open floor, no pane', () => {
+  //  stood" — MISTCHILD took NEON LITURGY's place, last in CH·01's order, and the corner it left stayed open floor.
+  //  On 2026-09-28 the placeholders left and the floor re-flowed; the open gap, kept only so no neighbour would
+  //  slide into that corner, went with them)
+  it("MISTCHILD stays last in CH·01's order; NEON LITURGY and the open gap are gone", () => {
     const floor = parseFloor(rawProjects());
-    expect(floor).toHaveLength(40);
-    expect(floor[18]).toEqual({ blank: true, gap: true, slug: 'gap-18', category: 'human', tileSize: 'normal', position: null });
-    expect(floor.filter((it) => isBlank(it) && it.gap)).toHaveLength(1);
-    expect(floor[32].slug).toBe('mistchild');
+    expect(floor.filter((it) => it.category === 'human').at(-1)!.slug).toBe('mistchild');
+    expect(floor.some(isBlank)).toBe(false);
     expect(floor.some((it) => it.slug === 'neon-liturgy')).toBe(false);
     expect(existsSync(`${root}projects/neon-liturgy`)).toBe(false);
   });
 
-  // a chapter's floor as the layout lays it: slug → [column, row] on its 5 × 4 pane grid
-  const cells = (category: 'human' | 'machine') => {
+  // (owner 2026-09-28: "also completely remove all placeholder panes from the work section")
+  const PLACEHOLDERS_GONE = [
+    'static-hymn', 'glass-harvest', 'midnight-protocol', 'signal-decay', 'last-transmission', 'pale-circuitry',
+    'hollow-signal', 'acid-pastoral', 'dead-channel', 'iron-lullaby', 'gasoline-hymn', 'salt-cathedral', 'velvet-static',
+    'winter-arcade', 'dream-compiler', 'latent-scripture', 'neural-drift', 'oracle-fatigue', 'phantom-dataset',
+    'silicon-vespers', 'weight-of-ghosts',
+  ];
+  it('no placeholder anywhere: every entry a real film, every folder a film on the list', () => {
+    const floor = parseFloor(rawProjects());
+    const films = parseProjects(rawProjects());
+    expect(floor).toHaveLength(films.length); // no held place, no gap
+    expect(films.filter(isPlaceholder).map((p) => p.slug)).toEqual([]);
+    for (const slug of PLACEHOLDERS_GONE) {
+      expect(floor.some((it) => it.slug === slug), slug).toBe(false);
+      expect(existsSync(`${root}projects/${slug}`), `${slug} folder`).toBe(false);
+    }
+    const folders = readdirSync(`${root}projects`, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
+    expect(folders.sort()).toEqual(films.map((p) => p.slug).sort());
+  });
+
+  // a chapter's floor as the layout lays it (a vertical film stands tall): slug → [column, row] of its pane slot
+  const placedOf = (category: 'human' | 'machine') => {
     const items = parseFloor(rawProjects()).filter((it) => it.category === category);
-    const placed = layoutProjects(items.map((it) => ({ slug: it.slug, tileSize: it.tileSize, position: it.position })));
+    return layoutProjects(items.map((it) => ({
+      slug: it.slug, tileSize: it.tileSize, position: it.position, tall: !isBlank(it) && aspectRatio(it.aspect) < 1,
+    })));
+  };
+  const cells = (category: 'human' | 'machine') => {
+    const placed = placedOf(category);
     const c0 = Math.min(...placed.map((p) => p.col));
     const r0 = Math.min(...placed.map((p) => p.row));
     return Object.fromEntries(placed.map((p) => [p.slug, [(p.col - c0) / 2, (p.row - r0) / 2]]));
   };
 
-  it('CH·01 lies as the owner asked, cell by cell', () => {
+  // (2026-09-28: the placeholders gone, CH·01's thirteen lie on a 5 × 3 band: the six featured 3 × 2 at the heart,
+  //  the regular films around them in json order; the bottom row's last two slots stay empty)
+  it('CH·01 lies cell by cell: the featured at the heart, every pane a real film', () => {
     expect(cells('human')).toEqual({
-      'glass-harvest': [0, 0], 'saline-throne': [1, 0], 'far-east': [2, 0], 'soda-coast': [3, 0], 'gap-18': [4, 0],
-      'acid-pastoral': [0, 1], philia: [1, 1], 'mien-vien': [2, 1], 'an-hoi': [3, 1], 'soft-hours-lonely-lands': [4, 1],
-      'gasoline-hymn': [0, 2], 'lien-quan': [1, 2], 'electric-fish': [2, 2], 'remnants-of-a-dream': [3, 2], 'mission-impassible': [4, 2],
-      'salt-cathedral': [0, 3], 'velvet-static': [1, 3], 'winter-arcade': [2, 3], halide: [3, 3], mistchild: [4, 3],
+      'saline-throne': [0, 0], philia: [1, 0], 'mien-vien': [2, 0], 'an-hoi': [3, 0], 'far-east': [4, 0],
+      'soda-coast': [0, 1], 'lien-quan': [1, 1], 'electric-fish': [2, 1], 'remnants-of-a-dream': [3, 1], 'soft-hours-lonely-lands': [4, 1],
+      'mission-impassible': [0, 2], halide: [1, 2], mistchild: [2, 2],
     });
   });
 
-  it('CH·02: FOREST ONSEN stands where TENDER MACHINES stood, in the featured cluster', () => {
-    const at = cells('machine');
-    expect(at['forest-onsen']).toEqual([1, 2]);
-    expect([at['static-hymn'], at.katara, at['the-father']]).toEqual([[1, 1], [2, 1], [3, 1]]);
-    expect([at['jaecoo-j5'], at['galaxy-z-fold-8-ultra']]).toEqual([[2, 2], [3, 2]]); // GALAXY in TERMINAL BLOOM's cell
+  // (owner 2026-09-28: "The verticle pane must be bigger and larger, as they are allowed to run irregular sizing")
+  it('CH·02: the four landscape films 2 × 2, GALAXY standing the height of both rows at their right', () => {
+    expect(cells('machine')).toEqual({
+      katara: [0, 0], 'the-father': [1, 0], 'galaxy-z-fold-8-ultra': [2, 0],
+      'forest-onsen': [0, 1], 'jaecoo-j5': [1, 1],
+    });
+    expect(placedOf('machine').filter((p) => p.tall).map((p) => p.slug)).toEqual(['galaxy-z-fold-8-ultra']);
   });
 
-  it('projects.json is valid: CH·02 holds 20 films (6 featured); CH·01 19 films (6 featured) and 1 open gap', () => {
+  it('projects.json is valid: CH·01 holds 13 films (6 featured), CH·02 5 (all featured): 18 in all', () => {
     const films = parseProjects(rawProjects());
     const human = films.filter((p) => p.category === 'human');
     const machine = films.filter((p) => p.category === 'machine');
-    expect(machine).toHaveLength(20);
-    expect(machine.filter((p) => p.tileSize === 'large')).toHaveLength(6);
-    expect(human).toHaveLength(19);
+    expect(machine).toHaveLength(5);
+    expect(machine.filter((p) => p.tileSize === 'large')).toHaveLength(5);
+    expect(human).toHaveLength(13);
     expect(human.filter((p) => p.tileSize === 'large')).toHaveLength(6);
-    const humanFloor = parseFloor(rawProjects()).filter((it) => it.category === 'human');
-    expect(humanFloor).toHaveLength(20); // still a 5 × 4 band: 19 films and the open gap
-    expect(humanFloor.filter((it) => it.tileSize === 'large')).toHaveLength(6); // its cluster: 6 films
+    expect(films).toHaveLength(18);
   });
 
   it('the homepage has a first frame: a hero image or at least one loop', () => {

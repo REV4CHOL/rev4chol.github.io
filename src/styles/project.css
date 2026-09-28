@@ -486,23 +486,34 @@
    (--pratio 9/16) in one grid, 4 across (3 on a tablet, 2 on a phone), gapless and full-bleed like every wall.
    A cell a last row leaves empty, and a pillar's foot, is hatched: never blank. */
 .p-vgrid {
-  --cols: var(--cols-wide, 4);
+  --cols: 4;
   display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); align-content: start; gap: 0;
   background: repeating-linear-gradient(135deg, rgba(237, 237, 230, 0.13) 0 1px, transparent 1px 12px);
 }
 .p-wall--vertical .p-still-num { font-size: var(--t-xl); }
 
 /* STILLS IN PILLARS: a film in parts' stills, named by part (1-01 …, 2-01 …), stand side by side, part 1 on the left
-   (the owner: "left pillar being ad #1, and right pillar being ad #2"). Each pillar's column count (pillarColumns, set
-   from JS as --cols-wide / --cols-mid) stands the pillars as one height; a signal seam between them; a head on each:
-   the part's outlined number (signal, then alert), its label, its still count. The first head's text starts on the
-   page's content column, clear of the REC: rail. The heads share one row (a subgrid), so the grids start level
-   even when a head wraps. */
+   (the owner: "left pillar being ad #1, and right pillar being ad #2"). Every pillar takes one column count, 3 across
+   (2 on a tablet or a phone), so every still is the same size (the owner, of 2 across against 3: "the two columns
+   must be equal-sized, not mismatch like this"); the pillars stand as one height, the shorter ending in the hatch.
+   Each pillar's first empty cell carries its end mark (EOF ▪ its label, from JS as data-eof). A signal seam between
+   them; a head on each: the part's outlined number (signal, then alert), its label, its still count. The first head's
+   text starts on the page's content column, clear of the REC: rail. The heads share one row (a subgrid), so the grids
+   start level even when a head wraps. */
 .p-pillars { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; gap: 0; }
 .p-stillcol {
   position: relative; display: grid; grid-row: span 2; grid-template-rows: subgrid; grid-template-columns: minmax(0, 1fr);
   min-width: 0;
 }
+.p-stillcol .p-vgrid { --cols: 3; }
+.p-stillcol .p-vgrid::after {
+  /* as tall as its row: a still's height beside a still, its own line when it starts a row */
+  content: attr(data-eof); min-width: 0;
+  padding: 14px 16px; border-top: 1.5px solid var(--signal);
+  font-family: var(--f-micro); font-size: var(--t-2xs); letter-spacing: 0.18em; line-height: 1.7;
+  color: var(--signal); overflow-wrap: anywhere;
+}
+.p-stillcol:nth-child(2n) .p-vgrid::after { color: var(--alert); border-top-color: var(--alert); }
 .p-stillcol + .p-stillcol::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 1px; z-index: 4;
   background: rgba(200, 255, 0, 0.6); pointer-events: none;
@@ -525,7 +536,8 @@
   .p-stillcol:nth-child(2n) .p-stillcol-num { color: var(--alert); }
 }
 @media (max-width: 1099px) and (pointer: coarse) {
-  .p-wall--vertical .p-vgrid { --cols: var(--cols-mid, 3); }
+  .p-wall--vertical .p-vgrid { --cols: 3; }
+  .p-stillcol .p-vgrid { --cols: 2; }
 }
 @media (max-width: 760px) and (pointer: coarse) {
   .p-wall--vertical .p-vgrid { --cols: 2; }
@@ -534,6 +546,7 @@
   .p-stillcol + .p-stillcol::before { right: 0; bottom: auto; width: auto; height: 1px; }
   .p-stillcol-head { padding: 20px 18px 16px; }
   .p-stillcol-num { font-size: var(--t-xl); }
+  .p-stillcol .p-vgrid::after { padding: 12px; letter-spacing: 0.1em; }
   .p-parts { --hinge: 18px; }
   .p-part-num { font-size: var(--t-lg); }
 }
