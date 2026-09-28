@@ -29,9 +29,11 @@ const SOFTWARE_GPU = /swiftshader|llvmpipe|software|microsoft basic render/i;
 /** An integrated part: Intel HD/UHD/Iris, an AMD APU. Strong enough for BALANCED; the governor may still climb. */
 const INTEGRATED_GPU = /\bintel\b.*\b(hd|uhd|iris)\b.*\bgraphics\b|radeon\(tm\) graphics|vega \d+ graphics/i;
 
-/** FULL by default on a desktop. BALANCED at most on a coarse pointer, on fewer than four cores or less than 4 GB, on a
- *  3g line, or on an integrated GPU. LITE on saveData, a 2g line, or a software renderer. A fast line never
- *  promotes (it says nothing about the GPU). */
+/** FULL by default on a desktop. BALANCED at most on a coarse pointer, on fewer than four cores or less than 4 GB, or
+ *  on an integrated GPU. LITE on saveData or a 2g line (a visitor's own ask, or a line where nothing streams), or on
+ *  a software renderer. A line's speed otherwise says nothing about the GPU and never moves the tier: Chrome's
+ *  `effectiveType` estimate read "3g" on this very PC against the live site (2026-09-28) while dev read "4g" — a
+ *  rule on it opened the owner's own machine BALANCED. The loops are already rationed by the play set. */
 export function startTier(dev: Device): Tier {
   let t: Tier = 2;
   const cap = (m: Tier) => { if (m < t) t = m; };
@@ -39,7 +41,6 @@ export function startTier(dev: Device): Tier {
   if ((dev.hardwareConcurrency ?? 8) < 4 || (dev.deviceMemory ?? 8) < 4) cap(1);
   const c = dev.connection;
   if (c && (c.saveData || c.effectiveType === '2g' || c.effectiveType === 'slow-2g')) cap(0);
-  else if (c && c.effectiveType === '3g') cap(1);
   if (dev.gpu) {
     if (SOFTWARE_GPU.test(dev.gpu)) cap(0);
     else if (INTEGRATED_GPU.test(dev.gpu)) cap(1);

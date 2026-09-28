@@ -130,7 +130,7 @@ expensive garnish removed, not calm mode.
 **The opening tier** (`startTier(device)`, pure):
 
 - FULL by default on a desktop.
-- BALANCED at most on a coarse pointer, on fewer than 4 cores or less than 4 GB, on a `3g` connection, or on a
+- BALANCED at most on a coarse pointer, on fewer than 4 cores or less than 4 GB, or on a
   GPU whose renderer string names an integrated Intel part (`Intel … (HD|UHD|Iris) Graphics`).
 - LITE on `saveData`, `2g`/`slow-2g`, or a software renderer (`SwiftShader`, `llvmpipe`, `Software`).
 - The address may pin it: `?gfx=lite|balanced|full` (the owner's and the testers' switch; pinned for the session).
@@ -177,7 +177,7 @@ carries `{ tier, ceiling, downs }` (the session's state, restored on the next pa
 
 ## 3. Tests
 
-- `tests/quality.test.ts`: `startTier` (desktop full; phone, small device, 3g, Intel GPU → balanced; saveData, 2g,
+- `tests/quality.test.ts`: `startTier` (desktop full; phone, small device, Intel GPU → balanced; a 3g estimate moves nothing — Chrome read "3g" on this PC against the live site and opened it BALANCED (found in the live check, fixed after 9566369); saveData, 2g,
   SwiftShader → lite; the URL pin); `judge` (a clean 60 Hz window is fast; every other frame doubled is slow; a
   120 Hz display at 60 is fast; a steady 30 fps is slow); `steer` (hold, down, cooldown, ceiling, reopen after 60 s,
   closed after two downs, up after 12 s to the ceiling); `restoreState`/`saveState` round trips through fake

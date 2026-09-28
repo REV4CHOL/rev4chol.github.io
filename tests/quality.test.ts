@@ -19,14 +19,15 @@ const broken: KeyStore = {
 };
 
 describe('the opening tier (owner 2026-09-28: "weaker PCs and laptops and phones … downright unplayable")', () => {
-  it('a desktop opens FULL; a phone, a small device, a 3g line or an integrated GPU open BALANCED at most', () => {
+  it('a desktop opens FULL; a phone, a small device or an integrated GPU open BALANCED at most', () => {
     expect(startTier({ coarse: false })).toBe(2);
     expect(startTier({ coarse: false, hardwareConcurrency: 16, deviceMemory: 8, gpu: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 5080 Direct3D11 vs_5_0 ps_5_0, D3D11)' })).toBe(2);
     expect(startTier({ coarse: false, gpu: 'Apple M2' })).toBe(2);
     expect(startTier({ coarse: true })).toBe(1);
     expect(startTier({ coarse: false, hardwareConcurrency: 2 })).toBe(1);
     expect(startTier({ coarse: false, deviceMemory: 2 })).toBe(1);
-    expect(startTier({ coarse: false, connection: { effectiveType: '3g' } })).toBe(1);
+    // a line's speed never moves the tier: Chrome's estimate read "3g" on the owner's own PC against the live site
+    expect(startTier({ coarse: false, connection: { effectiveType: '3g' } })).toBe(2);
     expect(startTier({ coarse: false, gpu: 'ANGLE (Intel, Intel(R) UHD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)' })).toBe(1);
     expect(startTier({ coarse: false, gpu: 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)' })).toBe(1);
     expect(startTier({ coarse: false, gpu: 'ANGLE (Intel, Intel(R) HD Graphics 4000, OpenGL 4.1)' })).toBe(1);
@@ -34,7 +35,7 @@ describe('the opening tier (owner 2026-09-28: "weaker PCs and laptops and phones
     expect(startTier({ coarse: false, gpu: 'ANGLE (AMD, AMD Radeon RX 6800 XT Direct3D11 vs_5_0 ps_5_0, D3D11)' }), 'a real Radeon card').toBe(2);
   });
 
-  it('a starved line or a software renderer opens LITE; a fast line never promotes', () => {
+  it('saveData, a 2g line or a software renderer opens LITE; a fast line never promotes', () => {
     expect(startTier({ coarse: false, connection: { saveData: true } })).toBe(0);
     expect(startTier({ coarse: false, connection: { effectiveType: '2g' } })).toBe(0);
     expect(startTier({ coarse: true, connection: { effectiveType: 'slow-2g' } })).toBe(0);
