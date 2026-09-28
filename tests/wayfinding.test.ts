@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { doorFromVoidClick } from '../src/home/door';
-import { cursorLabelFor } from '../src/shell/cursor';
+import { cursorCoords, cursorLabelFor } from '../src/shell/cursor';
 import { paneToWake } from '../src/works/hover';
 
 /** A stand-in for an event target: `ancestors` lists what it and its parents match ('a', '#statement', 'canvas',
@@ -179,5 +179,14 @@ describe('the signposts are wired (pins)', () => {
     expect(css).not.toContain('.page-home .home-cta-row { display: none; }');
     expect(css).toContain('.home-statement { pointer-events: none; }');
     expect(css).toContain('.home-statement [data-glitch] { pointer-events: auto; }');
+  });
+});
+
+describe("the cursor's coordinate readout", () => {
+  // pointer coordinates are fractional under display scaling and on precision touchpads: the readout printed
+  // "258.3125 434.5597755859375" beside the crosshair (seen 2026-09-28 over the dossier's players)
+  it('reads whole pixels, four digits each', () => {
+    expect(cursorCoords(258.3125, 434.5597755859375)).toBe('0258 0435');
+    expect(cursorCoords(7, 1203)).toBe('0007 1203');
   });
 });

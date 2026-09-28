@@ -33,6 +33,12 @@ export function cursorLabelFor(
   return t ? t.dataset?.cursor || null : null;
 }
 
+/** The readout beside the crosshair: whole pixels, four digits each. Pointer coordinates come fractional under
+ *  display scaling and on precision touchpads, and printed raw they read "258.3125 434.5597755859375". */
+export function cursorCoords(x: number, y: number): string {
+  return `${String(Math.round(x)).padStart(4, '0')} ${String(Math.round(y)).padStart(4, '0')}`;
+}
+
 export function initCursor(): void {
   if (!finePointer() || reducedMotion()) return;
   const c = document.createElement('div');
@@ -52,7 +58,7 @@ export function initCursor(): void {
       // element lays out in the zoomed plate's px — divide or it drifts
       const z = posterZoom();
       c.style.transform = `translate3d(${clientX / z}px, ${clientY / z}px, 0)`;
-      coordsEl.textContent = `${String(clientX).padStart(4, '0')} ${String(clientY).padStart(4, '0')}`;
+      coordsEl.textContent = cursorCoords(clientX, clientY);
     });
   });
   document.addEventListener('pointerover', (e) => {
