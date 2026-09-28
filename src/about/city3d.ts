@@ -41,6 +41,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { isMobile, reducedMotion } from '../lib/env';
+import { quality } from '../lib/quality';
 import { mulberry32 } from '../lib/rng';
 import {
   AirLane, ART_COLOR, ARTERIAL, ARTERIAL_ROW, arterialLat, ARTS, AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, DIAGONAL, EXT, G, HALF, HIGHWAY, HoloKind, LANE_CAR, LANE_W, OUTER,
@@ -1300,8 +1301,13 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   let lampLevel = 1;
   let starLevel = 1;
   let fogMul = 1;
-  let tier = startTier(navigator as unknown as Device, isMobile());
-  const gov = newGovernor(tier, performance.now(), PHONE.floor, isMobile() ? 1 : TIERS.length - 1); // THE GOVERNOR (city-governor.ts): the render scale and the tier by the measured frame
+  // THE SITE'S TIER CAPS THE CITY'S (lib/quality.ts; the site's sampler is off on this page — the city's own governor
+  // below steers under the cap): LITE opens low and stays there, BALANCED opens mid at most, FULL leaves the city's own
+  // rule alone. A LITE desktop also takes a phone's crowd, traffic and runner counts (`lean`).
+  const siteCap = [0, 1, TIERS.length - 1][quality.tier()];
+  const lean = isMobile() || quality.tier() === 0;
+  let tier = Math.min(startTier(navigator as unknown as Device, isMobile()), siteCap);
+  const gov = newGovernor(tier, performance.now(), PHONE.floor, Math.min(isMobile() ? 1 : TIERS.length - 1, siteCap)); // THE GOVERNOR (city-governor.ts): the render scale and the tier by the measured frame
   const pixOf = (t: number) => (isMobile() ? 2 : TIERS[t].pix); // a phone renders at half its pixels like a desktop (owner: the city froze on a phone — at its own pixels it pushed three times a desktop's through three passes)
   let PIX = pixOf(tier);
   // A PHONE'S PIXELS (owner: the city looked too blurry on mobile): the canvas was sized in CSS pixels over PIX with the
@@ -3090,13 +3096,13 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // vanish at the highway's ends): the sim owns it (city-plan's streets run HW_FAR past each end), with vehicles of its
   // own on top of the city's, one every 45 lane-units (the far fleet's density), portalled only at the far ends in the fog
   const onContinuation = (lane: { link: { street: Street; t0: number; t1: number } }) => { const st = lane.link.street; if (st.kind !== 'highway' && st.kind !== 'arterial') return false; const t = (lane.link.t0 + lane.link.t1) / 2; return Math.abs(st.x0 + st.dx * t) > EXT + G; };
-  traffic.populate(calm ? 900 : isMobile() ? 550 : 2000, (lane) => { // (owner: more ground vehicles — the flow test holds at two thousand; a phone carries fewer)
+  traffic.populate(calm ? 900 : lean ? 550 : 2000, (lane) => { // (owner: more ground vehicles — the flow test holds at two thousand; a phone carries fewer)
     if (onContinuation(lane)) return 0;
     const st = lane.link.street;
     const t = (lane.link.t0 + lane.link.t1) / 2;
     return lane.len * (inCore(st.x0 + st.dx * t, st.z0 + st.dz * t) ? 3 : 0.9) * (st.kind === 'highway' ? 2.2 : st.kind === 'arterial' ? 2.5 : 1);
   });
-  traffic.populate(calm ? 300 : isMobile() ? 260 : 700, (lane) => (onContinuation(lane) ? lane.len : 0)); // the continuation's own
+  traffic.populate(calm ? 300 : lean ? 260 : 700, (lane) => (onContinuation(lane) ? lane.len : 0)); // the continuation's own
   const cars = traffic.cars;
   const canal = plan.streets.find((s) => s.kind === 'canal')!;
   interface Boat { lane: number; t: number; v: number }
@@ -3479,7 +3485,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     const st = axis === 'd' ? n.streets.find((q) => q.kind === 'diagonal') : n.streets.find((q) => q.kind !== 'diagonal' && (axis === 'x') === (q.dx !== 0));
     return st ? traffic.walk(n, Math.max(0, n.streets.indexOf(st)), frames) : 'unlit';
   };
-  const people = new People(plan.streets, zones, plan.stalls, mulberry32(seed ^ 0x7e0b1e), calm ? 1400 : isMobile() ? 900 : 3800, crossOK, crossNodes, { // (owner: a city crowded with pedestrians)
+  const people = new People(plan.streets, zones, plan.stalls, mulberry32(seed ^ 0x7e0b1e), calm ? 1400 : lean ? 900 : 3800, crossOK, crossNodes, { // (owner: a city crowded with pedestrians)
     solid: (x, y, z) => plan.grid.hit(x, y, z, 0.3) !== null,
     onRoad: (x, z) => carriagewayAt(plan.streets, x, z) !== null,
     roadClear: (x, z) => traffic.clearAt(x, z),
@@ -3595,7 +3601,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   scene.add(peopleMesh);
   // PARKOUR (owner): a hundred and fifty runners on the roofs (city-runners), drawn as the walkers are — hip-hop looks: a neon top,
   // dark trousers, a cap, a glow for the thrusters' flame — and their sparks as points
-  const runners = new Runners(plan.roofs, plan.grid, mulberry32(seed ^ 0x9a7c0a), isMobile() ? 70 : 150); // (owner: massively more runners, then "down to 150"; a phone seventy)
+  const runners = new Runners(plan.roofs, plan.grid, mulberry32(seed ^ 0x9a7c0a), lean ? 70 : 150); // (owner: massively more runners, then "down to 150"; a phone seventy)
   const RUNNERS = runners.runners.length;
   const rPos = new Float32Array(RUNNERS * 3), rFrame = new Float32Array(RUNNERS), rYaw = new Float32Array(RUNNERS), rRow = new Float32Array(RUNNERS), rScale = new Float32Array(RUNNERS);
   const rTop = new Float32Array(RUNNERS * 3), rBot = new Float32Array(RUNNERS * 3), rHair = new Float32Array(RUNNERS * 3), rSkin = new Float32Array(RUNNERS * 3), rGlow = new Float32Array(RUNNERS * 3);

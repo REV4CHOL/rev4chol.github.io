@@ -4,8 +4,10 @@ import type { ProjectTile } from './tile';
 
 /** Applies the pure play-set to the stateful tiles + caps total video elements. */
 export class PlaybackManager {
-  readonly cap = liveVideoCap();
-  readonly maxElements = this.cap * 2;
+  /** Live loops right now: the site's tier decides (lib/quality.ts), read on every update — a step down sleeps the
+   *  excess at the next pass, a step up wakes more. (A phone's counts are lower at every tier.) */
+  get cap(): number { return liveVideoCap(); }
+  get maxElements(): number { return this.cap * 2; }
   private lastSet = new Set<string>();
   private lru: string[] = []; // slugs with a created video element, oldest first
 

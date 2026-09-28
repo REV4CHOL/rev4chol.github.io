@@ -3,6 +3,7 @@ import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
 import { homeLoopFiles, loadLoopManifest } from '../lib/content';
 import { ditherImageToCanvas } from '../lib/dither';
 import { dprCap, reducedMotion } from '../lib/env';
+import { maxFpsFor, quality, type Tier } from '../lib/quality';
 import { videoTexture } from '../lib/video-texture';
 import { CLIP_MS, coverScale, loopCandidates, nextClip } from './loops';
 
@@ -275,6 +276,13 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
   });
   host.append(app.canvas);
   (window as unknown as { rvlHero: Application }).rvlHero = app; // debug handle for verification
+  // THE TIER (lib/quality.ts): the canvas opened at the tier's resolution (dprCap above); the ticker takes the tier's
+  // cap; both follow a change live — a machine that measures slow mid-visit gets its frame back without a reload
+  app.ticker.maxFPS = maxFpsFor(quality.tier());
+  quality.on((t) => {
+    app.renderer.resize(app.screen.width, app.screen.height, dprCap());
+    app.ticker.maxFPS = maxFpsFor(t);
+  });
 
   // one root carries the material (image, then reel) and the filter chain
   const root = new Container();
@@ -349,7 +357,18 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
   app.stage.addChild(dispSprite);
   const disp = new DisplacementFilter({ sprite: dispSprite, scale: 3 });
 
-  root.filters = [rgb, disp, glitch];
+  // THE CHAIN BY TIER (lib/quality.ts; measured on a software GPU, 2026-09-28: the three full-screen passes were the
+  // homepage's whole cost — 20 fps with them, 36 without): FULL = split + lens + glitch; BALANCED drops the lens;
+  // LITE keeps only the glitch, and only while a burst runs — a disabled filter costs no pass (Pixi skips it), so
+  // the reel's cuts still tear and the frames between them are raw video
+  let liteChain = false;
+  const applyChain = (t: Tier) => {
+    liteChain = t === 0;
+    root.filters = t === 2 ? [rgb, disp, glitch] : t === 1 ? [rgb, glitch] : [glitch];
+    glitch.enabled = !liteChain;
+  };
+  applyChain(quality.tier());
+  quality.on(applyChain);
 
   // ---- the reel ----
   let clips: Clip[] = [];
@@ -633,10 +652,11 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
 
     if (burstLeft > 0) {
       burstLeft -= tk.deltaMS;
+      glitch.enabled = true; // (LITE: the pass runs for the burst only)
       glitch.seed = Math.random();
       glitch.offset = 18 + Math.random() * 34;
       glitch.slices = 6 + ((Math.random() * 7) | 0);
-      if (burstLeft <= 0) glitch.offset = 0; // the tear, then calm
+      if (burstLeft <= 0) { glitch.offset = 0; if (liteChain) glitch.enabled = false; } // the tear, then calm
     } else {
       nextBurst -= tk.deltaMS;
       if (nextBurst <= 0) {

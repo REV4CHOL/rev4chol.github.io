@@ -1,3 +1,5 @@
+import { quality, resolutionFor, videoCapFor } from './quality';
+
 // Calm mode is a SITE choice, not the OS's. Motion is this site's identity, so it
 // runs full by default: Windows commonly ships with "animation effects" off, which
 // Chrome reports as prefers-reduced-motion — honoring that silently killed every
@@ -13,6 +15,8 @@ export const finePointer = (): boolean =>
 export const isMobile = (): boolean =>
   typeof window !== 'undefined' && window.matchMedia('(max-width: 820px), (pointer: coarse)').matches;
 
-export const liveVideoCap = (): number => (isMobile() ? 4 : 10);
+// The two device caps read the site's quality tier (lib/quality.ts; owner 2026-09-28: "weaker PCs and laptops and
+// phones … develop a system where the website automatically adapts"). Before, they knew only "phone or not".
+export const liveVideoCap = (): number => videoCapFor(quality.tier(), isMobile());
 
-export const dprCap = (): number => Math.min(window.devicePixelRatio || 1, isMobile() ? 1.5 : 2);
+export const dprCap = (): number => resolutionFor(quality.tier(), window.devicePixelRatio || 1, isMobile());

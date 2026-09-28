@@ -3,6 +3,7 @@ import gsap from 'gsap';
 import type { Project } from '../lib/content';
 import { aspectRatio, isPlaceholder, loopSrcChain, projectAssetUrl } from '../lib/content';
 import { reducedMotion } from '../lib/env';
+import { quality } from '../lib/quality';
 import { videoTexture } from '../lib/video-texture';
 import { CARD_H, CARD_W, HOVER_M, ISO, SIZE_MUL_LARGE, cellToWorld } from './constants';
 import { PaneGlow } from './glow';
@@ -245,7 +246,9 @@ export class ProjectTile extends Container {
     const d = reducedMotion() ? 0.05 : 0.5;
     gsap.to(this.m, { ...HOVER_M, duration: d, ease: 'expo.out', onUpdate: () => this.applyMatrix() });
     gsap.to(this.card, { y: -26, duration: d, ease: 'expo.out' });
-    this.ensureGlow().fadeTo(0.4, d);
+    // the glow is a blurred sprite the size of the pane — LITE (lib/quality.ts) lifts the pane without it
+    if (quality.tier() > 0) this.ensureGlow().fadeTo(0.4, d);
+    else this.glow?.fadeTo(0, d);
     this.zIndex = 10000;
   }
 
@@ -255,8 +258,15 @@ export class ProjectTile extends Container {
     const d = reducedMotion() ? 0.05 : 0.4;
     gsap.to(this.m, { ...ISO, duration: d, ease: 'expo.out', onUpdate: () => this.applyMatrix() });
     gsap.to(this.card, { y: 0, duration: d, ease: 'expo.out' });
-    this.glow?.fadeTo(this.baseGlowAlpha, d);
+    this.glow?.fadeTo(quality.tier() > 0 ? this.baseGlowAlpha : 0, d);
     this.zIndex = this.placed.col + this.placed.row;
+  }
+
+  /** The tier changed under the floor (lib/quality.ts): at LITE any glow fades out; above it a featured pane's
+   *  resting glow returns (a hovered pane picks its glow up at its next hover). */
+  retune(): void {
+    if (quality.tier() > 0) { if (this.baseGlowAlpha > 0) this.ensureGlow().fadeTo(this.baseGlowAlpha, 0.5); }
+    else this.glow?.fadeTo(0, 0.3);
   }
 
   /** Stop every tween this pane owns — its world is about to be torn down, and a
@@ -362,7 +372,7 @@ export class ProjectTile extends Container {
     this.addChild(this.card);
     if (featured) {
       this.baseGlowAlpha = 0.14;
-      this.ensureGlow(); // rests at baseGlowAlpha
+      if (quality.tier() > 0) this.ensureGlow(); // rests at baseGlowAlpha (LITE: no glow at all — retune() adds it on a step up)
     }
     this.applyMatrix();
     this.eventMode = 'static';

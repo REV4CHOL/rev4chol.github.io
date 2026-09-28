@@ -5,6 +5,7 @@ import type { FloorItem, Project } from '../lib/content';
 import { aspectRatio, isBlank } from '../lib/content';
 import { dprCap, finePointer, reducedMotion } from '../lib/env';
 import { posterZoom } from '../lib/poster-lock';
+import { maxFpsFor, quality } from '../lib/quality';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { leaveTo } from '../lib/transitions';
@@ -44,6 +45,8 @@ export class WorksWorld {
   private desat = new ColorMatrixFilter();
   private labelEl = document.getElementById('tile-label');
   private entering = false;
+  /** the quality subscription (lib/quality.ts) — dropped in destroy(), or a dead world would keep re-tuning */
+  private offQuality: (() => void) | null = null;
 
   /** the floor's held places — unlit screens keeping spots for films to come */
   protected blanks: BlankPane[] = [];
@@ -69,6 +72,7 @@ export class WorksWorld {
     });
     host.append(app.canvas);
     w.app = app;
+    app.ticker.maxFPS = maxFpsFor(quality.tier()); // (lib/quality.ts: the display's rate at FULL, 60 at BALANCED, 30 at LITE)
 
     // the layout runs on the whole stream (held places and open gaps keep their spots); only films get posters
     const projects = stream.filter((it): it is Project => !isBlank(it));
@@ -110,6 +114,17 @@ export class WorksWorld {
       w.tilesLayer.addChild(pane);
     }
     w.playback = new PlaybackManager(w.tiles);
+
+    // THE TIER, LIVE (lib/quality.ts; owner 2026-09-28: "the website automatically adapts to any computer strength"):
+    // on a change the canvas re-sizes at the tier's resolution, the ticker takes its cap, the carpet's hover filter
+    // comes or goes, the glows follow, and the loops re-count on the next playback pass. Nothing reloads.
+    w.offQuality = quality.on((t) => {
+      app.renderer.resize(app.screen.width, app.screen.height, dprCap());
+      app.ticker.maxFPS = maxFpsFor(t);
+      if (w.hoveredSlug) w.tilesLayer.filters = t > 0 ? [w.desat] : [];
+      for (const tile of w.tiles.values()) tile.retune();
+      w.playback.update(w.viewRect(), w.hoveredSlug);
+    });
 
     w.desat.saturate(-0.35, false);
     for (const tile of w.tiles.values()) {
@@ -226,7 +241,7 @@ export class WorksWorld {
     }
     // sleeping posters get occasional glitch ticks — the floor never looks frozen
     this.shimmerClock += dtMs;
-    if (this.shimmerClock > 380 && !reducedMotion()) {
+    if (this.shimmerClock > 380 && !reducedMotion() && quality.tier() > 0) { // (LITE: the loops are the life)
       this.shimmerClock = 0;
       const sleeping = [...this.tiles.values()].filter((t) => t.mode === 'sleep');
       if (sleeping.length) {
@@ -259,7 +274,9 @@ export class WorksWorld {
     this.hoveredSlug = slug;
     sound.hover();
     this.fxLayer.addChild(tile); // lift out of the dimmed/desaturated layer
-    this.tilesLayer.filters = [this.desat];
+    // LITE (lib/quality.ts): the alpha dim below is the whole cue — a colour-matrix pass over the carpet is a
+    // full-screen filter a weak GPU pays for on every frame of the hover
+    this.tilesLayer.filters = quality.tier() > 0 ? [this.desat] : [];
     gsap.killTweensOf(this.tilesLayer);
     gsap.to(this.tilesLayer, { alpha: 0.62, duration: 0.35 });
     tile.wake();
@@ -405,11 +422,13 @@ export class WorksWorld {
     // world-unit travel: divide by the pinch scale so the screen distance covered
     // stays the same however far the visitor is zoomed in or out
     const span = (Math.max(this.app.screen.width, this.app.screen.height) * 1.7) / (this.worldC.scale.x || 1);
-    joltCamera(this.app.stage, 1.3);
-    this.misreg?.dispose();
-    // ramps for longer than the exit lasts — destroy() disposes it mid-climb
-    this.misreg = misregister(this.app, this.worldC, 3, 30, 0.7);
-    this.bursts.push(streakBurst(this.worldC, 2, this.viewRect(), 1));
+    if (quality.tier() > 0) { // LITE (lib/quality.ts): the panes slide, nothing else — no kick, no misregistration, no streaks
+      joltCamera(this.app.stage, 1.3);
+      this.misreg?.dispose();
+      // ramps for longer than the exit lasts — destroy() disposes it mid-climb
+      this.misreg = misregister(this.app, this.worldC, 3, 30, 0.7);
+      this.bursts.push(streakBurst(this.worldC, 2, this.viewRect(), 1));
+    }
     const pull = (o: Container, dir: number, delay: number, ease: string, dist: number) =>
       new Promise<void>((res) => {
         gsap.killTweensOf(o);
@@ -437,9 +456,11 @@ export class WorksWorld {
   arrive(): void {
     if (reducedMotion()) return;
     const span = Math.max(this.app.screen.width, this.app.screen.height) * 1.5;
-    this.misreg?.dispose();
-    this.misreg = misregister(this.app, this.worldC, 24, 0, 0.6, () => joltCamera(this.app.stage, 0.6));
-    this.bursts.push(streakBurst(this.worldC, 2, this.viewRect(), -1));
+    if (quality.tier() > 0) { // (LITE: the plain slide, as in exit())
+      this.misreg?.dispose();
+      this.misreg = misregister(this.app, this.worldC, 24, 0, 0.6, () => joltCamera(this.app.stage, 0.6));
+      this.bursts.push(streakBurst(this.worldC, 2, this.viewRect(), -1));
+    }
     const drop = (o: Container, dir: number, delay: number, ease: string, dist: number) => {
       const hx = o.x;
       const hy = o.y;
@@ -461,6 +482,8 @@ export class WorksWorld {
    *  release every tile's video element, drop the pan listeners, hide the
    *  floating label, then let Pixi destroy the app, canvas and scene graph. */
   destroy(): void {
+    this.offQuality?.();
+    this.offQuality = null;
     this.misreg?.dispose();
     for (const b of this.bursts) b.kill();
     this.bursts = [];

@@ -413,6 +413,18 @@
 .rvl-calm .home-cta, .rvl-calm .home-data, .rvl-calm .amp-bg,
 .rvl-calm .hk-spine, .rvl-calm .hk-ticks, .rvl-calm .home-vignette,
 .rvl-calm .page-home .hud-bl, .rvl-calm .page-home .hud-br, .rvl-calm .page-home .hud-tr { animation: none; }
+
+/* LITE tier (html.rvl-lite, stamped by lib/quality.ts on a weak machine or after a slow verdict — owner 2026-09-28:
+   "weaker PCs and laptops and phones"): the two film layers and the idle decor stand down; the reel, the loops, the
+   hover lifts, the wipes and the carets stay. Not calm mode — the site still moves. */
+.rvl-lite #grain { display: none; }
+.rvl-lite .scan-layer { display: none; }
+.rvl-lite .scan-sweep { display: none; }
+.rvl-lite .is-revealed .st-clash::after { animation: none; clip-path: inset(34% 0 48% 0); transform: translateX(6px); }
+.rvl-lite .st-clash, .rvl-lite .st-outline, .rvl-lite .st-plate, .rvl-lite .hk-kicker .gl,
+.rvl-lite .home-cta, .rvl-lite .home-data, .rvl-lite .amp-bg,
+.rvl-lite .hk-spine, .rvl-lite .hk-ticks, .rvl-lite .home-vignette,
+.rvl-lite .page-home .hud-bl, .rvl-lite .page-home .hud-br, .rvl-lite .page-home .hud-tr { animation: none; }
 .page-work .works-main { position: fixed; inset: 0; }
 #floor { position: absolute; inset: 0; touch-action: none; }
 .page-work {
@@ -480,6 +492,7 @@
    line — the STORY page's idiom — top centre under the nav; lit in the signal colour until the visitor has opened a
    pane once, then a quiet reminder */
 .floor-hint {
+  /* 12 px at 70 % (owner 2026-09-28: the one line that explains the floor was the smallest type on the page) */
   position: fixed; left: 50%; translate: -50% 0; top: calc(104px * var(--uiz)); z-index: 945; pointer-events: none;
   text-align: center; white-space: nowrap; letter-spacing: 0.16em; font-size: calc(var(--t-xs) * var(--uiz));
   color: color-mix(in srgb, var(--bone) 70%, transparent); text-shadow: 0 0 8px rgba(6, 6, 6, 0.95);
@@ -563,6 +576,11 @@
 .rvl-calm .ch-ident-name { text-shadow: none; }
 .rvl-calm .ch-ident-name::before,
 .rvl-calm .ch-ident-name::after { display: none; }
+/* LITE: the ident holds still (the slicing plates are two more full-width text layers a frame) */
+.rvl-lite .ch-static.on .ch-ident { animation: none; }
+.rvl-lite .ch-static.on .ch-ident-idx { animation: none; }
+.rvl-lite .ch-ident-name::before,
+.rvl-lite .ch-ident-name::after { display: none; }
 
 /* phone: the two names stack — lift the stack clear of the bottom HUD.
    (Must sit AFTER the base .ch-* rules above: equal specificity, order wins.)
@@ -614,7 +632,7 @@
 }
 /* (the coarse-pointer rule that hid .home-cta-row — the retired weather line — is gone: the row now holds THE DOOR,
    which a thumb needs most; owner's testers, 2026-09-27) */
-.rvl-calm .swc-chevron { animation: none; }
+.rvl-calm .swc-chevron, .rvl-lite .swc-chevron { animation: none; }
 
 /* the station card behind the gliding page: a child of <html> at z -1 paints
    between the root background and the body, so it exists exactly where the

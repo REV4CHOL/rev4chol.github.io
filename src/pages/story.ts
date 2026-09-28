@@ -23,7 +23,7 @@ startPage('story', async ({ site }) => {
     enabled: () => mode === 'auto',
   });
   await armFlight();
-});
+}, [], { govern: false }); // the city governs its own quality (about/city-governor.ts); the site's sampler stays off here
 
 /** The time of day the page opens at: the address may ask (?tod=dawn), else the NIGHT (owner: always night; the
  *  switch works for the visit and is not remembered). */

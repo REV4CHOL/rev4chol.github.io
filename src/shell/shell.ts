@@ -1,6 +1,7 @@
 import type { SiteContent } from '../lib/content';
 import { escapeHtml } from '../lib/escape';
 import { music } from '../lib/music';
+import { quality } from '../lib/quality';
 import { sound } from '../lib/sound';
 import { initTransitions } from '../lib/transitions';
 import { initCursor } from './cursor';
@@ -19,7 +20,15 @@ const HREF_FOR: Record<PageKey, string> = {
   project: '/works.html', // project pages highlight WORK
 };
 
-export function mountShell(site: SiteContent, active: PageKey): ShellRefs {
+export interface ShellOptions {
+  /** false: the page governs its own quality (the STORY city) — the shell only opens at the remembered tier */
+  govern?: boolean;
+}
+
+export function mountShell(site: SiteContent, active: PageKey, opts: ShellOptions = {}): ShellRefs {
+  // THE QUALITY TIER first (lib/quality.ts): the atmosphere below and the page's surfaces after read it as they mount
+  quality.start({ govern: opts.govern !== false });
+
   const header = document.createElement('header');
   header.className = 'nav';
 

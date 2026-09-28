@@ -5,7 +5,7 @@ import { loadSite, SiteContent } from '../lib/content';
 import { BootTask, runBoot } from './boot';
 import { Hud } from './hud';
 import { music } from '../lib/music';
-import { mountShell, PageKey } from './shell';
+import { mountShell, PageKey, ShellOptions } from './shell';
 
 export interface PageCtx { site: SiteContent; hud: Hud }
 
@@ -36,6 +36,7 @@ export function startPage(
   active: PageKey,
   main: (ctx: PageCtx) => void | Promise<void>,
   extraTasks: BootTask[] = [],
+  opts: ShellOptions = {},
 ): void {
   const tasks: BootTask[] = [
     { label: 'LOAD SITE MANIFEST', run: () => loadSite() },
@@ -58,7 +59,7 @@ export function startPage(
   runBoot(tasks)
     .then(async () => {
       const site = await loadSite();
-      const { hud } = mountShell(site, active);
+      const { hud } = mountShell(site, active, opts);
       await main({ site, hud });
       try { sessionStorage.removeItem('rvl-heal'); } catch { /* ok */ }
     })

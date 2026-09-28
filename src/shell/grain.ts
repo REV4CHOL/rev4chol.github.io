@@ -1,4 +1,5 @@
 import { reducedMotion } from '../lib/env';
+import { grainIntervalFor, quality } from '../lib/quality';
 
 const TILE = 96;
 const FRAMES = 4;
@@ -45,11 +46,20 @@ export function mountAtmosphere(): void {
   scan.className = 'scan-layer';
   document.body.append(grain, scan);
 
-  if (!reducedMotion()) {
-    setInterval(() => {
+  // THE RE-DEAL BY TIER (lib/quality.ts): every 90 ms at FULL, 180 at BALANCED; at LITE the layer is hidden by the
+  // stylesheet (.rvl-lite #grain) and nothing re-deals — a full-viewport blend layer repainted eleven times a second
+  // is a cost a weak machine can feel. Calm mode holds one frame at any tier. Re-tuned live when the tier changes.
+  let timer = 0;
+  const tune = () => {
+    if (timer) { clearInterval(timer); timer = 0; }
+    const ms = grainIntervalFor(quality.tier());
+    if (reducedMotion() || ms === 0) return;
+    timer = window.setInterval(() => {
       if (document.hidden) return;
       f = (f + 1) % FRAMES;
       apply();
-    }, 90);
-  }
+    }, ms);
+  };
+  tune();
+  quality.on(tune);
 }

@@ -145,7 +145,7 @@
   animation: p-sweep 9s linear infinite; pointer-events: none;
 }
 @keyframes p-sweep { 0% { top: -2%; } 62% { top: 102%; } 100% { top: 102%; } }
-.rvl-calm .p-hero::before { display: none; }
+.rvl-calm .p-hero::before, .rvl-lite .p-hero::before { display: none; } /* (.rvl-lite: lib/quality.ts's weak-machine tier) */
 
 /* datamosh hiccup on the loop — brief, rare, honest to the homepage burst */
 @keyframes p-vhs {
@@ -155,7 +155,7 @@
   98.2% { transform: none; filter: none; }
 }
 #p-hero-video { animation: p-vhs 13s steps(2) infinite; }
-.rvl-calm #p-hero-video { animation: none; }
+.rvl-calm #p-hero-video, .rvl-lite #p-hero-video { animation: none; }
 
 /* blueprint ring — the machine's lens, half off-frame like the reference */
 .p-ring {
@@ -167,7 +167,7 @@
 .p-ring circle:first-child { stroke-width: 0.55; stroke-dasharray: 2 4 14 4; }
 .p-ring circle:last-child { stroke-width: 0.3; stroke-dasharray: 0.6 5.4; }
 @keyframes p-ring-spin { to { rotate: 360deg; } }
-.rvl-calm .p-ring { animation: none; }
+.rvl-calm .p-ring, .rvl-lite .p-ring { animation: none; }
 
 /* scan frame — corner ticks + hairline, the works-tile grammar writ large */
 .p-scanframe {
@@ -368,7 +368,7 @@
 .p-ticker-track { display: flex; width: max-content; animation: p-tick 26s linear infinite; }
 .p-ticker-half { display: flex; align-items: baseline; gap: 38px; padding-right: 38px; }
 @keyframes p-tick { to { translate: -50% 0; } }
-.rvl-calm .p-ticker-track { animation: none; }
+.rvl-calm .p-ticker-track, .rvl-lite .p-ticker-track { animation: none; }
 .p-ticker .tk, .p-ticker .tk-sep {
   font-family: var(--f-display); font-weight: 500; font-size: var(--t-lg);
   line-height: 1; text-transform: uppercase; white-space: nowrap;
