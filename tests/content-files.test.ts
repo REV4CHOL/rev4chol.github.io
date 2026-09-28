@@ -11,6 +11,41 @@ const read = (f: string) => readFileSync(root + f, 'utf8');
 const onDisk = (url: string) => existsSync(root + url.replace('/content/', ''));
 const rawProjects = () => parseJson(read('projects.json'), 'projects.json');
 
+/** An mp4's top-level boxes in file order, and the movie's length in seconds from moov/mvhd. */
+function mp4Facts(file: string): { boxes: string[]; seconds: number; bytes: number } {
+  const b = readFileSync(file);
+  const boxes: string[] = [];
+  let seconds = NaN;
+  for (let at = 0; at + 8 <= b.length; ) {
+    let size = b.readUInt32BE(at);
+    let head = 8;
+    if (size === 1) {
+      size = Number(b.readBigUInt64BE(at + 8));
+      head = 16;
+    } else if (size === 0) size = b.length - at;
+    const type = b.toString('latin1', at + 4, at + 8);
+    boxes.push(type);
+    if (type === 'moov') {
+      for (let c = at + head; c + 8 <= at + size; ) {
+        const childSize = b.readUInt32BE(c);
+        if (b.toString('latin1', c + 4, c + 8) === 'mvhd') {
+          // FullBox: version, flags; then v0 = 32-bit times, v1 = 64-bit times; then timescale, duration
+          const v1 = b[c + 8] === 1;
+          const timescale = b.readUInt32BE(c + (v1 ? 28 : 20));
+          const duration = v1 ? Number(b.readBigUInt64BE(c + 32)) : b.readUInt32BE(c + 24);
+          seconds = duration / timescale;
+          break;
+        }
+        if (childSize < 8) break;
+        c += childSize;
+      }
+    }
+    if (size < 8) break;
+    at += size;
+  }
+  return { boxes, seconds, bytes: b.length };
+}
+
 describe('shipped content files', () => {
   it('site.json is valid', () => {
     const site = parseSite(parseJson(read('site.json'), 'site.json'));
@@ -264,6 +299,18 @@ describe('shipped content files', () => {
     const hasHero = ['jpg', 'jpeg', 'png', 'webp'].some((e) => existsSync(`${root}home/hero.${e}`));
     const hasLoop = loopCandidates().flat().some((c) => onDisk(c.url));
     expect(hasHero || hasLoop, 'home/hero.* or home/loop-N.*').toBe(true);
+  });
+
+  it("chapter 2's new webloops (owner 2026-09-28): JAECOO J5 4.46 s, FOREST ONSEN 9.875 s — faststart, light", () => {
+    // FOREST ONSEN's source ends on one pure black frame (it flashed at every wrap): 238 frames cut to 237 at 24 fps
+    for (const [slug, seconds] of [['jaecoo-j5', 4.463], ['forest-onsen', 9.875]] as const) {
+      const f = mp4Facts(`${root}projects/${slug}/preview.mp4`);
+      expect(f.seconds, `${slug} length`).toBeCloseTo(seconds, 2);
+      // the index before the pictures: a pane starts playing before the whole file is in
+      expect(f.boxes.indexOf('moov'), `${slug} faststart`).toBeGreaterThanOrEqual(0);
+      expect(f.boxes.indexOf('moov'), `${slug} faststart`).toBeLessThan(f.boxes.indexOf('mdat'));
+      expect(f.bytes, `${slug} weight`).toBeLessThan(3 * 1024 * 1024);
+    }
   });
 
   it('every project folder has its required media', () => {
