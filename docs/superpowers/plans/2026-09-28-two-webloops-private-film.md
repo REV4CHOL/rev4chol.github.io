@@ -43,4 +43,4 @@
 
 - [x] **Step 1:** `npx tsc --noEmit`, `npx vitest run`, `npx vite build` green.
 - [x] **Step 2:** Dev in real Chrome over CDP: the panes, the heroes, FOREST ONSEN's poster, MIEN VIEN's dossier.
-- [ ] **Step 3:** Commit, push, watch the Pages run, and check the same on the live site.
+- [x] **Step 3:** Commit, push, watch the Pages run, and check the same on the live site.
