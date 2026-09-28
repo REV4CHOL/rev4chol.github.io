@@ -87,11 +87,11 @@
 
 ### Task 8: Ship
 
-- [ ] **Step 1:** Stage explicitly, two commits: (1) the words + ENTER; (2) the governor and its knobs. Docs with (2).
-- [ ] **Step 2:** `git -c core.safecrlf=false commit`, `git push -q origin master`, `gh run watch --exit-status`.
-- [ ] **Step 3:** Task 7's scripts against `https://rev4chol.github.io`.
+- [x] **Step 1:** Stage explicitly, two commits: (1) the words + ENTER; (2) the governor and its knobs. Docs with (2).
+- [x] **Step 2:** `git -c core.safecrlf=false commit`, `git push -q origin master`, `gh run watch --exit-status`.
+- [x] **Step 3:** Task 7's scripts against `https://rev4chol.github.io`.
 
 ### Task 9: Close
 
-- [ ] **Step 1:** Memory: the bullet and the description line.
-- [ ] **Step 2:** Report to the owner, flagging the design calls: ENTER keeps its arrow; MTN/MUS renamed; COPY FREQ renamed; "the floor" → "all films" on screen; three tiers and their knobs; the reopen rule; the URL pin.
+- [x] **Step 1:** Memory: the bullet and the description line.
+- [x] **Step 2:** Report to the owner, flagging the design calls: ENTER keeps its arrow; MTN/MUS renamed; COPY FREQ renamed; "the floor" → "all films" on screen; three tiers and their knobs; the reopen rule; the URL pin.
