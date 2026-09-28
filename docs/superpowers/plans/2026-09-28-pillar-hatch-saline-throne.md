@@ -28,42 +28,52 @@ Spec: `docs/superpowers/specs/2026-09-28-pillar-hatch-saline-throne-design.md`.
 
 **Files:** Modify `src/styles/project.css` (`.p-vgrid`). Test `tests/pillars.test.ts`.
 
-- [ ] Write the failing test: parse `.p-vgrid`'s `repeating-linear-gradient`: 135deg; the last stop at 12 px; every
+- [x] Write the failing test: parse `.p-vgrid`'s `repeating-linear-gradient`: 135deg; the last stop at 12 px; every
       change of alpha between neighbouring stops runs over ≥ 1 px; the ink per period (the alpha's area) ≈ 0.13 px.
-- [ ] Run it: fails on the hard edge (0.13 → 0 over 0 px at 1 px).
-- [ ] Change the declaration to
+- [x] Run it: fails on the hard edge (0.13 → 0 over 0 px at 1 px).
+- [x] Change the declaration to
       `repeating-linear-gradient(135deg, rgba(237, 237, 230, 0) 0, rgba(237, 237, 230, 0.13) 1px, rgba(237, 237, 230, 0) 2px 12px)`,
       and say why in the comment above it (the owner's words).
-- [ ] Run it: passes.
+- [x] Run it: passes.
 
 ### Task 2: SALINE THRONE out
 
 **Files:** `public/content/projects.json`, `public/content/projects/saline-throne/` (removed). Tests
 `tests/content-files.test.ts`, `tests/legend.test.ts`.
 
-- [ ] Update the tests first: every json position after 5 down by one (SODA COAST 9, HALIDE 15, MISTCHILD 16,
+- [x] Update the tests first: every json position after 5 down by one (SODA COAST 9, HALIDE 15, MISTCHILD 16,
       SOFT HOURS 12, ĂN HỎI 6, REMNANTS 13, MISSION 14, JAECOO J5 8, GALAXY 11, FAR EAST 5); the floor 17 long;
       SALINE THRONE with the placeholders gone; no film on the list is one `scripts/gen-placeholders.ps1` makes;
       CH·01's cells the 4 × 3 block; 12 (6 featured) + 5 = 17; legend 17.
-- [ ] Run them: they fail on the positions, the counts, the cells, the folder and the guard.
-- [ ] Splice entry 5 out of `projects.json` (checked script: the rest deep-equal, in order); `git rm -r` the folder.
-- [ ] Run them: pass.
+- [x] Run them: they fail on the positions, the counts, the cells, the folder and the guard.
+- [x] Splice entry 5 out of `projects.json` (checked script: the rest deep-equal, in order); `git rm -r` the folder.
+- [x] Run them: pass.
 
 ### Task 3: Gates
 
-- [ ] `npx tsc --noEmit`; `npx vitest run`; `npx vite build --outDir dist-check`; `rm -rf dist-check`.
+- [x] `npx tsc --noEmit`; `npx vitest run`; `npx vite build --outDir dist-check`; `rm -rf dist-check`.
 
 ### Task 4: Real Chrome, dev
 
-- [ ] GALAXY's wall at DPR 1, 1.25, 1.5 and 2: the pillar's foot magnified, every line alike; the EOF cells.
-- [ ] Works: CH·01 12 panes, 0 blanks, 0 gaps, the 4 × 3 block; CH·02 5; a phone's opening frame.
-- [ ] Dossiers P·NN/17, the next-film chain; SALINE THRONE's old address; no console errors.
+- [x] GALAXY's wall at DPR 1, 1.25, 1.5 and 2: the pillar's foot magnified, every line alike; the EOF cells.
+- [x] Works: CH·01 12 panes, 0 blanks, 0 gaps, the 4 × 3 block; CH·02 5; a phone's opening frame.
+- [x] Dossiers P·NN/17, the next-film chain; SALINE THRONE's old address; no console errors.
 
 ### Task 5: Ship
 
-- [ ] Commit (`git -c core.safecrlf=false commit -F <msgfile>`), push, watch the Pages run by its full sha.
-- [ ] The same checks on the live site.
+- [x] Commit (`git -c core.safecrlf=false commit -F <msgfile>`), push, watch the Pages run by its full sha.
+- [x] The same checks on the live site.
 
 ### Task 6: Close
 
-- [ ] Tick this plan (its own commit); update the memory; the closing report with the design calls.
+- [x] Tick this plan (its own commit); update the memory; the closing report with the design calls.
+
+## Shipped
+
+482f34a, Pages run 36396961769 green; verified on dev and live the same day.
+
+- The hatch: each line crossing's ink in ad #1's empty half, p95 / p5, was 2.07 at 100% and 125%, 1.55 at 150%, 1.53
+  at 200%, 2.07 at 1920 wide (the dotted lines); now 1.24 at 1440 × 100%, 1.08 to 1.10 everywhere else. The grain and
+  scanline layers stay off the wall (a capture with them hidden differs by at most one level in 32 values).
+- CH·01: 12 panes on the full 4 × 3 block, 0 blanks, 0 gaps; CH·02 unchanged (GALAXY's loop 269 frames, 0 black).
+- Dossiers P·01/17 to P·17/17, FOREST ONSEN's next film FAR EAST; SALINE THRONE's address: SIGNAL LOST. No errors.
