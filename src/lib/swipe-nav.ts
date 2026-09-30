@@ -7,7 +7,7 @@
  * Pure math lives up top (`classifySwipe`, `glideCommit`, `navNeighbors` — all
  * unit-tested); `armGlideNav` is the one DOM armer, called per page.
  */
-import { reducedMotion } from './env';
+import { finePointer, reducedMotion } from './env';
 import { music } from './music';
 import { sound } from './sound';
 import { leaveTo } from './transitions';
@@ -47,6 +47,25 @@ export function navNeighbors(
   return { prev: nav[i - 1] ?? null, next: nav[i + 1] ?? null };
 }
 
+/** What the cue at the screen's foot says (owner's testers, 2026-09-30: "SCROLL DOWN ▾ CONTACT" stood over the ABOUT
+ *  page from its first screen to its last, printed across the text being read, and at the top it named a page a
+ *  scroll would not yet reach):
+ *  - `next`: scrolling on leaves for the next page, and the cue names it;
+ *  - `scroll`: the page has more of itself below and stands at its top: a plain scroll hint, no page named;
+ *  - `hidden`: the visitor is mid-page, reading: the cue stands down. */
+export type CueState = 'next' | 'scroll' | 'hidden';
+
+export function cueState(canLeave: boolean, scrollTop: number): CueState {
+  if (canLeave) return 'next';
+  return scrollTop <= 40 ? 'scroll' : 'hidden';
+}
+
+/** The cue's small first line. A mouse is told the gesture; a touch screen is told what the word under it is (the
+ *  page's name alone at a phone's foot, "WORK", said nothing of what it was). */
+export function cueKicker(fine: boolean): string {
+  return fine ? 'SCROLL DOWN ▾' : 'NEXT PAGE';
+}
+
 export interface GlideOptions {
   next: NavStop | null;
   prev: NavStop | null;
@@ -67,14 +86,14 @@ export function armGlideNav(opts: GlideOptions): void {
   if (!next && !prev) return;
 
   // ---- the cue: the onward page's name over a dipping chevron, tap-able ----
-  if (next) {
-    const cue = document.createElement('a');
+  const cue = next ? document.createElement('a') : null;
+  if (cue && next) {
     cue.className = 'swipe-cue';
     cue.href = next.href;
     cue.setAttribute('data-internal', '');
     const kicker = document.createElement('span');
     kicker.className = 'swc-kicker';
-    kicker.textContent = 'SCROLL DOWN ▾';
+    kicker.textContent = cueKicker(finePointer());
     kicker.setAttribute('aria-hidden', 'true');
     cue.append(kicker);
     const label = document.createElement('span');
@@ -87,6 +106,7 @@ export function armGlideNav(opts: GlideOptions): void {
     cue.append(label, chevron);
     document.body.append(cue);
   }
+  const top = () => (document.scrollingElement ?? document.documentElement).scrollTop;
 
   // ---- the station card behind the page: painted between the root background
   // and the body (z −1 on a child of <html>), so it exists exactly where the
@@ -117,6 +137,24 @@ export function armGlideNav(opts: GlideOptions): void {
 
   const stopFor = (dir: 1 | -1) => (dir > 0 ? next : prev);
   const may = (dir: 1 | -1) => !!stopFor(dir) && (!opts.enabled || opts.enabled()) && (opts.allow ? opts.allow(dir) : true);
+
+  // the cue follows the page (cueState): re-read as it scrolls, as the window resizes, and as the page's own content
+  // arrives and changes its height
+  if (cue) {
+    const syncCue = () => { cue.dataset.state = cueState(may(1), top()); };
+    syncCue();
+    window.addEventListener('scroll', syncCue, { passive: true });
+    window.addEventListener('resize', syncCue);
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(syncCue).observe(document.body);
+    cue.addEventListener('click', (e) => {
+      // as a plain scroll hint it scrolls the page one screen on; only as the next page's name does it leave
+      if (cue.dataset.state === 'scroll') {
+        e.preventDefault();
+        e.stopPropagation();
+        window.scrollBy({ top: window.innerHeight * 0.85, behavior: calm ? 'auto' : 'smooth' });
+      }
+    });
+  }
 
   const setDrag = (px: number, dir: 1 | -1) => {
     const vh = window.innerHeight;

@@ -125,13 +125,15 @@ describe('the signposts are wired (pins)', () => {
     ['src/pages/story.ts', "'AUTOPILOT IS ON ▪ PRESS FREE TO FLY THE CITY YOURSELF'"],
     ['src/pages/story.ts', "'DRAG TO LOOK AROUND ▪ STICK TO MOVE ▪ ▲ ▼ TO RISE / SINK'"],
     ['story.html', 'DRAG TO LOOK AROUND ▪ W A S D TO MOVE ▪ E / Q TO RISE / SINK ▪ SHIFT TO GO FASTER ▪ T TO CHANGE THE TIME OF DAY'],
-    ['src/lib/swipe-nav.ts', "kicker.textContent = 'SCROLL DOWN ▾'"],
+    // (a mouse is told the gesture, a touch screen what the word under it is: cueKicker, 2026-09-30)
+    ['src/lib/swipe-nav.ts', "return fine ? 'SCROLL DOWN ▾' : 'NEXT PAGE';"],
     ['src/lib/swipe-nav.ts', "'NEXT PAGE ▸' : '◂ PREVIOUS PAGE'"],
     ['src/pages/contact.ts', "copy.textContent = 'COPY EMAIL'"],
     ['contact.html', '>COPY EMAIL</button>'],
-    ['src/shell/hud.ts', 'SFX ${'],
-    ['src/shell/hud.ts', 'MUSIC ${'],
-    ['src/shell/hud.ts', 'MOTION ${'],
+    // (the switches say their state in words too, through one function: shell/switches.ts, 2026-09-30)
+    ['src/shell/hud.ts', "switchLabel('SFX', "],
+    ['src/shell/hud.ts', "switchLabel('MUSIC', "],
+    ['src/shell/hud.ts', "switchLabel('MOTION', "],
   ];
   for (const [file, needle] of pins) {
     it(`${file} carries ${needle}`, () => {

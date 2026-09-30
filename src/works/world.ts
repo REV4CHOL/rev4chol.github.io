@@ -6,13 +6,17 @@ import { aspectRatio, isBlank } from '../lib/content';
 import { dprCap, finePointer, reducedMotion } from '../lib/env';
 import { posterZoom } from '../lib/poster-lock';
 import { maxFpsFor, quality } from '../lib/quality';
+import { softBreaks } from '../lib/escape';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { leaveTo } from '../lib/transitions';
 import { setCursorLabel } from '../shell/cursor';
+import { captionSpot } from './caption';
 import { captionMeta, markFloorOpened } from './legend';
 import { openingFrame } from './opening';
-import { CARD_W, ISO, SEAM, STEP_W, WORLD_PAD, cardSize, hoverFit, rowAxisWorld } from './constants';
+import {
+  CARD_W, HOVER_LIFT, HOVER_M, ISO, SEAM, STEP_W, WORLD_PAD, cardSize, hoverFit, hoverFitIn, previewBox, rowAxisWorld,
+} from './constants';
 import { buildDebris } from './debris';
 import { buildFields } from './fields';
 import { GRAIN, joltCamera, misregister, streakBurst, type Burst, type Misreg } from './flipfx';
@@ -22,7 +26,8 @@ import { BlankPane } from './blank';
 import { layoutProjects, packRows, paneBand, rowsOf, type Placed } from './layout';
 import { PlaybackManager } from './playback';
 import { loadPosterCanvas } from './poster';
-import type { ViewRect } from './priority';
+import type { TileRect, ViewRect } from './priority';
+import { nearestPane, strayed } from './stray';
 import { ProjectTile } from './tile';
 
 export interface WorldHooks { onCoords(x: number, y: number): void }
@@ -47,6 +52,15 @@ export class WorksWorld {
   private entering = false;
   /** the quality subscription (lib/quality.ts) — dropped in destroy(), or a dead world would keep re-tuning */
   private offQuality: (() => void) | null = null;
+
+  /** the floor stands still while the page shows its list of films (pause/resume) */
+  private paused = false;
+  /** the awake pane's lift: the scale its preview stands at (hoverFit, hoverFitIn) */
+  private lift = 1;
+  /** where the awake pane's caption stands from its card's centre (plate px), and the zoom it was placed at */
+  private caption: { dx: number; dy: number; zs: number; left: number; top: number } | null = null;
+  /** ms before the floor may be judged strayed (a chapter's panes are still flying in) */
+  private strayHold = 0;
 
   /** the floor's held places — unlit screens keeping spots for films to come */
   protected blanks: BlankPane[] = [];
@@ -227,12 +241,16 @@ export class WorksWorld {
 
   private playClock = 0;
   private shimmerClock = 0;
+  private strayClock = 0;
   private lastPlayPos = { x: NaN, y: NaN };
+  private lastRestPos = { x: NaN, y: NaN };
 
   protected afterTick(dtMs: number): void {
     // a world on its way out must not churn: no playback wakes (each one can
     // spin up a fresh video decoder mid-flip), no shimmer ticks
     if (this.exiting) return;
+    this.followCaption();
+    this.returnIfStrayed(dtMs);
     this.playClock += dtMs;
     const moved = Math.hypot(this.pan.pos.x - this.lastPlayPos.x, this.pan.pos.y - this.lastPlayPos.y);
     if (this.playClock > 300 || moved > 60 || Number.isNaN(moved)) {
@@ -251,6 +269,44 @@ export class WorksWorld {
     }
   }
 
+  /** NEVER LOST IN EMPTY FLOOR (stray.ts; owner's testers, 2026-09-30): four times a second, once the floor has come
+   *  to rest, if the middle of the screen holds no film the floor glides back to the nearest one. Nothing moves under
+   *  a finger or a drag, during a fling, or while another glide runs. */
+  private returnIfStrayed(dtMs: number): void {
+    if (this.strayHold > 0) this.strayHold -= dtMs;
+    this.strayClock += dtMs;
+    if (this.strayClock < 250) return;
+    this.strayClock = 0;
+    const still = Math.hypot(this.pan.pos.x - this.lastRestPos.x, this.pan.pos.y - this.lastRestPos.y) < 1;
+    this.lastRestPos = { x: this.pan.pos.x, y: this.pan.pos.y };
+    if (!still || this.strayHold > 0 || this.entering || this.pan.dragging || this.pan.coasting) return;
+    if (gsap.isTweening(this.pan.pos)) return;
+    const rects: TileRect[] = [...this.tiles.values()].map((t) => ({
+      slug: t.project.slug, cx: t.x, cy: t.y, hw: t.extentX(), hh: t.extentY(),
+    }));
+    if (!strayed(this.viewRect(), rects)) return;
+    const home = nearestPane(this.viewRect(), rects);
+    if (!home) return;
+    const zs = this.worldC.scale.x || 1;
+    gsap.to(this.pan.pos, { x: -home.cx * zs, y: -home.cy * zs, duration: reducedMotion() ? 0 : 0.7, ease: 'power2.out' });
+  }
+
+  /** The floor stands still while the page shows its list: no pane awake, every loop asleep, the ticker stopped. */
+  pause(): void {
+    if (this.paused) return;
+    this.unhover();
+    this.paused = true;
+    for (const t of this.tiles.values()) t.sleep();
+    this.app.stop();
+  }
+
+  resume(): void {
+    if (!this.paused) return;
+    this.paused = false;
+    this.app.start();
+    this.playback.update(this.viewRect(), this.hoveredSlug);
+  }
+
   viewRect(): ViewRect {
     // pan.pos is a screen offset; the visible WORLD rect shrinks as the pinch zooms in
     const s = this.worldC.scale.x || 1;
@@ -267,7 +323,7 @@ export class WorksWorld {
   }
 
   hover(slug: string): void {
-    if (this.entering || this.exiting) return; // panes flying out under a still pointer must not wake
+    if (this.entering || this.exiting || this.paused) return; // panes flying out under a still pointer must not wake
     if (this.hoveredSlug === slug) return;
     this.unhover();
     const tile = this.tiles.get(slug);
@@ -282,12 +338,43 @@ export class WorksWorld {
     gsap.to(this.tilesLayer, { alpha: 0.62, duration: 0.35 });
     tile.wake();
     tile.swapToMontage();
-    // a tall pane (a vertical film's) stands up twice a landscape pane's height: its hover fits the screen's height at
-    // the floor's zoom, so the whole frame shows; a landscape pane keeps the plain lift at every zoom
-    tile.enterHover(tile.placed.tall ? hoverFit(tile.ch, tile.sizeMul, this.worldC.scale.x || 1, this.app.screen.height) : 1);
+    // THE PREVIEW FITS THE SCREEN. A tall pane (a vertical film's) stands up twice a landscape pane's height: its hover
+    // fits the screen's height at the floor's zoom, so the whole frame shows. And no preview is wider or taller than
+    // its box (constants.previewBox; owner's testers, 2026-09-30: pinched in, a phone's preview stood wider than its
+    // screen): at the floor's own zoom a landscape pane keeps the plain lift.
+    const zs = this.worldC.scale.x || 1;
+    const sw = this.app.screen.width;
+    const sh = this.app.screen.height;
+    const coarse = !finePointer();
+    const box = previewBox(sw, sh, coarse);
+    this.lift = this.liftAt(tile, zs, box);
+    tile.enterHover(this.lift);
+    // where the lifted card's centre will stand on the screen: where the pane lies…
+    let cx = sw / 2 + this.pan.pos.x + tile.x * zs;
+    let cy = sh / 2 + this.pan.pos.y + (tile.y - HOVER_LIFT) * zs;
+    if (coarse) {
+      // …but a touch screen has no pointer to follow, and a tapped pane stood up where it lay: half off the screen, or
+      // a sliver at its edge (owner's testers). The first tap now brings the pane to the middle of its box.
+      cx = box.x + box.w / 2;
+      cy = box.y + box.h / 2;
+      gsap.killTweensOf(this.pan.pos);
+      gsap.to(this.pan.pos, {
+        x: cx - sw / 2 - tile.x * zs, y: cy - sh / 2 - (tile.y - HOVER_LIFT) * zs,
+        duration: reducedMotion() ? 0 : 0.45, ease: 'power2.out',
+      });
+    }
+    document.getElementById('app')?.classList.add('is-awake'); // (a phone's legend stands down: components.css)
     setCursorLabel('OPEN ▸'); // (the legend says "click it to open": the cursor says the same word)
-    this.showLabel(tile);
+    this.showLabel(tile, cx, cy);
     this.playback.update(this.viewRect(), this.hoveredSlug);
+  }
+
+  /** The scale a pane's preview stands at, at the floor's zoom `zs`, inside its box. */
+  private liftAt(tile: ProjectTile, zs: number, box: { w: number; h: number }): number {
+    return Math.min(
+      tile.placed.tall ? hoverFit(tile.ch, tile.sizeMul, zs, this.app.screen.height) : 1,
+      hoverFitIn(tile.cw, tile.ch, tile.sizeMul, zs, box.w, box.h),
+    );
   }
 
   unhover(): void {
@@ -296,6 +383,7 @@ export class WorksWorld {
     if (!slug) return;
     this.hoveredSlug = null;
     const tile = this.tiles.get(slug);
+    document.getElementById('app')?.classList.remove('is-awake');
     setCursorLabel(null);
     this.hideLabel();
     this.tilesLayer.filters = [];
@@ -397,13 +485,14 @@ export class WorksWorld {
   }
 
   focusProject(slug: string): void {
-    if (this.entering) return;
+    if (this.entering || this.paused) return;
     const tile = this.tiles.get(slug);
     if (!tile) return;
     const mySlug = slug;
+    const zs = this.worldC.scale.x || 1; // (the pane's screen offset scales with the floor's zoom: unscaled, the focus missed)
     gsap.killTweensOf(this.pan.pos);
     gsap.to(this.pan.pos, {
-      x: -tile.x, y: -tile.y,
+      x: -tile.x * zs, y: -tile.y * zs,
       duration: reducedMotion() ? 0 : 0.5, ease: 'power2.out',
       onComplete: () => { if (!this.entering) this.hover(mySlug); },
     });
@@ -457,6 +546,7 @@ export class WorksWorld {
    *  mirrored — panes, furniture and lattice together — arriving misregistered
    *  and snapping into register as everything lands. */
   arrive(): void {
+    this.strayHold = 1200; // (the panes are in flight: the floor is judged once they have landed)
     if (reducedMotion()) return;
     const span = Math.max(this.app.screen.width, this.app.screen.height) * 1.5;
     if (quality.tier() > 0) { // (LITE: the plain slide, as in exit())
@@ -498,31 +588,92 @@ export class WorksWorld {
       tile.releaseVideo();
     }
     this.pan.dispose();
-    if (this.labelEl) this.labelEl.hidden = true;
+    this.hideLabel();
+    document.getElementById('app')?.classList.remove('is-awake');
     for (const g of this.gaps) g.destroy({ children: true }); // (never on the scene graph, so the app's teardown misses them)
     this.app.destroy(true, { children: true });
   }
 
-  private showLabel(tile: ProjectTile): void {
-    if (!this.labelEl) return;
+  /** The awake pane's caption: its words, then its place (`cx`, `cy`: where the lifted card's centre will stand on the
+   *  screen; on a touch screen the floor is still travelling there). */
+  private showLabel(tile: ProjectTile, cx: number, cy: number): void {
+    const el = this.labelEl;
+    if (!el) return;
     const p = tile.project;
-    const global = this.worldC.toGlobal({ x: tile.x, y: tile.y });
-    this.labelEl.hidden = false;
-    // canvas coords are viewport px (the floor is lock-exempt); the label is
-    // plate chrome — convert both the point and the clamps into plate px
-    const z = posterZoom();
-    const pw = window.innerWidth / z;
-    const ph = window.innerHeight / z;
-    this.labelEl.style.left = `${Math.max(16, Math.min(pw - 360, (global.x + tile.extentX() * 0.7) / z))}px`;
-    this.labelEl.style.top = `${Math.min(ph - 120, Math.max(70, global.y / z - 40))}px`;
-    const title = this.labelEl.querySelector('.tl-title') as HTMLElement;
-    const meta = this.labelEl.querySelector('.tl-meta') as HTMLElement;
+    const title = el.querySelector('.tl-title') as HTMLElement;
+    const meta = el.querySelector('.tl-meta') as HTMLElement;
+    const name = softBreaks((p.short || p.title).toUpperCase());
     meta.textContent = captionMeta(p, finePointer()); // …ending with the verb that opens the pane
     meta.style.color = p.accent;
-    void scrambleEl(title, (p.short || p.title).toUpperCase(), 420);
+    title.textContent = name; // (placed by its real words; the scramble then runs over them)
+    el.hidden = false;
+    this.placeCaption(tile, cx, cy);
+    this.followCaption(); // (a touch screen: the card has yet to travel to where its caption was placed)
+    void scrambleEl(title, name, 420);
+  }
+
+  /** The caption stands by the lifted card, never on the picture while there is room, never off the screen
+   *  (caption.ts). Canvas coords are viewport px (the floor is lock-exempt); the label is plate chrome: the card's box
+   *  and the screen are converted into plate px. */
+  private placeCaption(tile: ProjectTile, cx: number, cy: number): void {
+    const el = this.labelEl;
+    if (!el) return;
+    const z = posterZoom();
+    const zs = this.worldC.scale.x || 1;
+    const coarse = !finePointer();
+    const w = (tile.cw * tile.sizeMul * HOVER_M.a * this.lift * zs) / z;
+    const h = (tile.ch * tile.sizeMul * HOVER_M.d * this.lift * zs) / z;
+    const pw = window.innerWidth / z;
+    const ph = window.innerHeight / z;
+    // the room captions may use: under the header, the legend and the list button; over the chapter tabs
+    const head = coarse ? 132 : 172;
+    const view = { x: 16, y: head, w: pw - 32, h: ph - head - (coarse ? 104 : 96) };
+    const spot = captionSpot({ x: cx / z - w / 2, y: cy / z - h / 2, w, h }, view, (max) => {
+      el.style.maxWidth = `${max}px`;
+      return { w: el.offsetWidth, h: el.offsetHeight };
+    });
+    el.style.maxWidth = `${spot.maxWidth}px`;
+    const left = Math.round(spot.left);
+    const top = Math.round(spot.top);
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+    this.caption = { dx: left - cx / z, dy: top - cy / z, zs, left, top };
+  }
+
+  /** The caption travels with its card: while a touch screen brings the pane to the middle, while a wheel moves the
+   *  floor under a still pointer; and it is placed afresh when the zoom changes the card's size. */
+  private followCaption(): void {
+    const c = this.caption;
+    const el = this.labelEl;
+    if (!c || !el || !this.hoveredSlug) return;
+    const tile = this.tiles.get(this.hoveredSlug);
+    if (!tile) return;
+    const zs = this.worldC.scale.x || 1;
+    const cx = this.app.screen.width / 2 + this.pan.pos.x + tile.x * zs;
+    const cy = this.app.screen.height / 2 + this.pan.pos.y + (tile.y - HOVER_LIFT) * zs;
+    if (zs !== c.zs) {
+      // the zoom changed under the awake pane: its preview is fitted afresh (it grew with the zoom, past the screen),
+      // then its caption
+      const lift = this.liftAt(tile, zs, previewBox(this.app.screen.width, this.app.screen.height, !finePointer()));
+      if (Math.abs(lift - this.lift) > 0.001) {
+        this.lift = lift;
+        tile.enterHover(lift);
+      }
+      this.placeCaption(tile, cx, cy);
+      return;
+    }
+    const z = posterZoom();
+    const left = Math.round(cx / z + c.dx);
+    const top = Math.round(cy / z + c.dy);
+    if (left === c.left && top === c.top) return;
+    c.left = left;
+    c.top = top;
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
   }
 
   private hideLabel(): void {
+    this.caption = null;
     if (this.labelEl) this.labelEl.hidden = true;
   }
 }

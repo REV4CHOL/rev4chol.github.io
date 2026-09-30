@@ -77,7 +77,7 @@ function render(site: SiteContent, about: AboutContent): void {
   const callouts: [string, string][] = [
     ['ALIAS', site.name.toUpperCase()],
     ['CLASS', caps.join(' / ')],
-    ['STATUS', 'ACTIVE ▸'],
+    ['STATUS', 'ACTIVE'], // (no arrow: the arrow is the buttons')
   ];
   document.getElementById('a-callouts')!.innerHTML = callouts
     .map(

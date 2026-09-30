@@ -1,5 +1,5 @@
 import { ContentError } from '../lib/content';
-import { reducedMotion } from '../lib/env';
+import { finePointer, reducedMotion } from '../lib/env';
 import { escapeHtml } from '../lib/escape';
 
 export interface BootTask { label: string; run: () => Promise<unknown> }
@@ -23,7 +23,7 @@ export function runBoot(tasks: BootTask[]): Promise<void> {
 
   const el = document.createElement('div');
   el.id = 'boot';
-  el.innerHTML = `<pre class="boot-logo"></pre><div class="boot-log" aria-live="polite"></div><p class="boot-skip micro">CLICK TO SKIP</p>`;
+  el.innerHTML = `<pre class="boot-logo"></pre><div class="boot-log" aria-live="polite"></div><p class="boot-skip micro">${finePointer() ? 'CLICK TO SKIP' : 'TAP TO SKIP'}</p>`;
   document.body.append(el);
   (el.querySelector('.boot-logo') as HTMLElement).textContent = LOGO;
   const logEl = el.querySelector('.boot-log') as HTMLElement;

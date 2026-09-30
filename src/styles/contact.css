@@ -88,8 +88,9 @@
 .c-social:hover { background: var(--flourish); color: var(--void); }
 
 .c-eof {
+  /* 96 px under the end mark: the scroll cue stands at the screen's foot, and the mark was printed under it */
   position: relative; display: grid; justify-items: center; gap: 12px;
-  padding: 56px 28px 40px; color: rgba(237, 237, 230, 0.5); letter-spacing: 0.16em;
+  padding: 56px 28px 96px; color: rgba(237, 237, 230, 0.5); letter-spacing: 0.16em;
 }
 .c-eof::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0; height: 10px;
@@ -100,8 +101,9 @@
    Coarse-gated: the poster lock must never see this block (a zoomed-in
    desktop viewport crosses 760px too; only actual touch devices reflow) */
 @media (max-width: 760px) and (pointer: coarse) {
-  .c-console { padding: 128px 18px 32px; }
-  .c-status { left: 16px; right: 16px; top: 108px; }
+  /* the first line stands under the switches' row (top 108), not on it */
+  .c-console { padding: 164px 18px 32px; }
+  .c-status { left: 16px; right: 16px; top: 136px; }
   .c-index { display: none; }
   .c-body { padding-top: 0; }
   /* the unbroken address must fit the column */

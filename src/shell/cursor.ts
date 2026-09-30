@@ -62,6 +62,8 @@ export function initCursor(): void {
     });
   });
   document.addEventListener('pointerover', (e) => {
+    // the cross boxes itself over everything that can be pressed, labelled or not (the native hand is hidden)
+    c.classList.toggle('on-link', !!(e.target as Element).closest?.('a, button'));
     const label = cursorLabelFor(e.target as Element, chromeWrote);
     if (label === undefined) return;
     paint(label);

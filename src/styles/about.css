@@ -216,7 +216,7 @@
 }
 .a-sec-body { position: relative; min-width: 0; }
 .a-rail-tag {
-  position: sticky; top: 104px; display: inline-block;
+  position: sticky; top: 136px; display: inline-block; /* under the header's scrolled veil, not inside it */
   font-family: var(--f-display); font-weight: 700; font-size: var(--t-xl);
   line-height: 0.8; color: transparent; -webkit-text-stroke: 1.5px var(--signal);
   opacity: 0.85;
@@ -309,15 +309,8 @@
 .a-bar-cap { flex: none; letter-spacing: 0.2em; }
 .a-bar[data-kind='c'] .a-bar-cap { color: var(--alert); }
 .a-bar[data-kind='t'] .a-bar-cap { color: color-mix(in srgb, var(--field) 60%, var(--bone) 40%); }
-/* hover: the cartridge slams to its bank color */
-.a-bar:hover[data-kind='c'] { background: var(--alert); border-color: var(--alert); }
-.a-bar:hover[data-kind='t'] { background: var(--field); border-color: var(--field); }
-.a-bar:hover .a-bar-name { color: var(--void); animation: rgb-flick 0.32s steps(2) 1; }
-.a-bar:hover[data-kind='t'] .a-bar-name { color: var(--bone); }
-.a-bar:hover .a-bar-cap { color: var(--void); }
-.a-bar:hover[data-kind='t'] .a-bar-cap { color: var(--bone); }
-.a-bar:hover .a-bar-rail { opacity: 0.35; }
-.rvl-calm .a-bar:hover .a-bar-name { animation: none; }
+/* (a skill row no longer fills under the pointer: it is not a link, and the fill is what the site's real links do;
+   owner's testers, 2026-09-30, both pressed the rows) */
 
 /* --------------------------------------------------------- transmit -- */
 

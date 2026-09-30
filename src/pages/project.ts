@@ -2,7 +2,8 @@ import { aspectRatio, getSlugFromSearch, isPlaceholder, loadLoopManifest, loadPr
 import { ditherImageToCanvas } from '../lib/dither';
 import { embedSrc } from '../lib/embeds';
 import { mulberry32 } from '../lib/rng';
-import { escapeHtml } from '../lib/escape';
+import { escapeHtml, softBreaks } from '../lib/escape';
+import { reducedMotion } from '../lib/env';
 import { armPosterLock, posterZoom } from '../lib/poster-lock';
 import { scrambleEl } from '../lib/scramble';
 import { music } from '../lib/music';
@@ -10,6 +11,7 @@ import { sound } from '../lib/sound';
 import { hashSlug, stillSlotUrls, wallRhythm } from '../project/dossier';
 import { linkParts } from '../project/parts';
 import { stillParts } from '../project/pillars';
+import { playerRatio, watchKind } from '../project/watch';
 import { armStamps } from '../lib/stamps';
 import { startPage } from '../shell/page';
 import '../styles/project.css';
@@ -239,16 +241,18 @@ function mountSynopsis(p: Project): void {
   }
 
   const watch = document.getElementById('p-watch-btn') as HTMLButtonElement;
+  const heroWatch = document.getElementById('p-hero-watch') as HTMLButtonElement;
   const player = document.getElementById('p-player') as HTMLDivElement;
-  if (!p.film) {
-    if (p.filmPrivate) {
+  const kind = watchKind(p);
+  if (kind !== 'watch') {
+    if (kind === 'private') {
       // PRIVATE (owner 2026-09-28, MIEN VIEN: the link "will never arrive"): no WATCH, and where it would stand, what
       // a visitor can and cannot do in one line, in the placeholder line's quiet style (the reason stays off the site)
       const note = document.createElement('p');
       note.className = 'p-private micro';
       note.textContent = 'PRIVATE FILM ▪ NOT AVAILABLE TO WATCH ONLINE';
       watch.after(note);
-    } else if (p.filmPending) {
+    } else if (kind === 'pending') {
       // the film exists but isn't linkable yet — the button stands, greyed
       watch.hidden = false;
       watch.disabled = true;
@@ -263,9 +267,12 @@ function mountSynopsis(p: Project): void {
     }
     return;
   }
-  watch.hidden = false;
-  watch.dataset.cursor = 'PLAY ▸';
-  watch.addEventListener('click', () => {
+  // THE FILM OPENS LARGE, AND WATCH STANDS ON THE FIRST SCREEN (owner's testers, 2026-09-30: "they dont know how to
+  // navigate the website or click or do actions"): two buttons, one player. The hero's is there before any scroll;
+  // the synopsis's stands where it always did. Either opens the film as wide as the page allows, in the player's own
+  // shape (vertical footage stands vertical), and the page travels to it; pressed again, the hero's travels back to it.
+  player.style.setProperty('--player-ratio', String(playerRatio(aspectRatio(p.aspect))));
+  const mount = () => {
     watch.hidden = true;
     player.hidden = false;
     music.hold(); // WATCH (owner): the music stops, and stays stopped until the next section or page
@@ -286,11 +293,29 @@ function mountSynopsis(p: Project): void {
       if (src) {
         const f = document.createElement('iframe');
         f.src = src;
+        f.title = p.title;
         f.allow = 'autoplay; fullscreen; picture-in-picture';
         f.allowFullscreen = true;
         player.append(f);
       }
     }
+  };
+  const open = () => {
+    if (player.hidden) mount();
+    player.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
+  };
+  for (const b of [watch, heroWatch]) {
+    b.hidden = false;
+    b.dataset.cursor = 'PLAY ▸';
+    b.addEventListener('click', open);
+  }
+  // THE PICTURE PLAYS THE FILM: a framed moving picture with a ruler under it reads as a player, and both testers
+  // pressed it first and got nothing. A click or a tap on it is WATCH (its links and buttons keep their own jobs).
+  const hero = document.getElementById('p-hero')!;
+  hero.classList.add('p-hero--plays');
+  hero.dataset.cursor = 'PLAY ▸';
+  hero.addEventListener('click', (e) => {
+    if (!(e.target as Element).closest('a, button')) open();
   });
 }
 
@@ -593,6 +618,6 @@ function mountEndNav(all: Project[], idx: number): void {
   document.getElementById('p-confirm')!.innerHTML = `
     <div class="p-endnav" data-stamp>
       <a class="p-back" href="/works.html" data-internal data-cursor="BACK ◂">◂ BACK TO ALL FILMS</a>
-      ${solo ? '' : `<a class="p-nextlink" href="/project.html?p=${next.slug}" data-internal data-cursor="NEXT ▸">NEXT FILM ▸ ${escapeHtml(next.title.toUpperCase())}</a>`}
+      ${solo ? '' : `<a class="p-nextlink" href="/project.html?p=${next.slug}" data-internal data-cursor="NEXT ▸">NEXT FILM ▸ ${escapeHtml(softBreaks(next.title.toUpperCase()))}</a>`}
     </div>`;
 }

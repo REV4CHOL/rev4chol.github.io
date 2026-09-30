@@ -14,6 +14,10 @@ body {
   background: var(--void);
   color: var(--bone);
   font-family: 'Geist Mono', ui-monospace, monospace;
+  /* no page is wider than its screen (owner's testers, 2026-09-30): what reaches past the body is cut there. On a
+     phone, overflow widens the layout viewport instead: ABOUT's rings made it 498 px on a 390 px screen, the page
+     slid sideways and the fixed chrome hung off its right edge (the homepage's own rule, now every page's) */
+  overflow-x: clip;
   /* /--plate: on poster-locked pages the zoom premultiplies vh by the plate
      factor — undivided, k>1 overshoots the viewport by a few px and hangs a
      phantom scrollbar on the fixed pages (unlocked pages: --plate is 1).
@@ -113,7 +117,9 @@ body { font-size: var(--t-md); line-height: 1.6; }
   font-family: var(--f-micro); font-size: 9px; letter-spacing: 0.1em;
   color: color-mix(in srgb, var(--bone) 40%, transparent);
 }
-#cursor.has-label .x { outline: 1px solid var(--accent); outline-offset: 4px; }
+/* the crosshair boxes itself over everything that can be pressed, labelled or not (owner's testers, 2026-09-30:
+   "what to click on": the native hand is hidden, and over an unlabelled link the cross did not change) */
+#cursor.has-label .x, #cursor.on-link .x { outline: 1px solid var(--accent); outline-offset: 4px; }
 
 /* ---- boot ---- */
 #boot {

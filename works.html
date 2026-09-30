@@ -12,7 +12,10 @@
 </head>
 <body class="page-work">
   <main id="app" class="works-main">
+    <h1 class="sr-only">Work: the films</h1>
+    <p class="floor-hint micro" id="floor-hint"></p>
     <div id="floor" aria-hidden="true"></div>
+    <section id="film-list" class="film-list" aria-label="All films" tabindex="-1" hidden></section>
     <nav id="ch-switch" class="ch-switch" aria-label="Work channels"></nav>
     <div id="ch-static" class="ch-static" aria-hidden="true">
       <div class="ch-ident">
@@ -20,7 +23,6 @@
         <span class="ch-ident-name" id="ch-ident-name"></span>
       </div>
     </div>
-    <p class="floor-hint micro" id="floor-hint"></p>
     <ul id="sr-projects" class="sr-only" aria-label="Projects"></ul>
     <aside id="tile-label" hidden>
       <h2 class="tl-title"></h2>

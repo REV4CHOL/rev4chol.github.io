@@ -259,6 +259,11 @@ export class PanController {
     this.touches.clear();
   }
 
+  /** Still gliding from a release: the floor has not come to rest (world.ts returns a strayed floor only at rest). */
+  get coasting(): boolean {
+    return Math.hypot(this.vel.x, this.vel.y) > 0.5;
+  }
+
   panBy(dx: number, dy: number): void {
     this.pos.x += dx;
     this.pos.y += dy;

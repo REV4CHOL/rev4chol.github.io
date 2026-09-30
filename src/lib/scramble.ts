@@ -8,7 +8,7 @@ export function scrambleFrame(target: string, progress: number, rand: () => numb
   let out = '';
   for (let i = 0; i < target.length; i++) {
     const ch = target[i];
-    if (ch === ' ' || ch === '\n') { out += ch; continue; }
+    if (ch === ' ' || ch === '\n' || ch === '\u200b') { out += ch; continue; } // (a soft break stays a soft break)
     out += i < reveal ? ch : GLYPHS[Math.floor(rand() * GLYPHS.length)];
   }
   return out;

@@ -75,8 +75,10 @@
   background-position: 0 0, 0 100%;
   background-size: 100% 1.5px, 100% 9px;
 }
+/* (the stamp stands mid-band: at the band's right it ran through the menu and the switches, "2.39:1" drawn across
+   them; owner's testers, 2026-09-30) */
 .p-band-t::after {
-  content: attr(data-ratio); position: absolute; right: 40px; top: calc(50% - 0.5em);
+  content: attr(data-ratio); position: absolute; left: 50%; translate: -50% 0; top: calc(50% - 0.5em);
   font-family: var(--f-display); font-weight: 700; font-size: var(--t-2xl); line-height: 1;
   color: transparent; -webkit-text-stroke: 1.5px var(--signal); opacity: 0.7;
 }
@@ -90,9 +92,9 @@
     repeating-linear-gradient(90deg, rgba(255, 46, 99, 0.8) 0 2.5px, transparent 2.5px 120px) 0 0 / 100% 14px no-repeat;
 }
 @media (max-width: 760px) and (pointer: coarse) {
-  .p-band-t::after { font-size: var(--t-xl); right: 16px; }
-  /* a vertical picture fills a phone's width: its bands are a sprocket row thin, too thin for the stamp */
-  .p-band-t[data-ratio="9:16"]::after { display: none; }
+  /* a phone's top band is the menu's, the switches', the status line's and the index's: no room for the stamp (it sat
+     on MOTION and on the status line) */
+  .p-band-t::after { display: none; }
 }
 
 /* the side fields are RACK PANELS, not blank void: gate hairline, an
@@ -205,6 +207,22 @@
   display: grid; gap: 16px; justify-items: end; color: var(--bone); letter-spacing: 0.1em;
 }
 .p-callout { display: flex; align-items: center; gap: 12px; }
+/* ink and halo, the homepage's nav treatment (no plates): over a bright picture the marks read as nothing, ROLE, YR
+   and RT white on a white sky (owner's testers, 2026-09-30) */
+.p-status, .p-index, .p-callouts, .p-up {
+  text-shadow: 0 0 4px rgba(6, 6, 6, 0.95), 0 1px 2px rgba(6, 6, 6, 0.9), 0 2px 16px rgba(6, 6, 6, 0.8);
+}
+/* THE WAY BACK, AT THE TOP (owner's testers, 2026-09-30: the link back to all films stood only at the page's foot,
+   after every still, forty of them on one page): under the wordmark, in the interactives' pink */
+.p-up {
+  position: absolute; left: 28px; top: calc(62px * var(--uiz)); z-index: 5;
+  display: inline-flex; align-items: center; min-height: 44px;
+  font-family: var(--f-micro); font-size: var(--t-xs); letter-spacing: 0.18em; text-decoration: none;
+  color: var(--alert);
+}
+.p-up:hover { color: var(--bone); animation: rgb-flick 0.32s steps(2) 1; }
+/* the picture itself plays the film (p-hero--plays, from JS, only where there is a film to watch) */
+.p-hero--plays { cursor: pointer; }
 .pc-line { position: relative; width: 78px; border-top: 1px dotted rgba(200, 255, 0, 0.65); }
 .pc-line::before {
   content: ''; position: absolute; left: -2px; top: -2.5px;
@@ -239,7 +257,7 @@
 }
 .p-sec-body { position: relative; min-width: 0; }
 .p-rail-tag {
-  position: sticky; top: 104px; display: inline-block;
+  position: sticky; top: 136px; display: inline-block; /* under the header's scrolled veil, not inside it */
   font-family: var(--f-display); font-weight: 700; font-size: var(--t-xl);
   line-height: 0.8; color: transparent; -webkit-text-stroke: 1.5px var(--signal);
   opacity: 0.85;
@@ -274,9 +292,11 @@
   padding: 13px 0; border-bottom: 1px dotted rgba(237, 237, 230, 0.22);
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
+/* a genre is a tag, not a button (owner's testers, 2026-09-30: both pressed them): dotted and square, where the
+   site's buttons (COPY EMAIL, the social links) are solid pills */
 .p-pill {
-  border: 1px solid var(--alert); color: var(--alert); border-radius: 999px;
-  padding: 4px 14px; font-family: var(--f-micro); font-size: var(--t-2xs);
+  border: 1px dotted color-mix(in srgb, var(--alert) 75%, transparent); color: var(--alert);
+  padding: 4px 12px; font-family: var(--f-micro); font-size: var(--t-2xs);
   letter-spacing: 0.1em; text-transform: uppercase;
 }
 
@@ -314,9 +334,25 @@
   background: none; border-color: rgba(237, 237, 230, 0.25);
   color: rgba(237, 237, 230, 0.35); cursor: default; pointer-events: none;
 }
-.p-player { margin-top: 34px; position: relative; }
+/* WATCH ON THE FIRST SCREEN (owner's testers, 2026-09-30: "they dont know how to … click or do actions"): the one
+   action a film's page exists for stood a full screen below the picture. The hero carries its own, inside the scan
+   frame's lower left corner, clear of the title at its largest; it opens the same player and takes the page to it. */
+.p-hero-run {
+  position: absolute; left: 116px; bottom: 152px; z-index: 5; margin-top: 0;
+  padding: 16px 36px; font-size: var(--t-sm); box-shadow: 0 2px 22px rgba(6, 6, 6, 0.55);
+}
+.p-hero-run:hover { background: var(--void); }
+/* THE FILM OPENS LARGE (owner's testers, 2026-09-30): as wide as the page allows and no taller than the screen shows
+   whole, in the player's own shape (--player-ratio, from JS: vertical footage stands vertical). Before, on a wide
+   screen, it opened in the field right of the synopsis, which the 1440 plate pins to a sliver: 245 × 138 px. */
+.p-player {
+  margin-top: 34px; position: relative;
+  width: min(100%, calc(min(74svh / var(--plate, 1), 760px) * var(--player-ratio, 1.7778)));
+  /* the page centres the open player (project.ts): in the screen UNDER the header, clear of its veil */
+  scroll-margin-top: 66px;
+}
 .p-player iframe, .p-player video {
-  width: min(100%, 1080px); aspect-ratio: 16 / 9; border: 0; background: #000;
+  width: 100%; aspect-ratio: var(--player-ratio, 16 / 9); border: 0; background: #000;
   outline: 1px solid rgba(200, 255, 0, 0.4); display: block;
 }
 /* the player wears the works-tile dress: uplink tag + corner ticks (a film in parts: its stage, .p-parts) */
@@ -337,34 +373,19 @@
   background-repeat: no-repeat;
 }
 
-/* wide screens: the player takes the dark field to the RIGHT of the
-   synopsis — the text keeps its 58ch column, the film gets the rest.
+/* wide screens: the synopsis keeps the intake sheet's column (880px), and the open player takes the page's full row
+   under it, starting where WATCH stood: a film and a film in parts alike.
    OR pointer:fine — the locked plate is 1440 wide whatever the viewport,
    so a zoomed-in desktop must never fall out of the wide layout */
 @media (min-width: 1100px), (pointer: fine) {
   .p-syn-sec .p-sec-body {
-    /* col 1 = the intake sheet's design width (880px), NOT the narrower
-       synopsis measure — the player reaches up beside the spec section, so
-       its left edge must clear every row of that design */
     display: grid; grid-template-columns: minmax(0, 880px) minmax(0, 1fr);
     gap: 0 48px; align-items: start;
   }
   .p-syn-sec .p-synopsis { grid-column: 1; grid-row: 1; }
   .p-watch { display: contents; }
   .p-run { grid-column: 1; grid-row: 2; justify-self: start; }
-  .p-player {
-    grid-column: 2; grid-row: 1 / span 2;
-    position: relative; z-index: 2;
-    /* reach UP beside the spec sheet — the window spans the whole dark zone
-       from the intake rows down past the synopsis, arc riding behind; the
-       right inset keeps it off the spec section's checker strip */
-    margin-top: -220px;
-    margin-right: 28px;
-  }
-  /* fill the dark field, a breath short of the edge */
-  .p-player iframe, .p-player video { width: 100%; max-width: none; }
-  /* a film in parts: the stage takes the full width under the synopsis, starting where WATCH stood */
-  .p-player--multi { grid-column: 1 / -1; grid-row: 2; margin-top: 56px; margin-right: 0; }
+  .p-player { grid-column: 1 / -1; grid-row: 2; margin-top: 56px; }
 }
 
 /* A FILM IN PARTS (owner 2026-09-28, GALAXY Z FOLD 8 ULTRA: "one watch will spawn two embed YouTube videos at once,
@@ -372,7 +393,7 @@
    (--part-ratio: 9:16 for vertical footage), as tall as the screen allows and never wider than their share of the
    row (100cqw: the player is the parts' container); a hinge between two, the fold; under each, its outlined number
    and its label. The stage, not the container, wears the player's dress. */
-.p-player--multi { container-type: inline-size; margin-top: 56px; }
+.p-player--multi { container-type: inline-size; margin-top: 56px; width: auto; }
 .p-player--multi::before, .p-player--multi::after { content: none; }
 .p-parts {
   --hinge: 36px;
@@ -569,6 +590,9 @@
 .p-back, .p-nextlink {
   font-family: var(--f-display); font-weight: 700; font-size: var(--t-xl);
   line-height: 1; text-transform: uppercase; text-decoration: none;
+  /* a title with no spaces (MR_PURPLE_DREAMS_IN_ELECTRIC_FISH) breaks anywhere: unbroken, it made the page before
+     it 481 px wide on a 390 px phone, and the whole page slid sideways */
+  overflow-wrap: anywhere; min-width: 0; max-width: 100%;
 }
 .p-back { color: var(--alert); }
 .p-back:hover { background: var(--alert); color: var(--void); }
@@ -598,6 +622,8 @@
   .p-callouts { display: none; } /* the I: sheet repeats every value below */
   .p-ring { width: 92vw; height: 92vw; right: -46vw; }
   .p-title-stack { left: 16px; bottom: 12px; }
+  .p-hero-run { left: 32px; bottom: 146px; padding: 15px 30px; }
+  .p-up { left: 16px; top: 164px; } /* on the index's row, under the status line */
 
   .p-sec {
     --p-pad-l: 18px; --p-pad-r: 18px; --p-rail: 0px; --p-gap: 0px;

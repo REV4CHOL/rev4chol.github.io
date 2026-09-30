@@ -5,9 +5,10 @@ import { aspectRatio, isPlaceholder, loopSrcChain, projectAssetUrl } from '../li
 import { reducedMotion } from '../lib/env';
 import { quality } from '../lib/quality';
 import { videoTexture } from '../lib/video-texture';
-import { HOVER_M, ISO, SIZE_MUL_LARGE, cardSize, cellToWorld } from './constants';
+import { HOVER_LIFT, HOVER_M, ISO, SIZE_MUL_LARGE, cardSize, cellToWorld } from './constants';
 import { PaneGlow } from './glow';
 import { rowsOf, type Placed } from './layout';
+import { stripName } from './legend';
 import { loadPosterCanvas, type PosterResult } from './poster';
 import { spineFit } from './spine';
 
@@ -251,7 +252,7 @@ export class ProjectTile extends Container {
     const d = reducedMotion() ? 0.05 : 0.5;
     const m = { a: HOVER_M.a * fit, b: HOVER_M.b, c: HOVER_M.c, d: HOVER_M.d * fit };
     gsap.to(this.m, { ...m, duration: d, ease: 'expo.out', onUpdate: () => this.applyMatrix() });
-    gsap.to(this.card, { y: -26, duration: d, ease: 'expo.out' });
+    gsap.to(this.card, { y: -HOVER_LIFT, duration: d, ease: 'expo.out' });
     // the glow is a blurred sprite the size of the pane — LITE (lib/quality.ts) lifts the pane without it
     if (quality.tier() > 0) this.ensureGlow().fadeTo(0.4, d);
     else this.glow?.fadeTo(0, d);
@@ -355,8 +356,8 @@ export class ProjectTile extends Container {
 
     const id = new Text({
       // a `short` name IS the pane's whole strip (the owner's exact text —
-      // APL 2026 TEASER already carries its year); otherwise year · slug
-      text: (project.short || `${project.year} · ${project.slug}`).toUpperCase(),
+      // APL 2026 TEASER already carries its year); otherwise year · slug, in words (legend.stripName)
+      text: stripName(project),
       style: { fontFamily: 'Martian Mono', fontSize: 10, fill: project.accent, letterSpacing: 2 },
     });
     id.alpha = 0.92;

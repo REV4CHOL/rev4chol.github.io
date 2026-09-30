@@ -1,11 +1,13 @@
 import gsap from 'gsap';
 import { isPlaceholder, loadFloor, loadLoopManifest, loadProjects, projectAssetUrl, type Project } from '../lib/content';
 import { finePointer, reducedMotion } from '../lib/env';
+import { softBreaks } from '../lib/escape';
 import { armPosterLock, posterZoom } from '../lib/poster-lock';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { startPage } from '../shell/page';
 import { CHANNELS, ChannelKey, channelFromSearch, channelProjects } from '../works/channels';
+import { chapterTabLabel, listGroups, searchForView, toggleText, viewFromSearch, type WorkView } from '../works/index-list';
 import { floorOpened, legendText } from '../works/legend';
 import { mountWorksOverlay } from '../works/overlay';
 import { WorksWorld } from '../works/world';
@@ -24,8 +26,16 @@ startPage(
     // THE LEGEND (owner's testers, 2026-09-27: "not knowing what to do … what to click on"): the floor's controls in
     // one line, lit until the visitor has opened a pane once (world.enter dims it), then a quiet reminder
     const hint = document.getElementById('floor-hint');
+    // …and under its words the control that turns the floor into a plain list of every film (works/index-list.ts;
+    // owner's testers, 2026-09-30: "they dont know how to navigate … they feel lost")
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'view-toggle';
     if (hint) {
-      hint.textContent = legendText(finePointer());
+      const words = document.createElement('span');
+      words.className = 'fh-text';
+      words.textContent = legendText(finePointer());
+      hint.replaceChildren(words, toggle);
       let opened = false;
       try { opened = floorOpened(localStorage); } catch { /* no storage: stays lit */ }
       hint.classList.toggle('is-fresh', !opened);
@@ -35,6 +45,35 @@ startPage(
     let world: WorksWorld | null = null;
     let active: ChannelKey = channelFromSearch(location.search);
     let flipping = false;
+
+    // THE TWO VIEWS: the floor, or the list. The address decides first, then what this visit chose.
+    const VIEW_KEY = 'rvl-work-view';
+    let remembered: string | null = null;
+    try { remembered = sessionStorage.getItem(VIEW_KEY); } catch { /* no storage: the address alone decides */ }
+    let view: WorkView = viewFromSearch(location.search, remembered);
+    const main = document.getElementById('app')!;
+    const listEl = document.getElementById('film-list')!;
+    buildFilmList(listEl, projects);
+    const setView = (v: WorkView, byHand = false) => {
+      view = v;
+      main.classList.toggle('is-list', v === 'list');
+      listEl.hidden = v !== 'list';
+      document.getElementById('sr-projects')?.toggleAttribute('hidden', v === 'list'); // (the list says it all)
+      toggle.textContent = toggleText(v, projects.length);
+      toggle.dataset.cursor = v === 'list' ? 'FILM WALL ◂' : 'LIST ▸';
+      if (v === 'list') world?.pause();
+      else world?.resume();
+      hud.setCount(v === 'list' ? projects.length : channelProjects(projects, active).length);
+      try { sessionStorage.setItem(VIEW_KEY, v); } catch { /* no storage */ }
+      if (!byHand) return;
+      history.replaceState(null, '', searchForView(location.search, v) || location.pathname);
+      sound.click();
+      if (v === 'list') {
+        listEl.scrollTop = 0;
+        listEl.focus({ preventScroll: true }); // (the arrow keys and the space bar scroll the list from here)
+      }
+    };
+    toggle.addEventListener('click', () => setView(view === 'list' ? 'floor' : 'list', true));
     (window as unknown as { rvlGsap: typeof gsap }).rvlGsap = gsap; // debug handle for verification
 
     const mount = async (key: ChannelKey) => {
@@ -56,13 +95,17 @@ startPage(
         b.setAttribute('aria-pressed', String(on));
         const mark = b.querySelector('.ch-mark') as HTMLElement;
         mark.textContent = on ? '▸ ' : '';
+        // the small line counts the films behind the tab: the chapter not showing says how many MORE (the tab read
+        // as a caption, and five of the seventeen films stood behind it unseen; owner's testers, 2026-09-30)
+        const ch = CHANNELS.find((c) => c.key === b.dataset.ch)!;
+        (b.querySelector('.ch-idx') as HTMLElement).textContent = chapterTabLabel(ch.index, channelProjects(projects, ch.key).length, on);
       }
     };
     for (const ch of CHANNELS) {
       const b = document.createElement('button');
       b.dataset.ch = ch.key;
       b.dataset.cursor = 'SWITCH CHAPTER ▸'; // the cursor names the tab's job, in full (owner's testers, 2026-09-27; plain words 09-28)
-      b.innerHTML = `<span class="ch-idx micro">${ch.index}</span><span class="ch-name"><span class="ch-mark"></span>${ch.name}</span>`;
+      b.innerHTML = `<span class="ch-idx micro"></span><span class="ch-name"><span class="ch-mark"></span>${ch.name}</span>`;
       b.addEventListener('click', () => void flip(ch.key));
       sw.append(b);
     }
@@ -110,9 +153,10 @@ startPage(
 
     paint();
     await mount(active);
+    setView(view);
 
     window.addEventListener('keydown', (e) => {
-      if (!world) return;
+      if (!world || view === 'list') return; // (in the list the keys scroll the list)
       const step = 140;
       const onInteractive = (e.target as Element | null)?.closest?.('a, button') != null;
       if (e.key === 'ArrowLeft') { e.preventDefault(); world.panBy(step, 0); }
@@ -142,6 +186,51 @@ startPage(
     },
   ],
 );
+
+/** The list view: every film of both chapters as a page of links (works/index-list.ts has its words and its order).
+ *  Built once, hidden until asked for; its thumbnails load only when it shows. */
+function buildFilmList(host: HTMLElement, projects: Project[]): void {
+  const span = (cls: string, text: string) => {
+    const s = document.createElement('span');
+    s.className = cls;
+    s.textContent = text;
+    return s;
+  };
+  host.replaceChildren();
+  for (const g of listGroups(projects)) {
+    const sec = document.createElement('section');
+    sec.className = 'fl-group';
+    const head = document.createElement('h2');
+    head.className = 'fl-head micro';
+    head.textContent = g.heading;
+    const rows = document.createElement('ul');
+    rows.className = 'fl-rows';
+    for (const r of g.rows) {
+      const a = document.createElement('a');
+      a.className = 'fl-row';
+      a.href = r.href;
+      a.dataset.internal = '';
+      a.dataset.cursor = 'OPEN ▸';
+      a.style.setProperty('--row-accent', r.accent);
+      const thumb = document.createElement('span');
+      thumb.className = 'fl-thumb';
+      const img = document.createElement('img');
+      img.alt = '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.width = r.thumb.w;
+      img.height = r.thumb.h;
+      img.src = projectAssetUrl(r.slug, 'poster.jpg');
+      thumb.append(img);
+      a.append(thumb, span('fl-title', softBreaks(r.title)), span('fl-meta micro', r.meta), span('fl-open micro', 'OPEN ▸'));
+      const li = document.createElement('li');
+      li.append(a);
+      rows.append(li);
+    }
+    sec.append(head, rows);
+    host.append(sec);
+  }
+}
 
 function buildSemanticList(projects: Project[], world: WorksWorld): void {
   const ul = document.getElementById('sr-projects');

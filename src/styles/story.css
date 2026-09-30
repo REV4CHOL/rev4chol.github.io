@@ -33,8 +33,9 @@
   display: flex; gap: 26px;
 }
 .a3-fly button {
-  font-family: var(--f-micro); font-size: var(--t-2xs); letter-spacing: 0.22em;
-  text-transform: uppercase; color: color-mix(in srgb, var(--bone) 45%, transparent);
+  /* 12 px at 75 % (owner's testers, 2026-09-30: "tiny grey words over a bright city"; they did not look pressable) */
+  font-family: var(--f-micro); font-size: var(--t-xs); letter-spacing: 0.22em;
+  text-transform: uppercase; color: color-mix(in srgb, var(--bone) 75%, transparent);
   text-shadow: 0 0 8px rgba(6, 6, 6, 0.95); cursor: pointer; padding: 3px 2px;
 }
 .a3-fly button:hover { color: var(--bone); }
@@ -47,23 +48,14 @@
   display: flex; gap: 16px;
 }
 .a3-tod button {
-  font-family: var(--f-micro); font-size: var(--t-2xs); letter-spacing: 0.22em;
-  text-transform: uppercase; color: color-mix(in srgb, var(--bone) 45%, transparent);
+  font-family: var(--f-micro); font-size: var(--t-xs); letter-spacing: 0.22em;
+  text-transform: uppercase; color: color-mix(in srgb, var(--bone) 75%, transparent);
   text-shadow: 0 0 8px rgba(6, 6, 6, 0.95); cursor: pointer; padding: 3px 2px;
 }
 .a3-tod button:hover { color: var(--bone); }
 .a3-tod button.on { color: var(--signal); }
 .a3-tod button.on::before { content: '◐ '; }
 
-@media (max-width: 720px) {
-  /* a phone's bottom edge: the shell's corner HUDs at 14-42, the dial above them, the clock above that, one row each */
-  .a3-fly { bottom: 60px; gap: 18px; }
-  .a3-tod { right: 50%; translate: 50% 0; bottom: 88px; gap: 8px; }
-  .a3-tod button { font-size: 8px; letter-spacing: 0.12em; padding: 3px 0; }
-  /* one row on a phone */
-  .a3-hint { top: 262px; max-width: 250px; line-height: 1.8; }
-  body.a3-touch-free .a3-tod { display: none; } /* the stick takes its room */
-}
 
 /* TOUCH FLIGHT (owner: free fly on phones): a stick to move, buttons to rise and sink, a drag to look; the
    page stays put under the fingers */
@@ -90,6 +82,18 @@ body.a3-touch-free .a3-lift { display: flex; }
   position: fixed; left: 50%; translate: -50% 0; top: 112px; z-index: 3; text-align: center;
   color: color-mix(in srgb, var(--bone) 70%, transparent); letter-spacing: 0.16em; font-size: var(--t-xs);
   text-shadow: 0 0 8px rgba(6, 6, 6, 0.95);
+}
+
+/* A PHONE (after the rules it overrides: the hint's override once stood above its rule and never applied, so the
+   line sat on the switches' row). The bottom edge: the dial, the clock above it, one row each, every word a thumb's
+   target (the corner readouts left the phone). The hint: under the switches, wrapped. */
+@media (max-width: 720px) {
+  .a3-fly { bottom: 14px; gap: 22px; }
+  .a3-tod { right: 50%; translate: 50% 0; bottom: 60px; gap: 12px; }
+  .a3-fly button, .a3-tod button { min-height: 44px; display: inline-flex; align-items: center; }
+  .a3-tod button { font-size: var(--t-2xs); letter-spacing: 0.12em; padding: 3px 0; }
+  .a3-hint { top: 148px; width: max-content; max-width: min(300px, calc(100vw - 32px)); line-height: 1.8; text-wrap: balance; }
+  body.a3-touch-free .a3-tod { display: none; } /* the stick takes its room */
 }
 
 /* the tour left the section: nothing scrolls here — the page is the windshield */

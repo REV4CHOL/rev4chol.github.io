@@ -16,6 +16,13 @@ export function legendText(fine: boolean): string {
   return fine ? FLOOR_LEGEND.fine : FLOOR_LEGEND.coarse;
 }
 
+/** A pane's strip: the owner's `short` name is the whole strip (APL 2026 TEASER already carries its year); otherwise
+ *  the year and the slug in words, not in the address's hyphens (owner's testers, 2026-09-30: the strip said
+ *  ELECTRIC-FISH and MIEN-VIEN, the page said something else: "two names for one film"). */
+export function stripName(p: Pick<Project, 'short' | 'year' | 'slug'>): string {
+  return (p.short || `${p.year} · ${p.slug.replace(/-/g, ' ')}`).toUpperCase();
+}
+
 type CaptionFields = Pick<Project, 'year' | 'role' | 'runtime' | 'film' | 'filmPending' | 'filmPrivate'>;
 
 /** `2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK TO OPEN`; a placeholder's starts `PLACEHOLDER · NO FILM YET ▪`. */

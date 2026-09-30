@@ -57,6 +57,11 @@ export function mountShell(site: SiteContent, active: PageKey, opts: ShellOption
   initCursor();
   const hud = mountHud();
 
+  // the header's veil deepens once the page has scrolled under it (components.css, .rvl-scrolled .nav::before)
+  const markScrolled = () => document.documentElement.classList.toggle('rvl-scrolled', window.scrollY > 8);
+  window.addEventListener('scroll', markScrolled, { passive: true });
+  markScrolled();
+
   // Zoom compensation RETIRED by owner decree: the outer/innerWidth probe was
   // unreliable (devtools, OS scaling, browser chrome all skew it) and the
   // per-surface counter-scaling it fed tore layouts apart at any zoom other
