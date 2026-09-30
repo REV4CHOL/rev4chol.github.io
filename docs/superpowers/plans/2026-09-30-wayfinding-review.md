@@ -18,7 +18,8 @@ larger than its screen); `world.ts` and `pages/works.ts` only wire them.
 Spec (the review itself): `docs/superpowers/specs/2026-09-30-wayfinding-review-design.md`.
 
 **Shipped:** 7d6350a (Pages run 36683679006 green); verified live 2026-09-30 at 1440 × 900, 1920 × 1080, 1366 × 768 and
-390 × 844 (touch): the same facts as on dev, no page error.
+390 × 844 (touch): the same facts as on dev, no page error. Task 7 (the hero's WATCH removed, owner): 96b25be (run
+36709431727 green), verified live the same day at those sizes and at 1637 × 757.
 
 ## Global Constraints
 
@@ -173,13 +174,13 @@ at 132, over 232 of caption and tabs, never under 40 % of the height);
 Read as the hero's own WATCH button, on every film's page (the hero is one template). It supersedes Task 1's hero
 WATCH. The picture still plays the film on a press (the cursor says PLAY ▸); the synopsis's WATCH stays.
 
-- [ ] Rewrite the test: `project.html` carries no `p-hero-watch` and no `p-hero-run`, and one `WATCH ▸` (the
+- [x] Rewrite the test: `project.html` carries no `p-hero-watch` and no `p-hero-run`, and one `WATCH ▸` (the
       synopsis's); `project.ts` names neither `p-hero-watch` nor `heroWatch` and wires
       `watch.addEventListener('click', open);`; `project.css` has no `.p-hero-run`. The picture's press keeps its test.
-- [ ] Run it: fails (the button is there).
-- [ ] Remove the button from `project.html`, `heroWatch` and the two-button loop from `project.ts`, `.p-hero-run` and
+- [x] Run it: fails (the button is there).
+- [x] Remove the button from `project.html`, `heroWatch` and the two-button loop from `project.ts`, `.p-hero-run` and
       its phone rule from `project.css`.
-- [ ] Run it: passes; the gates. Real Chrome (`uxr/film-probe2.mjs`) at 1440 × 900, 1637 × 757 (the owner's screen),
+- [x] Run it: passes; the gates. Real Chrome (`uxr/film-probe2.mjs`) at 1440 × 900, 1637 × 757 (the owner's screen),
       1920 × 1080, 1366 × 768 and 390 × 844: no button in the hero; a press on the picture opens the film whole on
       screen; the synopsis's WATCH opens it; MIEN VIEN's picture does nothing.
-- [ ] Ship; the same facts on https://rev4chol.github.io.
+- [x] Ship; the same facts on https://rev4chol.github.io.
