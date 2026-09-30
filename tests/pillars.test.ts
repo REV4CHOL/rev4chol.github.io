@@ -49,6 +49,19 @@ describe('the pillars are equal: one column count, one still size', () => {
 // (owner 2026-09-28: "the galaxy fold page have some grain error in the still column of digital ad 1. Fix.") Ad #1's
 // pillar ends in the hatch, and the hatch was a hard-edged line 1 px wide: sampled at device pixels, a line that thin
 // renders by luck of phase, a solid staircase and then a chain of lone dots, and a field of those reads as grain.
+// (owner 2026-09-30, of the travelling rail tag riding over ad #1's end mark as the page scrolls: "Fix this") The wall
+// is full-bleed over its own rail. A landscape wall's stills cover the tag wherever it travels, so it was never seen
+// there; a pillar's empty foot is see-through, and there it crossed "EOF ▪ DIGITAL AD #1". REC: stays at the wall's head.
+describe("the REC: tag stays at the wall's head", () => {
+  const css = readFileSync('src/styles/project.css', 'utf8');
+  it('the rail tag still travels beside a text section (SYN:); over the wall it does not', () => {
+    const base = css.indexOf('.p-rail-tag {');
+    expect(css.slice(base, css.indexOf('}', base))).toContain('position: sticky');
+    const rec = css.indexOf('.p-rec-sec .p-rail-tag { position: static; }');
+    expect(rec).toBeGreaterThan(base);
+  });
+});
+
 describe("the pillars' hatch: every line drawn soft, all alike", () => {
   // the hatch as project.css draws it: its angle, and its stops (a stop with two positions counted as two)
   const hatch = () => {

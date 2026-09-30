@@ -247,6 +247,10 @@
 @supports not (-webkit-text-stroke: 1px #000) {
   .p-rail-tag { color: var(--signal); opacity: 0.4; }
 }
+/* REC: stays at the wall's head. The wall is full-bleed over its own rail: a landscape wall's stills cover the tag
+   wherever it travels, but a pillar's empty foot is see-through, and there the travelling tag rode over the pillar's
+   end mark (the owner, of "REC:" sliding over "EOF ▪ DIGITAL AD #1": "Fix this"). */
+.p-rec-sec .p-rail-tag { position: static; }
 
 /* ------------------------------------------------------------- spec -- */
 
