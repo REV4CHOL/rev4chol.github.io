@@ -17,6 +17,9 @@ larger than its screen); `world.ts` and `pages/works.ts` only wire them.
 
 Spec (the review itself): `docs/superpowers/specs/2026-09-30-wayfinding-review-design.md`.
 
+**Shipped:** 7d6350a (Pages run 36683679006 green); verified live 2026-09-30 at 1440 × 900, 1920 × 1080, 1366 × 768 and
+390 × 844 (touch): the same facts as on dev, no page error.
+
 ## Global Constraints
 
 - The owner's decisions stand: the door says `ENTER ▸` and nothing else; a scroll past a page's end leaves for the next
@@ -43,18 +46,18 @@ Spec (the review itself): `docs/superpowers/specs/2026-09-30-wayfinding-review-d
 `watchKind(p: Pick<Project, 'film' | 'filmPending' | 'filmPrivate'>): 'watch' | 'pending' | 'private' | 'placeholder'`;
 `playerRatio(ratio: number): number` (a ratio under 1 stands in itself, every other film in 16 / 9).
 
-- [ ] Write `tests/watch.test.ts` (16 tests): `watchKind` for a film with a link, a private film, a pending film, a
+- [x] Write `tests/watch.test.ts` (16 tests): `watchKind` for a film with a link, a private film, a pending film, a
       placeholder; `playerRatio(9 / 16)`, `(4 / 3)`, `(2.39)`; pins: `#p-hero-watch` in `project.html` inside the scan
       frame; the hero's press opens the player unless it lands on a link or a button; `.p-player` spans the row
       (`grid-column: 1 / -1`), its width `min(100%, min(74svh / plate, 760px) × ratio)`, `scroll-margin-top: 66px`;
       `◂ ALL FILMS` under the wordmark; the ratio stamp mid-band and gone on a phone; the void halo on the status
       line, the index, the callouts; the foot links wrap (`softBreaks` on the next film's title).
-- [ ] Run it: fails (no module, no hero WATCH, the player in the grid's second column).
-- [ ] `src/project/watch.ts`; `project.html` gains the hero WATCH and the top link; `project.ts` builds the hero WATCH
+- [x] Run it: fails (no module, no hero WATCH, the player in the grid's second column).
+- [x] `src/project/watch.ts`; `project.html` gains the hero WATCH and the top link; `project.ts` builds the hero WATCH
       from `watchKind`, opens the player from either WATCH or the hero picture, travels to it
       (`scrollIntoView({ block: 'center' })`); `project.css` places and sizes the player, the hero WATCH (left 116,
       bottom 152; a phone: left 32, bottom 146), the top link, the stamp.
-- [ ] Run it: passes. Real Chrome (`uxr/film-probe.mjs`): WATCH on the first screen at 1440 × 900, 1920 × 1080,
+- [x] Run it: passes. Real Chrome (`uxr/film-probe.mjs`): WATCH on the first screen at 1440 × 900, 1920 × 1080,
       1366 × 768 and 390 × 844, never over the title; the open player whole on screen and clear of the veil
       (1184 × 666, 1421 × 799, 1010 × 568, 354 × 199); GALAXY's two-part stage whole; no page error.
 
@@ -69,20 +72,20 @@ Spec (the review itself): `docs/superpowers/specs/2026-09-30-wayfinding-review-d
 `cueState(canLeave: boolean, scrollTop: number): 'next' | 'scroll' | 'hidden'`; `cueKicker(fine: boolean): string`
 (`SCROLL DOWN ▾` / `NEXT PAGE`).
 
-- [ ] Write `tests/chrome.test.ts` (27 tests): the veil on `.nav` for every page and `.rvl-scrolled .nav::before`;
+- [x] Write `tests/chrome.test.ts` (27 tests): the veil on `.nav` for every page and `.rvl-scrolled .nav::before`;
       full ink and the halo on the wordmark, the links, the switches; `.hud-tr` above `.nav`; rail tags at
       `top: 136px`; `switchLabel`; a switch that is off looks off; a phone: `.hud-bl, .hud-br { display: none; }`,
       `#hud-count { display: none; }`, the solid veil 184 px, the switches' padding, `body { overflow-x: clip }`,
       `.c-status` under the switches, `.a3-hint`'s phone rule after its base rule; `cueState` in its three states,
       its wiring, its type; `cueKicker`; `.c-eof`'s foot padding; genres dotted and square; no fill on a skill row;
       no arrow on STATUS; the cross boxes over any `a, button`; the menu 14 px; the roles line 13 px; STORY's dials.
-- [ ] Run it: fails.
-- [ ] Implement: the veil moves from `.page-work .nav, .page-home .nav` to `.nav`; `shell.ts` toggles `rvl-scrolled`
+- [x] Run it: fails.
+- [x] Implement: the veil moves from `.page-work .nav, .page-home .nav` to `.nav`; `shell.ts` toggles `rvl-scrolled`
       at `scrollY > 8`; `hud.ts` writes `switchLabel(…)` on each switch and on each press; `boot.ts` says TAP TO SKIP
       on a coarse pointer; `swipe-nav.ts` sets `cue.dataset.state = cueState(may(1), top())` on scroll, resize and
       body resize, a press in the `scroll` state scrolls 85 % of a screen, the kicker is `cueKicker(finePointer())`;
       the stylesheets as pinned. `tests/wayfinding.test.ts`: the switches' and the kicker's pins follow the functions.
-- [ ] Run it: passes. Real Chrome (`uxr/capture.mjs`, `uxr/overflow-probe.mjs`): every page 390 wide on the phone
+- [x] Run it: passes. Real Chrome (`uxr/capture.mjs`, `uxr/overflow-probe.mjs`): every page 390 wide on the phone
       (ABOUT was 498, SODA COAST 481); no page's text through the header; the cue gone mid-page on ABOUT.
 
 ### Task 3: The floor — THE LIST
@@ -97,7 +100,7 @@ Spec (the review itself): `docs/superpowers/specs/2026-09-30-wayfinding-review-d
 `THUMB = { w: 128, h: 72 }`; `rowMeta(p): string`; `listGroups(projects: Project[]): ListGroup[]`;
 `softBreaks(s: string): string`.
 
-- [ ] Write the list's tests: two groups in `CHANNELS` order, 12 + 5 rows, headings `CH·01 ▪ COLORIST ▪ 12 FILMS` /
+- [x] Write the list's tests: two groups in `CHANNELS` order, 12 + 5 rows, headings `CH·01 ▪ COLORIST ▪ 12 FILMS` /
       `CH·02 ▪ AI ▪ 5 FILMS`; `rowMeta` (`2026 · COLORIST · 11:42`; MIEN VIEN: `… · PRIVATE FILM`); `thumbSize`
       (16:9 128 × 72, 4:3 96 × 72, 2.39 128 × 54, 9:16 41 × 72); `toggleText` (`LIST ALL 17 FILMS ▸`,
       `◂ BACK TO THE FILM WALL`); `viewFromSearch` (the address wins, then the visit's memory, then the floor);
@@ -106,10 +109,10 @@ Spec (the review itself): `docs/superpowers/specs/2026-09-30-wayfinding-review-d
       ahead of `#ch-switch`; `works.ts` builds rows as links, pauses the floor in the list, writes the address with
       `history.replaceState`; the stylesheet's `.film-list`, `.fl-row`, the px limits on `.fl-thumb img`, hover only
       inside `@media (hover: hover)`.
-- [ ] Run them: fail.
-- [ ] Implement `index-list.ts`; `works.ts`: the legend holds `.fh-text` and `button.view-toggle`, `setView(v, byHand)`,
+- [x] Run them: fail.
+- [x] Implement `index-list.ts`; `works.ts`: the legend holds `.fh-text` and `button.view-toggle`, `setView(v, byHand)`,
       `buildFilmList(host, projects)`, the keydown handler stands down in the list; `world.pause()` / `resume()`.
-- [ ] Run them: pass. Real Chrome (`uxr/floor-probe.mjs`, `uxr/floor-gesture.mjs`): 17 rows; no thumbnail cropped or
+- [x] Run them: pass. Real Chrome (`uxr/floor-probe.mjs`, `uxr/floor-gesture.mjs`): 17 rows; no thumbnail cropped or
       larger than its box; the ticker stopped in the list; `?view=list` kept with `ch`; a row opens its film and Back
       returns to the list; Tab reaches the button first after the menu, Enter opens the list, the arrows scroll it.
 
@@ -128,7 +131,7 @@ at 132, over 232 of caption and tabs, never under 40 % of the height);
 `nearestPane(view, panes): TileRect | null`; `PanController.coasting: boolean`;
 `stripName(p: Pick<Project, 'short' | 'year' | 'slug'>): string`.
 
-- [ ] Write their tests: `hoverFitIn` never over 1 and fits the narrower side; `previewBox` for a mouse and for a
+- [x] Write their tests: `hoverFitIn` never over 1 and fits the narrower side; `previewBox` for a mouse and for a
       phone; `captionSpot` in its five places, clamped into the view, measured at the width it is given; `strayed`
       false with a pane's core in the view's middle, true on empty floor, false with no panes; `nearestPane`;
       `coasting`; `stripName` (`2026 · ELECTRIC FISH`, the owner's `short` kept); pins in `world.ts`: `liftAt`,
@@ -136,29 +139,29 @@ at 132, over 232 of caption and tabs, never under 40 % of the height);
       placed by `captionSpot` and moved by `followCaption`; a zoom change refits the preview; `focusProject` pans to
       `-tile.x * zs`; `is-awake` on `#app`; the stylesheet: tab contrast, `width: max-content` on the dial, the
       phone's legend hidden while a pane is awake.
-- [ ] Run them: fail.
-- [ ] Implement: `world.hover()` lifts through `liftAt(tile, zs, previewBox(…))`; on a coarse pointer it tweens
+- [x] Run them: fail.
+- [x] Implement: `world.hover()` lifts through `liftAt(tile, zs, previewBox(…))`; on a coarse pointer it tweens
       `pan.pos` so the card's centre meets the box's middle (0.45 s); `showLabel` → `placeCaption` → `followCaption`;
       `afterTick` runs `followCaption()` and `returnIfStrayed(dtMs)` (every 250 ms, at rest, glide 0.7 s to the
       nearest pane, a cut under reduced motion); `arrive()` holds the return 1200 ms; `works.ts` paints
       `chapterTabLabel` on each tab.
-- [ ] Run them: pass. Real Chrome: on the phone a tapped pane stands whole in the middle (`[16, 297, 359, 150]`), its
+- [x] Run them: pass. Real Chrome: on the phone a tapped pane stands whole in the middle (`[16, 297, 359, 150]`), its
       caption under it, the legend gone, the second tap opens the film; thrown to the bounds' corner the floor is
       back on a film within 2 s; zoomed to 2 under an awake pane the preview is 1008 × 756 on 1440 × 900; every
       caption whole on the screen and off its picture.
 
 ### Task 5: Gates, ship, live
 
-- [ ] `npx tsc --noEmit`; `npx vitest run` (45 files, 555 passed, 3 skipped); `npx vite build --outDir dist-check`;
+- [x] `npx tsc --noEmit`; `npx vitest run` (45 files, 555 passed, 3 skipped); `npx vite build --outDir dist-check`;
       `rm -rf dist-check`.
-- [ ] Commit (`git -c core.safecrlf=false commit -F <message file>`), `git push -q origin master`, watch the Pages run
+- [x] Commit (`git -c core.safecrlf=false commit -F <message file>`), `git push -q origin master`, watch the Pages run
       of that sha to its end.
-- [ ] On https://rev4chol.github.io: `uxr/capture.mjs` (desktop, phone), `uxr/film-probe.mjs`, `uxr/overflow-probe.mjs`,
+- [x] On https://rev4chol.github.io: `uxr/capture.mjs` (desktop, phone), `uxr/film-probe.mjs`, `uxr/overflow-probe.mjs`,
       `uxr/floor-probe.mjs` (desktop, laptop, phone), `uxr/floor-gesture.mjs` (desktop, phone): the same facts as on
       dev, no page error.
 
 ### Task 6: Record
 
-- [ ] Tick this plan; note the shipped sha.
-- [ ] Memory: the round, the design calls made without the owner (the spec's section 7), what is left for the owner
+- [x] Tick this plan; note the shipped sha.
+- [x] Memory: the round, the design calls made without the owner (the spec's section 7), what is left for the owner
       (its section 6).
