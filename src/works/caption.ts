@@ -1,4 +1,4 @@
-/** WHERE A PREVIEW'S CAPTION STANDS (owner's testers, 2026-09-30: the hover title "sat on the preview" or ran off the
+/** WHERE A PREVIEW'S CAPTION STANDS (the review's walkthroughs, 2026-09-30: the hover title "sat on the preview" or ran off the
  *  screen's edge, and on a phone it shared one spot with the legend and the count line). The caption was placed from
  *  the pane's resting size, a fixed step right of its centre: inside the lifted card at the floor's own zoom, off the
  *  screen beside a pane near the edge. Now it is placed from the lifted card itself: under it, flush with its left

@@ -76,7 +76,7 @@
   background-size: 100% 1.5px, 100% 9px;
 }
 /* (the stamp stands mid-band: at the band's right it ran through the menu and the switches, "2.39:1" drawn across
-   them; owner's testers, 2026-09-30) */
+   them; the review's walkthroughs, 2026-09-30) */
 .p-band-t::after {
   content: attr(data-ratio); position: absolute; left: 50%; translate: -50% 0; top: calc(50% - 0.5em);
   font-family: var(--f-display); font-weight: 700; font-size: var(--t-2xl); line-height: 1;
@@ -208,11 +208,11 @@
 }
 .p-callout { display: flex; align-items: center; gap: 12px; }
 /* ink and halo, the homepage's nav treatment (no plates): over a bright picture the marks read as nothing, ROLE, YR
-   and RT white on a white sky (owner's testers, 2026-09-30) */
+   and RT white on a white sky (the review's walkthroughs, 2026-09-30) */
 .p-status, .p-index, .p-callouts, .p-up {
   text-shadow: 0 0 4px rgba(6, 6, 6, 0.95), 0 1px 2px rgba(6, 6, 6, 0.9), 0 2px 16px rgba(6, 6, 6, 0.8);
 }
-/* THE WAY BACK, AT THE TOP (owner's testers, 2026-09-30: the link back to all films stood only at the page's foot,
+/* THE WAY BACK, AT THE TOP (the review's walkthroughs, 2026-09-30: the link back to all films stood only at the page's foot,
    after every still, forty of them on one page): under the wordmark, in the interactives' pink */
 .p-up {
   position: absolute; left: 28px; top: calc(62px * var(--uiz)); z-index: 5;
@@ -292,7 +292,7 @@
   padding: 13px 0; border-bottom: 1px dotted rgba(237, 237, 230, 0.22);
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
-/* a genre is a tag, not a button (owner's testers, 2026-09-30: both pressed them): dotted and square, where the
+/* a genre is a tag, not a button (the review's walkthroughs, 2026-09-30: both pressed them): dotted and square, where the
    site's buttons (COPY EMAIL, the social links) are solid pills */
 .p-pill {
   border: 1px dotted color-mix(in srgb, var(--alert) 75%, transparent); color: var(--alert);
@@ -342,7 +342,7 @@
   padding: 16px 36px; font-size: var(--t-sm); box-shadow: 0 2px 22px rgba(6, 6, 6, 0.55);
 }
 .p-hero-run:hover { background: var(--void); }
-/* THE FILM OPENS LARGE (owner's testers, 2026-09-30): as wide as the page allows and no taller than the screen shows
+/* THE FILM OPENS LARGE (the review's walkthroughs, 2026-09-30): as wide as the page allows and no taller than the screen shows
    whole, in the player's own shape (--player-ratio, from JS: vertical footage stands vertical). Before, on a wide
    screen, it opened in the field right of the synopsis, which the 1440 plate pins to a sliver: 245 × 138 px. */
 .p-player {

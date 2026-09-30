@@ -310,7 +310,7 @@
 .a-bar[data-kind='c'] .a-bar-cap { color: var(--alert); }
 .a-bar[data-kind='t'] .a-bar-cap { color: color-mix(in srgb, var(--field) 60%, var(--bone) 40%); }
 /* (a skill row no longer fills under the pointer: it is not a link, and the fill is what the site's real links do;
-   owner's testers, 2026-09-30, both pressed the rows) */
+   the review's walkthroughs, 2026-09-30, both pressed the rows) */
 
 /* --------------------------------------------------------- transmit -- */
 

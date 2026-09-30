@@ -309,7 +309,7 @@ function mountSynopsis(p: Project): void {
     b.dataset.cursor = 'PLAY ▸';
     b.addEventListener('click', open);
   }
-  // THE PICTURE PLAYS THE FILM: a framed moving picture with a ruler under it reads as a player, and both testers
+  // THE PICTURE PLAYS THE FILM: a framed moving picture with a ruler under it reads as a player, and both walkthroughs
   // pressed it first and got nothing. A click or a tap on it is WATCH (its links and buttons keep their own jobs).
   const hero = document.getElementById('p-hero')!;
   hero.classList.add('p-hero--plays');

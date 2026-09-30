@@ -33,7 +33,7 @@
   display: flex; gap: 26px;
 }
 .a3-fly button {
-  /* 12 px at 75 % (owner's testers, 2026-09-30: "tiny grey words over a bright city"; they did not look pressable) */
+  /* 12 px at 75 % (the review's walkthroughs, 2026-09-30: "tiny grey words over a bright city"; they did not look pressable) */
   font-family: var(--f-micro); font-size: var(--t-xs); letter-spacing: 0.22em;
   text-transform: uppercase; color: color-mix(in srgb, var(--bone) 75%, transparent);
   text-shadow: 0 0 8px rgba(6, 6, 6, 0.95); cursor: pointer; padding: 3px 2px;

@@ -96,7 +96,7 @@ startPage(
         const mark = b.querySelector('.ch-mark') as HTMLElement;
         mark.textContent = on ? '▸ ' : '';
         // the small line counts the films behind the tab: the chapter not showing says how many MORE (the tab read
-        // as a caption, and five of the seventeen films stood behind it unseen; owner's testers, 2026-09-30)
+        // as a caption, and five of the seventeen films stood behind it unseen; the review's walkthroughs, 2026-09-30)
         const ch = CHANNELS.find((c) => c.key === b.dataset.ch)!;
         (b.querySelector('.ch-idx') as HTMLElement).textContent = chapterTabLabel(ch.index, channelProjects(projects, ch.key).length, on);
       }

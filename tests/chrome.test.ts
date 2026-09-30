@@ -4,9 +4,9 @@ import { cueKicker, cueState } from '../src/lib/swipe-nav';
 import { switchLabel } from '../src/shell/switches';
 
 // The owner's testers, 2026-09-30: "they dont know how to navigate the website or click or do actions, and they feel
-// lost". Two first-time visitors (a laptop, a phone) were walked through the live site. What they met in the page's
-// chrome: text printed on text wherever a page scrolled under the fixed header; switches that read as a status line;
-// decoration shaped like buttons; a scroll cue riding over the text being read.
+// lost". The review walked two simulated first visits through the live site (agents given only the screen: a laptop,
+// a phone). What they met in the page's chrome: text printed on text wherever a page scrolled under the fixed header;
+// switches that read as a status line; decoration shaped like buttons; a scroll cue riding over the text being read.
 
 const css = (file: string) => readFileSync(`src/styles/${file}.css`, 'utf8');
 /** A top-level rule's body (top-level rules start their line; the phone overrides inside @media are indented). */

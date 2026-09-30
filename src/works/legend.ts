@@ -17,7 +17,7 @@ export function legendText(fine: boolean): string {
 }
 
 /** A pane's strip: the owner's `short` name is the whole strip (APL 2026 TEASER already carries its year); otherwise
- *  the year and the slug in words, not in the address's hyphens (owner's testers, 2026-09-30: the strip said
+ *  the year and the slug in words, not in the address's hyphens (the review's walkthroughs, 2026-09-30: the strip said
  *  ELECTRIC-FISH and MIEN-VIEN, the page said something else: "two names for one film"). */
 export function stripName(p: Pick<Project, 'short' | 'year' | 'slug'>): string {
   return (p.short || `${p.year} · ${p.slug.replace(/-/g, ' ')}`).toUpperCase();

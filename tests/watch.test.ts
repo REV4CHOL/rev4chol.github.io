@@ -74,7 +74,7 @@ describe("WATCH stands on the film page's first screen", () => {
     expect(css).toMatch(/\.p-hero-run \{[^}]*position: absolute;[^}]*z-index: 5;/);
   });
 
-  it('the picture itself plays the film: both testers took it for the player and pressed it', () => {
+  it('the picture itself plays the film: both walkthroughs took it for the player and pressed it', () => {
     const src = readFileSync('src/pages/project.ts', 'utf8');
     expect(src).toContain("hero.dataset.cursor = 'PLAY ▸'");
     expect(src).toContain("if (!(e.target as Element).closest('a, button')) open();");

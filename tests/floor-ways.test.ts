@@ -11,10 +11,11 @@ import { stripName } from '../src/works/legend';
 import { nearestPane, strayed } from '../src/works/stray';
 
 // The owner's testers, 2026-09-30: "they dont know how to navigate the website or click or do actions, and they feel
-// lost, as they have never seen a website like this before". On the WORK floor two first-time visitors (a laptop, a
-// phone) met: no plain way to see every film or find one by name; five of the seventeen films behind a tab that read
-// as a caption; a phone's preview standing up half off the screen; one drag throwing the wall into empty floor with
-// no way back; a hover title printed on its own picture or off the screen's edge; two names for one film.
+// lost, as they have never seen a website like this before". On the WORK floor the review's two simulated first
+// visits (agents given only the screen: a laptop, a phone) met: no plain way to see every film or find one by name;
+// five of the seventeen films behind a tab that read as a caption; a phone's preview standing up half off the screen;
+// one drag throwing the wall into empty floor with no way back; a hover title printed on its own picture or off the
+// screen's edge; two names for one film.
 
 const project = (over: Partial<Project> = {}): Project => ({
   slug: 'philia', title: 'PHILIA', year: 2026, role: 'Colorist', runtime: '11:42', client: '', short: '', tags: [],

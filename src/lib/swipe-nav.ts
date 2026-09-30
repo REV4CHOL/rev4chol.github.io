@@ -47,7 +47,7 @@ export function navNeighbors(
   return { prev: nav[i - 1] ?? null, next: nav[i + 1] ?? null };
 }
 
-/** What the cue at the screen's foot says (owner's testers, 2026-09-30: "SCROLL DOWN ▾ CONTACT" stood over the ABOUT
+/** What the cue at the screen's foot says (the review's walkthroughs, 2026-09-30: "SCROLL DOWN ▾ CONTACT" stood over the ABOUT
  *  page from its first screen to its last, printed across the text being read, and at the top it named a page a
  *  scroll would not yet reach):
  *  - `next`: scrolling on leaves for the next page, and the cue names it;

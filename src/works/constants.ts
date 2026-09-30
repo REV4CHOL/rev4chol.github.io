@@ -26,7 +26,7 @@ export function hoverFit(ch: number, sizeMul: number, zoom: number, screenH: num
 }
 
 /** The hover's scale on HOVER_M that fits the upright card into a box `boxW` × `boxH` screen px at the floor's
-    `zoom`; never more than the plain lift (owner's testers, 2026-09-30: pinched in, a phone's preview stood wider than
+    `zoom`; never more than the plain lift (the review's walkthroughs, 2026-09-30: pinched in, a phone's preview stood wider than
     its screen). */
 export function hoverFitIn(cw: number, ch: number, sizeMul: number, zoom: number, boxW: number, boxH: number): number {
   return Math.min(1, boxW / (cw * sizeMul * HOVER_M.a * zoom), boxH / (ch * sizeMul * HOVER_M.d * zoom));

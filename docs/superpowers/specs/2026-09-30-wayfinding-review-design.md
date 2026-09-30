@@ -14,10 +14,12 @@ film is, what can be pressed, where they are, and the way back.
 - **Every page measured in real Chrome**, at 1440 × 900 with a mouse and 390 × 844 with touch: every state captured
   (boot, top, scrolled, foot, hover, tap, the film open), every control's size, every text's size, every overlap of
   text on text, every page's width.
-- **Two first-time visitors walked through the live site**, one on a laptop (84 actions), one on a phone (91). Each was
-  given the same errands a visitor has: find the films, watch one, find a film by its name, find who made this and how
+- **Two simulated first visits to the live site**: two AI agents, each allowed to learn about the site only by looking
+  at the screen (no source, no markup), one on a laptop with a mouse (84 actions), one on a phone with touch (91). Each
+  was given the errands a visitor has: find the films, watch one, find a film by its name, find who made this and how
   to reach them, get back. They reported what they expected, what they pressed and what happened. Every errand was
-  finished; none was easy.
+  finished; none was easy. They are not the owner's testers: wherever this document says "the visitors", it means
+  these two runs. The owner's testers are quoted once, at the top.
 - **The guidance of the ui-ux-pro-max skill** for a portfolio: navigation that does not cover content, no element that
   looks pressable and is not, state that can be read, a single-pointer way to do whatever a drag does, targets of
   44 px, text of 12 px, video on a press and not on its own.

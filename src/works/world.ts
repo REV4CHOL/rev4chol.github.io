@@ -269,7 +269,7 @@ export class WorksWorld {
     }
   }
 
-  /** NEVER LOST IN EMPTY FLOOR (stray.ts; owner's testers, 2026-09-30): four times a second, once the floor has come
+  /** NEVER LOST IN EMPTY FLOOR (stray.ts; the review's walkthroughs, 2026-09-30): four times a second, once the floor has come
    *  to rest, if the middle of the screen holds no film the floor glides back to the nearest one. Nothing moves under
    *  a finger or a drag, during a fling, or while another glide runs. */
   private returnIfStrayed(dtMs: number): void {
@@ -340,7 +340,7 @@ export class WorksWorld {
     tile.swapToMontage();
     // THE PREVIEW FITS THE SCREEN. A tall pane (a vertical film's) stands up twice a landscape pane's height: its hover
     // fits the screen's height at the floor's zoom, so the whole frame shows. And no preview is wider or taller than
-    // its box (constants.previewBox; owner's testers, 2026-09-30: pinched in, a phone's preview stood wider than its
+    // its box (constants.previewBox; the review's walkthroughs, 2026-09-30: pinched in, a phone's preview stood wider than its
     // screen): at the floor's own zoom a landscape pane keeps the plain lift.
     const zs = this.worldC.scale.x || 1;
     const sw = this.app.screen.width;
@@ -354,7 +354,7 @@ export class WorksWorld {
     let cy = sh / 2 + this.pan.pos.y + (tile.y - HOVER_LIFT) * zs;
     if (coarse) {
       // …but a touch screen has no pointer to follow, and a tapped pane stood up where it lay: half off the screen, or
-      // a sliver at its edge (owner's testers). The first tap now brings the pane to the middle of its box.
+      // a sliver at its edge (the review's walkthroughs). The first tap now brings the pane to the middle of its box.
       cx = box.x + box.w / 2;
       cy = box.y + box.h / 2;
       gsap.killTweensOf(this.pan.pos);

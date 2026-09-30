@@ -70,7 +70,7 @@ startPage('contact', ({ site }) => {
   const callouts: [string, string][] = [
     ['FREQ', domain],
     ['RESPONSE', '< 48H'],
-    ['STATUS', 'RECEIVING'], // (no arrow: the arrow is the buttons'; both testers pressed this line)
+    ['STATUS', 'RECEIVING'], // (no arrow: the arrow is the buttons'; both walkthroughs pressed this line)
   ];
   document.getElementById('c-callouts')!.innerHTML = callouts
     .filter(([, v]) => v)

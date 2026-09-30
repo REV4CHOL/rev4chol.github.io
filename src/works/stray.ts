@@ -1,6 +1,6 @@
 import type { TileRect, ViewRect } from './priority';
 
-/** NEVER LOST IN EMPTY FLOOR (owner's testers, 2026-09-30: on a phone "one drag threw the wall into empty floor with no
+/** NEVER LOST IN EMPTY FLOOR (the review's walkthroughs, 2026-09-30: on a phone "one drag threw the wall into empty floor with no
  *  way back"). The floor may be panned a halo past the carpet, so its furniture can be framed; on a small screen that
  *  halo is several screens of black, and the carpet's own outline (a sheared block) leaves its corners empty too. A
  *  visitor who lands there sees no film and no sign of where the films went. The floor now notices: when the middle of

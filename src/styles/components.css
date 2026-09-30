@@ -4,7 +4,7 @@
   display: flex; justify-content: space-between; align-items: baseline;
   padding: 18px 28px; pointer-events: none;
 }
-/* THE HEADER'S VEIL, ON EVERY PAGE (owner's testers, 2026-09-30: text printed on text). The menu and the switches are
+/* THE HEADER'S VEIL, ON EVERY PAGE (the review's walkthroughs, 2026-09-30: text printed on text). The menu and the switches are
    fixed, and a page that scrolls ran its own text through them: a film's facts under the menu, the menu across its
    stills, white links on a white sky. The homepage's cure, everywhere: a fade of the page's own black behind the
    header (no plate: it has no edge, and over the void it is nothing at all); further down, full ink and the void
@@ -83,8 +83,8 @@
 /* ---- hud corners ---- */
 .hud { position: fixed; z-index: 940; pointer-events: none; }
 .hud button { pointer-events: auto; font: inherit; letter-spacing: inherit; color: var(--accent); text-transform: inherit; }
-/* a switch says its state in words (SFX ON: a 5 px dot, filled or hollow, was the whole state; owner's testers,
-   2026-09-30), and one that is off looks off */
+/* a switch says its state in words (SFX ON: a 5 px dot, filled or hollow, was the whole state; the review's
+   walkthroughs, 2026-09-30), and one that is off looks off */
 .hud button[aria-pressed="false"] { color: color-mix(in srgb, var(--bone) 50%, transparent); }
 .hud-sep { margin: 0 0.45em; opacity: 0.55; }
 .hud-bl { left: 28px; bottom: 22px; }
@@ -265,7 +265,7 @@
 .caret-plate { animation-duration: 0.8s; margin-left: 10px; }
 
 .home-data {
-  /* 13 px (owner's testers, 2026-09-30): the homepage's one plain line, who this is, was its smallest type */
+  /* 13 px (the review's walkthroughs, 2026-09-30): the homepage's one plain line, who this is, was its smallest type */
   margin-top: clamp(18px, calc(3vh / var(--plate, 1)), 30px);
   font-family: var(--f-micro); font-size: 13px; letter-spacing: 0.16em;
   text-transform: uppercase; color: color-mix(in srgb, var(--bone) 62%, transparent);
@@ -449,7 +449,7 @@
   background: var(--void);
 }
 /* THE AWAKE PANE'S CAPTION stands by its lifted card (works/caption.ts places it, and gives it its width); a long
-   title wraps inside that width instead of running off the screen (owner's testers, 2026-09-30:
+   title wraps inside that width instead of running off the screen (the review's walkthroughs, 2026-09-30:
    MR_PURPLE_DREAMS_IN_ELECTRIC… cut off at the edge); both lines wear the chrome's void halo, on the dimmed floor */
 #tile-label { position: fixed; z-index: 930; pointer-events: none; width: max-content; max-width: 340px; }
 #tile-label .tl-title {
@@ -498,7 +498,7 @@
   font-family: var(--f-micro); font-size: calc(var(--t-2xs) * var(--uiz));
   letter-spacing: 0.18em; color: rgba(237, 237, 230, 0.45); white-space: nowrap;
 }
-/* THE TAB NOT SHOWING IS NO LONGER HALF INK (owner's testers, 2026-09-30: five of the seventeen films stood behind
+/* THE TAB NOT SHOWING IS NO LONGER HALF INK (the review's walkthroughs, 2026-09-30: five of the seventeen films stood behind
    "a near-invisible AI switch"): its name and its count of films read as clearly as a menu link, over any picture */
 .ch-name {
   font-family: var(--f-display); font-weight: 700;
@@ -533,7 +533,7 @@
   .floor-hint { top: calc(150px * var(--uiz)); white-space: normal; width: max-content; max-width: min(300px, calc(100vw - 32px)); line-height: 1.8; text-wrap: balance; }
 }
 /* a touch screen's legend stands down while a pane is awake: the preview and its caption take its place (they shared
-   one spot; owner's testers, 2026-09-30) */
+   one spot; the review's walkthroughs, 2026-09-30) */
 .floor-hint { transition: opacity 0.2s; }
 @media (pointer: coarse) {
   .works-main.is-awake .floor-hint { opacity: 0; visibility: hidden; }
@@ -740,7 +740,7 @@
    discoverable — and on a fine pointer it names what a scroll past the
    page's end leads to (owner: scroll down to each section, on to the next). */
 .swipe-cue {
-  /* 11 px, full ink, the chrome's void halo (owner's testers, 2026-09-30: at 9 px and 80 % over a moving picture
+  /* 11 px, full ink, the chrome's void halo (the review's walkthroughs, 2026-09-30: at 9 px and 80 % over a moving picture
      nobody read it, and the scroll that changed the page came as a surprise) */
   display: block; position: fixed; left: 50%; bottom: 14px; translate: -50% 0;
   z-index: 60; text-decoration: none; text-align: center;
@@ -764,7 +764,7 @@
 /* (the coarse-pointer rule that hid .home-cta-row — the retired weather line — is gone: the row now holds THE DOOR,
    which a thumb needs most; owner's testers, 2026-09-27) */
 .rvl-calm .swc-chevron, .rvl-lite .swc-chevron { animation: none; }
-/* the cue follows the page (lib/swipe-nav.ts, cueState; owner's testers, 2026-09-30: "SCROLL DOWN ▾ CONTACT" rode
+/* the cue follows the page (lib/swipe-nav.ts, cueState; the review's walkthroughs, 2026-09-30: "SCROLL DOWN ▾ CONTACT" rode
    over the ABOUT page's text all the way down): it names the next page only when scrolling on would leave for it; at
    the top of a page with more of itself below it is a plain scroll hint; mid-page it stands down */
 .swipe-cue { transition: opacity 0.25s; }
@@ -800,7 +800,7 @@
 }
 .glide-panel.commit .gp-name { animation: rgb-flick 0.3s steps(2) 1; }
 
-/* A PHONE'S CHROME (owner's testers, 2026-09-30): the bottom readouts and the film count leave every page (the
+/* A PHONE'S CHROME (the review's walkthroughs, 2026-09-30): the bottom readouts and the film count leave every page (the
    homepage's decree, everywhere: they were printed over the page's own text as it scrolled), the switches take a
    thumb's target, and the scrolled veil reaches their row. */
 @media (max-width: 640px) and (pointer: coarse) {

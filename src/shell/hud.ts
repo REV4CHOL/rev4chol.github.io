@@ -28,7 +28,7 @@ export function mountHud(): Hud {
   const tr = document.createElement('div');
   tr.className = 'hud hud-tr micro';
   // the switches in full words (owner 2026-09-28, plain words: MUS and MTN were the house's abbreviations), each
-  // saying its state in words too (switchLabel; owner's testers, 2026-09-30), a mark between them
+  // saying its state in words too (switchLabel; the review's walkthroughs, 2026-09-30), a mark between them
   const sep = '<span class="hud-sep" aria-hidden="true">▪</span>';
   tr.innerHTML = `<span id="hud-count"></span> <button id="hud-snd" aria-pressed="${sound.enabled}" title="Sound effects: on / off">${switchLabel('SFX', sound.enabled)}</button>${sep}<button id="hud-mus" aria-pressed="${music.enabled}" title="Music: on / off">${switchLabel('MUSIC', music.enabled)}</button>${sep}<button id="hud-mtn" aria-pressed="${!calmActive()}" title="Motion: full / calm (the page reloads)">${switchLabel('MOTION', !calmActive())}</button>`;
 
