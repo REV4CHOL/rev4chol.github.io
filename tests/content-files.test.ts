@@ -417,6 +417,23 @@ describe('shipped content files', () => {
     }
   });
 
+  it('three loops lost the black frame their export ended on (owner 2026-09-30: SOFT HOURS & LONELY LANDS)', () => {
+    // the owner: "webloop Soft Hours & Lonely Lands has a black frame. Remove the black frame for me"; the sweep of
+    // every loop found the same last frame on PHILIA's and on the homepage reel's fourth clip. Stream copies, the
+    // pictures untouched: 213 → 212 frames at 24 fps; 449 → 447 and 91 → 89 at 29.97 fps (there the frame before the
+    // black one was predicted from it, so it left with it). tests/loop-frames.test.ts decodes every loop's ends.
+    for (const [file, seconds] of [
+      ['projects/soft-hours-lonely-lands/preview.mp4', 212 / 24],
+      ['projects/philia/preview.mp4', (447 * 1001) / 30000],
+      ['home/loop-4.mp4', (89 * 1001) / 30000],
+    ] as const) {
+      const f = mp4Facts(root + file);
+      expect(f.seconds, `${file} length`).toBeCloseTo(seconds, 2);
+      expect(f.boxes.indexOf('moov'), `${file} faststart`).toBeGreaterThanOrEqual(0);
+      expect(f.boxes.indexOf('moov'), `${file} faststart`).toBeLessThan(f.boxes.indexOf('mdat'));
+    }
+  });
+
   it('every project folder has its required media', () => {
     const projects = parseProjects(rawProjects());
     for (const p of projects) {
