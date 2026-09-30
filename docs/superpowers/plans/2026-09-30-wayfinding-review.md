@@ -165,3 +165,21 @@ at 132, over 232 of caption and tabs, never under 40 % of the height);
 - [x] Tick this plan; note the shipped sha.
 - [x] Memory: the round, the design calls made without the owner (the spec's section 7), what is left for the owner
       (its section 6).
+
+### Task 7: The hero's WATCH removed (the owner, of the hero, 2026-09-30: "remove the WATCH on this")
+
+**Files:** Modify `project.html`, `src/pages/project.ts`, `src/styles/project.css`, `tests/watch.test.ts`.
+
+Read as the hero's own WATCH button, on every film's page (the hero is one template). It supersedes Task 1's hero
+WATCH. The picture still plays the film on a press (the cursor says PLAY ▸); the synopsis's WATCH stays.
+
+- [ ] Rewrite the test: `project.html` carries no `p-hero-watch` and no `p-hero-run`, and one `WATCH ▸` (the
+      synopsis's); `project.ts` names neither `p-hero-watch` nor `heroWatch` and wires
+      `watch.addEventListener('click', open);`; `project.css` has no `.p-hero-run`. The picture's press keeps its test.
+- [ ] Run it: fails (the button is there).
+- [ ] Remove the button from `project.html`, `heroWatch` and the two-button loop from `project.ts`, `.p-hero-run` and
+      its phone rule from `project.css`.
+- [ ] Run it: passes; the gates. Real Chrome (`uxr/film-probe2.mjs`) at 1440 × 900, 1637 × 757 (the owner's screen),
+      1920 × 1080, 1366 × 768 and 390 × 844: no button in the hero; a press on the picture opens the film whole on
+      screen; the synopsis's WATCH opens it; MIEN VIEN's picture does nothing.
+- [ ] Ship; the same facts on https://rev4chol.github.io.

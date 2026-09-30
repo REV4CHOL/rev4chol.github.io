@@ -241,7 +241,6 @@ function mountSynopsis(p: Project): void {
   }
 
   const watch = document.getElementById('p-watch-btn') as HTMLButtonElement;
-  const heroWatch = document.getElementById('p-hero-watch') as HTMLButtonElement;
   const player = document.getElementById('p-player') as HTMLDivElement;
   const kind = watchKind(p);
   if (kind !== 'watch') {
@@ -267,10 +266,10 @@ function mountSynopsis(p: Project): void {
     }
     return;
   }
-  // THE FILM OPENS LARGE, AND WATCH STANDS ON THE FIRST SCREEN (owner's testers, 2026-09-30: "they dont know how to
-  // navigate the website or click or do actions"): two buttons, one player. The hero's is there before any scroll;
-  // the synopsis's stands where it always did. Either opens the film as wide as the page allows, in the player's own
-  // shape (vertical footage stands vertical), and the page travels to it; pressed again, the hero's travels back to it.
+  // THE FILM OPENS LARGE (owner's testers, 2026-09-30: "they dont know how to navigate the website or click or do
+  // actions"): WATCH opens the film as wide as the page allows, in the player's own shape (vertical footage stands
+  // vertical), and the page travels to it. (For a day the hero carried a WATCH button of its own; the owner, of the
+  // hero, 2026-09-30: "remove the WATCH on this". The picture itself still plays the film: below.)
   player.style.setProperty('--player-ratio', String(playerRatio(aspectRatio(p.aspect))));
   const mount = () => {
     watch.hidden = true;
@@ -304,11 +303,9 @@ function mountSynopsis(p: Project): void {
     if (player.hidden) mount();
     player.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
   };
-  for (const b of [watch, heroWatch]) {
-    b.hidden = false;
-    b.dataset.cursor = 'PLAY ▸';
-    b.addEventListener('click', open);
-  }
+  watch.hidden = false;
+  watch.dataset.cursor = 'PLAY ▸';
+  watch.addEventListener('click', open);
   // THE PICTURE PLAYS THE FILM: a framed moving picture with a ruler under it reads as a player, and both walkthroughs
   // pressed it first and got nothing. A click or a tap on it is WATCH (its links and buttons keep their own jobs).
   const hero = document.getElementById('p-hero')!;

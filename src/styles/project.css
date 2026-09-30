@@ -221,7 +221,9 @@
   color: var(--alert);
 }
 .p-up:hover { color: var(--bone); animation: rgb-flick 0.32s steps(2) 1; }
-/* the picture itself plays the film (p-hero--plays, from JS, only where there is a film to watch) */
+/* the picture itself plays the film (p-hero--plays, from JS, only where there is a film to watch). The hero has no
+   WATCH button of its own (owner, of the hero, 2026-09-30: "remove the WATCH on this"): WATCH stands under the
+   synopsis */
 .p-hero--plays { cursor: pointer; }
 .pc-line { position: relative; width: 78px; border-top: 1px dotted rgba(200, 255, 0, 0.65); }
 .pc-line::before {
@@ -334,14 +336,6 @@
   background: none; border-color: rgba(237, 237, 230, 0.25);
   color: rgba(237, 237, 230, 0.35); cursor: default; pointer-events: none;
 }
-/* WATCH ON THE FIRST SCREEN (owner's testers, 2026-09-30: "they dont know how to … click or do actions"): the one
-   action a film's page exists for stood a full screen below the picture. The hero carries its own, inside the scan
-   frame's lower left corner, clear of the title at its largest; it opens the same player and takes the page to it. */
-.p-hero-run {
-  position: absolute; left: 116px; bottom: 152px; z-index: 5; margin-top: 0;
-  padding: 16px 36px; font-size: var(--t-sm); box-shadow: 0 2px 22px rgba(6, 6, 6, 0.55);
-}
-.p-hero-run:hover { background: var(--void); }
 /* THE FILM OPENS LARGE (the review's walkthroughs, 2026-09-30): as wide as the page allows and no taller than the screen shows
    whole, in the player's own shape (--player-ratio, from JS: vertical footage stands vertical). Before, on a wide
    screen, it opened in the field right of the synopsis, which the 1440 plate pins to a sliver: 245 × 138 px. */
@@ -622,7 +616,6 @@
   .p-callouts { display: none; } /* the I: sheet repeats every value below */
   .p-ring { width: 92vw; height: 92vw; right: -46vw; }
   .p-title-stack { left: 16px; bottom: 12px; }
-  .p-hero-run { left: 32px; bottom: 146px; padding: 15px 30px; }
   .p-up { left: 16px; top: 164px; } /* on the index's row, under the status line */
 
   .p-sec {

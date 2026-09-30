@@ -85,8 +85,10 @@ of who this is, the rail tags and status codes, the headline that changes word, 
 
 ## 3. The film page
 
-- **WATCH on the first screen**: `#p-hero-watch`, the site's filled pill, inside the scan frame, clear of the title
-  (left 116, bottom 152; a phone: left 32, bottom 146). The synopsis's WATCH stays.
+- **No WATCH button in the hero** (the owner, of the hero, later on 2026-09-30: "remove the WATCH on this"). The round
+  first shipped one there (`#p-hero-watch`, the site's filled pill, inside the scan frame); it is gone from every
+  film's page. What plays the film from the first screen is the picture itself (next line); WATCH stands under the
+  synopsis, where it always did.
 - **The picture plays the film**: a press on the hero that is not on a link or a button opens the player; the cursor
   says PLAY ▸.
 - **The film opens large**: the player takes the page's full row under the synopsis, as wide as the page and no taller
@@ -98,7 +100,7 @@ of who this is, the rail tags and status codes, the headline that changes word, 
 - The ratio stamp stands mid-band (none on a phone); the status line, the index, the callouts and the link wear the
   chrome's void halo.
 - What stands where WATCH would is decided in one place (`project/watch.ts`, `watchKind`): WATCH, the private note, the
-  coming-soon note, the placeholder note. A private film has no hero WATCH.
+  coming-soon note, the placeholder note. A private film's picture does not play.
 
 ## 4. The chrome
 
@@ -170,7 +172,8 @@ change that would answer it:
 
 1. The film opens as a full row under the synopsis, not in the field at its right (the other way: keep the field and
    narrow the spec sheet).
-2. WATCH in the hero, and the hero picture plays.
+2. The hero picture plays the film. (A WATCH button in the hero was the other half of this call; the owner had it
+   removed the same day: "remove the WATCH on this".)
 3. `◂ ALL FILMS` at the top of a film's page.
 4. The header's veil on every page, deeper once a page scrolls.
 5. A phone loses the bottom readouts and the film count on every page.
@@ -187,7 +190,7 @@ change that would answer it:
 
 ## 8. Tests
 
-- `tests/watch.test.ts`: `watchKind`, `playerRatio`; pins for the hero WATCH, the hero's press, the large player and its
+- `tests/watch.test.ts`: `watchKind`, `playerRatio`; pins for a hero with no WATCH button, the hero's press, the large player and its
   place under the header, `◂ ALL FILMS`, the ratio stamp, the halo, the foot links' wrap.
 - `tests/chrome.test.ts`: the veil, the switches' words, a phone's chrome, `cueState`, the shapes of what is and is
   not pressable, the small words.

@@ -5,7 +5,8 @@ import { playerRatio, watchKind } from '../src/project/watch';
 // The owner's testers, 2026-09-30: "they dont know how to navigate the website or click or do actions, and they feel
 // lost". On a film's page the one action that matters is WATCH, and it was a full screen below the picture; pressed,
 // the film opened 245 × 138 px on a 1440 screen, in the field right of the synopsis (the poster lock had pinned that
-// field to a sliver). WATCH now stands on the first screen, and the film opens as wide as the page allows.
+// field to a sliver). The film now opens as wide as the page allows, and a press on the hero picture plays it. (The
+// hero carried a WATCH button of its own for a day; the owner, of the hero, 2026-09-30: "remove the WATCH on this".)
 
 const film = (over: Partial<{ film: { type: 'youtube'; src: string } | null; filmPending: boolean; filmPrivate: boolean }> = {}) => ({
   film: { type: 'youtube' as const, src: 'https://youtu.be/abcdefghijk' },
@@ -60,18 +61,20 @@ describe('the film opens large', () => {
   });
 });
 
-describe("WATCH stands on the film page's first screen", () => {
-  it('the hero carries its own WATCH, wired to the same player', () => {
-    expect(readFileSync('project.html', 'utf8')).toContain('<button class="p-run p-hero-run" id="p-hero-watch" hidden>WATCH ▸</button>');
-    const src = readFileSync('src/pages/project.ts', 'utf8');
-    expect(src).toContain("document.getElementById('p-hero-watch')");
-    expect(src).toContain('for (const b of [watch, heroWatch]) {');
+describe("the film plays from the page's first screen", () => {
+  it('the hero carries no WATCH button (owner, of the hero: "remove the WATCH on this")', () => {
+    const html = readFileSync('project.html', 'utf8');
+    expect(html).not.toContain('p-hero-watch');
+    expect(html).not.toContain('p-hero-run');
+    expect(html.match(/WATCH ▸/g)).toHaveLength(1); // the synopsis's, where it always stood
+    expect(readFileSync('src/pages/project.ts', 'utf8')).not.toContain('p-hero-watch');
+    expect(readFileSync('src/styles/project.css', 'utf8')).not.toContain('.p-hero-run');
   });
 
-  it('it sits inside the scan frame, clear of the title, at a thumb-sized target', () => {
-    const css = readFileSync('src/styles/project.css', 'utf8');
-    expect(css).toContain('.p-hero-run {');
-    expect(css).toMatch(/\.p-hero-run \{[^}]*position: absolute;[^}]*z-index: 5;/);
+  it("the synopsis's WATCH opens the player", () => {
+    const src = readFileSync('src/pages/project.ts', 'utf8');
+    expect(src).toContain("watch.addEventListener('click', open);");
+    expect(src).not.toContain('heroWatch');
   });
 
   it('the picture itself plays the film: both walkthroughs took it for the player and pressed it', () => {
