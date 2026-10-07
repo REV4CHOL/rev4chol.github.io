@@ -947,7 +947,7 @@ git commit -m "feat: content types, validation and runtime loaders"
 {
   "name": "REVACHOL",
   "tagline": "cinematic filmmaker",
-  "email": "mnguyen4403@gmail.com",
+  "email": "rev4chol@gmail.com",
   "nav": [
     { "label": "HOMEPAGE", "href": "/index.html" },
     { "label": "WORK", "href": "/works.html" },

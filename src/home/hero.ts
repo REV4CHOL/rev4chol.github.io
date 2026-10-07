@@ -1,3 +1,5 @@
+// PixiJS without eval, before any renderer starts: the site's Content-Security-Policy allows none (src/lib/csp.ts)
+import 'pixi.js/unsafe-eval';
 import { Application, Assets, Container, DisplacementFilter, Sprite, Texture } from 'pixi.js';
 import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
 import { homeLoopFiles, loadLoopManifest } from '../lib/content';

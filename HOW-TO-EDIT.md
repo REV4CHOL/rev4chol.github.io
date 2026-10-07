@@ -57,9 +57,11 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 **film** is what the WATCH button plays. It is one of:
 - `{ "type": "vimeo", "src": "https://vimeo.com/123456789" }`
 - `{ "type": "youtube", "src": "https://youtu.be/XXXXXXXXXXX" }`
-- `{ "type": "embed", "src": "<iframe …></iframe>" }` — ANY other platform
-  (Facebook, TikTok, …): paste the platform's full Share ▸ Embed iframe code
-  straight in, the player address is pulled out of it
+- `{ "type": "embed", "src": "<iframe …></iframe>" }` — Facebook, TikTok or
+  Instagram: paste the platform's full Share ▸ Embed iframe code straight in,
+  the player address is pulled out of it. A player from any other site is
+  refused and does not play; a new platform is one more name in
+  `src/lib/embeds.ts` (`EMBED_HOSTS`)
 - `{ "type": "local", "src": "film.mp4" }` — put `film.mp4` in the folder
 - `null` — no film at all: the pane is a **placeholder** (its floor strip
   and its dossier say PLACEHOLDER). For a real film without a link, add

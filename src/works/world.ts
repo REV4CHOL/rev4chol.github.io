@@ -1,3 +1,5 @@
+// PixiJS without eval, before any renderer starts: the site's Content-Security-Policy allows none (src/lib/csp.ts)
+import 'pixi.js/unsafe-eval';
 import { Application, ColorMatrixFilter, Container } from 'pixi.js';
 import gsap from 'gsap';
 import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';

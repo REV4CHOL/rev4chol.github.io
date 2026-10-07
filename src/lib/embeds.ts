@@ -10,13 +10,31 @@ export function vimeoId(url: string): string | null {
   return m ? m[1] : null;
 }
 
-/** The generic escape hatch: any platform's Share ▸ Embed iframe (Facebook,
- *  TikTok, …). Accepts the full pasted snippet or a bare player url; only
- *  https survives — anything else (javascript:, http:, prose) is refused. */
+/** The platforms a pasted player may come from: the ones the films play from, with or without www (security review
+ *  2026-10-07: any https site could put itself inside a film page). A new platform is one more name here. */
+const EMBED_HOSTS: ReadonlySet<string> = new Set([
+  'facebook.com', 'www.facebook.com',
+  'tiktok.com', 'www.tiktok.com',
+  'instagram.com', 'www.instagram.com',
+  'player.vimeo.com',
+  'youtube.com', 'www.youtube.com', 'www.youtube-nocookie.com',
+]);
+
+/** The generic escape hatch: a platform's Share ▸ Embed iframe (Facebook,
+ *  TikTok, Instagram, …). Accepts the full pasted snippet or a bare player url;
+ *  only an https player on one of EMBED_HOSTS survives — anything else
+ *  (javascript:, http:, prose, another site) is refused. */
 export function iframeSrc(input: string): string | null {
   const m = input.match(/<iframe[^>]*\ssrc\s*=\s*["']([^"']+)["']/i);
   const url = (m ? m[1] : input).trim();
-  return /^https:\/\//i.test(url) ? url : null;
+  if (!/^https:\/\//i.test(url)) return null;
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  return u.port === '' && u.username === '' && u.password === '' && EMBED_HOSTS.has(u.hostname) ? url : null;
 }
 
 /** The player url for a film. `autoplay` (default true): a part of a film in parts that waits its turn starts

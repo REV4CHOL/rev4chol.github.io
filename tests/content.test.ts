@@ -58,6 +58,22 @@ describe('parseSite', () => {
     expect(() => parseSite({ nav: [{ label: 'A', href: '/a' }] })).toThrow(ContentError);
     expect(() => parseSite({ name: 'X', nav: [] })).toThrow(/nav/);
   });
+
+  it('takes a link only as a path on this site, https or mailto (security review 2026-10-07)', () => {
+    const withNav = (href: string) => ({ name: 'X', nav: [{ label: 'A', href }] });
+    for (const href of ['/works.html', 'https://www.instagram.com/x', 'HTTPS://example.com/', 'mailto:mail@example.com']) {
+      expect(parseSite(withNav(href)).nav[0].href).toBe(href);
+    }
+    for (const href of [
+      'javascript:void(0)', 'JavaScript:void(0)', ' javascript:void(0)', 'java\tscript:void(0)', 'data:text/html,x',
+      'http://example.com/', '//example.com/x', '/\\example.com/x', 'works.html', '/works.html\n', '',
+    ]) {
+      expect(() => parseSite(withNav(href)), JSON.stringify(href)).toThrow(/nav\[0\]\.href/);
+    }
+    expect(() => parseSite({ ...validSite(), socials: [{ label: 'X', href: 'javascript:void(0)' }] })).toThrow(
+      /socials\[0\]\.href/,
+    );
+  });
 });
 
 describe('parseProjects', () => {

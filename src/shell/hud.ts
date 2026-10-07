@@ -1,6 +1,7 @@
 import { calmActive, toggleCalm } from '../lib/motion';
 import { music } from '../lib/music';
 import { sound } from '../lib/sound';
+import { sessionTag } from './session-tag';
 import { switchLabel } from './switches';
 
 export interface Hud {
@@ -19,11 +20,12 @@ export function mountHud(): Hud {
   br.className = 'hud hud-br micro';
   let sid = 'RVL-0000';
   try {
-    const stored = sessionStorage.getItem('rvl-sid');
-    sid = stored ?? `RVL-${Math.random().toString(16).slice(2, 6).toUpperCase()}`;
+    sid = sessionTag(sessionStorage.getItem('rvl-sid'));
     sessionStorage.setItem('rvl-sid', sid);
   } catch { /* ok */ }
-  br.innerHTML = `<span id="hud-tc">00:00:00:00</span> · <span>${sid}</span>`;
+  // the tag goes in as text, never as markup (security review 2026-10-07)
+  br.innerHTML = `<span id="hud-tc">00:00:00:00</span> · <span class="hud-sid"></span>`;
+  (br.querySelector('.hud-sid') as HTMLElement).textContent = sid;
 
   const tr = document.createElement('div');
   tr.className = 'hud hud-tr micro';

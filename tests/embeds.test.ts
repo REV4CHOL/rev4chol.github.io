@@ -42,7 +42,7 @@ describe('pasted embed codes', () => {
   });
 });
 
-describe('the generic embed type — any platform\'s iframe, verbatim', () => {
+describe('the generic embed type — a known platform\'s iframe, verbatim', () => {
   const FB =
     '<iframe src="https://www.facebook.com/plugins/video.php?height=314&href=https%3A%2F%2Fwww.facebook.com%2Freel%2F1026445899822328%2F&show_text=false&width=560&t=0" width="560" height="314" style="border:none;overflow:hidden" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowFullScreen="true"></iframe>';
 
@@ -62,6 +62,32 @@ describe('the generic embed type — any platform\'s iframe, verbatim', () => {
     expect(iframeSrc('http://evil.example/embed')).toBeNull();
     expect(iframeSrc('<iframe src="javascript:alert(1)"></iframe>')).toBeNull();
     expect(iframeSrc('just words')).toBeNull();
+  });
+
+  it('takes a player only from a platform the films play from (security review 2026-10-07)', () => {
+    for (const url of [
+      'https://www.facebook.com/plugins/video.php?href=x',
+      'https://facebook.com/plugins/video.php?href=x',
+      'https://www.tiktok.com/embed/v2/7212345678901234567',
+      'https://www.instagram.com/reel/abc/embed',
+      'https://player.vimeo.com/video/76979871',
+      'https://www.youtube.com/embed/aqz-KE-bpKQ',
+      'https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ',
+      'HTTPS://WWW.FACEBOOK.COM/plugins/video.php?href=x',
+    ]) {
+      expect(iframeSrc(url), url).toBe(url);
+    }
+    for (const url of [
+      'https://player.example/embed/1',
+      'https://www.facebook.com.player.example/plugins/video.php',
+      'https://www.facebook.com@player.example/plugins/video.php',
+      'https://player.example/?u=https://www.facebook.com/',
+      'https://www.facebook.com:8443/plugins/video.php',
+      'https://vimeo.com.player.example/video/1',
+    ]) {
+      expect(iframeSrc(url), url).toBeNull();
+    }
+    expect(iframeSrc('<iframe src="https://player.example/embed/1" allowfullscreen></iframe>')).toBeNull();
   });
 
   it('embedSrc serves the embed type verbatim from the pasted snippet', () => {

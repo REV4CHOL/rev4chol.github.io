@@ -12,6 +12,13 @@ $ErrorActionPreference = "Stop"
 # isolated repro during Task 18 verification). Resolving it here, after binding
 # completes, sidesteps the bug without changing the script's documented CLI contract.
 if (-not $ContentDir) { $ContentDir = Join-Path $PSScriptRoot "..\public\content\projects" }
+# The slug names the film's folder, so it must be one the site accepts (content.ts: ^[a-z0-9-]+$). Anything else,
+# a space, a capital or ..\, would make a folder the site refuses, or write outside public\content\projects
+# (security review 2026-10-07). -cnotmatch: PowerShell's -notmatch ignores case.
+if ($Slug -cnotmatch '^[a-z0-9-]+$') {
+  Write-Error "Slug must be lowercase letters, digits and hyphens, like the site's own slugs (got '$Slug')."
+  exit 1
+}
 try { ffmpeg -version | Out-Null } catch {
   Write-Error "ffmpeg not found on PATH. Install it (winget install Gyan.FFmpeg) and retry."
   exit 1

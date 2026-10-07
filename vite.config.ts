@@ -1,6 +1,8 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
+import { UNTOUCHED_PAGES, withCsp } from './src/lib/csp';
 import { pickLoopFiles } from './src/lib/loop-files';
 
 const p = (f: string) => fileURLToPath(new URL(f, import.meta.url));
@@ -90,9 +92,23 @@ function mediaManifest(): Plugin {
   };
 }
 
+/** Every built page but the archived ABOUT carries the site's Content-Security-Policy (src/lib/csp.ts), its script
+ *  hashes worked out from the finished page ('post': after Vite's own tags are in). Build only: the dev server, its
+ *  client and its error overlay are left as they were. */
+function contentSecurityPolicy(): Plugin {
+  return {
+    name: 'revachol-csp',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler: (html, ctx) => (UNTOUCHED_PAGES.includes(basename(ctx.filename)) ? html : withCsp(html)),
+    },
+  };
+}
+
 export default defineConfig({
   appType: 'mpa',
-  plugins: [mediaManifest()],
+  plugins: [mediaManifest(), contentSecurityPolicy()],
   build: {
     target: 'es2022',
     rollupOptions: {

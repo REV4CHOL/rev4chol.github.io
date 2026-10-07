@@ -105,6 +105,17 @@ function str(v: unknown, file: string, name: string, fallback?: string): string 
   return v;
 }
 
+/** A link a visitor can press: a path on this site, an https address or mailto:. Any other scheme (javascript:,
+ *  data:, http:) is refused, and so is any space or control character, which a browser strips before it reads the
+ *  scheme (security review 2026-10-07: the links were escaped but never checked). */
+const LINK = /^(\/(?![/\\])|https:\/\/|mailto:)[^\s\u0000-\u001f\u007f]*$/i;
+
+function link(v: unknown, file: string, name: string): string {
+  const href = str(v, file, name);
+  if (!LINK.test(href)) fail(file, `"${name}" must start with "/", "https://" or "mailto:", with no spaces in it`);
+  return href;
+}
+
 function obj(v: unknown, file: string, name: string): Record<string, unknown> {
   if (typeof v !== 'object' || v === null || Array.isArray(v)) fail(file, `${name} must be an object`);
   return v as Record<string, unknown>;
@@ -126,13 +137,13 @@ export function parseSite(raw: unknown): SiteContent {
   if (!Array.isArray(r.nav) || r.nav.length === 0) fail(file, '"nav" must be a non-empty array');
   const nav = r.nav.map((n, i) => {
     const o = obj(n, file, `nav[${i}]`);
-    return { label: str(o.label, file, `nav[${i}].label`), href: str(o.href, file, `nav[${i}].href`) };
+    return { label: str(o.label, file, `nav[${i}].label`), href: link(o.href, file, `nav[${i}].href`) };
   });
   const socialsRaw = r.socials ?? [];
   if (!Array.isArray(socialsRaw)) fail(file, '"socials" must be an array');
   const socials = socialsRaw.map((s, i) => {
     const o = obj(s, file, `socials[${i}]`);
-    return { label: str(o.label, file, `socials[${i}].label`), href: str(o.href, file, `socials[${i}].href`) };
+    return { label: str(o.label, file, `socials[${i}].label`), href: link(o.href, file, `socials[${i}].href`) };
   });
   return {
     name,
