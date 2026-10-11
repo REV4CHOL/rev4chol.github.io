@@ -24,37 +24,37 @@ acceleration (or without WebGL), STORY shows the city's still and says why, and 
 
 **Files:** `src/about/city-gate.ts`, `src/lib/quality.ts`
 
-- [ ] **Step 1:** Export `SOFTWARE_GPU` from `quality.ts`.
-- [ ] **Step 2:** Write `cityGate` (live, still or no-3d) and `probeGpu` (the renderer's name, the strict context's
+- [x] **Step 1:** Export `SOFTWARE_GPU` from `quality.ts`.
+- [x] **Step 2:** Write `cityGate` (live, still or no-3d) and `probeGpu` (the renderer's name, the strict context's
   refusal), and the four lines and the still's path.
 
 ### Task 2: The page
 
 **Files:** `src/pages/story.ts`, `src/styles/story.css`
 
-- [ ] **Step 1:** Ask the gate before `armPosterLock`; on still or no-3d, mount the still and exempt it with the canvas.
-- [ ] **Step 2:** Put the line in the hint's seat, and on still `LOAD THE LIVE CITY ANYWAY` in the dial's seat, which
+- [x] **Step 1:** Ask the gate before `armPosterLock`; on still or no-3d, mount the still and exempt it with the canvas.
+- [x] **Step 2:** Put the line in the hint's seat, and on still `LOAD THE LIVE CITY ANYWAY` in the dial's seat, which
   runs `armFlight` (the canvas back, the still gone once the city is built).
-- [ ] **Step 3:** Style `.a3-still` like the canvas, with `object-fit: cover`, not pixelated.
+- [x] **Step 3:** Style `.a3-still` like the canvas, with `object-fit: cover`, not pixelated.
 
 ### Task 3: The still
 
 **Files:** `public/content/story/still.jpg`
 
-- [ ] **Step 1:** Read one frame off the live city, at its opening drift at night, at high, at 1920 × 1080; save it as
+- [x] **Step 1:** Read one frame off the live city, at its opening drift at night, at high, at 1920 × 1080; save it as
   a JPEG under 450 KB.
 
 ### Task 4: Tests and the guide
 
 **Files:** `tests/city-gate.test.ts`, `HOW-TO-EDIT.md`
 
-- [ ] **Step 1:** Pin the decisions over GPU and software names, the caveat and no WebGL; pin the lines, the still's
+- [x] **Step 1:** Pin the decisions over GPU and software names, the caveat and no WebGL; pin the lines, the still's
   size and weight, and the gate's place before the lock.
-- [ ] **Step 2:** Add HOW-TO-EDIT's "STORY without graphics acceleration".
+- [x] **Step 2:** Add HOW-TO-EDIT's "STORY without graphics acceleration".
 
 ### Task 5: Gates, verification, ship
 
-- [ ] **Step 1:** Get `npx tsc --noEmit`, `npx vitest run` and `npx vite build` green.
-- [ ] **Step 2:** In Chrome on this machine (no GPU), check that STORY shows the still and the line, and answers at
+- [x] **Step 1:** Get `npx tsc --noEmit`, `npx vitest run` and `npx vite build` green.
+- [x] **Step 2:** In Chrome on this machine (no GPU), check that STORY shows the still and the line, and answers at
   once; that the smoke check is clean, STORY included; and that `LOAD THE LIVE CITY ANYWAY` builds the city.
-- [ ] **Step 3:** Commit, push, watch the Pages run, and check the same on the live site.
+- [x] **Step 3:** Commit, push, watch the Pages run, and check the same on the live site.
