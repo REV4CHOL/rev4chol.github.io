@@ -246,6 +246,20 @@ the choice is remembered on their browser.
 `site.json`: `name` (the wordmark), `tagline`, `email` (contact page),
 `nav` labels, `socials`. Same rule — edit, save, refresh.
 
+## Tab icon
+
+The little icon on the browser tab is the wordmark's **R.** in the site's
+green on black, with the floor's registration crosses. Two files carry it:
+
+    public/
+      favicon.ico            the browser tab (16, 32 and 48 px in one file)
+      apple-touch-icon.png   a phone's home screen (180 × 180)
+
+To use your own, replace both with files of the same names and sizes. To
+redraw this one (say, after a new green in `tokens.css`), ask Claude to run
+`scripts/make-icons.py`. Browsers hold on to a tab icon: a new one can take a
+hard refresh, or a day, to show.
+
 ## Publishing
 
 **The site is live at https://rev4chol.github.io/** — hosted free on GitHub

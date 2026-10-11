@@ -9,6 +9,8 @@
   <script>/* music boot (owner: continuous across pages, on before the loading screen): the last page's place, seeked and playing before any chunk loads; the music module adopts this element. Refused (a phone's cold load: iOS grants no sound before a gesture on the document) it plays inside the page's first activating gesture — pointerup, touchend, click, keydown */(function(){try{if(localStorage.getItem('rvl-music-v1')==='off')return;var s=sessionStorage.getItem('rvl-music-pos'),p=s?JSON.parse(s):null,a=document.createElement('audio');a.preload='auto';a.loop=true;a.volume=0;a.src='/content/music/night-road.mp3';a.addEventListener('loadedmetadata',function(){if(p&&a.duration>0){var t=p.held?p.t:p.t+Math.max(0,(Date.now()-p.at)/1000);a.currentTime=((t%a.duration)+a.duration)%a.duration}});a.addEventListener('playing',function(){if(!window.rvlMusicAt)window.rvlMusicAt=performance.now();if(a.volume<0.55){var k=0,f=function(){k++;a.volume=Math.min(0.55,0.055*k);if(k<10)setTimeout(f,12)};f()}});var r=a.play();if(r&&r.catch)r.catch(function(){var g=function(){var q=a.play();if(q&&q.catch)q.catch(function(){})};['pointerup','touchend','click','keydown'].forEach(function(t){document.addEventListener(t,g,{once:true,passive:true})})});window.rvlMusicBoot=a}catch(e){}})();</script>
   <title>ABOUT — REVACHOL</title>
   <meta name="description" content="About REVACHOL — colorist, editor, AI generalist." />
+  <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 </head>
 <body class="page-about">
   <main id="app" class="about-main">
