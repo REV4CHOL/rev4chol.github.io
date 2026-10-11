@@ -9,7 +9,10 @@
  *  (A motion-blur pass once streaked the frame by reprojection while the
  *  camera moved; the owner read it as a glow that followed the camera, and
  *  it is gone.) */
-import { HalfFloatType, ShaderMaterial, Vector2, Vector3, WebGLRenderTarget, WebGLRenderer } from 'three';
+import {
+  AddEquation, AdditiveBlending, CustomBlending, HalfFloatType, Material, NormalBlending, OneFactor, OneMinusSrcAlphaFactor, ShaderMaterial, SrcAlphaFactor, Vector2,
+  Vector3, WebGLRenderTarget, WebGLRenderer, ZeroFactor,
+} from 'three';
 import { FullScreenQuad, Pass } from 'three/addons/postprocessing/Pass.js';
 
 /** A composer target in half floats (the bloom's headroom). */
@@ -124,7 +127,8 @@ const HAZE_FRAG = /* glsl */ `
 `;
 
 /** THE DISTANCE BLUR (owner: "fog of war and distance blur beyond boundaries — very natural and seamless"): the fog
- *  chunk writes every opaque surface's fog-of-war amount into the frame's alpha; this pass, after the scene and before
+ *  chunk writes every opaque surface's fog-of-war amount into the frame's alpha (see-through materials leave it as the
+ *  solid wrote it: keepAmount); this pass, after the scene and before
  *  the bloom, blurs each pixel over a small disc by its own amount, each tap weighted by its own amount against the
  *  centre's, so the sharp city never smears into the haze and the haze never bleeds into the city. The bloom then
  *  blooms the softened far lights softly. */
@@ -154,6 +158,24 @@ export class HazePass extends Pass {
   }
 
   dispose(): void { this.mat.dispose(); this.quad.dispose(); }
+}
+
+/** THE BLUR'S AMOUNT IS THE SOLIDS' (owner, 2026-10-11: "all the streets afar have weird depth of field"): the distance
+ *  blur reads the fog of war's amount from the frame's alpha, which every opaque surface writes (the fog chunk). A
+ *  see-through material blended its own alpha in on top — over, or added — so a far street under its lamps' glow,
+ *  its traffic's lights and its decals read alpha 1, as sharp as the city inside the fence: a dark unblurred streak
+ *  through the blurred far city, on every side. A see-through material keeps the frame's alpha instead: its colour
+ *  blends exactly as before, its alpha not at all, so a pixel blurs as the solid behind it does. (A custom blend is
+ *  left as it is.) */
+export function keepAmount(m: Material): void {
+  if (!m.transparent || (m.blending !== NormalBlending && m.blending !== AdditiveBlending)) return;
+  m.blendSrc = SrcAlphaFactor;
+  m.blendDst = m.blending === AdditiveBlending ? OneFactor : OneMinusSrcAlphaFactor;
+  m.blendEquation = AddEquation;
+  m.blendSrcAlpha = ZeroFactor;
+  m.blendDstAlpha = OneFactor;
+  m.blendEquationAlpha = AddEquation;
+  m.blending = CustomBlending;
 }
 
 /** A 24mm across the frame's long edge (full-frame 36mm: 2·atan(18/24)),

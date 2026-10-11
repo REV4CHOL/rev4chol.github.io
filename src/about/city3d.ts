@@ -47,7 +47,7 @@ import {
   AirLane, ART_COLOR, ARTERIAL, ARTERIAL_ROW, arterialLat, ARTS, AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, DIAGONAL, EXT, G, HALF, HIGHWAY, HoloKind, LANE_CAR, LANE_W, OUTER, PLAZA,
   CANAL_END, carriagewayAt, CAT_TAIL, catTailBoxes, cityTiles, CityTile, corridorFiller, cutAtCorridor, footprintInCorridor, hasShop, HW_FAR, isMass, LANDMARK_ARCH, planCity, Poi, RAIL, RAMP_W, rampY, ROAD, Searchlight, Sign, signColor, Solid, starPositions, streetAt, STREET, Street, TILE_P, tourRoute,
 } from './city-plan';
-import { fov24, HazePass, LensPass, lensTarget } from './city-post';
+import { fov24, HazePass, keepAmount, LensPass, lensTarget } from './city-post';
 import { CAST, People, Zone, marketZones } from './city-people';
 import { Runners } from './city-runners';
 import { blendMover, frameScale, newMover, owed, renderTime, rollMover, STEP, stepsAllowed } from './city-clock';
@@ -57,7 +57,7 @@ import { frameSize, newGovernor, PHONE, startTier, steer, TIERS, WINDOW } from '
 import type { Device } from './city-governor';
 import { PAINT } from './city-paint';
 import { farMasses, mergeBoxes } from './city-far';
-import { blendLooks, ease, horizonColor, lerpHex, Look as SkyLook, LOOKS as SKY, paintSky, TimeOfDay } from './city-sky';
+import { blendLooks, ease, horizonColor, lerpHex, Look as SkyLook, LOOKS as SKY, paintSky, SKY_DEPTH, TimeOfDay } from './city-sky';
 import { armReach, convexHull, DECK_KERB, SPEC, throughReach, Traffic } from './city-traffic';
 import { ATLAS, CELLS, FAMILIES, FLOOR, heightToNormal, PX as SKIN_PX, SHOP, skinFor, tintJitter, UPPER, VARIANTS } from './city-skins';
 
@@ -1404,11 +1404,27 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     t.needsUpdate = true;
     return t;
   };
+  // THE SKY BEHIND EVERYTHING (owner, 2026-10-11: "Why the hell that highway afar lights up? ... all the streets afar
+  // have weird depth of field. All these happens on all sides beyond the boundaries"): the domes ride the eye at 640 and
+  // write no depth. The opaque one drew first and everything painted over it — until the floor took its turns before
+  // everything (city-paint, order −30): then it drew after the floor, and over it wherever the floor lay past its
+  // radius. Every street the far city leaves open showed the dome's horizon band (the far highway lit up) and its
+  // darker stops below it, sharp as the sky (the distance blur reads the sky's alpha). The domes stand on the far plane
+  // now: whatever is drawn lies in front of them, in any order
+  const onFarPlane = (m: MeshBasicMaterial): MeshBasicMaterial => {
+    m.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
+      shader.uniforms.uBeyond = uBeyond;
+      shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>\n\tgl_Position.z = gl_Position.w * ${SKY_DEPTH};`);
+    };
+    m.customProgramCacheKey = () => 'far-plane';
+    return m;
+  };
   const domeGeo = new SphereGeometry(640, 24, 20);
-  const domeA = new Mesh(domeGeo, new MeshBasicMaterial({ map: skyTex(SKY.night), side: BackSide, fog: false, depthWrite: false }));
-  const domeB = new Mesh(domeGeo, new MeshBasicMaterial({ map: null, side: BackSide, fog: false, depthWrite: false, transparent: true, opacity: 0 }));
+  const domeA = new Mesh(domeGeo, onFarPlane(new MeshBasicMaterial({ map: skyTex(SKY.night), side: BackSide, fog: false, depthWrite: false })));
+  const domeB = new Mesh(domeGeo, onFarPlane(new MeshBasicMaterial({ map: null, side: BackSide, fog: false, depthWrite: false, transparent: true, opacity: 0 })));
   domeB.visible = false;
-  domeA.renderOrder = -2; domeB.renderOrder = -1; // the domes draw before every other transparent thing, whatever its distance
+  domeA.renderOrder = PAINT.order.sky; // the opaque dome first of all, as it always drew: everything covers it (city-paint)
+  domeB.renderOrder = -1; // the crossfading dome before every other see-through thing, whatever its distance
   sky.add(domeA, domeB);
   const nebulae: Sprite[] = [];
   const starsOf = (pos: Float32Array, size: number, tint: string, opacity = 1): Points => {
@@ -1489,7 +1505,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // horizon at grazing angles — eighteen lamps' sheen summed to a white veil over the whole frame, measured)
   const groundMat = new MeshLambertMaterial({
     map: groundTex.map, emissiveMap: groundTex.glow, emissive: '#2c4a8e', emissiveIntensity: 1.5, // its own glow, in the look's colour, the paint brighter than the asphalt: the streets never fall to black
-    polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: PAINT.ground, // the floor's depth, behind every paint at every distance (city-paint)
+    polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: PAINT.ground, // the floor's depth, behind the see-through decals laid on it (city-paint)
   });
   // two halves with the canal's slot between them (owner: the water lies 2.6 below the streets, between quay walls);
   // the UVs carry the tiling in block units, so both halves keep the lot centres on the tile corners
@@ -1525,15 +1541,15 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const waterMat = water.material as MeshBasicMaterial;
   const waterTex = waterTexture(rand);
   waterTex.repeat.set(1, 2 * CANAL_END / 64);
-  const mirror = new Mesh(new PlaneGeometry(CANAL.w, 2 * CANAL_END), new MeshBasicMaterial({
+  const mirror = new Mesh(new PlaneGeometry(CANAL.w, 2 * CANAL_END), additiveFog(new MeshBasicMaterial({
     map: waterTex, transparent: true, opacity: 0.32, blending: AdditiveBlending, depthWrite: false,
-  }));
+  })));
   mirror.rotation.x = -Math.PI / 2;
   mirror.position.y = CANAL.water + 0.03;
   scene.add(mirror);
   // GROUND PATCHES (owner: no ghost roads): the lots' stone laid over every street band the arterial closed
   {
-    const patchMat = new MeshLambertMaterial({ color: '#4c5062', emissive: '#2c4a8e', emissiveIntensity: 0.9, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: PAINT.pull }); // a paint (city-paint)
+    const patchMat = new MeshLambertMaterial({ color: '#4c5062', emissive: '#2c4a8e', emissiveIntensity: 0.9, depthWrite: false, depthTest: false }); // a paint (city-paint)
     const patches = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), patchMat, plan.patches.length);
     patches.renderOrder = PAINT.order.patch;
     const o = new Object3D();
@@ -1548,9 +1564,9 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     const map = strip.map.clone(), glow = strip.glow.clone();
     map.needsUpdate = true; glow.needsUpdate = true;
     map.repeat.set(repeat, 1); glow.repeat.set(repeat, 1);
-    // (paint: laid on the floor — no depth of its own, pulled in front of the floor's, covering the paints drawn before
-    // it: its mesh takes its turn in PAINT.order. Not paint: a deck's own surface, solid, drawn as anything is: city-paint)
-    const m = new MeshLambertMaterial({ map, emissiveMap: glow, emissive: '#2c4a8e', emissiveIntensity: 1.8, depthWrite: !paint, polygonOffset: paint, polygonOffsetFactor: -1, polygonOffsetUnits: PAINT.pull });
+    // (paint: laid on the floor in its turn (PAINT.order) — no depth test and no depth of its own, covering the floor and
+    // the paints drawn before it. Not paint: a deck's own surface, solid, drawn as anything is: city-paint)
+    const m = new MeshLambertMaterial({ map, emissiveMap: glow, emissive: '#2c4a8e', emissiveIntensity: 1.8, depthWrite: !paint, depthTest: !paint });
     streetMats.push(m);
     return m;
   };
@@ -2467,7 +2483,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     for (const gt of st.gates) { rim.push(gt.x, 3.2, gt.z); }
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(new Float32Array(rim), 3));
-    scene.add(new Points(g, dim(new PointsMaterial({ map: glowTexture('#ffffff'), color: '#e8f4ff', size: 3.6, sizeAttenuation: true, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false })))); // small: seventy of them up close once walled the deck in white
+    scene.add(new Points(g, dim(additiveFog(new PointsMaterial({ map: glowTexture('#ffffff'), color: '#e8f4ff', size: 3.6, sizeAttenuation: true, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false }))))); // small: seventy of them up close once walled the deck in white
     for (const gt of st.gates) { // a lit portal in the bowl's wall
       const m = new Mesh(new BoxGeometry(6, 4.6, 0.6), new MeshBasicMaterial({ color: '#ffd9a0' }));
       m.position.set(gt.x, 2.3, gt.z);
@@ -2638,9 +2654,9 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   }
   const flickers: { inst: InstancedMesh; base: Float32Array; lit: number[] }[] = [];
   for (const grp of signGroups.values()) {
-    const signMat = new MeshBasicMaterial({
+    const signMat = additiveFog(new MeshBasicMaterial({
       map: grp.tex, color: '#ffffff', transparent: true, blending: AdditiveBlending, depthWrite: false, side: DoubleSide,
-    });
+    }));
     scalables.push({ m: signMat, floor: 0.45 });
     const inst = new InstancedMesh(geo.plane, signMat, grp.sign.length);
     const base = new Float32Array(grp.sign.length * 3);
@@ -2765,10 +2781,10 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const glowPoints = (pos: number[] | Float32Array, color: string, size: number, opacity = 1) => {
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(pos instanceof Float32Array ? pos : new Float32Array(pos), 3));
-    const pts = new Points(g, dim(new PointsMaterial({
+    const pts = new Points(g, dim(additiveFog(new PointsMaterial({ // (fogged by dimming: three's fog ADDED the horizon's colour once a glow, and a far street's lamps, a pixel each, summed to a lit line — owner: "why the hell that highway afar lights up")
       map: glowTexture(color), color, size, sizeAttenuation: true, transparent: true, opacity,
       blending: AdditiveBlending, depthWrite: false,
-    })));
+    }))));
     scene.add(pts);
     return pts;
   };
@@ -2981,7 +2997,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     scene.add(cars3, glass3);
     trainLights.g.setAttribute('position', new BufferAttribute(trainLights.arr, 3));
     trainLights.g.setAttribute('color', new BufferAttribute(trainLights.col, 3));
-    scene.add(new Points(trainLights.g, new PointsMaterial({ vertexColors: true, size: 2.6, sizeAttenuation: true, transparent: true, blending: AdditiveBlending, depthWrite: false })));
+    scene.add(new Points(trainLights.g, additiveFog(new PointsMaterial({ vertexColors: true, size: 2.6, sizeAttenuation: true, transparent: true, blending: AdditiveBlending, depthWrite: false }))));
   }
   // LIFT CABS: a lit box riding each station shaft between the pavement and the platform, dwelling at both ends
   const cabMat = new MeshLambertMaterial({ color: '#dfe6ff', emissive: '#ffe9c9', emissiveIntensity: 0.9 });
@@ -3390,7 +3406,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     // a turn a street (city-paint): one crossing's boxes overlap in its centre square, 2 mm apart — past ~130 m the
     // depth buffer cannot tell them apart, and boxes that fought for it flickered in every distant junction
     const boxMats = [0, 1, 2].map(() => streetMat(asphalt, 1, true));
-    const lineMat = new MeshLambertMaterial({ color: '#e8eaf0', emissive: '#2c4a8e', emissiveIntensity: 1.5, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: PAINT.pull }); // a paint
+    const lineMat = new MeshLambertMaterial({ color: '#e8eaf0', emissive: '#2c4a8e', emissiveIntensity: 1.5, depthWrite: false, depthTest: false }); // a paint
     streetMats.push(zebraMat, lineMat);
     const flat = new PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
     const TILES1 = tiles.filter((t) => t.ring === 1).length + 1; // (the first ring wears the same paint: room for the copies)
@@ -3630,7 +3646,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const sparkGeo = new BufferGeometry();
   sparkGeo.setAttribute('position', new BufferAttribute(runners.trail.pos, 3));
   sparkGeo.setAttribute('color', new BufferAttribute(runners.trail.col, 3));
-  const sparks = new Points(sparkGeo, new PointsMaterial({ vertexColors: true, size: 0.42, sizeAttenuation: true, transparent: true, blending: AdditiveBlending, depthWrite: false }));
+  const sparks = new Points(sparkGeo, additiveFog(new PointsMaterial({ vertexColors: true, size: 0.42, sizeAttenuation: true, transparent: true, blending: AdditiveBlending, depthWrite: false })));
   sparks.frustumCulled = false; // the ring's bounds never update: culled by its first (empty) bounds it would vanish whenever the origin left the view
   scene.add(sparks);
   const runnerMovers = [mover(rPos, runnerGeo.getAttribute('aPos') as InstancedBufferAttribute, 3, 4), mover(runners.trail.pos, sparkGeo.getAttribute('position') as BufferAttribute, 3, 4)];
@@ -3795,7 +3811,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(arr, 3));
     g.setAttribute('color', new BufferAttribute(col, 3));
-    const pts = new Points(g, new PointsMaterial({ vertexColors: true, size: 2.2, sizeAttenuation: true, transparent: true, blending: AdditiveBlending, depthWrite: false }));
+    const pts = new Points(g, additiveFog(new PointsMaterial({ vertexColors: true, size: 2.2, sizeAttenuation: true, transparent: true, blending: AdditiveBlending, depthWrite: false })));
     scene.add(pts);
     return { arr, col, g };
   })();
@@ -4303,7 +4319,9 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     camera.fov = fov24(camera.aspect); // a 24mm across the long edge
     camera.updateProjectionMatrix();
     lens.setAspect(camera.aspect);
-     snapLights = true;
+    // (a new frame size is no cut: the lights near the eye keep their fades — the governor's every step of the render
+    // scale re-dealt them at once, and the lamps fading in or out about the eye popped on the street: owner, 2026-10-11,
+    // "it's the road literally flickering (it happens rarely tho)")
     render();
   };
 
@@ -4364,6 +4382,11 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // bridges' pylons, stays, walls and piers, the canal's ends — is static furniture (whatever moves lives in a group or
   // an instanced mesh); merged by material, a draw call a material
   mergeStatic(scene, scene.children.filter((o): o is Mesh => (o as Mesh).isMesh === true && !(o as InstancedMesh).isInstancedMesh && (o as Mesh).geometry.type === 'BoxGeometry' && !Array.isArray((o as Mesh).material) && ((o as Mesh).material as Material).type === 'MeshLambertMaterial' && !((o as Mesh).material as MeshLambertMaterial).map));
+  // THE BLUR'S AMOUNT IS THE SOLIDS' (owner, 2026-10-11: "all the streets afar have weird depth of field"): every
+  // see-through material in the world — glows, lights, decals, zebras, beams, the clouds — keeps the frame's alpha, the
+  // fog of war's amount the solid behind it wrote, so the distance blur takes a far street with the blocks about it
+  // (city-post). The sky's own layers — the domes, the stars, the moon and the sun — are infinitely far and stay sharp.
+  for (const c of scene.children) if (c !== sky) c.traverse((o) => { const mat = (o as Mesh).material as Material | Material[] | undefined; if (mat) for (const m of Array.isArray(mat) ? mat : [mat]) keepAmount(m); });
   fit();
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(canvas);
 
@@ -4440,7 +4463,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
         gaze.leg = -1; gaze.poi = null; gaze.held = 0;
       }
       mode = m;
-      snapLights = true;
+      if (m === 'tour') snapLights = true; // (the tour cuts to its route; FREE and AUTO fly on from the camera: no cut, the lights keep their fades)
     },
     look: (dx, dy) => { free.lookX += dx; free.lookY += dy; }, // an impulse; the head carries it
     keys,

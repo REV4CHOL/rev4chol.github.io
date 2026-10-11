@@ -12,6 +12,14 @@
 
 export type TimeOfDay = 'night' | 'dusk' | 'dawn' | 'haze' | 'day';
 export const TIMES: TimeOfDay[] = ['dawn', 'day', 'haze', 'dusk', 'night']; // the clock's order (owner: DAWN DAY HAZE DUSK NIGHT); the page still opens at night
+/** THE SKY'S DEPTH (owner, 2026-10-11: "Why the hell that highway afar lights up?"): the domes ride the eye at 640 and
+ *  are drawn on the far plane — their clip-space z set to this share of w (a window depth of 0.9999995) — so whatever
+ *  the city draws stands in front of them, in any order (drawn after the floor at 640, the dome had covered the far
+ *  city's streets). Short of 1, so no GPU clips it at the far plane; past the window depth of anything the city draws:
+ *  the ground's far edge, 16,000 out, sits at 0.999994 under the camera's near plane of 0.5 and far plane of 20,000.
+ *  (The ground's polygon offset pushes it back by a slope — one pixel row's depth — so at most the row at the horizon,
+ *  the sky's colour either way, could fall behind the sky.) */
+export const SKY_DEPTH = 0.999999;
 
 export interface Grade { low: [number, number, number]; high: [number, number, number]; contrast: number }
 export interface Look {

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { blendLooks, ease, hexToRgb, horizonColor, lerpHex, LOOKS, nextTime, paintSky, parseTime, TIMES } from '../src/about/city-sky';
+import { readFileSync } from 'node:fs';
+import { blendLooks, ease, hexToRgb, horizonColor, lerpHex, LOOKS, nextTime, paintSky, parseTime, SKY_DEPTH, TIMES } from '../src/about/city-sky';
+import { TIERS } from '../src/about/city-governor';
+import { G } from '../src/about/city-plan';
 
 const HEX = /^#[0-9a-f]{6}$/;
 
@@ -94,5 +97,33 @@ describe("The beyond's colour (owner: the far horizon always in view)", () => {
       expect(Math.abs(px[o] - r) + Math.abs(px[o + 1] - g) + Math.abs(px[o + 2] - b), t).toBeLessThanOrEqual(3);
     }
     expect(horizonColor(LOOKS.night)).not.toBe(LOOKS.night.fog.color);
+  });
+});
+
+// The domes ride the eye at 640 and write no depth; drawn after the floor (the painted floor's turns, order −30), the
+// opaque one covered the floor wherever it lay past 640 — every open street of the far city showed the sky's horizon
+// band, sharp (owner, 2026-10-11: "Why the hell that highway afar lights up? ... all the streets afar have weird depth
+// of field"). On the far plane, everything drawn lies in front of them.
+describe('the sky behind everything', () => {
+  const city = readFileSync('src/about/city3d.ts', 'utf8');
+  const near = Number(city.match(/new PerspectiveCamera\(fov24\(1\), 1, ([\d.]+), TIERS\[tier\]\.far\)/)?.[1]);
+  const ground = Number(city.match(/const GROUND = (\d+) \* G;/)?.[1]) * G;
+  const windowDepth = (d: number, far: number) => (far / (far - near)) * (1 - near / d); // [0, 1], three's perspective, depth range 0–1
+
+  it('lies past the window depth of the farthest thing the city draws, at every tier, in a 24-bit depth buffer', () => {
+    expect(near, "the camera's near plane, read off city3d.ts").toBe(0.5);
+    expect(ground / 2, "the ground's far edge, read off city3d.ts").toBeGreaterThan(15000);
+    for (const t of TIERS) {
+      const edge = Math.round(windowDepth(ground / 2, t.far) * (2 ** 24 - 1)), sky = Math.round(((1 + SKY_DEPTH) / 2) * (2 ** 24 - 1)); // (clip z/w −1…1 to the window's 0…1)
+      expect(sky - edge, `${t.label}: the sky's quantised depth behind the ground's edge, with room`).toBeGreaterThan(80);
+      expect(sky, `${t.label}: in front of the cleared depth, so the sky draws where nothing else did`).toBeLessThan(2 ** 24 - 1);
+    }
+    expect(SKY_DEPTH, 'inside the clip volume: never clipped at the far plane').toBeLessThan(1);
+  });
+
+  it('draws both domes on the far plane, and the opaque one first of all', () => {
+    expect(city).toMatch(/gl_Position\.z = gl_Position\.w \* \$\{SKY_DEPTH\}/);
+    expect(city.match(/new Mesh\(domeGeo, onFarPlane\(new MeshBasicMaterial\(/g)?.length).toBe(2);
+    expect(city).toMatch(/domeA\.renderOrder = PAINT\.order\.sky;/);
   });
 });
