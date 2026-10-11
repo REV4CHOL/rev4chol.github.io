@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
-import { ARTERIAL, ARTERIAL_ROW, arterialLat, arterialZ, AutoFlight, BOUND, CAM_R, CANAL, CANAL_END, carriagewayAt, CAT_TAIL, catTailCorners, CITADEL, cityTiles, CollisionGrid, corridorFiller, cutAtCorridor, districtOf, EXT, footprintInCorridor, G, HALF, HIGHWAY, LANE_CAR, LANE_W, HW_FAR, isMass, LANDMARK_ARCH, MEDIAN, OUTER, planCity, RAIL, RAMP, RAMP_W, rampY, ROAD, starPositions, STREET, streetAt, TILE_P, tourRoute } from '../src/about/city-plan';
+import { ARTERIAL, ARTERIAL_ROW, arterialLat, arterialZ, AutoFlight, BOUND, CAM_R, CANAL, CANAL_END, carriagewayAt, CAT_TAIL, catTailCorners, CITADEL, cityTiles, CollisionGrid, corridorFiller, cutAtCorridor, districtOf, EXT, footprintInCorridor, G, HALF, HIGHWAY, LANE_CAR, LANE_W, HW_FAR, isMass, LANDMARK_ARCH, MEDIAN, OUTER, planCity, PLAZA, RAIL, RAMP, RAMP_W, rampY, ROAD, starPositions, STREET, streetAt, TILE_P, tourRoute } from '../src/about/city-plan';
 import { mulberry32 } from '../src/lib/rng';
 import { streetPoint } from '../src/about/city-traffic';
 import { FAMILIES, FLOOR as SKIN_FLOOR, PX as SKIN_PX, SHOP as SKIN_SHOP } from '../src/about/city-skins';
@@ -512,6 +512,26 @@ describe('The viaduct over its arterial (owner: roads that exist in real life)',
     expect(plan.stages.length).toBe(2);
     expect(plan.core.some((s) => s.kind === 'cyl' && s.w === 30), 'the dark disc is gone').toBe(false);
     expect(plan.grid.hit(0, 6, 0, 0.5), 'the statue is solid to the flight').not.toBeNull();
+  });
+
+  it('lays the plaza as its block: quay wall to quay wall, bridge deck to bridge deck, nothing of it on a road (owner: the disc spilled over the roads and showed the water at its corners)', () => {
+    expect(PLAZA.w).toBe(CANAL.w); // the canal's slot, wall to wall
+    expect(PLAZA.d).toBe(G - STREET); // the block between the streets either side
+    for (const s of [-1, 1]) { // the bridges either side meet its edges: no water between
+      const b = plan.bridges.find((q) => q.yaw === 0 && Math.abs(q.z - s * (PLAZA.d / 2 + STREET / 2)) < 1e-6);
+      expect(b, `the bridge at z = ${s * (PLAZA.d / 2 + STREET / 2)}`).toBeDefined();
+      expect(b!.span).toBeGreaterThanOrEqual(PLAZA.w);
+    }
+    for (let x = -PLAZA.w / 2 + 0.25; x < PLAZA.w / 2; x += 0.5) for (let z = -PLAZA.d / 2 + 0.25; z < PLAZA.d / 2; z += 0.5) {
+      const road = carriagewayAt(plan.streets, x, z);
+      expect(road === null || road.kind === 'canal', `the plaza at ${x}, ${z} on the ${road?.kind}`).toBe(true); // (the canal runs under it)
+    }
+    const furniture = plan.core.filter((q) => q.arch === 'street' && Math.hypot(q.x, q.z) < 14 && q.y < 4);
+    expect(furniture.length).toBe(18); // six planters, six trees in them, six benches
+    for (const q of furniture) {
+      expect(Math.abs(q.x) + q.w / 2, 'on the deck').toBeLessThan(PLAZA.w / 2);
+      expect(Math.abs(q.z) + q.d / 2, 'on the deck').toBeLessThan(PLAZA.d / 2);
+    }
   });
 
   it('varies the canal and breaks the blocks: five bridge builds, quay stairs, market streets, conduits, rooftop plant', () => {

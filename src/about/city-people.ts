@@ -55,6 +55,10 @@ export interface Person {
   /** The cross street's carriageway being walked through (or waited for at its kerb), or the crosswalk of their own
    *  street being crossed: the traffic holds its lanes at that node while anyone is in it. */
   cross: Crossing | null;
+  /** A waiter's spot at the kerb — its node's key, null if none — and the frames waited there. */
+  spotKey: string | null; waited: number;
+  /** The spot's place along the street (its offset is offTo): a waiter walks there, never jumps. */
+  tTo: number;
 }
 interface Knot { x: number; z: number; st: Street; off: number; t: number; members: Person[]; want: number }
 /** A place people mill about in: a market, the plaza, a stage's crowd — or a rooftop party, at `y`. */
@@ -84,6 +88,8 @@ export function marketZones(stalls: Stall[], streets: Street[]): Zone[] {
 /** Where a pavement runs through another street's carriageway: its centre along the pavement's street, half its
  *  reach along it, the node, and the axes of the streets crossed there ('d' the boulevard). */
 export interface Crossing { tc: number; half: number; nx: number; nz: number; axes: Axis[]; tNear: number; tFar: number }
+/** A pavement's crossing, with its two ways over, made once (crossingAhead hands them out; nobody changes one). */
+type Xing = Crossing & { ways?: [Crossing, Crossing] };
 export type Axis = 'x' | 'z' | 'd';
 /** Whether the cars along the given axis have the red at the crossing at (x, z) — false where there is no light. */
 export type CrossOK = (x: number, z: number, axis: Axis) => boolean;
@@ -91,6 +97,23 @@ export type CrossOK = (x: number, z: number, axis: Axis) => boolean;
 export type WalkOK = (x: number, z: number, axis: Axis, frames: number) => 'walk' | 'flash' | 'dont' | 'unlit';
 /** A crosser's pace over a walker's: they hurry across (the walk window is timed for it). */
 export const HURRY = 1.5;
+/** The slowest a crosser goes through a cross street's carriageway, per frame: a walker's base step, hurried — an elder
+ *  hurries across like anyone (owner, 2026-10-11: timed at the slowest walker's own pace, a crossing outlasted its
+ *  street's red and WALK never came). */
+export const CROSS_STEP = 0.016 * HURRY;
+/** Their own street's crosswalk is crossed at this step, whoever crosses (case 'cross'). */
+export const OWN_STEP = 0.03 * HURRY;
+/** How many frames a crossing of `units` takes at `step`, with a margin: the walk signal is asked for this long. */
+export function crossFrames(units: number, step = CROSS_STEP): number { return Math.ceil(units / step) + 20; }
+/** Frames a waiter waits at a kerb before turning back the way they came (owner: they waited forever): past any light's
+ *  whole cycle, so only a crossing that never opens — an unlit one in an endless stream — runs them out of it. */
+export const PATIENCE = 4800;
+/** Waiters at a kerb stand this far apart, across the pavement and in rows behind (owner: they stood on top of each other). */
+export const SPOT = 0.55;
+/** Rows of waiters a kerb holds, at most: a walker who finds them full turns back. */
+export const QUEUE = 8;
+/** Nobody stops within this of someone already standing still. */
+export const STEP_APART = 0.45;
 export interface PeopleOpts {
   /** Something solid stands at (x, y, z) — a wall, a kiosk, a stall's leg: nobody walks through it. */
   solid?: (x: number, y: number, z: number) => boolean;
@@ -104,9 +127,14 @@ export interface PeopleOpts {
   perches?: { x: number; y: number; z: number; yaw: number }[];
   /** A carriageway lies under (x, z): nobody mills or is put down there (owner: crowds in the traffic lanes). */
   onRoad?: (x: number, z: number) => boolean;
+  /** The lights make room for a crossing at the node at (x, z) through the streets along `axes` at once, of `frames`
+   *  (Traffic.roomToWalk): asked once for every crossing at the lights. */
+  walkRoom?: (x: number, z: number, axes: Axis[], frames: number) => void;
 }
 
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
+/** A crosswalk's key — its node's rounded centre and the axis crossed — as a number (built for every crosser, every frame). */
+const crosserKey = (x: number, z: number, axis: Axis) => ((Math.round(x) + 8192) * 16384 + Math.round(z) + 8192) * 4 + (axis === 'x' ? 0 : axis === 'z' ? 1 : 2);
 
 export class People {
   readonly people: Person[] = [];
@@ -119,13 +147,16 @@ export class People {
   crossings = 0;
 
   /** Who is in which crosswalk this frame, by node and axis (see walkersIn). */
-  private crossers = new Map<string, number>();
+  private crossers = new Map<number, number>();
+  /** The spots taken where walkers wait, by node — every kerb of a junction at once, since the corner's pavements
+   *  meet there (takeSpot). */
+  private readonly spots = new Map<string, { p: Person; x: number; z: number }[]>();
   private readonly solid?: (x: number, y: number, z: number) => boolean;
   private readonly roadClear?: (x: number, z: number) => boolean;
   private readonly onRoad?: (x: number, z: number) => boolean;
   private readonly walkOK?: WalkOK;
   /** Each pavement's crossings of other carriageways, by parameter; each road's doors, by parameter and side. */
-  private readonly xings = new Map<Street, Crossing[]>();
+  private readonly xings = new Map<Street, Xing[]>();
   private readonly doors: Map<Street, { t: number; side: number; off: number }[]> | null;
 
   constructor(
@@ -154,6 +185,8 @@ export class People {
       }
       if (list.length) this.xings.set(st, list.sort((a, b) => a.tc - b.tc));
     }
+    // the lights make room for every crossing at them, a WALK in every cycle (owner: they waited forever at the lights)
+    if (opts.walkRoom) for (const list of this.xings.values()) for (const c of list) opts.walkRoom(c.nx, c.nz, c.axes, crossFrames(2 * c.half + 1.2));
     if (opts.doors) {
       this.doors = new Map();
       for (const d of opts.doors) {
@@ -211,9 +244,10 @@ export class People {
       const p = this.person();
       const st = this.pickStreet();
       this.walkOn(p, st, this.kerb(st), r() * st.len, r() < 0.5 ? 1 : -1);
+      this.place(p);
       const onRoad = this.onRoad?.(p.x, p.z) ?? false; // (in a crossing's mouth: walk on — nobody pauses in the traffic lanes)
-      if (r() < 0.08 && !onRoad) { p.act = 'stand'; p.timer = 100 + r() * 300; p.frame = this.idleFrame(); }
-      else if (r() < 0.05 && !onRoad && st.kind !== 'alley' && st.kind !== 'catwalk') { p.act = 'sit'; p.frame = this.sitFrame(); p.timer = 400 + r() * 900; p.off = this.sitOff(p, st); }
+      if (r() < 0.08 && !onRoad && !this.stillNear(p, p.x, p.z, p.y)) { p.act = 'stand'; p.timer = 100 + r() * 300; p.frame = this.idleFrame(); }
+      else if (r() < 0.05 && !onRoad && st.kind !== 'alley' && st.kind !== 'catwalk' && this.maySit(p, st)) { p.act = 'sit'; p.frame = this.sitFrame(); p.timer = 400 + r() * 900; p.off = this.sitOff(p, st); }
     }
     for (const p of this.people) this.place(p);
   }
@@ -224,7 +258,7 @@ export class People {
     const p: Person = {
       x: 0, y: 0, z: 0, yaw: 0, act: 'walk', frame: 0, kind, pace: CAST[kind].pace * (0.85 + this.rand() * 0.3),
       st: null, off: 0, t: 0, v: 0, timer: 0, phase: Math.floor(this.rand() * 40), knot: null, goal: null, stall: null,
-      zone: null, hx: 0, hz: 1, offTo: 0, cross: null,
+      zone: null, hx: 0, hz: 1, offTo: 0, cross: null, spotKey: null, waited: 0, tTo: 0,
     };
     this.people.push(p);
     return p;
@@ -252,42 +286,43 @@ export class People {
     for (const d of list) if (d.side === side && Math.abs(d.t - t) < 3 && (best === null || Math.abs(d.t - t) < Math.abs(best.t - t))) best = d;
     return best;
   }
-  /** The next cross street's carriageway along the way, when its near kerb is underfoot. */
-  private crossingAhead(st: Street, t: number, v: number): Crossing | null {
+  /** The next cross street's carriageway along the way, when its near kerb is within `reach` (underfoot, by default). */
+  private crossingAhead(st: Street, t: number, v: number, reach = 0.05): Crossing | null {
     const list = this.xings.get(st);
     if (!list) return null;
     const dir = Math.sign(v) || 1;
     for (const c of list) {
       if (dir * (c.tc - t) <= 0) continue; // behind, or past the centre
       const tNear = c.tc - dir * (c.half + 0.3);
-      if (dir * (tNear - t) > 0.05) continue; // not there yet
-      return { ...c, tNear, tFar: c.tc + dir * (c.half + 0.3) };
+      if (dir * (tNear - t) > reach) continue; // not there yet
+      c.ways ??= [-1, 1].map((d) => ({ tc: c.tc, half: c.half, nx: c.nx, nz: c.nz, axes: c.axes, tNear: c.tc - d * (c.half + 0.3), tFar: c.tc + d * (c.half + 0.3) })) as [Crossing, Crossing];
+      return c.ways[dir > 0 ? 1 : 0];
     }
     return null;
   }
-  /** How many frames a crossing of `units` takes at a crosser's hurry (the slowest walker's pace), with a margin. */
-  private crossFrames(units: number): number { return Math.ceil(units / (0.016 * 0.55 * HURRY)) + 20; }
-  /** The crossing may be started: every street crossed shows WALK for a crossing this long (the lit rule) — or, where
-   *  there is no light, nothing is on or bearing down on the crosswalk; without a pedestrian signal, the cars' red. */
-  private mayCross(c: Crossing): boolean {
-    if (this.walkOK) {
-      const frames = this.crossFrames(2 * c.half + 1.2);
-      const states = c.axes.map((a) => this.walkOK!(c.nx, c.nz, a, frames));
-      if (states.every((s) => s === 'walk')) return true;
-      if (states.every((s) => s === 'unlit')) return this.roadClear !== undefined && this.roadClear(c.nx, c.nz);
-      return false;
-    }
-    if (c.axes.every((a) => this.crossOK(c.nx, c.nz, a))) return true;
-    return this.roadClear !== undefined && this.roadClear(c.nx, c.nz);
+  /** What the lights say for starting the crossing from `t` (its kerb line, by default): WALK when every street crossed
+   *  shows it for long enough to reach the far kerb from there; UNLIT at a node without lights — or, with no pedestrian
+   *  signal, wherever the cars do not all have the red — where a gap decides; else STOP. */
+  private lights(c: Crossing, t = c.tNear): 'walk' | 'stop' | 'unlit' {
+    if (!this.walkOK) return c.axes.every((a) => this.crossOK(c.nx, c.nz, a)) ? 'walk' : 'unlit';
+    const frames = crossFrames(Math.abs(c.tFar - t) + 0.6);
+    let walk = true, unlit = true;
+    for (const a of c.axes) { const s = this.walkOK(c.nx, c.nz, a, frames); if (s !== 'walk') walk = false; if (s !== 'unlit') unlit = false; }
+    return walk ? 'walk' : unlit ? 'unlit' : 'stop';
   }
-  /** Their own street's crosswalk at a node: WALK for the road's width (or, without a pedestrian signal, the cars' red). */
+  /** The crossing may be started from `t`: WALK (lights), or a clear road where a gap decides. */
+  private mayCross(c: Crossing, t = c.tNear): boolean {
+    const s = this.lights(c, t);
+    return s === 'walk' || (s === 'unlit' && this.roadClear !== undefined && this.roadClear(c.nx, c.nz));
+  }
+  /** Their own street's crosswalk at a node: WALK for its width at OWN_STEP (or, without a pedestrian signal, the cars' red). */
   private mayCrossOwn(nx: number, nz: number, axis: Axis, width: number): boolean {
-    if (this.walkOK) return this.walkOK(nx, nz, axis, this.crossFrames(width - 1)) === 'walk';
+    if (this.walkOK) return this.walkOK(nx, nz, axis, crossFrames(width - 0.6, OWN_STEP)) === 'walk';
     return this.crossOK(nx, nz, axis);
   }
   /** How many walkers are in the crosswalks of the street along `axis` at the node at (x, z) right now. */
   walkersIn(x: number, z: number, axis: Axis): number {
-    return this.crossers.get(`${Math.round(x)}:${Math.round(z)}:${axis}`) ?? 0;
+    return this.crossers.get(crosserKey(x, z, axis)) ?? 0;
   }
   /** What someone on a balcony does: leans and looks (stand), sits, is on the phone, sits with the phone. */
   private perchFrame(): number { const a = this.rand(); return a < 0.4 ? FRAME.stand : a < 0.6 ? FRAME.sit : a < 0.85 ? FRAME.phone : FRAME.sitPhone; }
@@ -310,6 +345,20 @@ export class People {
     const side = this.landSide(st) || (this.rand() < 0.5 ? 1 : -1);
     if (st.kind === 'road') return side * (st.width / 2 - 1 + this.rand() * 0.7);
     return side * (lo + this.rand() * (hi - lo));
+  }
+  /** Someone already stands, sits or waits within a step of (x, z) at height y: nobody stops on top of them (owner: people
+   *  stood morphed into each other). */
+  private stillNear(p: Person, x: number, z: number, y: number): boolean {
+    for (const q of this.people) {
+      if (q === p || q.act === 'walk' || q.act === 'mill' || q.act === 'cross' || q.act === 'enter' || q.act === 'exit' || q.act === 'inside') continue;
+      if (Math.abs(q.x - x) < STEP_APART && Math.abs(q.z - z) < STEP_APART && Math.abs(q.y - y) < 0.5 && Math.hypot(q.x - x, q.z - z) < STEP_APART) return true;
+    }
+    return false;
+  }
+  /** Their kerb-side seat on this street is free. */
+  private maySit(p: Person, st: Street): boolean {
+    const off = this.sitOff(p, st);
+    return !this.stillNear(p, st.x0 + st.dx * p.t - st.dz * off, st.z0 + st.dz * p.t + st.dx * off, st.y);
   }
   /** Where a sitter sits: against the wall, on the pavement (owner: they sat inside the wall). */
   private sitOff(p: Person, st: Street): number {
@@ -344,6 +393,7 @@ export class People {
   }
 
   private walkOn(p: Person, st: Street, off: number, t: number, dir: 1 | -1): void {
+    this.leaveSpot(p);
     const a = this.endOf(st, 'a'), b = this.endOf(st, 'b');
     p.st = st; p.off = off; p.t = clamp(t, a, st.len - b);
     if (this.solid) {
@@ -354,6 +404,52 @@ export class People {
     p.v = (0.016 + this.rand() * 0.02) * p.pace * dir;
     p.act = 'walk'; p.knot = null; p.goal = null; p.stall = null; p.zone = null; p.cross = null;
     p.timer = 400 + this.rand() * 1800; // until the next pause
+  }
+
+  /** A waiter's own spot at the kerb (owner: the waiters stood on top of each other): the front row across the pavement
+   *  first, nearest the kerb line, then rows behind it along the pavement, SPOT apart — never within a step of another
+   *  waiter's at the same junction (a corner's two pavements meet), never in a solid nor past one on the way there. False
+   *  with every spot taken: the kerb is full, and the walker turns back instead. */
+  private takeSpot(p: Person, st: Street, c: Crossing): boolean {
+    this.leaveSpot(p);
+    const dir = Math.sign(p.v) || 1, side = Math.sign(p.off) || 1;
+    const key = `${Math.round(c.nx)}:${Math.round(c.nz)}`;
+    const taken = this.spots.get(key) ?? [];
+    const [lo, hi] = this.band(st);
+    const across = Math.max(1, Math.floor((hi - lo - 0.3) / SPOT) + 1); // spots across the pavement
+    const clear = (t: number, off: number): boolean => { // the straight walk there, a look every 0.3 (the walls' padding)
+      if (!this.solid) return true;
+      const n = Math.max(1, Math.ceil(Math.hypot(t - p.t, off - p.off) / 0.3));
+      for (let i = 1; i <= n; i++) {
+        const tt = p.t + ((t - p.t) * i) / n, oo = p.off + ((off - p.off) * i) / n;
+        if (this.solid(st.x0 + st.dx * tt - st.dz * oo, 0.9, st.z0 + st.dz * tt + st.dx * oo)) return false;
+      }
+      return true;
+    };
+    for (let s = 0; s < across * QUEUE; s++) {
+      const off = side * (across === 1 ? (lo + hi) / 2 : lo + 0.15 + (s % across) * ((hi - lo - 0.3) / (across - 1)));
+      const t = c.tNear - dir * Math.floor(s / across) * SPOT;
+      const x = st.x0 + st.dx * t - st.dz * off, z = st.z0 + st.dz * t + st.dx * off;
+      if (taken.some((o) => Math.hypot(o.x - x, o.z - z) < SPOT * 0.8)) continue;
+      if (!clear(t, off)) continue;
+      taken.push({ p, x, z }); this.spots.set(key, taken);
+      p.spotKey = key; p.offTo = off; p.tTo = t;
+      return true;
+    }
+    return false;
+  }
+  private leaveSpot(p: Person): void {
+    if (p.spotKey === null) return;
+    const taken = this.spots.get(p.spotKey);
+    if (taken) { const i = taken.findIndex((o) => o.p === p); if (i >= 0) taken.splice(i, 1); }
+    p.spotKey = null;
+  }
+
+  /** Across their own street on the crosswalk at the node at `node` along it (the cars hold for them). */
+  private crossOwn(p: Person, st: Street, node: number, nx: number, nz: number): void {
+    this.leaveSpot(p);
+    p.act = 'cross'; p.offTo = -p.off; p.t = node + (p.t < node ? -7.5 : 7.5); this.crossings += 1;
+    p.cross = { tc: node, half: 0, nx, nz, axes: [st.dx ? 'x' : 'z'], tNear: p.t, tFar: p.t };
   }
 
   /** Standing about: most just stand, a third look at their phone. */
@@ -461,8 +557,8 @@ export class People {
       switch (p.act) {
         case 'walk': {
           const st = p.st!;
-          p.t += p.v * (p.cross ? HURRY : 1); // a crosser hurries across
-          if (this.solid) { // never through a wall, a kiosk, a stall's leg (owner: they walked through buildings): step in toward the kerb, else turn about
+          p.t += p.cross ? Math.sign(p.v) * Math.max(Math.abs(p.v) * HURRY, CROSS_STEP) : p.v; // a crosser hurries across, never slower than CROSS_STEP (the walk window is timed for it)
+          if (this.solid && ((this.tick + p.phase) & 3) === 0) { // never through a wall, a kiosk, a stall's leg (owner: they walked through buildings): step in toward the kerb, else turn about — looked for every fourth frame, a fifth of a step's reach inside the 0.3 the walls are padded by
             const x = st.x0 + st.dx * p.t - st.dz * p.off, z = st.z0 + st.dz * p.t + st.dx * p.off;
             const solid = this.solid;
             if (solid(x, 0.9, z)) {
@@ -476,13 +572,18 @@ export class People {
           if (p.cross) { // through a cross street's carriageway: clear of it past its far kerb
             if ((p.v > 0 && p.t > p.cross.tFar) || (p.v < 0 && p.t < p.cross.tFar)) p.cross = null;
           } else {
-            const c = this.crossingAhead(st, p.t, p.v);
+            const c = this.crossingAhead(st, p.t, p.v, QUEUE * SPOT); // seen from the back of its queue
             if (c) {
-              if (this.mayCross(c)) p.cross = c;
-              else { // wait at the kerb for the red, or for a gap (owner: they walked into the traffic)
-                if (!this.solid || !this.solid(st.x0 + st.dx * c.tNear - st.dz * p.off, 0.9, st.z0 + st.dz * c.tNear + st.dx * p.off)) p.t = c.tNear; // to the kerb line, unless something stands there
-                p.act = 'wait'; p.cross = c; p.timer = 10 + r() * 14; p.frame = FRAME.stand;
-                p.yaw = Math.atan2(st.dx * Math.sign(p.v), st.dz * Math.sign(p.v));
+              const atKerb = (Math.sign(p.v) || 1) * (c.tNear - p.t) <= 0.05;
+              let stop = false;
+              if (atKerb) { if (this.mayCross(c, p.t)) p.cross = c; else stop = true; } // at the kerb: across, or wait (owner: they walked into the traffic)
+              else if (((this.tick + p.phase) & 7) === 0) { // on the way, a look now and then: they fall in behind at a red, or behind those waiting at an unlit kerb
+                const s = this.lights(c, p.t);
+                stop = s === 'stop' || (s === 'unlit' && (this.spots.get(`${Math.round(c.nx)}:${Math.round(c.nz)}`)?.length ?? 0) > 0);
+              }
+              if (stop) {
+                if (this.takeSpot(p, st, c)) { p.act = 'wait'; p.cross = c; p.timer = 10 + r() * 14; p.waited = 0; } // at a spot of their own, walked to
+                else this.walkOn(p, st, p.off, p.t, p.v > 0 ? -1 : 1); // the kerb is full: back the way they came
                 break;
               }
             }
@@ -505,16 +606,15 @@ export class People {
               if (door !== null) { p.act = 'enter'; p.t = door.t; p.offTo = Math.sign(p.off || 1) * door.off; p.timer = 300 + r() * 1500; }
               else p.timer = 200 + r() * 400;
             } else if (a < 0.45) { // a pause: a sit on the kerb (the elders often), or a stand
-              if (here.kind !== 'alley' && here.kind !== 'catwalk' && r() < (CAST[p.kind].name === 'elder' ? 0.35 : 0.1)) { p.act = 'sit'; p.frame = this.sitFrame(); p.timer = 400 + r() * 900; p.off = this.sitOff(p, here); }
-              else if (!(this.onRoad?.(p.x, p.z) ?? false)) { p.act = 'stand'; p.timer = 90 + r() * 360; p.frame = this.idleFrame(); p.yaw += (r() - 0.5) * 2; }
+              if (here.kind !== 'alley' && here.kind !== 'catwalk' && r() < (CAST[p.kind].name === 'elder' ? 0.35 : 0.1)) { if (this.maySit(p, here)) { p.act = 'sit'; p.frame = this.sitFrame(); p.timer = 400 + r() * 900; p.off = this.sitOff(p, here); } else p.timer = 200 + r() * 400; }
+              else if (!(this.onRoad?.(p.x, p.z) ?? false) && !this.stillNear(p, p.x, p.z, p.y)) { p.act = 'stand'; p.timer = 90 + r() * 360; p.frame = this.idleFrame(); p.yaw += (r() - 0.5) * 2; }
+              else p.timer = 200 + r() * 400;
             }
             else if (a < 0.7 && here.kind === 'road') { // cross at the crosswalk, when the cars have the red
               const node = this.nearestCrossing(here, p.t);
               const nx = here.dx ? here.x0 + here.dx * (node ?? 0) : here.x0, nz = here.dz ? here.z0 + here.dz * (node ?? 0) : here.z0;
-              if (node !== null && Math.abs(Math.abs(node - p.t) - 7.5) < 2 && !p.cross && !this.landSide(here) && this.mayCrossOwn(nx, nz, here.dx ? 'x' : 'z', here.width)) { // at the crosswalk, on WALK (a quay road is not crossed: its water side is not walked)
-                p.act = 'cross'; p.offTo = -p.off; p.t = node + (p.t < node ? -7.5 : 7.5); this.crossings += 1;
-                p.cross = { tc: node, half: 0, nx, nz, axes: [here.dx ? 'x' : 'z'], tNear: p.t, tFar: p.t }; // (the cars hold for them)
-              } else p.timer = 200 + r() * 400;
+              if (node !== null && Math.abs(Math.abs(node - p.t) - 7.5) < 2 && !p.cross && !this.landSide(here) && this.mayCrossOwn(nx, nz, here.dx ? 'x' : 'z', here.width)) this.crossOwn(p, here, node, nx, nz); // at the crosswalk, on WALK (a quay road is not crossed: its water side is not walked)
+              else p.timer = 200 + r() * 400;
             } else if (a < 0.85) { // a knot with room takes a passer-by
               const k = this.knots.find((kn) => kn.st === here && Math.sign(kn.off) === Math.sign(p.off) && kn.members.length < kn.want && Math.abs(kn.t - p.t) < 14);
               if (k) { p.goal = k; p.v = Math.abs(p.v) * (k.t > p.t ? 1 : -1); p.timer = 1e9; } // walk over and join it
@@ -536,10 +636,26 @@ export class People {
           } else if (p.frame === FRAME.talk && (this.tick + p.phase) % 64 < 8) p.frame = FRAME.stand; // a hand up now and then
           break;
         }
-        case 'wait': { // at the kerb: look again every so often
+        case 'wait': { // at the kerb: to their own spot, then look again every so often, moving up as the queue clears —
+          const st = p.st!; // and after a long while, turn back
+          const dt = p.tTo - p.t, doff = p.offTo - p.off, d = Math.hypot(dt, doff);
+          if (d > 0.02) { // stepping to the spot, at a walker's step
+            const k = Math.min(d, 0.03) / d;
+            p.t += dt * k; p.off += doff * k;
+            p.yaw = Math.atan2(st.dx * dt - st.dz * doff, st.dz * dt + st.dx * doff);
+            p.frame = ((this.tick + p.phase) >> 3) & 1 ? FRAME.walkB : FRAME.walkA;
+          } else if (p.frame !== FRAME.stand) { // there: facing the crossing
+            p.frame = FRAME.stand;
+            p.yaw = Math.atan2(st.dx * Math.sign(p.v), st.dz * Math.sign(p.v));
+          }
+          p.waited += 1;
           if (--p.timer <= 0) {
-            if (this.mayCross(p.cross!)) { p.act = 'walk'; p.timer = Math.max(p.timer, 200); }
-            else p.timer = 10 + r() * 14;
+            const c = p.cross!;
+            if (this.mayCross(c, p.t)) { this.leaveSpot(p); p.act = 'walk'; p.timer = Math.max(p.timer, 200); }
+            else if (st.kind === 'road' && r() < 0.012 && Math.abs(p.t - c.tNear) < 0.3 && this.nearestCrossing(st, p.t) === c.tc && !this.landSide(st)
+              && this.mayCrossOwn(c.nx, c.nz, st.dx ? 'x' : 'z', st.width)) this.crossOwn(p, st, c.tc, c.nx, c.nz); // the front row: some take the WALK across their own street instead
+            else if (p.waited > PATIENCE || !this.takeSpot(p, st, c)) this.walkOn(p, st, p.off, p.t, (Math.sign(p.v) || 1) > 0 ? -1 : 1); // back the way they came
+            else p.timer = 10 + r() * 14; // (takeSpot: the frontmost spot free now — never further back than their own)
           }
           break;
         }
@@ -586,7 +702,7 @@ export class People {
           const nx = p.x + p.hx * p.v, nz = p.z + p.hz * p.v;
           const hit = this.inStall(z, nx, nz);
           if (hit) {
-            if (r() < 0.4) { p.act = 'browse'; p.stall = hit; p.timer = 150 + r() * 400; p.yaw = Math.atan2(hit.x - p.x, hit.z - p.z); p.frame = this.idleFrame(); break; }
+            if (r() < 0.4 && !this.stillNear(p, p.x, p.z, p.y)) { p.act = 'browse'; p.stall = hit; p.timer = 150 + r() * 400; p.yaw = Math.atan2(hit.x - p.x, hit.z - p.z); p.frame = this.idleFrame(); break; }
             const a = Math.atan2(p.hx, p.hz) + (Math.PI / 2) * (r() < 0.5 ? 1 : -1);
             p.hx = Math.sin(a); p.hz = Math.cos(a);
           } else if (Math.abs(nx - z.x) > z.w / 2 - 1 || Math.abs(nz - z.z) > z.d / 2 - 1) {
@@ -617,7 +733,7 @@ export class People {
     this.crossers.clear();
     for (const p of this.people) {
       if (!p.cross || (p.act !== 'cross' && p.act !== 'walk')) continue;
-      for (const a of p.cross.axes) { const key = `${Math.round(p.cross.nx)}:${Math.round(p.cross.nz)}:${a}`; this.crossers.set(key, (this.crossers.get(key) ?? 0) + 1); }
+      for (const a of p.cross.axes) { const key = crosserKey(p.cross.nx, p.cross.nz, a); this.crossers.set(key, (this.crossers.get(key) ?? 0) + 1); }
     }
   }
 }

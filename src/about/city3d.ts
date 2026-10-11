@@ -44,7 +44,7 @@ import { isMobile, reducedMotion } from '../lib/env';
 import { quality } from '../lib/quality';
 import { mulberry32 } from '../lib/rng';
 import {
-  AirLane, ART_COLOR, ARTERIAL, ARTERIAL_ROW, arterialLat, ARTS, AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, DIAGONAL, EXT, G, HALF, HIGHWAY, HoloKind, LANE_CAR, LANE_W, OUTER,
+  AirLane, ART_COLOR, ARTERIAL, ARTERIAL_ROW, arterialLat, ARTS, AutoFlight, bandPoint, bandPositions, BOUND, CAM_R, CANAL, DIAGONAL, EXT, G, HALF, HIGHWAY, HoloKind, LANE_CAR, LANE_W, OUTER, PLAZA,
   CANAL_END, carriagewayAt, CAT_TAIL, catTailBoxes, cityTiles, CityTile, corridorFiller, cutAtCorridor, footprintInCorridor, hasShop, HW_FAR, isMass, LANDMARK_ARCH, planCity, Poi, RAIL, RAMP_W, rampY, ROAD, Searchlight, Sign, signColor, Solid, starPositions, streetAt, STREET, Street, TILE_P, tourRoute,
 } from './city-plan';
 import { fov24, HazePass, LensPass, lensTarget } from './city-post';
@@ -805,22 +805,25 @@ function glyphTexture(rand: () => number, w: number, h: number, n: number, verti
 /** Static parts merged by material (owner: a weak PC stuttered — a draw call a part): the world matrices baked, one
  *  mesh a material under the scene (the first part's shadow flags), the parts removed from their parents. */
 function mergeStatic(scene: Scene, parts: Mesh[]): Mesh[] {
-  const byMat = new Map<Material, { geos: BufferGeometry[]; cast: boolean; receive: boolean }>();
+  // by material and by draw order: the floor (city-paint's PAINT.order.floor) merges apart from what stands on it, and
+  // keeps its turn before the paint
+  const byMat = new Map<string, { m: Material; order: number; geos: BufferGeometry[]; cast: boolean; receive: boolean }>();
   for (const part of parts) {
     if (Array.isArray(part.material)) continue;
     part.updateWorldMatrix(true, false);
-    const e = byMat.get(part.material) ?? { geos: [], cast: part.castShadow, receive: part.receiveShadow };
+    const key = `${part.material.uuid}:${part.renderOrder}`;
+    const e = byMat.get(key) ?? { m: part.material, order: part.renderOrder, geos: [], cast: part.castShadow, receive: part.receiveShadow };
     e.geos.push(part.geometry.clone().applyMatrix4(part.matrixWorld));
-    byMat.set(part.material, e);
+    byMat.set(key, e);
     part.parent?.remove(part);
   }
   const out: Mesh[] = [];
-  for (const [m, e] of byMat) {
+  for (const e of byMat.values()) {
     const merged = mergeGeometries(e.geos);
     for (const g of e.geos) g.dispose();
     if (!merged) continue;
-    const mesh = new Mesh(merged, m);
-    mesh.castShadow = e.cast; mesh.receiveShadow = e.receive;
+    const mesh = new Mesh(merged, e.m);
+    mesh.castShadow = e.cast; mesh.receiveShadow = e.receive; mesh.renderOrder = e.order;
     scene.add(mesh); out.push(mesh);
   }
   return out;
@@ -1164,7 +1167,7 @@ function stairsTexture(): CanvasTexture {
   t.magFilter = LinearFilter; t.minFilter = LinearMipmapLinearFilter;
   return t;
 }
-/** The plaza's paving: light stone flags with a radial pattern, seamed. */
+/** The plaza's paving: light stone flags, seamed. */
 function pavingTexture(aniso: number): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 256;
@@ -1482,7 +1485,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // horizon at grazing angles — eighteen lamps' sheen summed to a white veil over the whole frame, measured)
   const groundMat = new MeshLambertMaterial({
     map: groundTex.map, emissiveMap: groundTex.glow, emissive: '#2c4a8e', emissiveIntensity: 1.5, // its own glow, in the look's colour, the paint brighter than the asphalt: the streets never fall to black
-    polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: PAINT.ground, // the ladder's floor: behind every paint at every distance (city-paint)
+    polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: PAINT.ground, // the floor's depth, behind every paint at every distance (city-paint)
   });
   // two halves with the canal's slot between them (owner: the water lies 2.6 below the streets, between quay walls);
   // the UVs carry the tiling in block units, so both halves keep the lot centres on the tile corners
@@ -1494,7 +1497,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     g.setAttribute('normal', new BufferAttribute(new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), 3));
     g.setIndex([0, 2, 1, 0, 3, 2]);
     const m = new Mesh(g, groundMat);
-    m.receiveShadow = true;
+    m.receiveShadow = true; m.renderOrder = PAINT.order.floor; // drawn first: the floor every paint is laid on (city-paint)
     scene.add(m);
   };
   // (owner: no river outside the border) the slot runs only to CANAL_END each way — under the far edge of the rim
@@ -1505,10 +1508,10 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   for (const s of [-1, 1]) { // the quay walls, their coping flush with the quays
     const wall = new Mesh(new BoxGeometry(0.7, -CANAL.water + 0.6, 2 * CANAL_END), wallMat);
     wall.position.set(s * (CANAL.w / 2 + 0.35), (CANAL.water - 0.6) / 2, 0);
-    wall.receiveShadow = true;
+    wall.receiveShadow = true; wall.renderOrder = PAINT.order.floor; // (the quay roads' paint runs over its coping)
     scene.add(wall);
     const head = new Mesh(new BoxGeometry(CANAL.w + 1.4, -CANAL.water + 0.6, 0.7), wallMat); // the head wall: the water ends under the last bridge
-    head.position.set(0, (CANAL.water - 0.6) / 2, s * (CANAL_END + 0.35));
+    head.position.set(0, (CANAL.water - 0.6) / 2, s * (CANAL_END + 0.35)); head.renderOrder = PAINT.order.floor;
     scene.add(head);
   }
   const water = new Mesh(new PlaneGeometry(CANAL.w, 2 * CANAL_END), new MeshBasicMaterial({ color: '#040812' }));
@@ -1526,8 +1529,9 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   scene.add(mirror);
   // GROUND PATCHES (owner: no ghost roads): the lots' stone laid over every street band the arterial closed
   {
-    const patchMat = new MeshLambertMaterial({ color: '#4c5062', emissive: '#2c4a8e', emissiveIntensity: 0.9, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: PAINT.patch });
+    const patchMat = new MeshLambertMaterial({ color: '#4c5062', emissive: '#2c4a8e', emissiveIntensity: 0.9, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: PAINT.pull }); // a paint (city-paint)
     const patches = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), patchMat, plan.patches.length);
+    patches.renderOrder = PAINT.order.patch;
     const o = new Object3D();
     plan.patches.forEach((p, j) => { o.position.set(p.x, 0.03, p.z); o.scale.set(p.w, 1, p.d); o.updateMatrix(); patches.setMatrixAt(j, o.matrix); });
     patches.instanceMatrix.needsUpdate = true; patches.receiveShadow = true;
@@ -1536,13 +1540,13 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const hlenR = Math.hypot(HIGHWAY.x1 - HIGHWAY.x0, HIGHWAY.z1 - HIGHWAY.z0);
   const hnxR = -(HIGHWAY.z1 - HIGHWAY.z0) / hlenR, hnzR = (HIGHWAY.x1 - HIGHWAY.x0) / hlenR; // the axis's left normal
   const streetMats: MeshLambertMaterial[] = []; // the laid roads, the deck, the ramps: lit and glowing with the ground
-  const streetMat = (strip: { map: CanvasTexture; glow: CanvasTexture }, repeat: number, units = 0) => {
+  const streetMat = (strip: { map: CanvasTexture; glow: CanvasTexture }, repeat: number, paint = false) => {
     const map = strip.map.clone(), glow = strip.glow.clone();
     map.needsUpdate = true; glow.needsUpdate = true;
     map.repeat.set(repeat, 1); glow.repeat.set(repeat, 1);
-    // (units: the paint ladder's rung — real polygonOffsetUnits, lesser drawn in front. The strips of two kinds of
-    // street overlap where they meet, and the depth buffer cannot tell 0.004 apart at three hundred units: city-paint)
-    const m = new MeshLambertMaterial({ map, emissiveMap: glow, emissive: '#2c4a8e', emissiveIntensity: 1.8, polygonOffset: units !== 0, polygonOffsetFactor: units > 0 ? 1 : -1, polygonOffsetUnits: units });
+    // (paint: laid on the floor — no depth of its own, pulled in front of the floor's, covering the paints drawn before
+    // it: its mesh takes its turn in PAINT.order. Not paint: a deck's own surface, solid, drawn as anything is: city-paint)
+    const m = new MeshLambertMaterial({ map, emissiveMap: glow, emissive: '#2c4a8e', emissiveIntensity: 1.8, depthWrite: !paint, polygonOffset: paint, polygonOffsetFactor: -1, polygonOffsetUnits: PAINT.pull });
     streetMats.push(m);
     return m;
   };
@@ -1571,9 +1575,9 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const plainSpot = (x: number, z: number, y = 0) => y < 8 && Math.abs(arterialLat(x, z)) > ARTERIAL_ROW + 1 && diagDist(x, z) > DIAGONAL.width / 2 + 3 && !inFiller(x, z, 0.8);
   const inCorridor = (wx: number, wz: number, reach = 0) => Math.abs(arterialLat(wx, wz)) < ARTERIAL_ROW + reach;
   const tileStreet = (t: CityTile, st: Street): Street => { const [x0, z0] = tileXZ(t, st.x0, st.z0); const [dx, dz] = tileDir(t, st.dx, st.dz); return { ...st, x0, z0, dx, dz }; };
-  const laidRoad = (st: Street, y: number, width: number, strip = boulevardStrip, units = 0) => {
-    const m = new Mesh(new PlaneGeometry(st.len, width), streetMat(strip, st.len / 12, units));
-    m.receiveShadow = true;
+  const laidRoad = (st: Street, y: number, width: number, strip: { map: CanvasTexture; glow: CanvasTexture }, order: number) => { // a paint, in its turn
+    const m = new Mesh(new PlaneGeometry(st.len, width), streetMat(strip, st.len / 12, true));
+    m.receiveShadow = true; m.renderOrder = order;
     m.position.set(st.x0 + st.dx * st.len / 2, y, st.z0 + st.dz * st.len / 2);
     m.rotation.y = Math.atan2(-st.dz, st.dx);
     m.rotateX(-Math.PI / 2);
@@ -1586,7 +1590,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   const deckLights: number[] = []; // cold tubes under the deck, over the arterial
   const farHeads: number[] = []; // the endless highway's lamp heads: on its parapets and its arterial's pavements
   for (const st of plan.streets) {
-    if (st.kind === 'arterial') laidRoad(st, 0.05, 2 * ARTERIAL_ROW, arterialStrip, PAINT.arterial);
+    if (st.kind === 'arterial') laidRoad(st, 0.05, 2 * ARTERIAL_ROW, arterialStrip, PAINT.order.boulevard);
     if (st.kind === 'diagonal') { // the boulevard's strip with its pavements, squared off at the avenue roads' kerbs (owner: its paint ran into the quay road)
       const half = DIAGONAL.width / 2 + 2, nx = -st.dz, nz = st.dx;
       const pts: number[] = [], uvs: number[] = [];
@@ -1600,8 +1604,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       g.setAttribute('uv', new BufferAttribute(new Float32Array(uvs), 2));
       g.setAttribute('normal', new BufferAttribute(new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), 3));
       g.setIndex([0, 1, 2, 0, 2, 3]);
-      const m = new Mesh(g, streetMat(boulevardStrip, 1, PAINT.boulevard)); (m.material as MeshLambertMaterial).side = DoubleSide;
-      m.receiveShadow = true;
+      const m = new Mesh(g, streetMat(boulevardStrip, 1, true)); (m.material as MeshLambertMaterial).side = DoubleSide;
+      m.receiveShadow = true; m.renderOrder = PAINT.order.boulevard;
       scene.add(m);
     }
     if (st.kind === 'highway') {
@@ -1690,8 +1694,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       g.setAttribute('uv', new BufferAttribute(new Float32Array([0, 0, st.len / 12, 0, st.len / 12, 1, 0, 1]), 2));
       g.setAttribute('normal', new BufferAttribute(new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), 3));
       g.setIndex([0, 1, 2, 0, 2, 3]);
-      const m = new Mesh(g, streetMat(rampStrip, 1, st.y > 1 ? 0 : 7)); (m.material as MeshLambertMaterial).side = DoubleSide; // (a slip at grade sits in front of the arterial's strip: it was painted under it, and cars seemed to drive on the apron)
-      m.receiveShadow = true;
+      const m = new Mesh(g, streetMat(rampStrip, 1, st.y <= 1)); (m.material as MeshLambertMaterial).side = DoubleSide; // (a slip at grade is paint over the arterial's strip: it was painted under it, and cars seemed to drive on the apron)
+      m.receiveShadow = true; if (st.y <= 1) m.renderOrder = PAINT.order.slip;
       scene.add(m);
       const w = new Mesh(new BoxGeometry(st.len + 0.3, 0.9, 0.3), deckDark); // the outer parapet
       w.position.set((P3[0] + P2[0]) / 2, y + 0.45, (P3[1] + P2[1]) / 2);
@@ -2047,7 +2051,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     for (const b of ews) {
       const deck = new Mesh(new BoxGeometry(2 * HALF_SPAN + 2, b.kind === 4 ? 1.2 : 0.6, STREET), [concrete, concrete, streetMat(bridgeStrip, (2 * HALF_SPAN + 2) / 12), concrete, concrete, concrete]);
       deck.position.set(b.x, DECK_Y - (b.kind === 4 ? 0.6 : 0.3), b.z);
-      deck.receiveShadow = true; deck.castShadow = true;
+      deck.receiveShadow = true; deck.castShadow = true; deck.renderOrder = PAINT.order.floor; // floor: the quay roads' paint runs over its ends (city-paint)
       scene.add(deck);
       for (const side of [-1, 1]) {
         const zs = b.z + side * (STREET / 2 + 0.1); // the arches outside the pavements
@@ -2095,6 +2099,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     for (const b of plan.bridges.filter((b) => b.yaw !== 0)) { // the arterial's: a flush girder deck the width of its right of way, balustrades along both edges
       const deck = new Mesh(new BoxGeometry(b.span, 0.6, b.w), concrete);
       deck.position.set(b.x, DECK_Y - 0.3, b.z); deck.rotation.y = b.yaw; deck.receiveShadow = true; deck.castShadow = true;
+      deck.renderOrder = PAINT.order.floor; // floor: the arterial's strip is painted over it (city-paint)
       scene.add(deck);
       for (const s of [-1, 1]) {
         const rail = new Mesh(new BoxGeometry(b.span, 1.0, 0.25), railMat);
@@ -2105,16 +2110,16 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     dummy.rotation.set(0, 0, 0);
   }
   // -- THE PLAZA AND THE STALLION (owner: a big statue of a stallion; the dark circle made no sense): a thick paved
-  // disc spanning the canal (the boats pass under), a kerb ring, and at its heart a voxel stallion rearing on a
-  // plinth — body, neck, head, mane, four legs, the tail — in bronze, lit from its feet -----------------------------
+  // deck spanning the canal (the boats pass under), and at its heart a voxel stallion rearing on a plinth — body, neck,
+  // head, mane, four legs, the tail — in bronze, lit from its feet. The deck is the block itself, square: quay wall to
+  // quay wall, bridge deck to bridge deck, its top flush with the bridges' (owner, 2026-10-11: the paved disc spilled
+  // over the roads round it, and left the water showing at the block's corners) -------------------------------------
   {
     const paving = new MeshLambertMaterial({ map: pavingTexture(aniso), emissive: '#2c4a8e', emissiveIntensity: 0.7 });
-    const disc = new Mesh(new CylinderGeometry(15, 15, 0.6, 48), paving);
-    disc.position.set(0, -0.25, 0); disc.receiveShadow = true; disc.castShadow = true;
-    scene.add(disc);
-    const rim = new Mesh(new CylinderGeometry(15.3, 15.3, 0.16, 48, 1, true), new MeshLambertMaterial({ color: '#8e92a6', side: DoubleSide }));
-    rim.position.set(0, 0.0, 0);
-    scene.add(rim);
+    (paving.map as CanvasTexture).repeat.set(PLAZA.w / 7.5, PLAZA.d / 7.5); // the flags the disc had: sixty-four to thirty units
+    const deck = new Mesh(new BoxGeometry(PLAZA.w, 0.6, PLAZA.d), paving);
+    deck.position.set(0, CANAL.deck - 0.3, 0); deck.receiveShadow = true; deck.castShadow = true;
+    scene.add(deck);
     // THE STALLION (owner: a big statue of a stallion): rearing, facing east along the boulevard. Hind legs planted on the
     // cap, the haunches over them, the barrel tilted up at 40 degrees, a deep chest, the neck arched forward, the head
     // down toward the muzzle, ears pricked, a stepped mane, the forelegs drawn up and pawing, the tail flying back.
@@ -2199,7 +2204,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   {
     const spill = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), dim(additiveFog(new MeshBasicMaterial({
       map: spillTexture(), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.2,
-      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: PAINT.decal, // a decal: in front of the whole paint ladder (city-paint)
+      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: PAINT.pull, // see-through, over the painted floor (city-paint)
     }))), shopfronts.length * 4);
     const DEPTH = 5;
     let j = 0;
@@ -3161,7 +3166,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // and the headlights' throw: a cone of light on the road ahead (owner: lit by practicals)
   const throws = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), dim(additiveFog(new MeshBasicMaterial({
     map: headlightTexture(), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.22, color: '#fff0cc',
-    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: PAINT.decal, // a decal: in front of the whole paint ladder (city-paint)
+    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: PAINT.pull, // see-through, over the painted floor (city-paint)
   }))), total);
   throws.frustumCulled = false;
   scene.add(throws);
@@ -3308,7 +3313,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       }
       return null;
     };
-    const layStrips = (list: Street[], y: number, width: number, strip: { map: CanvasTexture; glow: CanvasTexture }, units: number) => {
+    const layStrips = (list: Street[], y: number, width: number, strip: { map: CanvasTexture; glow: CanvasTexture }, order: number) => { // a paint, in its turn (city-paint)
       const pos: number[] = [], uv: number[] = [], idx: number[] = [];
       for (const st of list) {
         let t0 = 0, t1 = st.len; // the run to lay: trimmed at either end by the carriageway it ends in
@@ -3349,22 +3354,22 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       const normals = new Float32Array(pos.length); for (let i = 1; i < normals.length; i += 3) normals[i] = 1;
       g.setAttribute('normal', new BufferAttribute(normals, 3));
       g.setIndex(idx);
-      const m = new Mesh(g, streetMat(strip, 1, units)); (m.material as MeshLambertMaterial).side = DoubleSide;
-      m.receiveShadow = true;
+      const m = new Mesh(g, streetMat(strip, 1, true)); (m.material as MeshLambertMaterial).side = DoubleSide;
+      m.receiveShadow = true; m.renderOrder = order;
       scene.add(m);
       return m;
     };
     const roads = plan.streets.filter((st) => st.kind === 'road'), lanes = plan.streets.filter((st) => st.kind === 'lane');
-    layStrips(roads.filter((st) => st.dz === 0), 0.044, STREET, roadStripTex, PAINT.roadX);
-    layStrips(roads.filter((st) => st.dz !== 0), 0.046, STREET, roadStripTex, PAINT.roadZ);
-    layStrips(lanes.filter((st) => st.dz === 0), 0.048, LANE_W, laneStripTex, PAINT.laneX);
-    layStrips(lanes.filter((st) => st.dz !== 0), 0.048, LANE_W, laneStripTex, PAINT.laneZ);
+    layStrips(roads.filter((st) => st.dz === 0), 0.044, STREET, roadStripTex, PAINT.order.roadX);
+    layStrips(roads.filter((st) => st.dz !== 0), 0.046, STREET, roadStripTex, PAINT.order.roadZ);
+    layStrips(lanes.filter((st) => st.dz === 0), 0.048, LANE_W, laneStripTex, PAINT.order.laneX);
+    layStrips(lanes.filter((st) => st.dz !== 0), 0.048, LANE_W, laneStripTex, PAINT.order.laneZ);
     for (const ring of [1, 2] as const) { // THE ENDLESS CITY'S grid roads and lanes: the same strips through the tiles, one merged mesh per axis a ring (no node trims them there: they run through)
       const ts = tiles.filter((t) => t.ring === ring);
       if (!ts.length) continue;
       const copies = (list: Street[]) => ts.flatMap((t) => list.flatMap((st) => cutAtCorridor(tileStreet(t, st)))); // (cut at the endless highway's corridor: the pieces end at its building line)
       const tr = copies(roads), tl = copies(lanes);
-      for (const m of [layStrips(tr.filter((st) => st.dz === 0), 0.044, STREET, roadStripTex, PAINT.roadX), layStrips(tr.filter((st) => st.dz !== 0), 0.046, STREET, roadStripTex, PAINT.roadZ), layStrips(tl.filter((st) => st.dz === 0), 0.048, LANE_W, laneStripTex, PAINT.laneX), layStrips(tl.filter((st) => st.dz !== 0), 0.048, LANE_W, laneStripTex, PAINT.laneZ)]) if (m) tileShow(ring, m);
+      for (const m of [layStrips(tr.filter((st) => st.dz === 0), 0.044, STREET, roadStripTex, PAINT.order.roadX), layStrips(tr.filter((st) => st.dz !== 0), 0.046, STREET, roadStripTex, PAINT.order.roadZ), layStrips(tl.filter((st) => st.dz === 0), 0.048, LANE_W, laneStripTex, PAINT.order.laneX), layStrips(tl.filter((st) => st.dz !== 0), 0.048, LANE_W, laneStripTex, PAINT.order.laneZ)]) if (m) tileShow(ring, m);
     }
     // JUNCTIONS (owner: the ground paints no grid now — every junction is drawn from the traffic graph): at each node on
     // the ground where streets meet, a plain asphalt box per street over its reach through the node (its own paint and
@@ -3375,18 +3380,19 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     // (the zebras and lines glow as the strips' paint does — lit and tended with the ground — not as bare white: four
     // zebras at every crossing bloomed to a white square from the air)
     const zebraTex = zebraTexture();
-    const zebraMat = new MeshLambertMaterial({ map: zebraTex, emissiveMap: zebraTex, emissive: '#2c4a8e', emissiveIntensity: 1.8, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: PAINT.zebra });
+    const zebraMat = new MeshLambertMaterial({ map: zebraTex, emissiveMap: zebraTex, emissive: '#2c4a8e', emissiveIntensity: 1.8, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: PAINT.pull }); // (see-through: drawn after everything solid, over the boxes)
     const asphalt = asphaltTextures(aniso);
-    // a rung a street (city-paint): one crossing's boxes overlap in its centre square, 2 mm apart — past ~130 m the
-    // depth buffer cannot tell them apart, and one shared rung flickered in every distant junction
-    const boxMats = [0, 1, 2].map((k) => streetMat(asphalt, 1, PAINT.junction - k));
-    const lineMat = new MeshLambertMaterial({ color: '#e8eaf0', emissive: '#2c4a8e', emissiveIntensity: 1.5, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: PAINT.stop });
+    // a turn a street (city-paint): one crossing's boxes overlap in its centre square, 2 mm apart — past ~130 m the
+    // depth buffer cannot tell them apart, and boxes that fought for it flickered in every distant junction
+    const boxMats = [0, 1, 2].map(() => streetMat(asphalt, 1, true));
+    const lineMat = new MeshLambertMaterial({ color: '#e8eaf0', emissive: '#2c4a8e', emissiveIntensity: 1.5, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: PAINT.pull }); // a paint
     streetMats.push(zebraMat, lineMat);
     const flat = new PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
     const TILES1 = tiles.filter((t) => t.ring === 1).length + 1; // (the first ring wears the same paint: room for the copies)
-    const boxes3 = boxMats.map((bm, k) => new InstancedMesh(flat, bm, Math.max(1, junctions.length * (k === 2 ? 2 : 1) * TILES1))); // (the third rung has room for a fourth street)
+    const boxes3 = boxMats.map((bm, k) => { const m = new InstancedMesh(flat, bm, Math.max(1, junctions.length * (k === 2 ? 2 : 1) * TILES1)); m.renderOrder = PAINT.order.junction + k; return m; }); // (the third turn has room for a fourth street)
     const zebras = new InstancedMesh(flat, zebraMat, Math.max(1, junctions.length * 6 * TILES1));
     const stops = new InstancedMesh(flat, lineMat, Math.max(1, junctions.length * 6 * TILES1));
+    stops.renderOrder = PAINT.order.stop;
     const jb3 = [0, 0, 0]; let jz = 0, js = 0;
     for (const n of junctions) {
       const allRoads = n.streets.every((q) => q.kind !== 'lane');
@@ -3429,7 +3435,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
         const hull = convexHull(mouths);
         const shape = new Shape(hull.map(([x, z]) => new Vector2(x, -z)));
         const m = new Mesh(new ShapeGeometry(shape).rotateX(-Math.PI / 2), boxMats[0]);
-        m.position.y = 0.052; m.receiveShadow = true;
+        m.position.y = 0.052; m.receiveShadow = true; m.renderOrder = PAINT.order.junction;
         scene.add(m);
       }
     }
@@ -3451,7 +3457,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       const g = traffic.green(h.n, h.group);
       signalLamps!.setColorAt(i * 3, g ? OFF_RED : RED);
       signalLamps!.setColorAt(i * 3 + 1, g ? GREEN : OFF_GREEN);
-      const w = traffic.walk(h.n, h.group, 300); // the pedestrian lamp: WALK white, FLASH a blinking red (finish, don't start), DONT red
+      const w = traffic.walk(h.n, h.group, traffic.walkTime(h.n, h.group)); // the pedestrian lamp: WALK white, FLASH a blinking red (finish, don't start), DONT red — timed by the walkers' own crossing here (owner: WALK lit, nobody went)
       signalLamps!.setColorAt(i * 3 + 2, w === 'walk' ? WALK : w === 'flash' ? ((traffic.tick >> 4) & 1 ? DONT : OFF_RED) : DONT); // (the traffic's own counter: this runs once before the frame clock exists)
     });
     if (signalLamps.instanceColor) signalLamps.instanceColor.needsUpdate = true;
@@ -3462,14 +3468,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // sprites with lives (city-people.ts) — walking, stopping, talking in
   // knots, browsing and vending at the markets, crossing on the red, sitting ----
   const zones: Zone[] = marketZones(plan.stalls, plan.streets); // (owner: a zone that straddled the arterial put its crowd among the buses)
-  const nodeAt = new Map<string, (typeof traffic.nodes)[number]>();
-  for (const n of traffic.nodes) nodeAt.set(`${Math.round(n.x)}:${Math.round(n.z)}`, n);
-  const crossOK = (x: number, z: number, axis: 'x' | 'z' | 'd'): boolean => {
-    const n = nodeAt.get(`${Math.round(x)}:${Math.round(z)}`);
-    if (!n || !n.signal) return false;
-    const st = axis === 'd' ? n.streets.find((q) => q.kind === 'diagonal') : n.streets.find((q) => q.kind !== 'diagonal' && (axis === 'x') === (q.dx !== 0));
-    return st ? !traffic.green(n, Math.max(0, n.streets.indexOf(st))) : false;
-  };
+  const crossOK = (x: number, z: number, axis: 'x' | 'z' | 'd'): boolean => traffic.redAt(x, z, axis);
   const crossNodes: number[] = [];
   for (let i = -HALF - OUTER - 1; i <= HALF + OUTER; i++) crossNodes.push(streetAt(i));
   // the two sims speak: the walkers ask whether a crosswalk is clear of vehicles and where the walls are; the traffic
@@ -3479,17 +3478,13 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   zones.push({ x: 0, z: 0, w: 22, d: 22, stalls: [{ x: 0, z: 0, color: '#ffffff' }] });
   for (const st of plan.stages) zones.push({ x: st.x + Math.sign(st.x) * (st.w / 2 + 6.5), z: st.z, w: 9, d: 16, stalls: [] });
   for (const pz of plan.plazas) zones.push({ x: pz.x, z: pz.z, w: pz.w, d: pz.d, stalls: [] }); // the stadium's forecourt, the wheel's queue
-  const walkOK = (x: number, z: number, axis: 'x' | 'z' | 'd', frames: number) => { // the pedestrian signal for crossing the street along axis at the node
-    const n = nodeAt.get(`${Math.round(x)}:${Math.round(z)}`);
-    if (!n || !n.signal) return 'unlit';
-    const st = axis === 'd' ? n.streets.find((q) => q.kind === 'diagonal') : n.streets.find((q) => q.kind !== 'diagonal' && (axis === 'x') === (q.dx !== 0));
-    return st ? traffic.walk(n, Math.max(0, n.streets.indexOf(st)), frames) : 'unlit';
-  };
+  const walkOK = (x: number, z: number, axis: 'x' | 'z' | 'd', frames: number) => traffic.walkAt(x, z, axis, frames); // the pedestrian signal for crossing the street along axis at the node
   const people = new People(plan.streets, zones, plan.stalls, mulberry32(seed ^ 0x7e0b1e), calm ? 1400 : lean ? 900 : 3800, crossOK, crossNodes, { // (owner: a city crowded with pedestrians)
     solid: (x, y, z) => plan.grid.hit(x, y, z, 0.3) !== null,
     onRoad: (x, z) => carriagewayAt(plan.streets, x, z) !== null,
     roadClear: (x, z) => traffic.clearAt(x, z),
     walkOK,
+    walkRoom: (x, z, axes, frames) => traffic.roomToWalk(x, z, axes, frames), // (owner: they waited forever at the lights — every crossing gets its WALK)
     doors: plan.doors,
     perches: plan.perches,
   });
@@ -4106,7 +4101,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     }
     const inst = new InstancedMesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), dim(additiveFog(new MeshBasicMaterial({
       map: glowTexture('#ffffff', true), transparent: true, blending: AdditiveBlending, depthWrite: false, opacity: 0.38,
-      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: PAINT.decal, // a decal: in front of the whole paint ladder (city-paint)
+      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: PAINT.pull, // see-through, over the painted floor (city-paint)
     }))), pools.length);
     dummy.rotation.set(0, 0, 0);
     pools.forEach((p, j) => {

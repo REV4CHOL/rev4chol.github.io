@@ -65,6 +65,10 @@ export const CITADEL = { bx: -4, bz: -4, x: -133, z: -133, tier: [44, 34, 24, 14
 /** The north–south avenue's water, sunk between quay walls (owner: the bridges' approach wedges sat inside the quay
  *  crossings); every bridge deck is flush with the streets, a boat's cabin passes under with 0.7 to spare. */
 export const CANAL = { w: 24, water: -2.6, deck: 0.05 };
+/** THE PLAZA's deck at the city's centre: the block itself over the canal — quay wall to quay wall, and from the bridge
+ *  deck of the street south of it to the one north (owner, 2026-10-11: a paved disc spilled over the roads round it and
+ *  left the water showing at the block's corners). */
+export const PLAZA = { w: CANAL.w, d: G - STREET };
 /** THE RAIL (owner: layered infrastructure, Akira's elevated line): a closed loop along the four street lines at
  *  ±209, its deck at 38 (the flight's canyon band tops at 32, its pad 2.6), corners rounded on a 30 arc over the
  *  corner lots, portal frames every 24 with legs at the kerb line, three stations. */
@@ -2220,15 +2224,15 @@ export function planCity(seed: number): Plan {
     for (const [ox, oz] of [[-1.2, -1.2], [1.2, -1.2], [-1.2, 1.2], [1.2, 1.2]]) solid(core, 'dark', 'street', 0, x + ox, (CANAL.water + floor) / 2 - 0.1, z + oz, 0.16, floor - CANAL.water + 0.2, 0.16);
     lantern(x - side * 1.9, floor + 1.9, z);
   }
-  // THE PLAZA (owner: the big dark circle made no sense): a paved circle spanning the canal (the renderer lays it, light
-  // paving on a thick slab the boats pass under), the STALLION rearing on a plinth at its heart under four spots,
-  // planters and benches round its rim, its ring of lamps; a crowd mills on it (the renderer's zone)
-  grid.add({ x: 0, y: -0.2, z: 0, w: 30, h: 0.6, d: 30 });
+  // THE PLAZA (owner: the big dark circle made no sense): a paved deck spanning the canal, the block itself (the renderer
+  // lays it, light paving on a thick slab the boats pass under; owner, 2026-10-11: a disc spilled over the roads round
+  // it and left the water showing at its corners), the STALLION rearing on a plinth at its heart under four spots,
+  // planters and benches in a ring about it; a crowd mills on it (the renderer's zone)
+  grid.add({ x: 0, y: CANAL.deck - 0.3, z: 0, w: PLAZA.w, h: 0.6, d: PLAZA.d });
   grid.add({ x: 0, y: 5.6, z: 0, w: 7, h: 11.2, d: 4.4 }); // the statue and its plinth (its ears top out near 11)
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2;
-    posts.push({ x: Math.cos(a) * 17, z: Math.sin(a) * 17, h: 7 });
-    const r = 12.6, px = Math.cos(a + Math.PI / 12) * r, pz = Math.sin(a + Math.PI / 12) * r;
+    const r = 10.2, px = Math.cos(a + Math.PI / 12) * r, pz = Math.sin(a + Math.PI / 12) * r; // on the deck, a step inside its edges
     if (i % 2 === 0) { // a planter with a small tree
       solid(core, 'dark', 'street', 0, px, 0.45, pz, 1.6, 0.9, 1.6);
       solid(core, 'tree', 'street', 0, px, 2.4, pz, 2.0, 3.0, 2.0);

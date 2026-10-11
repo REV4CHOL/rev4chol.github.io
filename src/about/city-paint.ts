@@ -1,24 +1,33 @@
-/** THE PAINT LADDER (owner: "traffic lanes and road around the entire city are still flickering"):
- *  every flat paint on the city's floor names its rung — `polygonOffsetUnits`, greater pushed
- *  behind, lesser pulled in front. The heights (the strips 4.4 cm over the ground, the boxes 2 mm
- *  over each other) place the paint near the camera; past a few hundred metres a 24-bit depth
- *  buffer at near 0.5 cannot tell them apart (its smallest step is ~d²/(0.5·2²⁴): 4 cm at 600 m,
- *  half a metre at 2,000) and two triangles in the same quantum round differently pixel by pixel,
- *  flickering as the eye moves. The rung decides the winner at EVERY distance; margins of two or
- *  more quanta absorb the rounding. The ground and the patches take a positive factor too:
- *  parallel planes share their slope, so the factor only widens the margin at grazing angles. */
+/** THE FLOOR, PAINTED IN TURN (owner: "traffic lanes and road around the entire city are still flickering"; 2026-10-11:
+ *  "streets are glitching when I fly my camera"). The floor's paints lie millimetres apart — the strips, the lanes, the
+ *  boulevard and the arterial, the junctions' boxes, the stop lines — and past a few hundred metres no depth buffer
+ *  tells millimetres apart. A ladder of polygon-offset rungs did not part them either: measured in a 24-bit depth
+ *  buffer, two long strips with the same slope factor traded places pixel by pixel as the eye moved, the wrong one
+ *  showing through a tenth to a half of their overlap even eight units apart (a strip's triangle is hundreds of units
+ *  long, and its depth slope rounds differently from its neighbour's). And the rungs pulled the paint in front of
+ *  what stands on it: a junction's box swallowed most of a distant car.
+ *
+ *  So the floor is painted as a sign-writer paints a road. The floor itself — the ground, the quay walls' coping, the
+ *  canal bridges' decks, the arterial's bridge — is drawn first and writes the depth, the ground pushed behind it a
+ *  slope and six units. Every paint is drawn after it, in the order below: it tests against the floor's depth, a slope
+ *  and two units in front, but writes none, so the later paint covers the earlier wherever both lie. No two paints
+ *  can fight, and whatever stands on the floor — a car in a junction — is drawn after the paint and covers it. The
+ *  zebras and the lights lying on the ground are see-through, drawn after everything solid, with the same pull. */
 export const PAINT = {
-  ground: 6, //    the ground sheet, behind every paint
-  patch: 3, //     the lots' stone over closed street bands: over the ground, under all paint
-  roadX: 0, //     the grid roads' strips, east–west
-  roadZ: -1, //    …north–south, in front where the axes cross
-  laneX: -2, //    the lanes' strips
-  laneZ: -3,
-  boulevard: -4, // the diagonal's carriageway
-  arterial: -5,
-  junction: -6, // the crossings' asphalt boxes: a rung a street (−6, −7, −8 — the boxes of one
-  //               crossing overlap in its centre square, so each takes its own)
-  zebra: -10, //   over the deepest box by two
-  stop: -11, //    the stop lines (opaque: they write depth, so the decals must clear them too)
-  decal: -14, //   every light lying on the paint — headlight throws, lamp pools, the shops' spill
+  ground: 6, // the ground's units (factor +1): the floor's depth, pushed behind every paint
+  pull: -2, //  every paint's units (factor −1): in front of the floor's depth at every distance
+  /** The draw order (Object3D.renderOrder): the floor first, then each paint over those before it, then everything
+   *  else (order 0). */
+  order: {
+    floor: -30, //     the ground, the quay walls, the canal bridges' decks, the arterial's bridge: they write the depth
+    patch: -29, //     the lots' stone over closed street bands
+    roadX: -28, //     the grid roads' strips, east–west
+    roadZ: -27, //     …north–south, over them where the axes cross
+    laneX: -26, //     the lanes' strips, over the roads' pavements at their mouths
+    laneZ: -25, //     …and over each other where two lanes cross
+    boulevard: -24, // the diagonal's carriageway, and the arterial's strip (they never meet)
+    slip: -23, //      a slip road at grade, over the arterial's apron
+    junction: -22, //  the crossings' asphalt boxes, a turn a street (−22, −21, −20)
+    stop: -19, //      the stop lines
+  },
 } as const;

@@ -40,6 +40,9 @@ export const GREEN = 420; // (owner: a pedestrian phase — a 14-second cycle le
 export const CLEAR = 130; // all red: whoever is in the box gets out
 export const PHASE = GREEN + CLEAR; // one street's turn; a node cycles through as many phases as it has streets
 export const CYCLE = 2 * PHASE;
+/** The shortest WALK a lit crossing shows in a cycle (owner, 2026-10-11: the walkers waited forever at the lights — nine
+ *  crossings in ten outlasted their street's red, so WALK never came): the lights make room for it (roomToWalk). */
+export const WALK_MIN = 180;
 const KERB = 1.5; // the stop line sits this far before the crossing street's kerb
 const STREET_BOX = 7 + KERB; // a plain street's box: the cycle is timed for a path through it
 const G0 = 1.6; // bumper to bumper, a queue settles here
@@ -62,6 +65,9 @@ export interface Node {
    *  box reaches (a side street crossing the arterial's right of way drives 40 units through the box: its cycle is
    *  longer, as a boulevard's is). */
   signal: { offset: number; green: number; phase: number } | null;
+  /** The longest crossing the walkers make through each street's crosswalk here, in frames, by group (roomToWalk): the
+   *  lamps time their FLASH by it, as the walkers do. */
+  walkTime?: number[];
   transit: Car[];
   /** Half the box: lanes stop this far before the node's centre and resume this far past it. */
   box: number;
@@ -160,6 +166,8 @@ export class Traffic {
   /** Someone is in the crosswalk of the street along `axis` at the node at (x, z): its lanes hold at the line
    *  (owner: the vehicles drove straight through the pedestrians). The people answer it. */
   peds: ((x: number, z: number, axis: 'x' | 'z' | 'd') => boolean) | null = null;
+  /** The nodes by their rounded centres (nodeAt). */
+  private keyed: Map<string, Node> | null = null;
 
   constructor(streets: Street[], private readonly rand: () => number) {
     const ways = streets.filter((s) => s.kind === 'road' || s.kind === 'highway' || s.kind === 'diagonal' || s.kind === 'ramp' || s.kind === 'arterial' || s.kind === 'lane');
@@ -430,6 +438,52 @@ export class Traffic {
     const t = c < redStart ? c + cycle : c;
     if (t >= redEnd) return 'dont';
     return redEnd - t > frames ? 'walk' : 'flash'; // (strictly: a crosser off at the last frame would meet the green)
+  }
+
+  /** The node whose centre rounds to (x, z): where the walkers ask about a crossing. */
+  nodeAt(x: number, z: number): Node | undefined {
+    if (!this.keyed) { this.keyed = new Map(); for (const n of this.nodes) this.keyed.set(`${Math.round(n.x)}:${Math.round(n.z)}`, n); }
+    return this.keyed.get(`${Math.round(x)}:${Math.round(z)}`);
+  }
+  /** The group of the street along `axis` at n — the diagonal for 'd', else the street running along x or z — or -1. */
+  groupAlong(n: Node, axis: 'x' | 'z' | 'd'): number {
+    const st = axis === 'd' ? n.streets.find((q) => q.kind === 'diagonal') : n.streets.find((q) => q.kind !== 'diagonal' && (axis === 'x') === (q.dx !== 0));
+    return st ? Math.max(0, n.streets.indexOf(st)) : -1;
+  }
+  /** The cars along `axis` have the red at the crossing at (x, z) — false where there is no light. */
+  redAt(x: number, z: number, axis: 'x' | 'z' | 'd'): boolean {
+    const n = this.nodeAt(x, z);
+    if (!n || !n.signal) return false;
+    const g = this.groupAlong(n, axis);
+    return g >= 0 && !this.green(n, g);
+  }
+  /** The pedestrian signal for crossing the street along `axis` at (x, z), for a crossing of `frames` (see walk). */
+  walkAt(x: number, z: number, axis: 'x' | 'z' | 'd', frames: number): WalkSignal {
+    const n = this.nodeAt(x, z);
+    if (!n || !n.signal) return 'unlit';
+    const g = this.groupAlong(n, axis);
+    return g >= 0 ? this.walk(n, g, frames) : 'unlit';
+  }
+
+  /** MAKE ROOM TO WALK (owner, 2026-10-11: the walkers waited forever at the lights): a crossing at (x, z) through the
+   *  streets along `axes` at once takes `frames`. Those streets are all red together for every phase but their own, so
+   *  the node's phases stretch — the greens with them, the all-red as it was — until that shared red holds the crossing
+   *  and WALK_MIN of WALK besides. A crossing of every street at once never shares a red: the walkers' patience takes it. */
+  roomToWalk(x: number, z: number, axes: ('x' | 'z' | 'd')[], frames: number): void {
+    const n = this.nodeAt(x, z);
+    if (!n || !n.signal) return;
+    const groups = [...new Set(axes.map((a) => this.groupAlong(n, a)).filter((g) => g >= 0))];
+    if (!groups.length) return;
+    n.walkTime ??= n.streets.map(() => 0);
+    for (const g of groups) n.walkTime[g] = Math.max(n.walkTime[g], frames);
+    const reds = n.streets.length - groups.length;
+    if (reds <= 0) return;
+    const phase = Math.ceil((frames + WALK_MIN) / reds);
+    if (phase > n.signal.phase) { n.signal.green += phase - n.signal.phase; n.signal.phase = phase; }
+  }
+  /** The longest crossing through the street of `group` at n (roomToWalk), for the lamps: 300 where none was made. */
+  walkTime(n: Node, group: number): number {
+    return n.walkTime?.[group] || 300;
   }
 
   /** Fill the lanes: `n` vehicles spread by `weight(lane)`, spaced so no

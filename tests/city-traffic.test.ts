@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { ARTERIAL_ROW, EXT, G, planCity } from '../src/about/city-plan';
-import { DECK_KERB, GREEN, OFFSETS, PHASE, SPEC, Traffic } from '../src/about/city-traffic';
+import { ARTERIAL_ROW, EXT, G, HALF, OUTER, planCity, streetAt } from '../src/about/city-plan';
+import { People } from '../src/about/city-people';
+import { DECK_KERB, GREEN, OFFSETS, PHASE, SPEC, Traffic, WALK_MIN } from '../src/about/city-traffic';
 import { mulberry32 } from '../src/lib/rng';
 import { hashSlug } from '../src/project/dossier';
 
@@ -174,6 +175,33 @@ describe('Traffic', () => {
     expect(traffic.walk(tee, 0, 300)).toBe('unlit');
   }, 30000); // (the boulevard's crossings run longer cycles now)
 
+  it('makes room to walk: a crossing asked for gets WALK_MIN of WALK besides its own time, the all-red kept (owner: the walkers waited forever)', () => {
+    const t = new Traffic(plan.streets, mulberry32(7));
+    const n = t.nodes.find((q) => q.signal && q.streets.length === 2 && q.streets.every((s) => s.kind === 'road'))!;
+    expect(t.nodeAt(n.x + 0.3, n.z - 0.3)).toBe(n); // found by its rounded centre
+    const along = (g: number) => (n.streets[g].dx !== 0 ? 'x' : 'z');
+    for (let g = 0; g < 2; g++) expect(t.groupAlong(n, along(g))).toBe(g);
+    expect(t.groupAlong(n, 'd')).toBe(-1);
+    const { phase, green } = n.signal!;
+    const walkFrames = (g: number, frames: number) => { let w = 0; for (let k = 0; k < n.streets.length * n.signal!.phase; k++) if (t.walk(n, g, frames, k) === 'walk') w += 1; return w; };
+    const frames = phase + 400; // longer than the street's red: WALK never came
+    expect(walkFrames(0, frames)).toBe(0);
+    t.roomToWalk(n.x, n.z, [along(0)], frames);
+    expect(walkFrames(0, frames)).toBeGreaterThanOrEqual(WALK_MIN);
+    expect(n.signal!.phase - n.signal!.green).toBe(phase - green); // the greens stretch, the clear stays
+    expect(t.walkTime(n, 0)).toBe(frames); // the lamp times its FLASH by the crossing
+    expect(t.walkAt(n.x, n.z, along(0), frames)).toBe(t.walk(n, 0, frames));
+    expect(t.redAt(n.x, n.z, along(0))).toBe(!t.green(n, 0));
+    const stretched = n.signal!.phase;
+    t.roomToWalk(n.x, n.z, [along(1)], 100); // a shorter crossing never shortens a phase
+    expect(n.signal!.phase).toBe(stretched);
+    t.roomToWalk(n.x, n.z, [along(0), along(1)], 5000); // every street at once never shares a red: nothing to stretch
+    expect(n.signal!.phase).toBe(stretched);
+    const tee = t.nodes.find((q) => !q.signal)!;
+    expect(t.walkAt(tee.x, tee.z, 'x', 300)).toBe('unlit');
+    expect(t.redAt(tee.x, tee.z, 'x')).toBe(false);
+  });
+
   it('holds a lane at the line while someone is in its crosswalk', () => {
     const t = new Traffic(plan.streets, mulberry32(7));
     t.populate(900, weight);
@@ -218,6 +246,10 @@ describe('Traffic', () => {
     // room to clear them, stalled mid-crossing, and every stalled box held the cross street too
     const t = new Traffic(plan.streets, mulberry32(SEED ^ 0x51f15e));
     t.populate(2000, weight); // (the live count on a desktop)
+    const nodes: number[] = [];
+    for (let i = -HALF - OUTER - 1; i <= HALF + OUTER; i++) nodes.push(streetAt(i));
+    new People(plan.streets, [], plan.stalls, mulberry32(1), 0, () => false, nodes, { walkRoom: (x, z, axes, f) => t.roomToWalk(x, z, axes, f) }); // the lights timed for the walkers, as on the page
+    expect(t.nodes.filter((n) => n.walkTime).length).toBeGreaterThan(250);
     const cars = t.cars;
     let worstStopped = 0, worstInBox = 0, meetings = 0;
     for (let f = 1; f <= 40000; f++) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ARTERIAL, ARTERIAL_ROW, EXT, G, HALF, OUTER, planCity, REACH, streetAt, carriagewayAt } from '../src/about/city-plan';
-import { CAST, FRAME, KIND, People, Zone, marketZones } from '../src/about/city-people';
+import { CAST, FRAME, KIND, PATIENCE, People, SPOT, Zone, marketZones } from '../src/about/city-people';
+import { Traffic, WALK_MIN } from '../src/about/city-traffic';
 import { mulberry32 } from '../src/lib/rng';
 import { hashSlug } from '../src/project/dossier';
 
@@ -243,4 +244,78 @@ describe('People', () => {
     }
     expect(checked).toBeGreaterThan(300);
   });
+  it('lets the lights make room to walk, and keeps the crowd moving: every lit crossing opens long enough, nobody waits past their light\'s cycle (owner: they waited forever)', () => {
+    const traffic = new Traffic(plan.streets, mulberry32(9));
+    const crowd = new People(plan.streets, zonesOf(), plan.stalls, mulberry32(9), 1500, (x, z, a) => traffic.redAt(x, z, a), nodes, {
+      solid: (x, y, z) => plan.grid.hit(x, y, z, 0.3) !== null,
+      onRoad: (x, z) => carriagewayAt(plan.streets, x, z) !== null,
+      roadClear: (x, z) => traffic.clearAt(x, z),
+      walkOK: (x, z, a, f) => traffic.walkAt(x, z, a, f),
+      walkRoom: (x, z, axes, f) => traffic.roomToWalk(x, z, axes, f),
+      doors: plan.doors,
+    });
+    traffic.peds = (x, z, a) => crowd.walkersIn(x, z, a) > 0;
+    let streets = 0;
+    for (const n of traffic.nodes) { // each street crossed at a light shows WALK, every cycle, for its longest crossing and WALK_MIN besides
+      if (!n.signal || !n.walkTime) continue;
+      const cycle = n.streets.length * n.signal.phase;
+      for (let g = 0; g < n.streets.length; g++) {
+        if (!n.walkTime[g]) continue;
+        let walk = 0;
+        for (let k = 0; k < cycle; k++) if (traffic.walk(n, g, n.walkTime[g], k) === 'walk') walk += 1;
+        expect(walk).toBeGreaterThanOrEqual(WALK_MIN);
+        streets += 1;
+      }
+    }
+    expect(streets).toBeGreaterThan(300);
+    let waits = 0, started = 0;
+    const over: string[] = [];
+    const was = crowd.people.map((p) => p.act);
+    for (let f = 0; f < 6000; f++) {
+      traffic.step(); crowd.step();
+      crowd.people.forEach((p, i) => {
+        if (was[i] === 'wait' && p.act === 'walk' && p.cross) started += 1;
+        was[i] = p.act;
+        if (p.act !== 'wait' || !p.cross || f % 10) return;
+        waits += 1;
+        const n = traffic.nodeAt(p.cross.nx, p.cross.nz);
+        const most = n?.signal ? n.streets.length * n.signal.phase + 200 : PATIENCE + 30; // a cycle, the walk to the spot and a look
+        if (p.waited > most) over.push(`${p.waited} frames at ${p.x.toFixed(0)},${p.z.toFixed(0)}`);
+      });
+    }
+    expect(over, 'waited past their light\'s cycle').toEqual([]);
+    expect(waits).toBeGreaterThan(1000);
+    expect(started).toBeGreaterThan(500); // WALK comes, and they go
+    expect(crowd.crossings).toBeGreaterThan(20); // some at the front take the WALK across their own street instead
+  }, 120000);
+
+  it('gives every waiter a spot of their own, walked to, and stops nobody on top of anyone standing still (owner: they stood morphed into each other)', () => {
+    const solid = (x: number, y: number, z: number) => plan.grid.hit(x, y, z, 0.3) !== null;
+    const held = new People(plan.streets, zonesOf(), plan.stalls, mulberry32(6), 2000, () => false, nodes, { solid, roadClear: () => false, doors: plan.doors });
+    const prev = held.people.map((p) => ({ x: p.x, z: p.z, act: p.act }));
+    let queued = 0, stride = 0;
+    for (let f = 0; f < 3000; f++) {
+      held.step();
+      held.people.forEach((p, i) => {
+        const q = prev[i];
+        if (p.act === 'wait' && q.act === 'wait') stride = Math.max(stride, Math.hypot(p.x - q.x, p.z - q.z));
+        q.x = p.x; q.z = p.z; q.act = p.act;
+      });
+    }
+    expect(stride, 'a waiter walks to their spot').toBeLessThan(0.035);
+    const there = held.people.filter((p) => p.act === 'wait' && Math.hypot(p.tTo - p.t, p.offTo - p.off) <= 0.02);
+    expect(there.length).toBeGreaterThan(100);
+    const onTop: string[] = [];
+    for (let i = 0; i < there.length; i++) {
+      if (Math.abs(there[i].tTo - there[i].cross!.tNear) > SPOT * 0.9) queued += 1; // in a row behind the front
+      for (let j = i + 1; j < there.length; j++) if (Math.hypot(there[i].x - there[j].x, there[i].z - there[j].z) <= 0.35) onTop.push(`two waiters at ${there[i].x.toFixed(1)},${there[i].z.toFixed(1)}`);
+    }
+    expect(queued).toBeGreaterThan(5); // the queues form behind the kerb
+    const still = held.people.filter((p) => ['stand', 'sit', 'talk', 'browse', 'vend', 'perch'].includes(p.act) || there.includes(p));
+    for (let i = 0; i < still.length; i++) for (let j = i + 1; j < still.length; j++) {
+      const a = still[i], b = still[j];
+      if (Math.abs(a.y - b.y) < 0.5 && Math.hypot(a.x - b.x, a.z - b.z) <= 0.3) onTop.push(`a ${a.act}er on a ${b.act}er at ${a.x.toFixed(1)},${a.z.toFixed(1)}`);
+    }
+    expect(onTop).toEqual([]);
+  }, 120000);
 });
