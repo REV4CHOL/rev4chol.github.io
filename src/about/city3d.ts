@@ -53,7 +53,7 @@ import { Runners } from './city-runners';
 import { blendMover, frameScale, newMover, owed, renderTime, rollMover, STEP, stepsAllowed } from './city-clock';
 import type { Mover } from './city-clock';
 import { BEACON, beaconAlpha, glowSet, puffAdvance, puffPose } from './city-puffs';
-import { newGovernor, PHONE, startTier, steer, TIERS, WINDOW } from './city-governor';
+import { frameSize, newGovernor, PHONE, startTier, steer, TIERS, WINDOW } from './city-governor';
 import type { Device } from './city-governor';
 import { PAINT } from './city-paint';
 import { farMasses, mergeBoxes } from './city-far';
@@ -1271,6 +1271,9 @@ export interface CityRide {
    *  (the pane may be hidden, which gives the canvas no size). */
   frame(w?: number, h?: number): number[];
   setQuality(t: number): void;
+  /** Verification: pin the governor's render scale (for 30 s), and switch a post pass off or on. */
+  setScale(scale: number): void;
+  setPass(pass: 'bloom' | 'haze' | 'lens', on: boolean): void;
   /** Verification: what lives where — knots of talk, flyers, counts. */
   /** The time of day (city-sky.ts): eased over a couple of seconds, or at once. */
   setTime(t: TimeOfDay, instant?: boolean): void;
@@ -1323,7 +1326,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   // rendering at its own pixel ratio, the desktop still rendered at CSS pixels over PIX with the ratio ignored: at a
   // ratio of 1.5, three device pixels a render pixel, and every thin rail and window grid sparkled as the camera
   // moved). The desktop renders at min(ratio, 2) over the tier's PIX: PIX device pixels a render pixel, whatever the
-  // ratio — and the ultra tier's PIX is 1, the screen's own pixels.
+  // ratio — and the ultra tier's PIX is 1, the screen's own pixels. Both scales are then cut to a WHOLE blow-up (fit:
+  // city-governor's frameSize — the governor's fifths had brought the sparkle back to every thin line on the roads).
   const deskScale = () => Math.min(window.devicePixelRatio || 1, 2) / PIX * gov.scale; // (times the governor's scale)
   const fog = new FogExp2('#0c1826', TIERS[tier].fog);
   scene.fog = fog;
@@ -2782,7 +2786,7 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
   };
   {
     // LAMP POSTS (owner: real lamp posts, heads and all): a post, an arm out over the carriageway, a lantern
-    // that glows by night and reads as a fixture by day; the arm points at the nearest carriageway's axis
+    // that glows by night and reads as a fixture by day; the arm points at the nearest carriageway's axis, or its own way
     const nP = plan.posts.length;
     const postMat = new MeshLambertMaterial({ color: '#3a3f52' });
     const headMat = new MeshLambertMaterial({ color: '#cfd6e2', emissive: '#ffd9a0', emissiveIntensity: 1.2 });
@@ -2793,7 +2797,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     plan.posts.forEach((p, j) => {
       const base = p.y ?? 0; // some stand on the highway deck or a ramp
       let ax = 1, az = 0, best = 9;
-      for (const s of ways) {
+      if (p.arm) [ax, az] = p.arm; // its own way (the plaza's ring reaches in toward the statue)
+      else for (const s of ways) {
         const u = (p.x - s.x0) * s.dx + (p.z - s.z0) * s.dz;
         if (u < 0 || u > s.len) continue;
         const sy = s.y1 === undefined ? s.y : s.y + (s.y1 - s.y) * (u / s.len);
@@ -4289,9 +4294,11 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
     const w = Math.max(1, canvas.clientWidth);
     const h = Math.max(1, canvas.clientHeight);
     const s = isMobile() ? phoneCeil * gov.scale : deskScale();
-    renderer.setSize(Math.ceil(w * s), Math.ceil(h * s), false);
-    composer.setSize(Math.ceil(w * s), Math.ceil(h * s));
-    for (const m of farMats) m.uniforms.uScale.value = Math.ceil(h * s) / 2; // the far traffic's point size follows the frame
+    const fr = frameSize(w, h, window.devicePixelRatio || 1, s, isMobile() || PIX >= 2); // a whole number of screen pixels a frame pixel (city-governor)
+    canvas.style.imageRendering = fr.smooth ? 'auto' : ''; // ('': the sheet's pixelated)
+    renderer.setSize(fr.w, fr.h, false);
+    composer.setSize(fr.w, fr.h);
+    for (const m of farMats) m.uniforms.uScale.value = fr.h / 2; // the far traffic's point size follows the frame
     camera.aspect = w / h;
     camera.fov = fov24(camera.aspect); // a 24mm across the long edge
     camera.updateProjectionMatrix();
@@ -4499,6 +4506,8 @@ export function mountCity3D(canvas: HTMLCanvasElement, seed: number): CityRide {
       return out;
     },
     setQuality: (t) => { tier = Math.max(0, Math.min(TIERS.length - 1, Math.round(t))); gov.tier = tier; gov.ceiling = tier; gov.scale = 1; gov.until = performance.now() + 30000; applyTier(); fit(); },
+    setScale: (scale) => { gov.scale = scale; gov.until = performance.now() + 30000; fit(); },
+    setPass: (pass, on) => { (pass === 'bloom' ? bloom : pass === 'haze' ? haze : lens).enabled = on; render(); },
     setTime: (t, instant = false) => { setTime(t, instant); render(); },
     time: () => timeNow,
     probe: () => ({

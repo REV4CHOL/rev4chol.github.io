@@ -69,6 +69,9 @@ export const CANAL = { w: 24, water: -2.6, deck: 0.05 };
  *  deck of the street south of it to the one north (owner, 2026-10-11: a paved disc spilled over the roads round it and
  *  left the water showing at the block's corners). */
 export const PLAZA = { w: CANAL.w, d: G - STREET };
+/** The plaza's ring of lamps (owner: "add a ring of lamps on the plaza deck"): twelve, between the planters and the
+ *  benches, this far from the statue, this tall — a step taller than a street's. */
+export const PLAZA_LAMP = { r: 11.6, h: 6 };
 /** THE RAIL (owner: layered infrastructure, Akira's elevated line): a closed loop along the four street lines at
  *  ±209, its deck at 38 (the flight's canyon band tops at 32, its pad 2.6), corners rounded on a 30 arc over the
  *  corner lots, portal frames every 24 with legs at the kerb line, three stations. */
@@ -274,7 +277,7 @@ export interface Plan {
   billboards: Billboard[];
   spots: number[];
   signs: Sign[];
-  posts: { x: number; z: number; h: number; y?: number }[];
+  posts: { x: number; z: number; h: number; y?: number; arm?: [number, number] }[];
   lanterns: number[];
   wires: number[];
   vents: { x: number; z: number }[];
@@ -691,7 +694,7 @@ export function planCity(seed: number): Plan {
   const spots: number[] = [];
   const signs: Sign[] = [];
   const pois: Poi[] = [];
-  const posts: { x: number; z: number; h: number; y?: number }[] = [];
+  const posts: Plan['posts'] = [];
   const lanterns: number[] = [];
   const wires: number[] = [];
   const vents: { x: number; z: number }[] = [];
@@ -919,9 +922,13 @@ export function planCity(seed: number): Plan {
         clutter.push({ kind: 'rail', x: fr.x, y: y + 0.55, z: fr.z, w: len, h: 0.85, d: 0.05, rotY: fr.rot });
         for (const e of [-1, 1]) clutter.push({ kind: 'rail', x: f.x + (s < 2 ? e * (len / 2 - 0.03) : 0), y: y + 0.55, z: f.z + (s >= 2 ? e * (len / 2 - 0.03) : 0), w: 0.86, h: 0.85, d: 0.05, rotY: fr.rot + Math.PI / 2 }); // (owner: rails round every balcony) the rails at the slab's ends
         if (bucket === core && rand() < 0.28) { // someone on the balcony (owner: NPCs doing things on the balconies), facing out
-          const u = (rand() - 0.5) * (len - 1.6);
+          const room = (len - 1.6) / 2; // either side of the slab's middle, 0.8 clear of its end rails
+          const u = (rand() - 0.5) * 2 * room;
           perches.push({ x: f.x + (s < 2 ? u : 0), y: y + 0.11, z: f.z + (s >= 2 ? u : 0), yaw: [0, Math.PI, Math.PI / 2, -Math.PI / 2][s] });
-          if (len > 4 && rand() < 0.35) perches.push({ x: f.x + (s < 2 ? u + 1.3 : 0), y: y + 0.11, z: f.z + (s >= 2 ? u + 1.3 : 0), yaw: [0, Math.PI, Math.PI / 2, -Math.PI / 2][s] }); // two, talking
+          if (len > 4 && rand() < 0.35) { // two, talking: the other a step along, whichever way the slab has room (owner: they stood in the air past its end)
+            const v = u + 1.3 <= room ? u + 1.3 : u - 1.3 >= -room ? u - 1.3 : null;
+            if (v !== null) perches.push({ x: f.x + (s < 2 ? v : 0), y: y + 0.11, z: f.z + (s >= 2 ? v : 0), yaw: [0, Math.PI, Math.PI / 2, -Math.PI / 2][s] });
+          }
         }
         for (let k = 0, n = rand() < 0.45 ? 1 + Math.floor(rand() * 3) : 0; k < n; k++) { // the washing
           const u = (rand() - 0.5) * (len - 1);
@@ -2227,16 +2234,22 @@ export function planCity(seed: number): Plan {
   // THE PLAZA (owner: the big dark circle made no sense): a paved deck spanning the canal, the block itself (the renderer
   // lays it, light paving on a thick slab the boats pass under; owner, 2026-10-11: a disc spilled over the roads round
   // it and left the water showing at its corners), the STALLION rearing on a plinth at its heart under four spots,
-  // planters and benches in a ring about it; a crowd mills on it (the renderer's zone)
+  // planters and benches in a ring about it, and its RING OF LAMPS between them (owner: "add a ring of lamps on the plaza
+  // deck"); a crowd mills on it (the renderer's zone)
   grid.add({ x: 0, y: CANAL.deck - 0.3, z: 0, w: PLAZA.w, h: 0.6, d: PLAZA.d });
   grid.add({ x: 0, y: 5.6, z: 0, w: 7, h: 11.2, d: 4.4 }); // the statue and its plinth (its ears top out near 11)
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2;
-    const r = 10.2, px = Math.cos(a + Math.PI / 12) * r, pz = Math.sin(a + Math.PI / 12) * r; // on the deck, a step inside its edges
+    const r = 10.2, px = Math.cos(a) * r, pz = Math.sin(a) * r; // on the deck, a step inside its edges
     if (i % 2 === 0) { // a planter with a small tree
       solid(core, 'dark', 'street', 0, px, 0.45, pz, 1.6, 0.9, 1.6);
       solid(core, 'tree', 'street', 0, px, 2.4, pz, 2.0, 3.0, 2.0);
     } else solid(core, 'dark', 'street', 0, px, 0.3, pz, 1.8, 0.6, 0.6); // a bench
+    // a lamp between each two, near the deck's edge, its arm and lantern reaching in over the plaza toward the statue —
+    // never on the axes, where the bridges' own poles and hangers stand at the deck's edge
+    const b = a + Math.PI / 12, lx = Math.cos(b) * PLAZA_LAMP.r, lz = Math.sin(b) * PLAZA_LAMP.r;
+    posts.push({ x: lx, z: lz, h: PLAZA_LAMP.h, y: CANAL.deck, arm: [-Math.cos(b), -Math.sin(b)] });
+    grid.add({ x: lx, y: CANAL.deck + PLAZA_LAMP.h / 2, z: lz, w: 0.3, h: PLAZA_LAMP.h, d: 0.3 }); // the crowd mills round it
   }
   for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) spots.push(sx * 4.6, 0.6, sz * 4.6); // the statue's spots, at its feet
   // THE FESTIVAL on the boulevard's median (owner: gatherings, festivals, a lively boulevard): bunting strung between the

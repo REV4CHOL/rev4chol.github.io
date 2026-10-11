@@ -47,3 +47,18 @@ export function steer(g: Governor, avg: number, busy: number, now: number): Stee
   }
   return null;
 }
+/** THE BLOW-UP, WHOLE (owner, 2026-10-11: "roads across whole city still flickering when camera moves"): the browser
+ *  blows the frame up to the screen nearest-neighbour (story.css: the pixels ARE the look), and at a fraction of a
+ *  screen pixel a frame pixel — the governor's fifths (1.25, 1.56) or a phone's 2.4 — it doubled some rows and columns
+ *  and not others, so every thin line (the lane paint, the kerbs, the zebras, the window grids) hopped between them as
+ *  the eye moved. The frame for a canvas `cssW` × `cssH` at a device `ratio` and a render `scale` (frame pixels a CSS
+ *  pixel): a whole number of screen pixels a frame pixel, blown up nearest-neighbour — the nearest whole number where
+ *  the scale lands within 2 % of one; else, for the pixel tiers, the next whole number up (never more pixels than the
+ *  governor allows); else (the screen's-own-pixel tiers) the asked size, blown up smooth. */
+export function frameSize(cssW: number, cssH: number, ratio: number, scale: number, pixelLook: boolean): { w: number; h: number; smooth: boolean } {
+  const f = ratio / scale; // screen pixels a frame pixel, along each axis
+  const near = Math.round(f);
+  const n = near >= 1 && Math.abs(f - near) < 0.02 * f ? near : pixelLook ? Math.max(1, Math.ceil(f)) : 0;
+  if (!n) return { w: Math.max(1, Math.ceil(cssW * scale)), h: Math.max(1, Math.ceil(cssH * scale)), smooth: true };
+  return { w: Math.max(1, Math.round((cssW * ratio) / n)), h: Math.max(1, Math.round((cssH * ratio) / n)), smooth: false };
+}

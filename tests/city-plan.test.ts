@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
-import { ARTERIAL, ARTERIAL_ROW, arterialLat, arterialZ, AutoFlight, BOUND, CAM_R, CANAL, CANAL_END, carriagewayAt, CAT_TAIL, catTailCorners, CITADEL, cityTiles, CollisionGrid, corridorFiller, cutAtCorridor, districtOf, EXT, footprintInCorridor, G, HALF, HIGHWAY, LANE_CAR, LANE_W, HW_FAR, isMass, LANDMARK_ARCH, MEDIAN, OUTER, planCity, PLAZA, RAIL, RAMP, RAMP_W, rampY, ROAD, starPositions, STREET, streetAt, TILE_P, tourRoute } from '../src/about/city-plan';
+import { ARTERIAL, ARTERIAL_ROW, arterialLat, arterialZ, AutoFlight, BOUND, CAM_R, CANAL, CANAL_END, carriagewayAt, CAT_TAIL, catTailCorners, CITADEL, cityTiles, CollisionGrid, corridorFiller, cutAtCorridor, districtOf, EXT, footprintInCorridor, G, HALF, HIGHWAY, LANE_CAR, LANE_W, HW_FAR, isMass, LANDMARK_ARCH, MEDIAN, OUTER, planCity, PLAZA, PLAZA_LAMP, RAIL, RAMP, RAMP_W, rampY, ROAD, starPositions, STREET, streetAt, TILE_P, tourRoute } from '../src/about/city-plan';
 import { mulberry32 } from '../src/lib/rng';
 import { streetPoint } from '../src/about/city-traffic';
 import { FAMILIES, FLOOR as SKIN_FLOOR, PX as SKIN_PX, SHOP as SKIN_SHOP } from '../src/about/city-skins';
@@ -509,6 +509,14 @@ describe('The viaduct over its arterial (owner: roads that exist in real life)',
     for (const p of plan.parties) { expect(p.y).toBeGreaterThan(22); expect(p.y).toBeLessThan(83); expect(Math.min(p.w, p.d)).toBeGreaterThan(4.9); }
     expect(plan.perches.length).toBeGreaterThan(200);
     for (const p of plan.perches.slice(0, 50)) expect(p.y).toBeGreaterThan(3);
+    // every perch stands on a balcony's slab, a step clear of its ends (owner: they stood in the air past the slab)
+    const slabs = plan.core.filter((s) => s.kind === 'dark' && s.arch === 'bits' && Math.abs(s.h - 0.22) < 0.001);
+    const off: string[] = [];
+    for (const p of plan.perches) {
+      const on = slabs.some((s) => Math.abs(s.y + s.h / 2 - p.y) < 0.01 && Math.abs(p.x - s.x) <= s.w / 2 - 0.3 && Math.abs(p.z - s.z) <= s.d / 2 - 0.3);
+      if (!on) off.push(`${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)}`);
+    }
+    expect(off, 'perches off their slab').toEqual([]);
     expect(plan.stages.length).toBe(2);
     expect(plan.core.some((s) => s.kind === 'cyl' && s.w === 30), 'the dark disc is gone').toBe(false);
     expect(plan.grid.hit(0, 6, 0, 0.5), 'the statue is solid to the flight').not.toBeNull();
@@ -531,6 +539,21 @@ describe('The viaduct over its arterial (owner: roads that exist in real life)',
     for (const q of furniture) {
       expect(Math.abs(q.x) + q.w / 2, 'on the deck').toBeLessThan(PLAZA.w / 2);
       expect(Math.abs(q.z) + q.d / 2, 'on the deck').toBeLessThan(PLAZA.d / 2);
+    }
+    // its ring of lamps (owner: "add a ring of lamps on the plaza deck"): twelve on the deck, between the furniture, off
+    // the axes (the bridges' poles stand there), their arms reaching in toward the statue, solid to the crowd
+    const lamps = plan.posts.filter((q) => Math.abs(q.x) < PLAZA.w / 2 && Math.abs(q.z) < PLAZA.d / 2);
+    expect(lamps.length).toBe(12);
+    for (const q of lamps) {
+      expect(Math.hypot(q.x, q.z)).toBeCloseTo(PLAZA_LAMP.r, 5);
+      expect(q.y, 'standing on the deck').toBe(CANAL.deck);
+      expect(q.h).toBe(PLAZA_LAMP.h);
+      expect(Math.max(Math.abs(q.x), Math.abs(q.z)) + 0.11, 'on the deck').toBeLessThan(PLAZA.w / 2);
+      expect(Math.min(Math.abs(q.x), Math.abs(q.z)), 'off the axes').toBeGreaterThan(2.5);
+      expect(q.arm, 'an arm of its own').toBeDefined();
+      expect(q.arm![0] * q.x + q.arm![1] * q.z, 'reaching in toward the statue').toBeLessThan(-0.99 * PLAZA_LAMP.r);
+      for (const f of furniture) expect(Math.hypot(f.x - q.x, f.z - q.z) - Math.max(f.w, f.d) / 2, 'clear of the planters and benches').toBeGreaterThan(1);
+      expect(plan.grid.hit(q.x, 0.9, q.z, 0.3), 'the crowd walks round it').not.toBeNull();
     }
   });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUSY, FAST, newGovernor, PHONE, SLOW, startTier, steer, TIERS } from '../src/about/city-governor';
+import { BUSY, FAST, frameSize, newGovernor, PHONE, SLOW, startTier, steer, TIERS } from '../src/about/city-governor';
 
 describe("The governor (owner: other people's PCs stutter; the phone lags)", () => {
   it('opens at high on a desktop, mid on a phone or a small device, low on a starved connection — a fast connection never promotes', () => {
@@ -55,5 +55,26 @@ describe("The governor (owner: other people's PCs stutter; the phone lags)", () 
     expect(g.tier).toBe(0); expect(g.scale).toBeGreaterThanOrEqual(0.6);
     const h = newGovernor(1, 0, PHONE.floor, 1);
     expect(steer(h, 8, 3, 13000), 'a 120 Hz phone with headroom').toBe(null); expect(h.tier).toBe(1);
+  });
+  it('blows the frame up by a whole number of screen pixels, or smooth — never a fraction, nearest-neighbour (owner: the roads flickered across the whole city as the camera moved)', () => {
+    // the screen's own pixels at 1:1, at any ratio the scale meets
+    expect(frameSize(1440, 900, 1, 1, false)).toEqual({ w: 1440, h: 900, smooth: false });
+    expect(frameSize(1536, 864, 1.25, 1.25, false)).toEqual({ w: 1920, h: 1080, smooth: false }); // a 1920 screen at 125 %
+    expect(frameSize(1440, 900, 1, 1 / 3, true)).toEqual({ w: 480, h: 300, smooth: false }); // low: three a pixel
+    expect(frameSize(1280, 720, 1.5, 0.75, true)).toEqual({ w: 960, h: 540, smooth: false }); // mid at 150 %: two a pixel
+    // the governor's fifths: high is smoothed at the asked size; a pixel tier steps to the next whole number up
+    expect(frameSize(1440, 900, 1, 0.8, false)).toEqual({ w: 1152, h: 720, smooth: true });
+    expect(frameSize(1440, 900, 1, 0.8 / 3, true)).toEqual({ w: 360, h: 225, smooth: false }); // 3.75 → 4
+    expect(frameSize(390, 844, 3, 1.25, true)).toEqual({ w: 390, h: 844, smooth: false }); // a phone's 2.4 → 3
+    // the rule, everywhere the governor and the screens go
+    const scales = [1, 0.8, 0.64, 0.6, 0.92, 0.736];
+    for (const ratio of [0.8, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3]) for (const pix of [1, 2, 3]) for (const g of scales) {
+      const scale = (Math.min(ratio, 2) / pix) * g, look = pix >= 2;
+      const f = frameSize(1440, 900, ratio, scale, look);
+      if (f.smooth) { expect(look, `smooth only off the pixel look (ratio ${ratio}, pix ${pix}, scale ${g})`).toBe(false); continue; }
+      const k = (1440 * ratio) / f.w;
+      expect(Math.abs(k - Math.round(k)), `a whole blow-up (ratio ${ratio}, pix ${pix}, scale ${g}): ${k}`).toBeLessThan(0.02 * k);
+      expect(f.w, 'never more pixels than the governor allows (a scale within 2 % of whole snaps to it)').toBeLessThanOrEqual(Math.ceil(1440 * scale * 1.025) + 1);
+    }
   });
 });
