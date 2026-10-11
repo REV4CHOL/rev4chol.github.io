@@ -2,7 +2,7 @@
 
 The owner:
 
-- `D:\WORK\PROJECT\Web Materials\2026 GalaxyFold_webloop` — "Replace Terminal Bloom in chapter 2 with this."
+- `…\2026 GalaxyFold_webloop` — "Replace Terminal Bloom in chapter 2 with this."
 - Watch: YouTube `hfq64ykkQs4` ("GALAXY Z FOLD 8 ULTRA | Digital Ad #1") "And……." YouTube `60ga3V46lk4` ("… | Digital Ad #2"), both pasted as 867 × 1541 iframes (vertical).
 - "So one watch will spawn two embed YouTube videos at once, on the same row together. So make special design for this."
 - Title: GALAXY Z FOLD 8 ULTRA | DIGITAL AD. Year 2026. Role: AI Generalist. Runtime 00:24 & 00:37. Genre Commercial Advertising. Syn: Welcome to the fold.

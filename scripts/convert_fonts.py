@@ -1,10 +1,14 @@
 """One-time font conversion: TTF/OTF sources -> woff2 in public/fonts.
 Originals are never modified. Requires: pip install fonttools brotli
+Usage: python scripts/convert_fonts.py <the folder holding the font sources>
 """
+import sys
 from pathlib import Path
 from fontTools.ttLib import TTFont
 
-SRC = Path(r"D:\WORK\PROJECT\JOB\AI\WEBSITE_AI\FONT")
+if len(sys.argv) != 2:
+    raise SystemExit("usage: python scripts/convert_fonts.py <the folder holding the font sources>")
+SRC = Path(sys.argv[1])
 OUT = Path(__file__).resolve().parents[1] / "public" / "fonts"
 
 FILES = [
@@ -31,5 +35,5 @@ for src, dst in FILES:
     print(f"ok {dst}")
 
 if missing:
-    raise SystemExit(f"{len(missing)} source font(s) missing - fix paths above")
+    raise SystemExit(f"{len(missing)} source font(s) missing - check the folder and the names above")
 print("done")

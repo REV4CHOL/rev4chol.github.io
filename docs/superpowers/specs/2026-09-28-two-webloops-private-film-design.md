@@ -3,8 +3,8 @@
 The owner:
 
 - "forget about Mien Vien watch link, it will never arrived cuz the director want to keep the film not opened to the masses."
-- "Change the webloop on JAECOO J5 (chapter 2) to this: `D:\WORK\PROJECT\Web Materials\2026 JAECOO_webloop\JAECOO_webloop.mp4`"
-- "Change the webloop on Forest Onsen (chapter 2) to this: `D:\WORK\PROJECT\Web Materials\2026 Forest Onsen_webloop\ForestOnsen_webloop.mp4`"
+- "Change the webloop on JAECOO J5 (chapter 2) to this: `…\2026 JAECOO_webloop\JAECOO_webloop.mp4`"
+- "Change the webloop on Forest Onsen (chapter 2) to this: `…\2026 Forest Onsen_webloop\ForestOnsen_webloop.mp4`"
 
 ## What was found
 

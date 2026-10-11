@@ -72,7 +72,7 @@ labels.
 
 ### 3.2 Typography
 
-Fonts self-hosted from `D:\WORK\PROJECT\JOB\AI\WEBSITE_AI\FONT`, converted to woff2
+Fonts self-hosted from the owner's font folder, converted to woff2
 (originals untouched; fallback = serve OTF/TTF directly if conversion tooling fails).
 
 | Font | Use | Rules |
@@ -219,7 +219,7 @@ selection color on this page. Template markup never changes per project.
 ### 7.2 Project Structure
 
 ```
-D:\WORK\PROJECT\JOB\AI\WEBSITE_AI\SITE\
+rev4chol.github.io\
   index.html  works.html  about.html  contact.html  project.html
   src/
     styles/        design tokens (CSS custom props), base, components

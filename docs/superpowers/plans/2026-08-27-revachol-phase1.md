@@ -24,7 +24,7 @@
 - Content errors surface on the boot screen as `CONTENT ERROR` with file + human-readable detail; missing media degrades gracefully (poster-only) with console listing.
 - Boot: 1.2–2 s, skippable (click/key), once per session (`sessionStorage` key `rvl-booted`).
 - All internal navigation links carry `data-internal` and go through the glitch-wipe transition.
-- Node ≥ 20. All commands below run from `D:\WORK\PROJECT\JOB\AI\WEBSITE_AI\SITE` unless stated.
+- Node ≥ 20. All commands below run from the site's folder (the repo root) unless stated.
 
 ## File Structure (final state)
 
@@ -401,7 +401,7 @@ git commit -m "feat: scaffold vite mpa with five pages, vitest, base styles"
 - Modify: `src/styles/tokens.css` (complete it)
 
 **Interfaces:**
-- Consumes: font sources in `D:\WORK\PROJECT\JOB\AI\WEBSITE_AI\FONT` (read-only — never modify originals).
+- Consumes: font sources in the owner's font folder (read-only — never modify originals).
 - Produces: CSS custom properties used by ALL later tasks: font stacks `--f-display`, `--f-serif`, `--f-mono`, `--f-micro`; type scale `--t-2xs --t-xs --t-sm --t-md --t-lg --t-xl --t-2xl --t-3xl`; easing `--ease-out`. Loaded families named exactly `'Clash Display'`, `'Bodoni Moda'`, `'Geist Mono'`, `'Martian Mono'`.
 
 - [ ] **Step 1: Write the conversion script**
@@ -415,7 +415,7 @@ Originals are never modified. Requires: pip install fonttools brotli
 from pathlib import Path
 from fontTools.ttLib import TTFont
 
-SRC = Path(r"D:\WORK\PROJECT\JOB\AI\WEBSITE_AI\FONT")
+SRC = Path(r"<the owner's font folder>")
 OUT = Path(__file__).resolve().parents[1] / "public" / "fonts"
 
 FILES = [
@@ -4256,7 +4256,7 @@ git commit -m "docs: how-to-edit guide, media helper script, final readme"
 
 - **Version drift:** pixi.js/pixi-filters/GSAP APIs are used per their v8/v6/v3 documented shapes. If an installed minor version renames an option, prefer property assignment after construction (noted inline in Task 15) and keep the exported contracts unchanged.
 - **Tuning:** constants marked TUNE (`GX`, `GY`, `ISO`, grain/rain cadence) may be adjusted during browser verification for visual quality; contracts and tests must stay green.
-- **Never modify** the font originals in `D:\WORK\PROJECT\JOB\AI\WEBSITE_AI\FONT` or bake content into the JS bundle — runtime fetch is the product promise.
+- **Never modify** the font originals in the owner's font folder or bake content into the JS bundle — runtime fetch is the product promise.
 
 
 

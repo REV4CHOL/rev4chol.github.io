@@ -2,7 +2,7 @@
 
 The owner, in one message:
 
-1. "Replace VOID CARTOGRAPHY in chapter 2 with this" — `D:\WORK\PROJECT\Web Materials\2026 TheFather_webloop`. Title: The Father. Year 2026. Role: Colorist. Runtime 02:27. Genre Slice of Life. Synopsis: "A father hiding secrets from his own daughter." Watch: YouTube `Idreboecojw`.
+1. "Replace VOID CARTOGRAPHY in chapter 2 with this" — `…\2026 TheFather_webloop`. Title: The Father. Year 2026. Role: Colorist. Runtime 02:27. Genre Slice of Life. Synopsis: "A father hiding secrets from his own daughter." Watch: YouTube `Idreboecojw`.
 2. "Replace PAPER LANTERN WAR in chapter 1 with this" — `…\2026 Halide_webloop`. Title: HALIDE. Year 2026. Role: Director / Colorist / Editor. Runtime 01:06. Genre Experimental. Synopsis: "Whiter dreams and whiter lives." Watch: YouTube `dMbsrk9Eeiw`.
 3. "Replace LOW TIDE GOSPEL in chapter 1 with this" — `…\2025 MistChild_webloop`. Title: Mist Child — then, mid-build: "MIST CHILD must be MISTCHILD" (one word, as its YouTube title has it; slug `mistchild`). Year 2026. Role: Director / Colorist / Editor. Runtime 00:47. Genre Experimental. Synopsis: "The child must have felt so lonely, in the mist." Watch: YouTube `dyqpjo4eKJI`.
 4. "Here is embed code for the WATCH for Soda Coast in chapter 1" — YouTube `mrR8hRc4XF4`.

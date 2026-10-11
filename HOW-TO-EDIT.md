@@ -158,6 +158,9 @@ build step, no terminal.
   Manager once.
 - **Start it by hand** (after stopping): double-click
   `scripts\serve-forever.vbs` in the site folder.
+- **Start it at every login again:** put a shortcut to
+  `scripts\serve-forever.vbs` in your Startup folder. A shortcut, not a
+  copy: the launcher finds the site from the folder it sits in.
 - **Publishing for the world** happens through GitHub — see the
   Publishing section at the bottom.
 

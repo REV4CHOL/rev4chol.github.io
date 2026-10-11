@@ -2,7 +2,7 @@
 
 The owner:
 
-1. "Replace VHS EDEN in chapter 1 with this" — `D:\WORK\PROJECT\Web Materials\2025 PhanThiet_webloop`. Title: Soda Coast. Year 2025. Role: Director / Colorist / Editor / Sound Designer. Runtime 01:56. Genre EXPERIMENTAL / SUPERNATURAL. Synopsis: "A ghost of the past, the present and the future." — **corrected mid-build:** that line is PHILIA's (the chapter's other real film); SODA COAST's is "I see summer. And then the sea."
+1. "Replace VHS EDEN in chapter 1 with this" — `…\2025 PhanThiet_webloop`. Title: Soda Coast. Year 2025. Role: Director / Colorist / Editor / Sound Designer. Runtime 01:56. Genre EXPERIMENTAL / SUPERNATURAL. Synopsis: "A ghost of the past, the present and the future." — **corrected mid-build:** that line is PHILIA's (the chapter's other real film); SODA COAST's is "I see summer. And then the sea."
 2. "HOMEPAGE: add another title: AI Generalist before COLORIST."
 3. "Work section: Chapter 1 change name to COLORIST. Chapter 2 change name to AI. I know the 'AI' have the risk of being smaller than the ch02 on top, but u gotta stop that. The 'AI' must be bigger than ch02 on top. Same goes for 'COLORIST'."
 
