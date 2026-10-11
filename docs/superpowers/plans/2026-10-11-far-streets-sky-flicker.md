@@ -25,37 +25,37 @@ depth. The lights about the eye re-deal at once only across a cut.
 **Files:** `src/about/city-sky.ts`, `src/about/city-paint.ts`, `src/about/city3d.ts`, `tests/city-sky.test.ts`,
 `tests/city-paint.test.ts`
 
-- [ ] **Step 1:** Add `SKY_DEPTH`; draw both domes with their clip z at that share of w (`onFarPlane`).
-- [ ] **Step 2:** Add `PAINT.order.sky` (−31) and give it to the opaque dome.
-- [ ] **Step 3:** Test the sky's quantised depth behind the ground's far edge at every tier, inside the clip volume;
+- [x] **Step 1:** Add `SKY_DEPTH`; draw both domes with their clip z at that share of w (`onFarPlane`).
+- [x] **Step 2:** Add `PAINT.order.sky` (−31) and give it to the opaque dome.
+- [x] **Step 3:** Test the sky's quantised depth behind the ground's far edge at every tier, inside the clip volume;
   both domes on the far plane, the opaque one first.
 
 ### Task 2: The lights in the fog
 
 **Files:** `src/about/city3d.ts`, `tests/city-fog.test.ts`
 
-- [ ] **Step 1:** Wrap the seven added materials still tinted by three's fog in `additiveFog`.
-- [ ] **Step 2:** Scan the source: every added material is unfogged, dimmed, or dims in its own shader.
+- [x] **Step 1:** Wrap the seven added materials still tinted by three's fog in `additiveFog`.
+- [x] **Step 2:** Scan the source: every added material is unfogged, dimmed, or dims in its own shader.
 
 ### Task 3: The blur's amount is the solids'
 
 **Files:** `src/about/city-post.ts`, `src/about/city3d.ts`, `tests/city-post.test.ts`, `tests/city-fog.test.ts`
 
-- [ ] **Step 1:** Write `keepAmount`: a see-through blend's colour as before, its alpha not at all.
-- [ ] **Step 2:** Apply it over the world at the end of the mount, the sky's layers aside.
-- [ ] **Step 3:** Test the blend factors, the untouched cases, and the traversal's place.
+- [x] **Step 1:** Write `keepAmount`: a see-through blend's colour as before, its alpha not at all.
+- [x] **Step 2:** Apply it over the world at the end of the mount, the sky's layers aside.
+- [x] **Step 3:** Test the blend factors, the untouched cases, and the traversal's place.
 
 ### Task 4: The road's rare flicker
 
 **Files:** `src/about/city-paint.ts`, `src/about/city3d.ts`, `tests/city-paint.test.ts`
 
-- [ ] **Step 1:** The paints (strips, boxes, patches, stop lines) test no depth and write none.
-- [ ] **Step 2:** A resize and a change to FREE or AUTO no longer re-deal the lights about the eye at once.
-- [ ] **Step 3:** Test the paints' materials, the decals' pull, and the eye's floor.
+- [x] **Step 1:** The paints (strips, boxes, patches, stop lines) test no depth and write none.
+- [x] **Step 2:** A resize and a change to FREE or AUTO no longer re-deal the lights about the eye at once.
+- [x] **Step 3:** Test the paints' materials, the decals' pull, and the eye's floor.
 
 ### Task 5: Gates, verification, ship
 
-- [ ] **Step 1:** Get `npm run check`, `npm test` and `npm run build` green.
-- [ ] **Step 2:** Render the night views before and after, colour and the blur's input; run the smoke check and STORY's
+- [x] **Step 1:** Get `npm run check`, `npm test` and `npm run build` green.
+- [x] **Step 2:** Render the night views before and after, colour and the blur's input; run the smoke check and STORY's
   checks.
-- [ ] **Step 3:** Commit, push, watch the Pages run, and check the same on the live site.
+- [x] **Step 3:** Commit, push, watch the Pages run, and check the same on the live site.
