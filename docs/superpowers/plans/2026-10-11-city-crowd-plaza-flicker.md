@@ -25,36 +25,36 @@ over rungs (`city-paint.ts`).
 
 **Files:** `src/about/city-traffic.ts`, `src/about/city3d.ts`
 
-- [ ] **Step 1:** Add `WALK_MIN`, `nodeAt`, `groupAlong`, `redAt`, `walkAt`, `roomToWalk` and `walkTime` to `Traffic`.
-- [ ] **Step 2:** Wire the page to them (`crossOK`, `walkOK`, `walkRoom`); the WALK lamp times its FLASH by `walkTime`.
+- [x] **Step 1:** Add `WALK_MIN`, `nodeAt`, `groupAlong`, `redAt`, `walkAt`, `roomToWalk` and `walkTime` to `Traffic`.
+- [x] **Step 2:** Wire the page to them (`crossOK`, `walkOK`, `walkRoom`); the WALK lamp times its FLASH by `walkTime`.
 
 ### Task 2: The walkers
 
 **Files:** `src/about/city-people.ts`
 
-- [ ] **Step 1:** Crossers go at `CROSS_STEP` or faster, and WALK is asked for that time (`crossFrames`).
-- [ ] **Step 2:** Waiters take spots of their own (`takeSpot`, `QUEUE` rows, per junction) and walk to them. The queue
+- [x] **Step 1:** Crossers go at `CROSS_STEP` or faster, and WALK is asked for that time (`crossFrames`).
+- [x] **Step 2:** Waiters take spots of their own (`takeSpot`, `QUEUE` rows, per junction) and walk to them. The queue
   moves up as it clears, and a full kerb turns a walker back.
-- [ ] **Step 3:** Walkers look ahead from the back of the queue, every 8th frame. Front-row waiters may take the WALK
+- [x] **Step 3:** Walkers look ahead from the back of the queue, every 8th frame. Front-row waiters may take the WALK
   across their own street. After `PATIENCE`, a waiter turns back.
-- [ ] **Step 4:** Nobody stands, sits or browses within `STEP_APART` of someone already still.
-- [ ] **Step 5:** Hold the cost down: the wall check runs every 4th frame, crosswalk keys are numbers, and a crossing's
+- [x] **Step 4:** Nobody stands, sits or browses within `STEP_APART` of someone already still.
+- [x] **Step 5:** Hold the cost down: the wall check runs every 4th frame, crosswalk keys are numbers, and a crossing's
   two ways over are made once.
 
 ### Task 3: The plaza
 
 **Files:** `src/about/city-plan.ts`, `src/about/city3d.ts`
 
-- [ ] **Step 1:** Export `PLAZA` (the canal's width by the block between the streets). Size the collision box by it.
+- [x] **Step 1:** Export `PLAZA` (the canal's width by the block between the streets). Size the collision box by it.
   Move the planters and benches to 10.2. Remove the lamp ring that the carriageway rule had already cleared.
-- [ ] **Step 2:** Replace the disc and its rim with a box deck of `PLAZA`, with the same paving at the same flag size.
+- [x] **Step 2:** Replace the disc and its rim with a box deck of `PLAZA`, with the same paving at the same flag size.
 
 ### Task 4: The floor, painted in turn
 
 **Files:** `src/about/city-paint.ts`, `src/about/city3d.ts`
 
-- [ ] **Step 1:** Replace the rungs with `PAINT.ground`, `PAINT.pull` and `PAINT.order`.
-- [ ] **Step 2:** Draw the floor first (`order.floor`: the ground, the quay walls, the canal bridges' decks, the
+- [x] **Step 1:** Replace the rungs with `PAINT.ground`, `PAINT.pull` and `PAINT.order`.
+- [x] **Step 2:** Draw the floor first (`order.floor`: the ground, the quay walls, the canal bridges' decks, the
   arterial's bridge). Make every paint a non-depth-writing material in its turn: the patches, the strips, the boulevard,
   the arterial, the slip at grade, the boxes, the stop lines. Pull the zebras and the lights on the ground by
   `PAINT.pull`.
@@ -64,16 +64,16 @@ over rungs (`city-paint.ts`).
 **Files:** `tests/city-traffic.test.ts`, `tests/city-people.test.ts`, `tests/city-plan.test.ts`,
 `tests/city-paint.test.ts`
 
-- [ ] **Step 1:** `roomToWalk`: WALK appears where it never came, the all-red is kept, and nothing shrinks.
-- [ ] **Step 2:** The crowd at the lights: every lit crossing opens long enough, and nobody waits past a cycle. Every
+- [x] **Step 1:** `roomToWalk`: WALK appears where it never came, the all-red is kept, and nothing shrinks.
+- [x] **Step 2:** The crowd at the lights: every lit crossing opens long enough, and nobody waits past a cycle. Every
   waiter has a spot of their own, walked to, and no still pair overlaps.
-- [ ] **Step 3:** The plaza is its block, with nothing of it on a road and its furniture on the deck.
-- [ ] **Step 4:** The painted floor: the turns stack in order, every turn is used, a paint writes no depth.
+- [x] **Step 3:** The plaza is its block, with nothing of it on a road and its furniture on the deck.
+- [x] **Step 4:** The painted floor: the turns stack in order, every turn is used, a paint writes no depth.
 
 ### Task 6: Gates, verification, ship
 
-- [ ] **Step 1:** Get `npm run check`, `npm test` and `npm run build` green.
-- [ ] **Step 2:** Render five views (the plaza from above and from the bridge, along the avenue, up the canal,
+- [x] **Step 1:** Get `npm run check`, `npm test` and `npm run build` green.
+- [x] **Step 2:** Render five views (the plaza from above and from the bridge, along the avenue, up the canal,
   steeply down on the grid) on the old build, the plaza build and the final build. Compare the flicker maps. Measure
   the paint schemes in a 24-bit depth buffer.
-- [ ] **Step 3:** Commit, push, watch the Pages run, and check the live site.
+- [x] **Step 3:** Commit, push, watch the Pages run, and check the live site.
