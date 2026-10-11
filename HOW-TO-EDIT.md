@@ -263,6 +263,18 @@ redraw this one (say, after a new green in `tokens.css`), ask Claude to run
 `scripts/make-icons.py`. Browsers hold on to a tab icon: a new one can take a
 hard refresh, or a day, to show.
 
+## STORY without graphics acceleration
+
+The live city needs a graphics chip. A browser drawing without one (graphics
+acceleration switched off, a remote desktop, an old office PC) would freeze
+on it, so STORY shows a still of the city there instead, says why in one
+line, and offers LOAD THE LIVE CITY ANYWAY. The still is one frame of the
+city:
+
+    public/content/story/still.jpg    1920 × 1080
+
+To change it, replace that file with another 1920 × 1080 JPEG.
+
 ## Publishing
 
 **The site is live at https://rev4chol.github.io/** — hosted free on GitHub

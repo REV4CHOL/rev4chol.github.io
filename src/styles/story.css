@@ -15,6 +15,12 @@
   position: fixed; inset: 0; z-index: 0; width: 100%; height: 100%;
   image-rendering: pixelated;
 }
+/* a browser without graphics acceleration (about/city-gate.ts): the city's still in the canvas's seat, lock-exempt
+   like it; a full-resolution frame, so smoothed, not pixelated */
+.a3-still {
+  position: fixed; inset: 0; z-index: 0; width: 100%; height: 100%;
+  object-fit: cover;
+}
 
 /* cinematic grade: a letterbox breath over the city — light shaping, not a
    box (the plates decree holds). The optical vignette itself lives in the

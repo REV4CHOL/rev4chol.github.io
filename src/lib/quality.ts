@@ -25,7 +25,7 @@ export interface Device {
 }
 
 /** A software rasteriser: nothing full-screen will ever be smooth. */
-const SOFTWARE_GPU = /swiftshader|llvmpipe|software|microsoft basic render/i;
+export const SOFTWARE_GPU = /swiftshader|llvmpipe|software|microsoft basic render/i;
 /** An integrated part: Intel HD/UHD/Iris, an AMD APU. Strong enough for BALANCED; the governor may still climb. */
 const INTEGRATED_GPU = /\bintel\b.*\b(hd|uhd|iris)\b.*\bgraphics\b|radeon\(tm\) graphics|vega \d+ graphics/i;
 

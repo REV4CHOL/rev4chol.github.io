@@ -1,5 +1,6 @@
 import { music } from '../lib/music';
 import { armPosterLock } from '../lib/poster-lock';
+import { cityGate, Gate, LIVE_ANYWAY, LOADING_LINE, NO_3D_LINE, probeGpu, STILL_LINE, STILL_SRC } from '../about/city-gate';
 import { LOOKS, nextTime, parseTime, TimeOfDay, TIMES } from '../about/city-sky';
 import { sound } from '../lib/sound';
 import { armGlideNav, navNeighbors } from '../lib/swipe-nav';
@@ -13,8 +14,12 @@ type Mode = 'auto' | 'free';
 let mode: Mode = 'auto';
 
 startPage('story', async ({ site }) => {
+  // A BROWSER WITHOUT GRAPHICS ACCELERATION gets the city's still (about/city-gate.ts) — in place before the lock, so
+  // the lock counter-zooms it with the canvas
+  const gate = cityGate(probeGpu());
+  if (gate !== 'live') mountStill();
   // the page rides the plate; the CITY keeps true viewport pixels
-  armPosterLock({ exempt: '#a3c' });
+  armPosterLock({ exempt: '#a3c, .a3-still' });
   // nothing scrolls here since the tour left, so no boundary to check: the
   // glide home arms while the city drifts itself — in FREE the thumb owns
   // the stick and the look, and the page keeps its seat
@@ -22,8 +27,54 @@ startPage('story', async ({ site }) => {
     ...navNeighbors(site.nav, location.pathname),
     enabled: () => mode === 'auto',
   });
-  await armFlight();
+  if (gate === 'live') await armFlight();
+  else offerLive(gate);
 }, [], { govern: false }); // the city governs its own quality (about/city-governor.ts); the site's sampler stays off here
+
+/** The still in the canvas's seat; the canvas stands down until the live city is asked for. */
+function mountStill(): void {
+  const canvas = document.getElementById('a3c');
+  if (!canvas) return;
+  const img = document.createElement('img');
+  img.className = 'a3-still';
+  img.src = STILL_SRC;
+  img.alt = 'A still of the night city';
+  img.decoding = 'async';
+  canvas.hidden = true;
+  canvas.after(img);
+  filmLayersOff(); // (the still is the city's own glass)
+}
+
+/** THE FILM LAYERS OFF THE CITY (owner: "the whole city is having this window glitch" — the site's grain, a 1:1 noise
+ *  tile re-dealt every frame and composited overlay, lands hardest on mid-grey, and the city's dark glass is mid-grey:
+ *  every unlit pane crawled with static; the scanlines banded the panes over it). The city fills the viewport, so the
+ *  layers' punched hole (the one the film player uses) is the whole layer here: raw glass, the chrome keeps nothing it
+ *  would miss. */
+function filmLayersOff(): void {
+  for (const el of [document.getElementById('grain'), document.querySelector<HTMLElement>('.scan-layer')]) {
+    if (!el) continue;
+    el.classList.add('has-hole');
+    el.style.setProperty('--hole-x', '0px'); el.style.setProperty('--hole-y', '0px');
+    el.style.setProperty('--hole-w', '100%'); el.style.setProperty('--hole-h', '100%');
+  }
+}
+
+/** The still's line in the hint's seat; where the browser has 3D at all, the dial's seat offers the live city anyway
+ *  (the visitor's own choice, told it will be slow). */
+function offerLive(gate: Gate): void {
+  const hint = document.getElementById('a3-hint')!;
+  hint.hidden = false;
+  hint.textContent = gate === 'still' ? STILL_LINE : NO_3D_LINE;
+  if (gate !== 'still') return; // no WebGL: nothing to load
+  const fly = document.getElementById('a3-fly')!;
+  fly.innerHTML = `<button type="button" class="on">${LIVE_ANYWAY}</button>`;
+  fly.querySelector('button')!.addEventListener('click', () => {
+    sound.click();
+    fly.innerHTML = '';
+    hint.textContent = LOADING_LINE;
+    void armFlight();
+  }, { once: true });
+}
 
 /** The time of day the page opens at: the address may ask (?tod=dawn), else the NIGHT (owner: always night; the
  *  switch works for the visit and is not remembered). */
@@ -37,20 +88,12 @@ function startTime(): TimeOfDay {
 async function armFlight(): Promise<void> {
   const canvas = document.getElementById('a3c') as HTMLCanvasElement | null;
   if (!canvas) return;
+  canvas.hidden = false; // (back from the still's page: the renderer sizes itself from the laid-out canvas)
   await music.ready(); // (the build holds the main thread: the music is audibly on before it — a loading screen never cuts it)
   const { mountCity3D } = await import('../about/city3d');
   const ride = mountCity3D(canvas, hashSlug('revachol-night-city'));
-  // THE FILM LAYERS OFF THE CITY (owner: "the whole city is having this window glitch" — the site's grain, a 1:1 noise
-  // tile re-dealt every frame and composited overlay, lands hardest on mid-grey, and the city's dark glass is mid-grey:
-  // every unlit pane crawled with static; the scanlines banded the panes over it). The canvas fills the viewport, so
-  // the layers' punched hole (the one the film player uses) is the whole layer here: raw glass, the chrome keeps nothing
-  // it would miss.
-  for (const el of [document.getElementById('grain'), document.querySelector<HTMLElement>('.scan-layer')]) {
-    if (!el) continue;
-    el.classList.add('has-hole');
-    el.style.setProperty('--hole-x', '0px'); el.style.setProperty('--hole-y', '0px');
-    el.style.setProperty('--hole-w', '100%'); el.style.setProperty('--hole-h', '100%');
-  }
+  document.querySelector('.a3-still')?.remove(); // the live city takes its seat
+  filmLayersOff();
   (window as unknown as { rvlRide: typeof ride }).rvlRide = ride; // debug handle for verification
 
   // -- the flight dial: AUTO (endless drift, the section's opening seat) /
