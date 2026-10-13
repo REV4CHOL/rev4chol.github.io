@@ -54,10 +54,27 @@ startPage(
     const main = document.getElementById('app')!;
     const listEl = document.getElementById('film-list')!;
     buildFilmList(listEl, projects);
+    // THE LIST'S CITY AND ITS MACHINES (works/list-deco.ts): loaded the first time the list opens, painted while it shows
+    let deco: { start(): void; stop(): void } | null = null, decoWanted = false, decoLoading = false;
+    const listDeco = (on: boolean) => {
+      decoWanted = on;
+      if (deco) { if (on) deco.start(); else deco.stop(); return; }
+      if (!on || decoLoading) return;
+      decoLoading = true;
+      import('../works/list-deco').then(({ mountListDeco }) => {
+        const films = [...listEl.querySelectorAll('.fl-row')]
+          .map((a) => projects.find((p) => p.slug === a.getAttribute('href')?.match(/[?&]p=([a-z0-9-]+)/)?.[1]))
+          .filter((p): p is Project => !!p)
+          .map((p) => ({ slug: p.slug, title: p.title, accent: p.accent, aspect: p.aspect }));
+        deco = mountListDeco(listEl, films);
+        if (decoWanted) deco.start();
+      }).catch(() => { /* the list stands on its own black */ });
+    };
     const setView = (v: WorkView, byHand = false) => {
       view = v;
       main.classList.toggle('is-list', v === 'list');
       listEl.hidden = v !== 'list';
+      listDeco(v === 'list');
       document.getElementById('sr-projects')?.toggleAttribute('hidden', v === 'list'); // (the list says it all)
       toggle.textContent = toggleText(v, projects.length);
       toggle.dataset.cursor = v === 'list' ? 'FILM WALL ◂' : 'LIST ▸';

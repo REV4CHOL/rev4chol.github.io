@@ -627,6 +627,41 @@
   .fl-open { display: none; }
 }
 
+/* THE LIST'S CITY AND ITS MACHINES (works/list-deco.ts; owner, 2026-10-13: "decoration art filling up the two sides'
+   negative space and the background … an animated 8bit city in the black background too" — "keep all the projects all
+   perfectly readable in the middle"). The list keeps its black in a band 1,192 plate px wide about the middle (the
+   rows and 36 px a side): whatever the script does or fails to do, nothing is ever drawn under a title. The rest of the
+   sheet lets the city and the machines through. The class comes only with a city built: a phone's sheet stays black. */
+html.rvl-list-city .film-list {
+  background: linear-gradient(90deg, transparent calc(50% - 596px), var(--void) calc(50% - 596px) calc(50% + 596px), transparent calc(50% + 596px));
+}
+#list-deco { position: fixed; inset: 0; z-index: 905; pointer-events: none; overflow: hidden; }
+#list-deco[hidden], .works-main:not(.is-list) #list-deco { display: none; }
+.ld-layer { position: absolute; left: 0; top: 0; image-rendering: pixelated; }
+.ld-layer[hidden] { display: none; }
+.ld-hud, .ld-side { position: absolute; inset: 0; }
+/* the hardware: the home page's spine voice, the about page's slanted lime plate */
+.ld-spine {
+  position: absolute; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; white-space: nowrap;
+  font-size: 10px; letter-spacing: 0.32em; color: var(--signal); opacity: 0.6;
+}
+.ld-tag {
+  position: absolute; box-sizing: border-box; height: 26px; padding: 7px 22px 0 14px; overflow: hidden; white-space: nowrap;
+  font-size: 10px; letter-spacing: 0.2em; background: var(--signal); color: var(--void);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 100%, 8px 100%);
+}
+.ld-cue, .ld-call {
+  position: absolute; font-size: 10px; letter-spacing: 0.18em; white-space: nowrap;
+  text-shadow: 0 0 4px var(--void), 0 1px 2px var(--void), 0 0 12px var(--void);
+}
+.ld-cue { overflow: hidden; text-overflow: ellipsis; color: var(--ld-accent, var(--signal)); }
+.ld-cue::after { content: '▮'; margin-left: 6px; animation: caret-blink 1.1s steps(1) infinite; }
+.rvl-calm .ld-cue::after { animation: none; }
+.ld-right .ld-tag, .ld-right .ld-cue { text-align: right; }
+.ld-call { line-height: 1.55; overflow: hidden; text-overflow: ellipsis; color: color-mix(in srgb, var(--bone) 88%, transparent); }
+.ld-call b { font-weight: inherit; color: var(--signal); }
+.ld-call[hidden] { display: none; }
+
 /* channel change: NO filter over the floor — the panes themselves do the
    moving (world.exit/arrive). This layer only carries the station ident. */
 .ch-static {

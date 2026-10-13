@@ -6,6 +6,7 @@ import { scrambleFrame } from '../src/lib/scramble';
 import { captionSpot } from '../src/works/caption';
 import { hoverFitIn, previewBox } from '../src/works/constants';
 import { chapterTabLabel, listGroups, rowMeta, searchForView, thumbSize, toggleText, viewFromSearch } from '../src/works/index-list';
+import { COLUMN } from '../src/works/list-art';
 import { PanController } from '../src/works/input';
 import { stripName } from '../src/works/legend';
 import { nearestPane, strayed } from '../src/works/stray';
@@ -284,6 +285,20 @@ describe('the floor is wired (pins)', () => {
     expect(css).toContain('.fl-thumb img { width: auto; height: auto; max-width: 128px; max-height: 72px; }');
     expect(css).toContain('.works-main.is-list #floor { visibility: hidden; }');
     expect(css).toContain('.works-main.is-list .ch-switch { display: none; }');
+  });
+
+  it("the list's city never stands under a title: the sheet keeps its black over the reading column, all black on a phone", () => {
+    // (owner, 2026-10-13: "keep all the projects all perfectly readable in the middle") the band is the margins'
+    // column, 1,192 plate px — 596 either side of the middle (works/list-art.ts) — and it is plain CSS
+    expect(COLUMN / 2).toBe(596);
+    expect(css).toContain('html.rvl-list-city .film-list {\n  background: linear-gradient(90deg, transparent calc(50% - 596px), var(--void) calc(50% - 596px) calc(50% + 596px), transparent calc(50% + 596px));');
+    expect(css).toMatch(/\n\.film-list \{[^}]*background: var\(--void\);/); // the sheet's own black: a phone, a city skipped
+    const deco = Number(/#list-deco \{[^}]*z-index: (\d+)/.exec(css)?.[1]), list = Number(/\n\.film-list \{[^}]*z-index: (\d+)/.exec(css)?.[1]);
+    expect(deco).toBeLessThan(list);
+    const src = readFileSync('src/works/list-deco.ts', 'utf8');
+    expect(src).toContain("document.documentElement.classList.toggle('rvl-list-city', built);");
+    expect(src).toContain('root.hidden = !built;');
+    expect(page).toContain("listDeco(v === 'list');");
   });
 
   it('the caption wraps a long title, wears the halo, and its last line is 12 px', () => {
