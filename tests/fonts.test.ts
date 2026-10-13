@@ -87,14 +87,27 @@ const missing = (text: string, set: Set<number>) =>
 describe('the site draws every letter in its own type', () => {
   const films = parseProjects(parseJson(readFileSync(pub + 'content/projects.json', 'utf8'), 'projects.json'));
 
-  it('every film title, in the display voice (dossier headline, ticker, next-link)', () => {
+  it('every film title, in the display voice (dossier headline, ticker, next-link, the floor\'s caption, THE LIST)', () => {
     const display = drawable('f-display');
     for (const p of films) expect(missing(p.title, display), p.slug).toEqual([]);
   });
 
-  it('every film title and synopsis, in the serif voice (hover label, synopsis)', () => {
+  it('every synopsis, in the serif voice', () => {
     const serif = drawable('f-serif');
-    for (const p of films) expect(missing(`${p.title} ${p.synopsis}`, serif), p.slug).toEqual([]);
+    for (const p of films) expect(missing(p.synopsis, serif), p.slug).toEqual([]);
+  });
+
+  it('sets every film\'s name in the display voice (owner 2026-10-13: "the font for project titles are very hard to read")', () => {
+    const sheet = (f: string) => readFileSync(fileURLToPath(new URL(`../src/styles/${f}`, import.meta.url)), 'utf8');
+    const families = (src: string, sel: string) => { // the font-family every rule for the selector sets
+      const out: string[] = [];
+      for (let i = src.indexOf(`\n${sel} {`); i > -1; i = src.indexOf(`\n${sel} {`, i + 1)) { const m = /font-family: ([^;]+);/.exec(src.slice(i, src.indexOf('}', i))); if (m) out.push(m[1]); }
+      return out;
+    };
+    const comp = sheet('components.css'), proj = sheet('project.css');
+    for (const [src, sel] of [[comp, '#tile-label .tl-title'], [comp, '.fl-title'], [proj, '.p-title, .p-title-ghost'], [proj, '.p-back, .p-nextlink'], [proj, '.p-ticker .tk, .p-ticker .tk-sep']] as const) {
+      expect(families(src, sel), sel).toEqual(['var(--f-display)']);
+    }
   });
 
   it('the Vietnamese companions stand second in their voices, and the micro voice falls back to Geist Mono', () => {

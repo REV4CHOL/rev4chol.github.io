@@ -450,11 +450,13 @@
 }
 /* THE AWAKE PANE'S CAPTION stands by its lifted card (works/caption.ts places it, and gives it its width); a long
    title wraps inside that width instead of running off the screen (the review's walkthroughs, 2026-09-30:
-   MR_PURPLE_DREAMS_IN_ELECTRIC… cut off at the edge); both lines wear the chrome's void halo, on the dimmed floor */
+   MR_PURPLE_DREAMS_IN_ELECTRIC… cut off at the edge); both lines wear the chrome's void halo, on the dimmed floor.
+   A film's name is in the display voice, as on its own page (owner, 2026-10-13: "the font for project titles are very
+   hard to read" — Bodoni's hairlines thinned to nothing over the floor's posters) */
 #tile-label { position: fixed; z-index: 930; pointer-events: none; width: max-content; max-width: 340px; }
 #tile-label .tl-title {
-  font-family: var(--f-serif); font-weight: 700; font-size: var(--t-lg);
-  line-height: 1.05; color: var(--bone); overflow-wrap: anywhere; text-wrap: balance;
+  font-family: var(--f-display); font-weight: 700; font-size: var(--t-lg); letter-spacing: 0.02em; word-spacing: 0.12em;
+  line-height: 1.02; color: var(--bone); overflow-wrap: anywhere; text-wrap: balance;
   text-shadow: 0 0 4px rgba(6, 6, 6, 0.95), 0 1px 2px rgba(6, 6, 6, 0.9), 0 2px 16px rgba(6, 6, 6, 0.8);
 }
 #tile-label .tl-meta {
@@ -604,9 +606,9 @@
    limits are in px: a percentage of a grid area with no set track is no limit at all (a 9:16 poster stood 228 px) */
 .fl-thumb { width: 128px; height: 72px; display: grid; place-items: center; }
 .fl-thumb img { width: auto; height: auto; max-width: 128px; max-height: 72px; }
-.fl-title {
-  font-family: var(--f-serif); font-weight: 700; font-size: 1.375rem; line-height: 1.12;
-  color: var(--bone); text-transform: uppercase; overflow-wrap: anywhere;
+.fl-title { /* the display voice, as the film's own page and the floor's caption (owner, 2026-10-13: titles hard to read) */
+  font-family: var(--f-display); font-weight: 700; font-size: 1.375rem; line-height: 1.08; letter-spacing: 0.02em;
+  word-spacing: 0.12em; color: var(--bone); text-transform: uppercase; overflow-wrap: anywhere;
 }
 .fl-meta { font-size: 11px; line-height: 1.6; color: color-mix(in srgb, var(--bone) 70%, transparent); }
 .fl-open { font-size: 11px; white-space: nowrap; color: color-mix(in srgb, var(--bone) 60%, transparent); }

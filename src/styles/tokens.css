@@ -32,8 +32,9 @@
   --f-mono: 'Geist Mono', ui-monospace, 'Cascadia Mono', monospace;
   --f-micro: 'Martian Mono', 'Geist Mono', ui-monospace, monospace; /* Geist Mono has the Vietnamese block */
 
-  /* type scale. RULE: Clash Display owns >= --t-xl. Bodoni next to Clash
-     must sit at <= --t-lg. Never the same step side by side. */
+  /* type scale. RULE: Clash Display owns >= --t-xl, and every film's name at any
+     size (owner 2026-10-13: Bodoni's titles were hard to read). Bodoni next to
+     Clash must sit at <= --t-lg. Never the same step side by side. */
   --t-2xs: 0.625rem;  /* micro labels — Martian Mono ceiling is 11px */
   --t-xs: 0.75rem;
   --t-sm: 0.875rem;
