@@ -1,12 +1,17 @@
 /** WORK ON A PHONE: THE REEL, built — a rolling strip (works/reel.ts says what it is and holds its rules).
  *
- *  - A strip per chapter: its films' panes, each the whole screen, set endlessly along the strip's offset by a transform
- *    (no scrolling: the strip never ends and never jumps). From arrival it rolls on, one screen every ROLL_SECONDS.
- *  - A finger takes it: the strip follows the finger, a release throws it, the throw coasts to rest, and after a rest it
- *    rolls on. A tap opens the film under it; a drag opens none. Under CALM it never rolls by itself.
+ *  - A strip per chapter: its films' panes, each the whole screen, endless (no scrolling: the strip never ends and never
+ *    jumps). From the first frame it rolls on, one screen every ROLL_SECONDS.
+ *  - The roll runs on the compositor: each pane, its words and the rail's playhead run one linear animation a lap,
+ *    phased by where they stand, so the screen's own clock moves them and a busy page (a film's video starting) never
+ *    stutters the strip (owner, 2026-10-20: "I want the auto scrolling to happen instantly, but slower and smoother").
+ *  - A finger takes it: the timelines pause and follow the finger; a release throws the strip, and the throw eases
+ *    straight back into the roll, where the clock takes it again. A tap opens the film under it; a drag opens none.
+ *    Under CALM it never rolls by itself.
  *  - A pane: the film's poster, then its loop, covering it around the film's focus point; on it only the film's name
  *    and its roles, and the house's hardware without words (the accent tab, the viewfinder's corners, the scan lines,
- *    the sprockets). A vertical film on a phone held on its side stands whole in the middle.
+ *    the sprockets). The words fade as they pass under the header and the foot. A vertical film on a phone held on its
+ *    side stands whole in the middle.
  *  - Down the right, the scrub rail: a tick per film, the lime playhead travelling with the strip; a touch along it moves
  *    the strip there. At the foot, the chapters and LIST.
  *  - Every pane on the screen plays its loop, and so does the next to come in; panes further off rest, then give their
@@ -18,8 +23,8 @@ import { reducedMotion } from '../lib/env';
 import { softBreaks } from '../lib/escape';
 import { CHANNELS, type ChannelKey, channelProjects } from './channels';
 import {
-  capOpacity, coast, loopsAllowed, offsetForRail, oneLineSize, paneInView, panePlay, paneTop, railProgress, REEL_WORDS,
-  releaseSpeed, REST_AFTER_TOUCH_MS, roleLine, ROLL_SECONDS, stripOrder, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
+  capKeyframes, coast, lapProgress, loopsAllowed, offsetForRail, offsetFromLap, oneLineSize, paneInView, paneKeyframes, panePlay,
+  paneTop, railProgress, REEL_WORDS, releaseSpeed, roleLine, ROLL_SECONDS, stripOrder, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
   type PanePlay,
 } from './reel';
 
@@ -167,7 +172,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     s.whiteSpace = '';
     if (one !== null) { s.fontSize = `${one}px`; return; }
     s.overflowWrap = 'normal'; // (whole words while it measures: a word too wide widens the name instead of breaking)
-    let size = wrapStart([...(t.textContent ?? '').replace(/\u200b/g, '')].length); // (letters, not its break marks)
+    let size = wrapStart([...(t.textContent ?? '').replace(/​/g, '')].length); // (letters, not its break marks)
     s.fontSize = `${size}px`;
     while (size > TITLE_MIN && t.scrollWidth > room + 0.5) s.fontSize = `${--size}px`;
     s.overflowWrap = '';
@@ -183,25 +188,76 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
 
   let active: ChannelKey = o.active;
   let strip = strips.get(active)!;
-  let offset = 0, v = 0, h = 1, raf = 0, last = 0, restUntil = 0;
-  let parked = false, touching = false, pointer: number | null = null, startY = 0, startOffset = 0, moved = false, dragged = false;
+  let offset = 0, v = 0, h = 1, raf = 0, last = 0;
+  let parked = false, pinned = false, touching = false, pointer: number | null = null, startY = 0, startOffset = 0, moved = false, dragged = false;
   const moves: [number, number][] = [];
   const rollSpeed = () => (reducedMotion() ? 0 : h / ROLL_SECONDS); // (CALM: it never rolls by itself)
   const measure = () => { h = strip.ol.clientHeight || window.innerHeight; };
 
-  const place = () => {
-    const n = strip.panes.length, dpr = window.devicePixelRatio || 1;
-    strip.panes.forEach((li, i) => {
-      const top = paneTop(i, offset, h, n);
-      li.style.transform = `translate3d(0, ${Math.round(top * dpr) / dpr}px, 0)`;
-      // a pane's words travel with it, and fade as they near the header or the foot: they never print over them
-      const [a, b] = strip.spans[i];
-      const o = capOpacity(top + a, top + b, bandTop, bandBottom);
-      const val = o >= 1 ? '' : o.toFixed(2);
-      if (strip.caps[i].style.opacity !== val) strip.caps[i].style.opacity = val;
+  /* ---------------------------------------------- the roll, on the compositor -- */
+
+  // Each pane, its words and the rail's playhead run one linear animation a lap (works/reel.ts), phased by where they
+  // stand. Rolling, the screen's clock moves them; by hand (a finger, a coast, a hold), they pause and their times are
+  // set from the strip's offset.
+  let lanes: { pane: Animation; cap: Animation }[] = [];
+  let head: Animation | null = null;
+  let rolling = false;
+  const lapMs = () => strip.panes.length * ROLL_SECONDS * 1000;
+  const headMs = () => strip.films * ROLL_SECONDS * 1000;
+  const timelines = (): Animation[] => [...lanes.flatMap((l) => [l.pane, l.cap]), ...(head ? [head] : [])];
+  /** every timeline set from the strip's offset */
+  const setTimes = () => {
+    const n = strip.panes.length, lap = lapMs();
+    lanes.forEach((l, i) => {
+      const t = lapProgress(i, offset, h, n) * lap;
+      l.pane.currentTime = t;
+      l.cap.currentTime = t;
     });
-    const play = rail.querySelector<HTMLElement>('.rl-play');
-    if (play) play.style.top = `${railProgress(offset, h, strip.films) * 100}%`;
+    if (head) head.currentTime = railProgress(offset, h, strip.films) * headMs();
+  };
+  /** the strip's offset now: its own by hand; read from the clock while it rolls */
+  const offsetNow = (): number => {
+    if (rolling && lanes.length) {
+      const lap = lapMs(), t = Number(lanes[0].pane.currentTime ?? 0);
+      offset = offsetFromLap((((t % lap) + lap) % lap) / lap, h, strip.panes.length, offset);
+    }
+    return offset;
+  };
+  /** the words' fades laid on their panes' laps (the band, the names or the screen's height changed) */
+  const capFrames = () => {
+    const n = strip.panes.length;
+    lanes.forEach((l, i) => (l.cap.effect as KeyframeEffect).setKeyframes(capKeyframes(n, h, strip.spans[i], [bandTop, bandBottom])));
+  };
+  /** the animations anew for the strip shown, paused where it stands */
+  const build = () => {
+    for (const a of timelines()) a.cancel();
+    const n = strip.panes.length, lane = { duration: lapMs(), iterations: Infinity, easing: 'linear' };
+    lanes = strip.panes.map((li, i) => ({
+      pane: li.animate(paneKeyframes(n), lane),
+      cap: strip.caps[i].animate(capKeyframes(n, h, strip.spans[i], [bandTop, bandBottom]), lane),
+    }));
+    const ph = rail.querySelector<HTMLElement>('.rl-play');
+    head = ph ? ph.animate([{ transform: 'translate3d(0, 0%, 0)' }, { transform: 'translate3d(0, 100%, 0)' }], { duration: headMs(), iterations: Infinity, easing: 'linear' }) : null;
+    for (const a of timelines()) a.pause();
+    rolling = false;
+    setTimes();
+  };
+  /** the clock takes the strip, from where it stands — at once, at the roll's pace */
+  const roll = () => {
+    if (rolling || parked || pinned || touching || document.hidden || reducedMotion() || !lanes.length) return;
+    sleep();
+    v = rollSpeed();
+    setTimes();
+    for (const a of timelines()) a.play();
+    rolling = true;
+  };
+  /** the strip by hand, where it stands */
+  const hold = () => {
+    if (!rolling) return;
+    offsetNow();
+    for (const a of timelines()) a.pause();
+    rolling = false;
+    setTimes(); // (all on the one frame they stopped on)
   };
 
   /* ------------------------------------------------------------ the loops -- */
@@ -266,9 +322,9 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   };
   /** every pane's loop as the strip stands: on the screen or next in, playing; near, resting; far, let go */
   const plan = () => {
-    const n = strip.panes.length, dir = v < -1 ? -1 : 1, still = parked || document.hidden;
+    const n = strip.panes.length, at = offsetNow(), dir = rolling || v >= -1 ? 1 : -1, still = parked || document.hidden;
     const want: PanePlay[] = strip.panes.map((_, i) => {
-      const p = panePlay(paneTop(i, offset, h, n), h, h, dir);
+      const p = panePlay(paneTop(i, at, h, n), h, h, dir);
       return still && p === 'play' ? 'rest' : p;
     });
     const key = want.join(',');
@@ -280,6 +336,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
       else { const l = ensureLoop(li); if (l instanceof HTMLVideoElement && l.paused) tryPlay(l); }
     });
   };
+  window.setInterval(() => { if (rolling) plan(); }, 150); // (rolling, the clock moves the strip: the loops follow it)
   // a refused play(): from now on the loops stand as images (lib/autoplay.ts)
   onRefusal(() => {
     if (imageLoopsWork() === false) return;
@@ -289,44 +346,50 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   // where a browser shows no MP4 in an image, a touch is the moment it allows a video: re-offer the ones in view
   const kick = () => {
     if (parked || document.hidden) return;
+    const at = offsetNow();
     strip.panes.forEach((li, i) => {
       const l = loops.get(li);
-      if (l instanceof HTMLVideoElement && l.paused && panePlay(paneTop(i, offset, h, strip.panes.length), h, h, 1) === 'play') tryPlay(l);
+      if (l instanceof HTMLVideoElement && l.paused && panePlay(paneTop(i, at, h, strip.panes.length), h, h, 1) === 'play') tryPlay(l);
     });
   };
   window.addEventListener('pointerdown', kick, { passive: true });
   window.addEventListener('touchend', kick, { passive: true });
 
-  /* -------------------------------------------------------------- the roll -- */
+  /* -------------------------------------------------------- by hand: the coast -- */
 
+  // let go, the strip coasts at the finger's speed and eases straight into the roll's pace, where the clock takes it
   const frame = (now: number) => {
     raf = 0;
+    if (touching || rolling) return;
     const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
     last = now;
-    if (!touching) {
-      const target = now < restUntil ? 0 : rollSpeed();
-      v = coast(v, target, dt);
-      if (Math.abs(v - target) < 0.5) v = target;
-      offset += v * dt;
-    }
-    place();
+    const target = pinned ? 0 : rollSpeed();
+    v = coast(v, target, dt);
+    offset += v * dt;
+    setTimes();
     plan();
-    // (it sleeps when nothing moves and nothing will: CALM at rest; a touch or the MOTION switch wakes it)
-    if (touching || v !== 0 || rollSpeed() > 0 || now < restUntil) wake();
+    if (target > 0 && Math.abs(v - target) < 2) { roll(); return; }
+    if (target === 0 && Math.abs(v) < 1) { v = 0; return; } // (CALM, or held: at rest)
+    wake();
   };
   const wake = () => {
-    if (raf || parked || document.hidden) return;
-    if (!last) last = performance.now();
+    if (raf || rolling || parked || document.hidden) return;
+    last = performance.now();
     raf = requestAnimationFrame(frame);
   };
-  const sleep = () => { if (raf) cancelAnimationFrame(raf); raf = 0; last = 0; };
-  new MutationObserver(() => wake()).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  const sleep = () => { if (raf) cancelAnimationFrame(raf); raf = 0; };
+  // the MOTION switch: CALM stops the roll where it stands; off again, the strip eases back into it
+  new MutationObserver(() => {
+    if (reducedMotion()) { hold(); v = 0; } else wake();
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
   /* ------------------------------------------------------------ the finger -- */
 
   for (const s of strips.values()) {
     s.ol.addEventListener('pointerdown', (e) => {
       if (pointer !== null || !e.isPrimary) return;
+      hold();
+      sleep();
       pointer = e.pointerId;
       startY = e.clientY;
       startOffset = offset;
@@ -336,13 +399,12 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
       v = 0;
       moves.length = 0;
       moves.push([e.timeStamp, e.clientY]);
-      wake();
     });
     s.ol.addEventListener('pointermove', (e) => {
       if (e.pointerId !== pointer) return;
       const dy = e.clientY - startY;
       if (!moved && Math.abs(dy) > TAP_SLOP) moved = true;
-      if (moved) offset = startOffset - dy;
+      if (moved) { offset = startOffset - dy; setTimes(); plan(); }
       moves.push([e.timeStamp, e.clientY]);
       if (moves.length > 16) moves.shift();
     });
@@ -352,7 +414,6 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
       touching = false;
       dragged = moved;
       v = moved ? releaseSpeed(moves, e.timeStamp) : 0;
-      restUntil = performance.now() + REST_AFTER_TOUCH_MS;
       wake();
     };
     s.ol.addEventListener('pointerup', up);
@@ -365,16 +426,23 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     e.preventDefault();
     e.stopPropagation();
   }, true);
-  // a keyboard's focus brings its pane square into the screen, and the strip rests there
+  // a keyboard's focus brings its pane square into the screen and holds the strip there until it leaves
   root.addEventListener('focusin', (e) => {
     const li = (e.target as Element).closest<HTMLLIElement>('.rl-frame');
     const i = li ? strip.panes.indexOf(li) : -1;
     if (i < 0) return;
+    hold();
+    sleep();
+    pinned = true;
     const lap = strip.panes.length * h;
     offset = i * h + Math.round((offset - i * h) / lap) * lap;
     v = 0;
-    restUntil = performance.now() + REST_AFTER_TOUCH_MS;
-    place();
+    setTimes();
+    plan();
+  });
+  root.addEventListener('focusout', (e) => {
+    if (root.contains(e.relatedTarget as Node | null)) return;
+    pinned = false;
     wake();
   });
 
@@ -396,19 +464,35 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     const r = rail.getBoundingClientRect();
     offset = offsetForRail((clientY - r.top) / Math.max(1, r.height), h, strip.films, offset);
     v = 0;
-    restUntil = performance.now() + REST_AFTER_TOUCH_MS;
-    place();
+    setTimes();
+    plan();
+  };
+  rail.addEventListener('pointerdown', (e) => {
+    hold();
+    sleep();
+    scrubbing = true;
+    touching = true;
+    rail.setPointerCapture(e.pointerId);
+    scrubTo(e.clientY);
+  });
+  rail.addEventListener('pointermove', (e) => { if (scrubbing) scrubTo(e.clientY); });
+  const endScrub = () => {
+    if (!scrubbing) return;
+    scrubbing = false;
+    touching = false;
     wake();
   };
-  rail.addEventListener('pointerdown', (e) => { scrubbing = true; rail.setPointerCapture(e.pointerId); scrubTo(e.clientY); });
-  rail.addEventListener('pointermove', (e) => { if (scrubbing) scrubTo(e.clientY); });
-  const endScrub = () => { scrubbing = false; };
   rail.addEventListener('pointerup', endScrub);
   rail.addEventListener('pointercancel', endScrub);
 
   /* ------------------------------------------------------------ the rest -- */
 
   const show = (key: ChannelKey) => {
+    for (const a of timelines()) a.cancel();
+    lanes = [];
+    head = null;
+    rolling = false;
+    sleep();
     for (const li of [...loops.keys()]) release(li);
     active = key;
     strip = strips.get(key)!;
@@ -420,30 +504,32 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     fit(strip);
     offset = 0;
     v = 0;
-    restUntil = 0;
-    place();
+    build();
     replan();
-    wake();
+    roll(); // (from the first frame, at its pace)
   };
   let resizeT = 0;
   window.addEventListener('resize', () => {
     clearTimeout(resizeT);
     resizeT = window.setTimeout(() => {
-      const was = h;
+      const was = h, wasRolling = rolling;
+      hold();
       measureTop();
       measure();
       offset = (offset / Math.max(1, was)) * h; // (the same film stays in view through a turn of the phone)
       fit(strip);
-      place();
+      build();
       replan();
+      if (wasRolling) roll(); else wake();
     }, 120);
   });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { sleep(); replan(); } else { replan(); wake(); }
+    if (document.hidden) { hold(); sleep(); replan(); } else { replan(); roll(); wake(); }
   });
-  window.addEventListener('pageshow', (e) => { if (e.persisted) { replan(); wake(); } });
-  void document.fonts?.ready.then(() => fit(strip));
-  document.fonts?.addEventListener('loadingdone', () => fit(strip)); // (a face that loads late, as the Vietnamese ones)
+  window.addEventListener('pageshow', (e) => { if (e.persisted) { replan(); roll(); wake(); } });
+  const refit = () => { fit(strip); capFrames(); };
+  void document.fonts?.ready.then(refit);
+  document.fonts?.addEventListener('loadingdone', refit); // (a face that loads late, as the Vietnamese ones)
 
   show(active);
   if (!reducedMotion()) {
@@ -451,9 +537,10 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     window.setTimeout(() => main.classList.remove('is-arriving'), 900);
   }
   (window as unknown as { rvlWorkReel: unknown }).rvlWorkReel = { // a debug handle for verification (rvlReel is the homepage's)
-    offset: () => offset,
-    speed: () => v,
-    inView: () => strip.panes[paneInView(offset, h, strip.panes.length)]?.dataset.slug,
+    offset: () => offsetNow(),
+    speed: () => (rolling ? rollSpeed() : v),
+    rolling: () => rolling,
+    inView: () => strip.panes[paneInView(offsetNow(), h, strip.panes.length)]?.dataset.slug,
     chapter: () => active,
     playing: () => [...loops].filter(([, l]) => (l instanceof HTMLVideoElement ? !l.paused : l.classList.contains('is-live'))).map(([li]) => li.dataset.slug),
     loops: () => loops.size,
@@ -461,11 +548,13 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     refused: () => autoplayRefused(),
     /** hold the strip at `px` (a screenshot's still frame); null lets it roll again */
     hold: (px: number | null) => {
-      if (px === null) { restUntil = 0; wake(); return; }
+      if (px === null) { pinned = false; roll(); wake(); return; }
+      hold();
+      sleep();
+      pinned = true;
       offset = px;
       v = 0;
-      restUntil = Number.POSITIVE_INFINITY;
-      place();
+      setTimes();
       replan();
     },
   };
@@ -474,12 +563,14 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     tune: (key) => show(key),
     park(p) {
       parked = p;
-      if (p) { sleep(); replan(); return; }
+      if (p) { hold(); sleep(); replan(); return; }
       measureTop();
       measure();
       fit(strip);
-      place();
+      capFrames();
+      setTimes();
       replan();
+      roll();
       wake();
     },
   };

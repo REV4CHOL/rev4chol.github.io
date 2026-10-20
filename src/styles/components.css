@@ -713,6 +713,7 @@
 .rl-cap {
   position: absolute; left: 34px; right: 54px; z-index: 2; bottom: calc(var(--reel-foot) + env(safe-area-inset-bottom) + 26px);
   display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  will-change: opacity; /* (its fade under the header and the foot runs on the compositor, with its pane) */
 }
 .rl-bar { display: block; width: 30px; height: 6px; background: var(--acc); }
 .rl-title { /* the display voice, as every film's name (owner, 2026-10-13) */
@@ -742,7 +743,12 @@
   background: color-mix(in srgb, var(--bone) 40%, transparent); box-shadow: 0 0 3px rgba(6, 6, 6, 0.8);
 }
 .rl-tick { position: absolute; right: 13px; width: 8px; height: 2px; margin-top: -1px; background: var(--acc); box-shadow: 0 0 3px rgba(6, 6, 6, 0.85); }
-.rl-play { position: absolute; right: 8px; width: 18px; height: 3px; margin-top: -1.5px; background: var(--signal); box-shadow: 0 0 4px rgba(6, 6, 6, 0.85); }
+/* (the playhead is as tall as the rail and draws its bar at its top: its lap is a pure transform, 0 to 100%) */
+.rl-play { position: absolute; right: 8px; top: 0; width: 18px; height: 100%; pointer-events: none; will-change: transform; }
+.rl-play::before {
+  content: ''; position: absolute; left: 0; right: 0; top: -1.5px; height: 3px;
+  background: var(--signal); box-shadow: 0 0 4px rgba(6, 6, 6, 0.85);
+}
 /* the foot over the picture: the chapters in their tab grammar (the name always bigger than its CH·NN), and LIST */
 .rl-foot {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 945; display: flex; align-items: center; gap: 2px;

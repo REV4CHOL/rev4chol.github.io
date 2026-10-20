@@ -361,11 +361,14 @@ describe('a phone gets the reel, never the floor (pins)', () => {
   it('the strip rolls on its own, endless, and a finger takes it; CALM never rolls it; a drag opens no film', () => {
     expect(css).toMatch(/\n\.rl-strip \{[^}]*overflow: hidden;[^}]*touch-action: none;/);
     expect(css).not.toContain('scroll-snap');
-    expect(view).toContain('li.style.transform = `translate3d(0, ${Math.round(top * dpr) / dpr}px, 0)`;');
-    expect(view).toContain('const o = capOpacity(top + a, top + b, bandTop, bandBottom);'); // (its words never print over the chrome)
+    // (owner, 2026-10-20: "I want the auto scrolling to happen instantly, but slower and smoother") — on the compositor
+    expect(view).toContain('pane: li.animate(paneKeyframes(n), lane),');
+    expect(view).toContain('cap: strip.caps[i].animate(capKeyframes(n, h, strip.spans[i], [bandTop, bandBottom]), lane),'); // (its words never print over the chrome)
+    expect(view).toContain('roll(); // (from the first frame, at its pace)');
     expect(view).toContain('const rollSpeed = () => (reducedMotion() ? 0 : h / ROLL_SECONDS);');
     expect(view).toContain('v = moved ? releaseSpeed(moves, e.timeStamp) : 0;');
-    expect(view).toContain('restUntil = performance.now() + REST_AFTER_TOUCH_MS;');
+    expect(view).toContain('if (target > 0 && Math.abs(v - target) < 2) { roll(); return; }'); // (the throw eases straight into the roll)
+    expect(view).not.toContain('style.transform');
     expect(view).toMatch(/root\.addEventListener\('click', \(e\) => \{\s+if \(!dragged\) return;[\s\S]*?e\.preventDefault\(\);/);
     expect(view).not.toContain('rl-eof'); // (endless: no end slate on a phone)
   });

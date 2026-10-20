@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseJson, parseProjects } from '../src/lib/content';
 import { softBreaks } from '../src/lib/escape';
 import {
-  capOpacity, coast, COAST_TAU, loopsAllowed, MAX_THROW, offsetForRail, ONE_LINE_MIN, oneLineSize, paneInView, panePlay, paneTop, railProgress,
+  capKeyframes, capOpacity, coast, COAST_TAU, lapProgress, loopsAllowed, MAX_THROW, offsetFromLap, paneKeyframes, offsetForRail, ONE_LINE_MIN, oneLineSize, paneInView, panePlay, paneTop, railProgress,
   REEL_QUERY, REEL_WORDS, reelMode, releaseSpeed, roleLine, ROLL_SECONDS, stripOrder, TITLE_MAX, TITLE_MIN, wrapStart,
 } from '../src/works/reel';
 
@@ -139,8 +139,9 @@ describe('the rolling strip', () => {
     expect(stripOrder(0)).toEqual([]);
   });
 
-  it('rolls one screen every 7 seconds; a throw coasts to its target, a rest swells into the roll', () => {
-    expect(ROLL_SECONDS).toBe(7);
+  // (owner, 2026-10-20: "I want the auto scrolling to happen instantly, but slower and smoother")
+  it('rolls one screen every 12 seconds; a throw coasts to its target, a rest swells into the roll', () => {
+    expect(ROLL_SECONDS).toBe(12);
     expect(coast(3000, 0, COAST_TAU)).toBeCloseTo(3000 / Math.E, 6);
     let v = 3000;
     for (let t = 0; t < 3; t += 1 / 60) v = coast(v, 0, 1 / 60);
@@ -159,14 +160,53 @@ describe('the rolling strip', () => {
     expect(releaseSpeed([[0, 900], [10, 0]], 10)).toBe(MAX_THROW);
   });
 
+  it('on the compositor: each pane\'s lap is the same place as the strip\'s arithmetic, and the clock\'s time gives the offset back', () => {
+    for (const n of [3, 5, 12]) for (const off of [0, 300, H, 7.5 * H, -2.25 * H]) for (let i = 0; i < n; i++) {
+      const p = lapProgress(i, off, H, n);
+      expect(p).toBeGreaterThanOrEqual(0);
+      expect(p).toBeLessThan(1);
+      // the keyframes run from (n - 1) panes down to one pane up, linearly: the pane stands where paneTop says
+      const y = (n - 1) * H - p * n * H;
+      const d = (((y - paneTop(i, off, H, n)) % (n * H)) + n * H) % (n * H);
+      expect(Math.min(d, n * H - d)).toBeCloseTo(0, 6); // (the same place, a whole lap apart at most)
+    }
+    expect(paneKeyframes(12)).toEqual([{ transform: 'translate3d(0, 1100%, 0)' }, { transform: 'translate3d(0, -100%, 0)' }]);
+    for (const off of [0, 420, 5 * H + 3, 40 * 12 * H + 100]) {
+      expect(offsetFromLap(lapProgress(0, off, H, 12), H, 12, off)).toBeCloseTo(off, 6); // (the offset read back off the clock)
+    }
+    expect(offsetFromLap(lapProgress(0, 3 * H, H, 12), H, 12, 0)).toBeCloseTo(3 * H, 6);
+  });
+
+  it('the words\' fade, laid on the lap as keyframes, matches the fade the strip computes by hand', () => {
+    const n = 12, span: [number, number] = [640, 756], band: [number, number] = [124, 782];
+    const kf = capKeyframes(n, H, span, band);
+    const offsets = kf.map((k) => k.offset as number);
+    for (let k = 1; k < offsets.length; k++) expect(offsets[k]).toBeGreaterThanOrEqual(offsets[k - 1]);
+    const at = (p: number) => { // (the keyframes' opacity at lap point p, linearly between them)
+      for (let k = 1; k < kf.length; k++) {
+        const [a, b] = [kf[k - 1], kf[k]];
+        if (p <= (b.offset as number)) {
+          const w = (b.offset as number) - (a.offset as number);
+          return w <= 0 ? (b.opacity as number) : (a.opacity as number) + ((b.opacity as number) - (a.opacity as number)) * ((p - (a.offset as number)) / w);
+        }
+      }
+      return kf[kf.length - 1].opacity as number;
+    };
+    for (let off = -H; off <= 2 * H; off += 37) {
+      const top = paneTop(0, off, H, n), p = lapProgress(0, off, H, n);
+      expect(at(p), `offset ${off}`).toBeCloseTo(capOpacity(top + span[0], top + span[1], ...band), 2);
+    }
+    expect(capOpacity(H * 0 + span[0], H * 0 + span[1], ...band)).toBe(1); // (square in the screen, its words stand whole)
+  });
+
   it("a pane's words fade as they pass under the header or the foot, and stand whole between", () => {
     const band = [140, 782] as const; // (under the switches; above a 62 px foot on an 844 screen)
     expect(capOpacity(600, 700, ...band)).toBe(1);
     expect(capOpacity(700, 782, ...band)).toBe(0); // (its foot at the foot's top)
-    expect(capOpacity(700, 768, ...band)).toBeCloseTo(0.5, 6); // (14 px clear of 28)
+    expect(capOpacity(700, 772, ...band)).toBeCloseTo(0.5, 6); // (10 px clear of 20)
     expect(capOpacity(700, 900, ...band)).toBe(0); // (under the foot)
     expect(capOpacity(140, 240, ...band)).toBe(0); // (its top at the header's bottom)
-    expect(capOpacity(154, 254, ...band)).toBeCloseTo(0.5, 6);
+    expect(capOpacity(150, 250, ...band)).toBeCloseTo(0.5, 6);
     expect(capOpacity(-40, 60, ...band)).toBe(0); // (under the header)
     expect(capOpacity(600, 700, 500, 400)).toBe(1); // (no band to measure: whole)
   });

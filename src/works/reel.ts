@@ -55,10 +55,10 @@ export function roleLine(role: string): string {
 
 /* ---------------------------------------------------------------------- the rolling strip -- */
 
-/** The strip's pace: one screen every ROLL_SECONDS. */
-export const ROLL_SECONDS = 7;
-/** After a finger lets go, the strip coasts to rest and waits this long before it rolls on. */
-export const REST_AFTER_TOUCH_MS = 2500;
+/** The strip's pace: one screen every ROLL_SECONDS (owner, 2026-10-20, on the first roll at 7: "I want the auto
+ *  scrolling to happen instantly, but slower and smoother"). It rolls at this pace from the first frame, and a throw
+ *  eases straight back into it. */
+export const ROLL_SECONDS = 12;
 /** The coast's time constant, s: the strip's speed closes on its target by a factor e every COAST_TAU. */
 export const COAST_TAU = 0.45;
 /** A press that travels less than this, px, is a tap: it opens the film under it. */
@@ -116,12 +116,57 @@ export function releaseSpeed(moves: readonly (readonly [number, number])[], now:
   return Math.max(-MAX_THROW, Math.min(MAX_THROW, v));
 }
 
+/** How far a pane's words fade, px, as they near the header or the foot (they rest 22 px or more above the foot). */
+export const CAP_FADE = 20;
+
 /** A pane's words, standing `top`..`bottom` px on the screen as their pane passes, against the clear band between the
  *  header and the foot: whole inside it, fading out over `fade` px as they near either edge, gone under the chrome. */
-export function capOpacity(top: number, bottom: number, bandTop: number, bandBottom: number, fade = 28): number {
+export function capOpacity(top: number, bottom: number, bandTop: number, bandBottom: number, fade = CAP_FADE): number {
   if (bandBottom <= bandTop) return 1;
   const below = (bandBottom - bottom) / fade, above = (top - bandTop) / fade;
   return Math.max(0, Math.min(1, below, above));
+}
+
+/* ------------------------------------------------------- the roll on the compositor -- */
+// Each pane, its words and the rail's playhead run one linear animation a lap, phased by where they stand: the screen's
+// own clock moves them, so a busy page never stutters the strip. A finger takes the timelines by hand.
+
+/** Where pane `i` of `n` stands in its lap, 0..1, the strip moved `offset` px with panes `h` px tall. Its lap runs from
+ *  (n − 1) panes below the screen's top (0) up to one pane above it (1). */
+export function lapProgress(i: number, offset: number, h: number, n: number): number {
+  return mod(((n - 1) * h - paneTop(i, offset, h, n)) / (n * h), 1);
+}
+
+/** The strip's offset, px, from pane 0's place in its lap — the one nearest `near` (the strip's offset runs on through
+ *  laps; a lap is n panes). */
+export function offsetFromLap(p0: number, h: number, n: number, near: number): number {
+  const lap = n * h;
+  const base = p0 * lap - (n - 1) * h; // (pane 0 stands at (n − 1)·h − p0·lap, and the offset is minus where it stands)
+  return base + Math.round((near - base) / lap) * lap;
+}
+
+/** A pane's lap as keyframes, in its own height: from (n − 1) panes below the screen's top to one above it. */
+export const paneKeyframes = (n: number): Keyframe[] => [
+  { transform: `translate3d(0, ${(n - 1) * 100}%, 0)` },
+  { transform: 'translate3d(0, -100%, 0)' },
+];
+
+/** A pane's words over its lap: dark until they rise clear of the foot, whole across the clear band, dark again as they
+ *  near the header — capOpacity laid out on the pane's lap. `span` is where they stand in the pane, px from its top;
+ *  `band` the clear band on the screen. */
+export function capKeyframes(n: number, h: number, span: readonly [number, number], band: readonly [number, number], fade = CAP_FADE): Keyframe[] {
+  const [a, b] = span, [top, bottom] = band;
+  const at = (y: number) => Math.max(0, Math.min(1, ((n - 1) * h - y) / (n * h))); // (the lap's point where the pane stands at y)
+  const marks = [at(bottom - b), at(bottom - b - fade), at(top + fade - a), at(top - a)];
+  for (let k = 1; k < marks.length; k++) marks[k] = Math.max(marks[k], marks[k - 1]); // (a tall name in a short band)
+  return [
+    { offset: 0, opacity: 0 },
+    { offset: marks[0], opacity: 0 },
+    { offset: marks[1], opacity: 1 },
+    { offset: marks[2], opacity: 1 },
+    { offset: marks[3], opacity: 0 },
+    { offset: 1, opacity: 0 },
+  ];
 }
 
 export type PanePlay = 'play' | 'rest' | 'free';

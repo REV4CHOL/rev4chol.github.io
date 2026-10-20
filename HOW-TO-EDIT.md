@@ -208,9 +208,9 @@ build step, no terminal.
   `works.html?ch=machine`.
 - **On a phone, WORK is a rolling strip** instead of the floor: one film to a
   screen, in `projects.json` order, rolling up on its own from the moment the
-  page opens (one screen every 7 seconds) and round again, endlessly. A finger
-  drags it up and down and throws it; it rests a moment, then rolls on. A tap
-  opens the film. Each film fills the whole screen with its loop (its poster
+  page opens (one screen every 12 seconds) and round again, endlessly. A
+  finger drags it up and down and throws it, and it eases straight back into
+  its roll. A tap opens the film. Each film fills the whole screen with its loop (its poster
   until the loop plays), and on it stand only its **title and its `role`** —
   nothing else. The picture is cropped to the tall screen **around the film's
   `focus`** (the middle unless you set one). A `"9:16"` film fills the screen
