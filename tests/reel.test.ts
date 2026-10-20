@@ -3,13 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { parseJson, parseProjects } from '../src/lib/content';
 import { softBreaks } from '../src/lib/escape';
 import {
-  contactCount, edgeCode, frameCode, frameNumber, gateIndex, paneShare, paneSize, railIndex, REEL_QUERY, REEL_WORDS, reelMode, teaser,
-  titleSize,
+  gateIndex, loopsAllowed, ONE_LINE_MIN, oneLineSize, railIndex, REEL_QUERY, REEL_WORDS, reelMode, roleLine, TITLE_MAX, TITLE_MIN, wrapStart,
 } from '../src/works/reel';
 
 // WORK ON A PHONE (owner, 2026-10-20: "on Phone, its completely overwhelming and disorienting … a complete redesign of
 // the interface of the Work section, still keeping the fundamental art direction, but changing the UI/UX specifically
-// for Phones"): the reel, one film to a frame.
+// for Phones"): the reel, one film to a screen — a pane the size of the screen, as antiantiart.com's on a phone, with
+// only the film's name and its roles on it.
 const films = parseProjects(parseJson(readFileSync('public/content/projects.json', 'utf8'), 'projects.json'));
 
 describe('which screens get the reel', () => {
@@ -34,81 +34,54 @@ describe('which screens get the reel', () => {
   });
 });
 
-describe("a frame's pane keeps its film's shape (owner 2026-09-28: vertical footage is shown vertical, never cropped)", () => {
-  it('in its own ratio, inside its box, filling one side of it', () => {
-    for (const r of [16 / 9, 4 / 3, 2.39, 1, 9 / 16]) {
-      for (const [w, h] of [[316, 340], [316, 120], [600, 200], [292, 520]]) {
-        const b = paneSize(r, w, h);
-        expect(b.w).toBeLessThanOrEqual(w);
-        expect(b.h).toBeLessThanOrEqual(h);
-        expect(b.w / b.h, `${r} in ${w}×${h}`).toBeCloseTo(r, 1);
-        expect(b.w === w || b.h === h).toBe(true);
+describe('the loops (owner, 2026-10-20: "I want the videos to play continuously on the pane via its loop")', () => {
+  it('play on every phone, whatever its tier; only Save-Data or a 2g line keeps the posters', () => {
+    expect(loopsAllowed(undefined)).toBe(true); // (Safari has no connection to read)
+    expect(loopsAllowed(null)).toBe(true);
+    expect(loopsAllowed({ effectiveType: '4g' })).toBe(true);
+    expect(loopsAllowed({ effectiveType: '3g', saveData: false })).toBe(true);
+    expect(loopsAllowed({ effectiveType: '4g', saveData: true })).toBe(false);
+    expect(loopsAllowed({ effectiveType: '2g' })).toBe(false);
+    expect(loopsAllowed({ effectiveType: 'slow-2g' })).toBe(false);
+  });
+});
+
+describe("a pane's words: the film's name and its roles, nothing else", () => {
+  it('the roles as the record has them, upper case, a role never broken inside, no line opening on a slash', () => {
+    expect(roleLine('Colorist')).toBe('COLORIST');
+    expect(roleLine('Director / Colorist / Editor / Sound Designer')).toBe('DIRECTOR / COLORIST / EDITOR / SOUND DESIGNER');
+    expect(roleLine('1st AD / Colorist')).toBe('1ST AD / COLORIST');
+    expect(roleLine(' AI Lead /  Colorist ')).toBe('AI LEAD / COLORIST');
+    for (const p of films) {
+      const line = roleLine(p.role);
+      expect(line, p.slug).not.toMatch(/^\s|\s$/);
+      for (const brk of line.split(' ')) expect(brk.startsWith('/'), `${p.slug}: a line opens on a slash`).toBe(false);
+    }
+  });
+
+  it('a name stands on one line when it can at 34 px or more, up to 52; never above, never wider than its caption', () => {
+    expect(oneLineSize(260, 300)).toBe(TITLE_MAX); // (it fits at full size)
+    expect(oneLineSize(370, 300)).toBe(42); // MIEN VIEN ▸ at 52 runs about 370: one line at 42, not MIEN over VIEN
+    expect(oneLineSize(458, 300)).toBe(ONE_LINE_MIN); // (34.06: just on one line)
+    expect(oneLineSize(470, 300)).toBeNull(); // (33.2: it wraps instead)
+    for (const w of [120, 250, 300, 380, 459, 1300]) {
+      const s = oneLineSize(w, 300);
+      if (s !== null) {
+        expect(s).toBeGreaterThanOrEqual(ONE_LINE_MIN);
+        expect(s).toBeLessThanOrEqual(TITLE_MAX);
+        expect((w * s) / TITLE_MAX, `${w}`).toBeLessThanOrEqual(300);
       }
     }
+    expect(oneLineSize(0, 300)).toBeNull();
+    expect(oneLineSize(300, 0)).toBeNull();
   });
 
-  it('a vertical film stands tall: it takes the most of a frame, a scope film the least', () => {
-    const v = paneSize(9 / 16, 316, 560 * paneShare(9 / 16));
-    expect(v.h).toBeGreaterThan(v.w);
-    expect(paneShare(9 / 16)).toBeGreaterThan(paneShare(4 / 3));
-    expect(paneShare(4 / 3)).toBeGreaterThan(paneShare(16 / 9));
-    expect(paneShare(16 / 9)).toBeGreaterThan(paneShare(2.39));
-  });
-
-  it('a contact strip of the stills under it: four of a vertical film, three of another, never more than it has', () => {
-    expect(contactCount(9 / 16, 9)).toBe(4);
-    expect(contactCount(16 / 9, 9)).toBe(3);
-    expect(contactCount(2.39, 2)).toBe(2);
-    expect(contactCount(16 / 9, 0)).toBe(0);
-  });
-});
-
-describe("a frame's words", () => {
-  it('the title stands between 22 and 52 px, its longest word inside the column', () => {
-    for (const p of films) for (const w of [288, 316, 358]) {
-      const s = titleSize(p.title, w);
-      expect(s).toBeGreaterThanOrEqual(22);
-      expect(s).toBeLessThanOrEqual(52);
-      const longest = Math.max(...p.title.split(/\s+/).map((x) => [...x].length));
-      if (s > 22) expect(s * 0.7 * longest, `${p.slug} at ${w}`).toBeLessThanOrEqual(w);
-    }
-    expect(titleSize('PHILIA', 316)).toBe(52);
-    expect(titleSize('Remnants of a Dream', 316)).toBeLessThan(titleSize('HALIDE', 316));
-  });
-
-  it('the one unbreakable name stands at the floor and breaks at its underscores', () => {
-    expect(titleSize('mr_PURPLE_dreams_in_electric_fish', 316)).toBe(22);
-    expect(softBreaks('mr_PURPLE_dreams_in_electric_fish')).toContain('_​');
-  });
-
-  it("the synopsis is its first sentence, whole; a long one is cut at a whole word (the film's page holds the rest)", () => {
-    expect(teaser('A ghost of the past. And then more.')).toBe('A ghost of the past.');
-    expect(teaser('Failure is not an option! Another.')).toBe('Failure is not an option!');
-    expect(teaser('  no stop at all  ')).toBe('no stop at all');
-    expect(teaser('')).toBe('');
-    expect(teaser('The stillness of ordinary moments, in places.', 20)).toBe('The stillness of…');
-    expect(teaser('Change your life’s experience, with Forest Onsen.', 30)).toBe('Change your life’s experience…');
-    const long = `${'word '.repeat(60).trim()}.`;
-    expect(teaser(long).length).toBeLessThanOrEqual(141);
-    expect(teaser(long)).toMatch(/ word…$/);
-  });
-
-  it("every film's teaser is the start of its own synopsis: nothing is written for it", () => {
-    for (const p of films) {
-      const t = teaser(p.synopsis);
-      expect(t.length, p.slug).toBeGreaterThan(0);
-      expect(p.synopsis.replace(/\s+/g, ' ').trim().startsWith(t.replace(/…$/, '')), p.slug).toBe(true);
-    }
-  });
-});
-
-describe("a frame's codes", () => {
-  it('its number in two digits, its code the same for a film on every visit', () => {
-    expect([0, 8, 11].map(frameNumber)).toEqual(['01', '09', '12']);
-    expect(frameCode('philia')).toBe(frameCode('philia'));
-    for (const p of films) expect(frameCode(p.slug)).toMatch(/^RVL\/\d{4}$/);
-    expect(new Set(films.map((p) => frameCode(p.slug))).size).toBe(films.length);
-    expect(edgeCode(6, 'CH·01')).toBe('RVL ▸ 07 ▸ CH·01');
+  it('a longer name wraps from a smaller start, never under 22 (the one unbreakable name breaks at its underscores)', () => {
+    expect(wrapStart(19)).toBe(ONE_LINE_MIN); // REMNANTS OF A DREAM
+    expect(wrapStart(25)).toBe(28); // SOFT HOURS & LONELY LANDS
+    expect(wrapStart(45)).toBe(24); // FOREST ONSEN - ECOPARK'S ECO RETREAT COMMERCIAL
+    for (const p of films) expect(wrapStart([...p.title].length)).toBeGreaterThanOrEqual(TITLE_MIN);
+    expect(softBreaks('mr_PURPLE_dreams_in_electric_fish')).toContain('_\u200b');
   });
 });
 
@@ -122,23 +95,20 @@ describe('the scrub rail and the gate', () => {
     expect(railIndex(100, 0, 12)).toBe(0);
   });
 
-  it('the frame in the gate is the nearest snap, the EOF slate included', () => {
-    expect(gateIndex(0, 600, 13)).toBe(0);
-    expect(gateIndex(1190, 600, 13)).toBe(2);
-    expect(gateIndex(12 * 600, 600, 13)).toBe(12);
-    expect(gateIndex(99999, 600, 13)).toBe(12);
+  it('the pane in the gate is the nearest snap, the EOF slate included', () => {
+    expect(gateIndex(0, 844, 13)).toBe(0);
+    expect(gateIndex(1680, 844, 13)).toBe(2);
+    expect(gateIndex(12 * 844, 844, 13)).toBe(12);
+    expect(gateIndex(99999, 844, 13)).toBe(12);
     expect(gateIndex(300, 0, 13)).toBe(0);
   });
 });
 
-describe("the reel's words (controls in plain sentences, the house's codes as they are)", () => {
-  it('says what each control does', () => {
-    expect(REEL_WORDS.open).toBe('OPEN THIS FILM ▸');
+describe("the reel's words (controls in plain sentences, the house's codes as they are; none on a pane)", () => {
+  it('say what each control does', () => {
     expect(REEL_WORDS.back).toBe('◂ BACK TO THE REEL');
     expect(REEL_WORDS.all).toBe('LIST ▸');
     expect(REEL_WORDS.allLabel(17)).toBe('List all 17 films');
-    expect(REEL_WORDS.cue(11)).toBe('SCROLL DOWN FOR 11 MORE FILMS ▾');
-    expect(REEL_WORDS.cue(1)).toBe('SCROLL DOWN FOR 1 MORE FILM ▾');
     expect(REEL_WORDS.list(17)).toBe('SEE ALL 17 FILMS IN A LIST ▸');
   });
 
@@ -147,6 +117,5 @@ describe("the reel's words (controls in plain sentences, the house's codes as th
     expect(REEL_WORDS.tune('CH·02', 'AI', 5)).toBe('TUNE TO CH·02 ▸ AI — 5 MORE FILMS');
     expect(REEL_WORDS.tune('CH·01', 'COLORIST', 1)).toBe('TUNE TO CH·01 ▸ COLORIST — 1 MORE FILM');
     expect(REEL_WORDS.chapterLine('CH·02', 5)).toBe('CH·02 ▪ 5 FILMS');
-    expect(REEL_WORDS.chapter('CH·01', 'COLORIST')).toBe('CH·01 ▸ COLORIST');
   });
 });

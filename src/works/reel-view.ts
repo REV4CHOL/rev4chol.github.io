@@ -1,23 +1,24 @@
 /** WORK ON A PHONE: THE REEL, built (works/reel.ts says what it is and holds its rules).
  *
- *  - A strip per chapter: one film to a frame, a swipe per film (the frames snap one at a time), an EOF slate at the end
+ *  - A strip per chapter: one film to a screen, a swipe per film (the panes snap one at a time), an EOF slate at the end
  *    that tunes to the other chapter.
- *  - A frame wears the floor's pane in HTML: the accent frame and crop marks, the bar, the code, FEATURED, the strip
- *    (a spine on a vertical film), in the film's own shape; its loop plays while it stands in the gate.
- *  - Down the left, the film's edge: sprockets and an edge code. Down the right, the scrub rail: a tick per film and a
- *    lime playhead, to tap or drag along. At the foot, the chapters and ALL FILMS.
- *  - Only the frame in the gate plays; a frame two away gives its video back; LITE shows posters only. The page (pages/
- *    works.ts) runs the channel change and the list. */
-import { aspectRatio, loopSrcChain, manifestStills, projectAssetUrl, type Project } from '../lib/content';
+ *  - A pane is the whole screen (owner, 2026-10-20, with antiantiart.com on a phone): the film's poster, then its loop,
+ *    covering it. A vertical film on a phone held on its side stands whole in the middle, never cropped wide. On the
+ *    pane only the film's name and its roles, and the house's hardware without words: the accent tab, the viewfinder's
+ *    corners in the film's accent, the scan lines, the sprockets down the left edge. The header and the foot lie over
+ *    the picture.
+ *  - Down the right, the scrub rail: a tick per film and a lime playhead, to tap or drag along. At the foot, the
+ *    chapters and LIST.
+ *  - The pane in the gate plays its loop on every tier and the next one waits warm; a pane two away gives its video
+ *    back. Save-Data or a 2g line shows posters. A touch re-offers the loop (battery savers). The page (pages/works.ts)
+ *    runs the channel change and the list. */
+import { aspectRatio, loopSrcChain, projectAssetUrl, type Project } from '../lib/content';
 import { reducedMotion } from '../lib/env';
 import { softBreaks } from '../lib/escape';
-import { quality } from '../lib/quality';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { CHANNELS, type Channel, type ChannelKey, channelProjects } from './channels';
-import { rowMeta } from './index-list';
-import { stripName } from './legend';
-import { contactCount, edgeCode, frameCode, frameNumber, gateIndex, paneShare, paneSize, railIndex, REEL_WORDS, teaser, titleSize } from './reel';
+import { gateIndex, loopsAllowed, oneLineSize, railIndex, REEL_WORDS, roleLine, TITLE_MAX, TITLE_MIN, wrapStart } from './reel';
 
 export interface Reel {
   /** show a chapter's strip from its first film */
@@ -32,10 +33,6 @@ export interface ReelOptions {
   /** the list is asked for */
   onAll(): void;
 }
-
-/** What gives way on a short screen, in turn (components.css): the contact strip, the synopsis to two lines, the
- *  synopsis, the tags. The title, the meta and the door always stand. */
-const GIVE_WAY = ['is-tight', 'is-tighter', 'is-tightest', 'is-bare'];
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string): HTMLElementTagNameMap[K] => {
   const e = document.createElement(tag);
@@ -56,57 +53,28 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
 
   /* ------------------------------------------------------------ the strips -- */
 
-  const frameOf = (p: Project, i: number, n: number, ch: Channel): HTMLLIElement => {
-    const ratio = aspectRatio(p.aspect);
+  // a pane: the picture over the whole screen, and on it the film's name and its roles — nothing else (owner,
+  // 2026-10-20: "only the Project name, and the Role names are enough. Do not clog this section up with texts")
+  const frameOf = (p: Project, i: number): HTMLLIElement => {
     const li = el('li', 'rl-frame');
     li.dataset.slug = p.slug;
     li.style.setProperty('--acc', p.accent);
-    const edge = el('span', 'rl-edge micro', edgeCode(i, ch.index));
-    edge.setAttribute('aria-hidden', 'true');
-    const head = el('p', 'rl-head');
-    head.setAttribute('aria-hidden', 'true');
-    head.append(el('span', 'rl-num', frameNumber(i)), el('span', 'rl-of micro', `/ ${String(n).padStart(2, '0')}`), el('span', 'rl-ch micro', REEL_WORDS.chapter(ch.index, ch.name)));
     const a = el('a', 'rl-link');
     a.href = `/project.html?p=${p.slug}`;
     a.dataset.internal = '';
-    a.setAttribute('aria-label', `${p.title}. ${rowMeta(p)}. Open this film.`);
-    const pane = el('span', `rl-pane${p.tileSize === 'large' ? ' is-featured' : ''}${ratio < 1 ? ' is-vertical' : ''}`);
-    pane.dataset.ratio = String(ratio);
+    a.setAttribute('aria-label', `${p.title}. ${p.role}. Open this film.`);
+    const pane = el('span', `rl-pane${aspectRatio(p.aspect) < 1 ? ' is-vertical' : ''}`);
     const img = el('img', 'rl-poster');
     img.alt = '';
     img.decoding = 'async';
     img.loading = i < 2 ? 'eager' : 'lazy';
     img.src = projectAssetUrl(p.slug, 'poster.jpg');
-    pane.append(img, el('i', 'rl-scan'), el('i', 'rl-bar'), el('span', 'rl-code micro', frameCode(p.slug)));
-    if (p.tileSize === 'large') pane.append(el('span', 'rl-tag micro', 'FEATURED'));
-    pane.append(el('span', 'rl-id micro', stripName(p)));
-    // the contact strip: a few of the film's stills under its pane, in its own shape (STL·NN, as on its page)
-    const stills = manifestStills(p.slug) ?? [];
-    const strip = el('span', 'rl-stills');
-    strip.style.setProperty('--ar', String(ratio));
-    for (const src of stills.slice(0, contactCount(ratio, stills.length))) {
-      const im = el('img', '');
-      im.alt = '';
-      im.loading = 'lazy';
-      im.decoding = 'async';
-      im.src = src;
-      strip.append(im);
-    }
-    const words = el('span', 'rl-words');
-    words.append(el('span', 'rl-title', softBreaks(p.title)), el('span', 'rl-meta micro', rowMeta(p))); // (a long name breaks at its _)
-    if (p.tags.length) {
-      const tags = el('span', 'rl-tags');
-      for (const t of p.tags.slice(0, 3)) tags.append(el('i', 'micro', t.toUpperCase()));
-      words.append(tags);
-    }
-    const syn = teaser(p.synopsis);
-    if (syn) words.append(el('span', 'rl-syn', syn));
-    words.append(el('span', 'rl-door micro', REEL_WORDS.open));
-    a.append(pane);
-    if (strip.childElementCount) a.append(strip);
-    a.append(words);
-    li.append(edge, head, a);
-    if (i === 0 && n > 1) { li.classList.add('has-cue'); li.append(el('p', 'rl-cue micro', REEL_WORDS.cue(n - 1))); }
+    pane.append(img, el('i', 'rl-scan'));
+    const marks = el('i', 'rl-marks');
+    const cap = el('span', 'rl-cap');
+    cap.append(el('i', 'rl-bar'), el('span', 'rl-title', softBreaks(p.title)), el('span', 'rl-role micro', roleLine(p.role))); // (a long name breaks at its _)
+    a.append(pane, marks, cap);
+    li.append(a);
     return li;
   };
 
@@ -134,11 +102,8 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     ol.dataset.ch = ch.key;
     ol.hidden = true;
     ol.setAttribute('aria-label', `${ch.index} ${ch.name}`);
-    films.forEach((p, i) => ol.append(frameOf(p, i, films.length, ch)));
+    films.forEach((p, i) => ol.append(frameOf(p, i)));
     ol.append(slateOf(ch, films.length));
-    const end = el('li', 'rl-end');
-    end.setAttribute('aria-hidden', 'true');
-    ol.append(end);
     root.append(ol);
     strips.set(ch.key, ol);
   }
@@ -174,7 +139,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
 
   /* ------------------------------------------------------------- the fit -- */
 
-  // the reel stands between the header (the menu and the switches, measured) and the foot
+  // the header's bottom (the menu and the switches, measured): the viewfinder, the rail and the slate start under it
   const measureTop = () => {
     let bottom = 0;
     for (const sel of ['.brand', '.nav-links', '.hud-tr']) {
@@ -183,41 +148,25 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     }
     main.style.setProperty('--reel-top', `${Math.ceil(bottom + 8)}px`);
   };
-  const landscape = () => window.innerWidth > window.innerHeight;
-  /** each frame's pane in its own shape, the title at its size, and what gives way on a short screen */
+  /** a name at its size in its caption (works/reel.ts), measured in its own face with its ▸ */
+  const fitTitle = (t: HTMLElement, room: number) => {
+    const s = t.style;
+    s.whiteSpace = 'nowrap';
+    s.fontSize = `${TITLE_MAX}px`;
+    const one = oneLineSize(t.scrollWidth, room);
+    s.whiteSpace = '';
+    if (one !== null) { s.fontSize = `${one}px`; return; }
+    s.overflowWrap = 'normal'; // (whole words while it measures: a word too wide widens the name instead of breaking)
+    let size = wrapStart([...(t.textContent ?? '').replace(/\u200b/g, '')].length); // (letters, not its break marks)
+    s.fontSize = `${size}px`;
+    while (size > TITLE_MIN && t.scrollWidth > room + 0.5) s.fontSize = `${--size}px`;
+    s.overflowWrap = '';
+  };
+  /** each name at its size in its caption; the end slate's name as big as the column holds it */
   const fit = (strip: HTMLOListElement) => {
-    const land = landscape();
-    // the end slate: the other chapter's name as big as the column holds it
     const slate = strip.querySelector<HTMLElement>('.rl-eof-next');
     if (slate) slate.style.fontSize = `${Math.min(88, Math.floor((slate.parentElement!.clientWidth - 80) / (Math.max(2, (slate.textContent ?? '').length) * 0.74)))}px`;
-    for (const li of strip.querySelectorAll<HTMLLIElement>('.rl-frame:not(.rl-eof)')) {
-      const pane = li.querySelector<HTMLElement>('.rl-pane')!, link = li.querySelector<HTMLElement>('.rl-link')!;
-      const title = li.querySelector<HTMLElement>('.rl-title')!;
-      const parts = li.querySelectorAll<HTMLElement>('.rl-pane, .rl-stills, .rl-door');
-      const cs = getComputedStyle(li);
-      const colW = li.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-      // nothing crosses the frame's floor: its bottom padding stays clear above the frame line (a frame's own scroll
-      // height misses words that spill into that padding)
-      const over = () => {
-        const floor = li.getBoundingClientRect().bottom - parseFloat(cs.paddingBottom) + 0.5;
-        for (const e of parts) if (e.getBoundingClientRect().bottom > floor) return true;
-        return false;
-      };
-      const linkH = link.clientHeight; // (the room under the head, whatever the link holds)
-      const ratio = Number(pane.dataset.ratio) || 16 / 9;
-      let share = land ? 1 : paneShare(ratio);
-      for (let pass = 0; pass < 4; pass++) {
-        li.classList.remove(...GIVE_WAY); // (a smaller picture may give the words their room back)
-        const box = paneSize(ratio, land ? colW * 0.5 : colW, Math.max(60, linkH * share));
-        pane.style.width = `${box.w}px`;
-        pane.style.height = `${box.h}px`;
-        title.style.fontSize = `${titleSize(title.textContent ?? '', land ? colW - box.w - 18 : colW)}px`;
-        // what gives way on a short screen, in turn: the contact strip, half the synopsis, the synopsis, the tags
-        for (const cls of GIVE_WAY) if (over()) li.classList.add(cls);
-        if (!over()) break;
-        share *= 0.82; // (still over: the picture gives a little too)
-      }
-    }
+    for (const cap of strip.querySelectorAll<HTMLElement>('.rl-cap')) fitTitle(cap.querySelector<HTMLElement>('.rl-title')!, cap.clientWidth);
   };
 
   /* ------------------------------------------------------------ the gate -- */
@@ -226,11 +175,12 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   let strip = strips.get(active)!;
   let gate = -1, parked = false, scrubbing = false, raf = 0;
   const videos = new Map<HTMLLIElement, HTMLVideoElement>();
+  const loops = loopsAllowed((navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection);
   const framesOf = (s: HTMLOListElement) => [...s.querySelectorAll<HTMLLIElement>('.rl-frame')];
   const filmCount = () => channelProjects(projects, active).length;
 
-  const ensureVideo = (li: HTMLLIElement): HTMLVideoElement | null => {
-    if (quality.tier() === 0 || li.classList.contains('rl-eof')) return null; // (LITE: the posters)
+  const ensureVideo = (li: HTMLLIElement | undefined): HTMLVideoElement | null => {
+    if (!li || !loops || li.classList.contains('rl-eof')) return null; // (Save-Data or a 2g line: the posters)
     let v = videos.get(li);
     if (v) return v;
     const chain = loopSrcChain(li.dataset.slug!);
@@ -243,7 +193,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
       if (++k >= chain.length) return;
       vid.src = chain[k];
       vid.load();
-      if (videos.get(li) === vid && !parked) void vid.play().catch(() => { /* the poster stands */ });
+      if (framesOf(strip)[gate] === li && !parked) void vid.play().catch(() => { /* the poster stands */ });
     });
     v.addEventListener('playing', () => vid.classList.add('is-live')); // (the poster until the loop has a picture)
     v.src = chain[0];
@@ -260,16 +210,28 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     v.remove();
     videos.delete(li);
   };
+  /** the next pane's loop, warmed: played until it has a picture, then held, so a swipe lands on it rolling (a phone
+   *  ignores preload: a muted play() is the one lever every engine obeys) */
+  const warm = (li: HTMLLIElement | undefined) => {
+    const v = ensureVideo(li);
+    if (!v || v.readyState >= 2 || !v.paused) return;
+    v.addEventListener('playing', () => { if (framesOf(strip)[gate] !== li) v.pause(); }, { once: true });
+    void v.play().catch(() => { /* a later touch re-offers it */ });
+  };
   const playGate = () => {
     const frames = framesOf(strip);
     frames.forEach((li, j) => {
-      if (Math.abs(j - gate) > 1 || li.closest('.rl-strip') !== strip) release(li);
+      if (Math.abs(j - gate) > 1) release(li);
       else if (j !== gate) videos.get(li)?.pause();
     });
     for (const [li] of videos) if (li.closest('.rl-strip') !== strip) release(li);
     if (parked || document.hidden || gate < 0) { videos.get(frames[gate])?.pause(); return; }
-    const v = ensureVideo(frames[gate]);
-    if (v) void v.play().catch(() => { /* (a phone in low power: the poster stands) */ });
+    const here = frames[gate], next = frames[gate + 1];
+    const v = ensureVideo(here);
+    if (!v) return;
+    void v.play().catch(() => { /* (a battery saver: the poster stands until a touch) */ });
+    if (v.readyState >= 3) warm(next);
+    else v.addEventListener('playing', () => { if (framesOf(strip)[gate] === here) warm(next); }, { once: true });
   };
 
   const setGate = (i: number, quiet = false) => {
@@ -280,17 +242,16 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     const n = filmCount();
     const play = rail.querySelector<HTMLElement>('.rl-play');
     if (play) play.style.top = `${i < n ? ((i + 0.5) / n) * 100 : 100}%`;
-    if (i > 0) strip.classList.add('is-moved');
     playGate();
     if (quiet) return;
-    sound.hover(); // (the gate's tick: the frame advances)
+    sound.hover(); // (the gate's tick: the reel advances)
     const li = frames[i];
     if (!li || reducedMotion()) return;
     li.classList.remove('is-flick');
     void li.offsetWidth; // (restart the flick)
     li.classList.add('is-flick');
-    const meta = li.querySelector<HTMLElement>('.rl-meta');
-    if (meta) void scrambleEl(meta, meta.textContent ?? '', 320);
+    const role = li.querySelector<HTMLElement>('.rl-role');
+    if (role) void scrambleEl(role, role.textContent ?? '', 320);
   };
   const step = () => framesOf(strip)[0]?.offsetHeight || 1;
   const onScroll = () => {
@@ -329,7 +290,6 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     active = key;
     for (const [k, s] of strips) s.hidden = k !== key;
     strip = strips.get(key)!;
-    strip.classList.remove('is-moved');
     paintFoot();
     paintRail();
     measureTop();
@@ -348,6 +308,12 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     }, 120);
   });
   document.addEventListener('visibilitychange', () => playGate());
+  window.addEventListener('pageshow', (e) => { if (e.persisted) playGate(); });
+  // battery savers (iOS Low Power Mode and kin) refuse a play() no touch asked for: every touch re-offers the loop in
+  // the gate, as on the homepage — a no-op while it rolls, the heal when it does not
+  const kick = () => { if (!parked && !document.hidden) playGate(); };
+  window.addEventListener('pointerdown', kick, { passive: true });
+  window.addEventListener('touchend', kick, { passive: true });
   void document.fonts?.ready.then(() => fit(strip));
   document.fonts?.addEventListener('loadingdone', () => fit(strip)); // (a face that loads late, as the Vietnamese ones)
 
@@ -361,7 +327,6 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     chapter: () => active,
     playing: () => [...videos].filter(([, v]) => !v.paused).map(([li]) => li.dataset.slug),
     videos: () => videos.size,
-    refit: () => { const t = performance.now(); fit(strip); return performance.now() - t; }, // (ms)
   };
 
   return {

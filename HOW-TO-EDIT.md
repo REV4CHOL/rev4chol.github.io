@@ -207,12 +207,13 @@ build step, no terminal.
   `works.html?ch=machine`.
 - **On a phone, WORK is a reel** instead of the floor: one film to a screen,
   a swipe up for the next, in `projects.json` order, each chapter ending on
-  an EOF slate that tunes to the other. A film's frame is built from what it
-  already has: its poster and loop in its own shape (a `"9:16"` film stands
-  tall), its first stills as a contact strip under the picture (4 of a
-  vertical film, 3 of another), its title, year · role · running time, up to
-  three tags, and **the synopsis's first sentence** — so let that sentence
-  stand on its own. Nothing to set up; a tablet and a computer keep the floor.
+  an EOF slate that tunes to the other. Each film fills the whole screen with
+  its loop (its poster until the loop rolls), and on it stand only its
+  **title and its `role`** — nothing else. The picture is cropped to the
+  phone's tall screen **around its middle**, so keep a loop's subject near the
+  centre of the frame. A `"9:16"` film fills the screen as it is; on a phone
+  held sideways it stands whole in the middle. Nothing to set up; a tablet and
+  a computer keep the floor.
 
 ## Homepage reel (the 5 loops)
 

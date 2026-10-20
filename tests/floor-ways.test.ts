@@ -342,14 +342,37 @@ describe('a phone gets the reel, never the floor (pins)', () => {
     expect(Number(/\.rl-chap-name \{ font-size: (\d+)px; \}/.exec(side)?.[1])).toBeGreaterThan(idx);
   });
 
-  it('the foot stands inside the small viewport, above the home indicator', () => {
+  it('the foot stands inside the small viewport, above the home indicator, the words above it', () => {
     expect(css).toMatch(/\n\.rl-foot \{[^}]*position: fixed;[^}]*bottom: 0;[^}]*padding: 0 10px env\(safe-area-inset-bottom\);/);
-    expect(css).toContain('bottom: calc(var(--reel-foot) + env(safe-area-inset-bottom)); z-index: 900;');
+    expect(css).toMatch(/\n\.rl-cap \{[^}]*bottom: calc\(var\(--reel-foot\) \+ env\(safe-area-inset-bottom\) \+ 26px\);/);
   });
 
-  it('only the film in the gate plays; LITE shows posters; CALM keeps the reel still', () => {
-    expect(view).toContain("if (quality.tier() === 0 || li.classList.contains('rl-eof')) return null;");
-    expect(view).toContain("if (Math.abs(j - gate) > 1 || li.closest('.rl-strip') !== strip) release(li);");
+  // (owner, 2026-10-20, with two screenshots of antiantiart.com on a phone: "I would prefer the sizing of all panes on
+  // Phone in the work section to be like this website")
+  it('a pane is the whole screen, its picture covering it', () => {
+    expect(css).toContain('.reel { position: fixed; inset: 0; z-index: 900; }');
+    expect(css).toMatch(/\n\.rl-frame \{[^}]*height: 100%;[^}]*scroll-snap-align: start; scroll-snap-stop: always;/);
+    expect(css).toContain('.rl-poster, .rl-loop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }');
+  });
+
+  it("a vertical film stands vertical: on a phone held on its side it stands whole, never cropped wide", () => {
+    expect(view).toContain("aspectRatio(p.aspect) < 1 ? ' is-vertical' : ''");
+    const side = css.slice(css.indexOf('/* a phone on its side'));
+    expect(side).toContain('.rl-pane.is-vertical .rl-poster, .rl-pane.is-vertical .rl-loop { object-fit: contain; }');
+  });
+
+  it('a pane carries the film\'s name and its roles, nothing else (owner: "Do not clog this section up with texts")', () => {
+    expect(view).toContain("el('span', 'rl-title', softBreaks(p.title)), el('span', 'rl-role micro', roleLine(p.role))");
+    for (const gone of ['rl-syn', 'rl-tags', 'rl-meta', 'rl-door', 'rl-stills', 'rl-num', 'rl-cue', 'teaser(', 'rowMeta(']) {
+      expect(view, gone).not.toContain(gone);
+    }
+  });
+
+  it('only the film in the gate plays, on every tier; a touch re-offers it; CALM keeps the reel still', () => {
+    expect(view).toContain("if (!li || !loops || li.classList.contains('rl-eof')) return null;");
+    expect(view).not.toContain('quality.tier()'); // (a remembered LITE once left a phone on posters all visit)
+    expect(view).toContain("window.addEventListener('touchend', kick, { passive: true });");
+    expect(view).toContain('if (Math.abs(j - gate) > 1) release(li);');
     expect(view).toContain('if (!li || reducedMotion()) return;');
     expect(view).toContain('if (!reducedMotion()) {');
     expect(css).toContain('.rvl-calm .rl-frame.is-flick .rl-title, .rvl-calm .works-main.is-arriving .rl-pane, .rvl-calm .works-main.is-arriving .rl-foot { animation: none; }');

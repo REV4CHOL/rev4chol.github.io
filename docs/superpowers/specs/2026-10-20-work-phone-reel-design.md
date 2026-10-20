@@ -1,5 +1,9 @@
 # WORK on a phone: the reel — design (2026-10-20)
 
+> The frame (section 1), its words and its loops' tiers were remade the same day: each pane is now the whole screen
+> with only the film's name and its roles, and the loops play on every tier. See
+> `2026-10-20-work-phone-panes-design.md`. The rest — the reel, the rail, the foot, the EOF slate — stands.
+
 The owner: "Work main section's overall design only works on PC and tablet. But on Phone, its completely
 overwhelming and disorienting, like the design does not fit on a Phone at all. I want a complete redesign of the
 interface of the Work section, still keeping the fundamental art direction, but changing the UI/UX specifically for
