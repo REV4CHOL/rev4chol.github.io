@@ -77,6 +77,8 @@ describe('a plain list of every film', () => {
     expect(toggleText('floor', 17)).toBe('LIST ALL 17 FILMS ▸');
     expect(toggleText('floor', 1)).toBe('LIST ALL 1 FILM ▸');
     expect(toggleText('list', 17)).toBe('◂ BACK TO THE FILM WALL');
+    expect(toggleText('list', 17, true), "a phone's way back leads to its reel").toBe('◂ BACK TO THE REEL');
+    expect(toggleText('floor', 17, true)).toBe('LIST ALL 17 FILMS ▸');
   });
 });
 
@@ -266,7 +268,7 @@ describe('the floor is wired (pins)', () => {
   it('the page builds the list, the toggle and the counted tabs', () => {
     expect(readFileSync('works.html', 'utf8')).toContain('<section id="film-list" class="film-list" aria-label="All films" tabindex="-1" hidden></section>');
     expect(page).toContain('listGroups(projects)');
-    expect(page).toContain('toggleText(v, projects.length)');
+    expect(page).toContain('toggleText(v, projects.length, reelOn)');
     expect(page).toContain('chapterTabLabel(');
     expect(page).toContain('viewFromSearch(location.search, remembered)');
     expect(readFileSync('src/works/tile.ts', 'utf8')).toContain('text: stripName(project),');
@@ -308,5 +310,53 @@ describe('the floor is wired (pins)', () => {
 
   it("a phone's legend stands down while a pane is awake (the preview takes its place)", () => {
     expect(css).toMatch(/@media \(pointer: coarse\) \{\s+\.works-main\.is-awake \.floor-hint \{ opacity: 0; visibility: hidden; \}/);
+  });
+});
+
+// WORK ON A PHONE (owner, 2026-10-20: "on Phone, its completely overwhelming and disorienting … a complete redesign of
+// the interface of the Work section … specifically for Phones"): the reel (tests/reel.test.ts holds its rules)
+describe('a phone gets the reel, never the floor (pins)', () => {
+  const page = readFileSync('src/pages/works.ts', 'utf8');
+  const view = readFileSync('src/works/reel-view.ts', 'utf8');
+  const css = readFileSync('src/styles/components.css', 'utf8');
+  const size = (sel: string, src = css) => Number(new RegExp(`\\n${sel.replace(/\./g, '\\.')} \\{[^}]*font-size: (\\d+)px`).exec(src)?.[1]);
+
+  it('the page decides once as it loads, and a phone builds no floor', () => {
+    expect(page).toContain('const reelOn = window.matchMedia(REEL_QUERY).matches;');
+    expect(page).toContain('const floor = reelOn ? [] : await loadFloor();');
+    expect(page).toContain("main.classList.toggle('is-reel', reelOn);");
+    expect(page).toMatch(/if \(reelOn\) \{\s+reel = mountReel\(main, projects, \{[^\n]*\}\);[\s\S]*?\} else await mount\(active\);/);
+    expect(page).toContain("reel?.park(v === 'list');");
+  });
+
+  it("the floor's world, legend and tabs leave a phone; the reel's rules come with its class", () => {
+    expect(css).toContain('.works-main.is-reel #floor, .works-main.is-reel .ch-switch, .works-main.is-reel #tile-label,');
+    expect(css).toContain('.works-main.is-reel:not(.is-list) .floor-hint { display: none; }');
+    expect(css).toContain('.works-main.is-reel.is-list .reel, .works-main.is-reel.is-list .rl-rail, .works-main.is-reel.is-list .rl-foot { display: none; }');
+  });
+
+  it('a chapter\'s name stands bigger than its CH·NN line in the foot, upright and on its side', () => {
+    const idx = size('.rl-chap-idx');
+    expect(size('.rl-chap-name')).toBeGreaterThan(idx);
+    const side = css.slice(css.indexOf('/* a phone on its side'));
+    expect(Number(/\.rl-chap-name \{ font-size: (\d+)px; \}/.exec(side)?.[1])).toBeGreaterThan(idx);
+  });
+
+  it('the foot stands inside the small viewport, above the home indicator', () => {
+    expect(css).toMatch(/\n\.rl-foot \{[^}]*position: fixed;[^}]*bottom: 0;[^}]*padding: 0 10px env\(safe-area-inset-bottom\);/);
+    expect(css).toContain('bottom: calc(var(--reel-foot) + env(safe-area-inset-bottom)); z-index: 900;');
+  });
+
+  it('only the film in the gate plays; LITE shows posters; CALM keeps the reel still', () => {
+    expect(view).toContain("if (quality.tier() === 0 || li.classList.contains('rl-eof')) return null;");
+    expect(view).toContain("if (Math.abs(j - gate) > 1 || li.closest('.rl-strip') !== strip) release(li);");
+    expect(view).toContain('if (!li || reducedMotion()) return;');
+    expect(view).toContain('if (!reducedMotion()) {');
+    expect(css).toContain('.rvl-calm .rl-frame.is-flick .rl-title, .rvl-calm .works-main.is-arriving .rl-pane, .rvl-calm .works-main.is-arriving .rl-foot { animation: none; }');
+  });
+
+  it('one tap opens a film, with the house wipe', () => {
+    expect(view).toContain('a.href = `/project.html?p=${p.slug}`;');
+    expect(view).toContain("a.dataset.internal = '';");
   });
 });

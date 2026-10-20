@@ -10,6 +10,8 @@ import { CHANNELS, ChannelKey, channelFromSearch, channelProjects } from '../wor
 import { chapterTabLabel, listGroups, searchForView, toggleText, viewFromSearch, type WorkView } from '../works/index-list';
 import { floorOpened, legendText } from '../works/legend';
 import { mountWorksOverlay } from '../works/overlay';
+import { REEL_QUERY } from '../works/reel';
+import { mountReel, type Reel } from '../works/reel-view';
 import { WorksWorld } from '../works/world';
 
 startPage(
@@ -19,8 +21,11 @@ startPage(
     // fixed 1440px plate; the FLOOR is exempt — panes and background keep
     // their true full-viewport world, untouched by the lock
     armPosterLock({ exempt: '#floor' });
+    // WORK ON A PHONE (owner, 2026-10-20: "on Phone, its completely overwhelming and disorienting … a complete redesign
+    // … specifically for Phones"): the reel (works/reel.ts), decided once as the page loads; a phone builds no floor
+    const reelOn = window.matchMedia(REEL_QUERY).matches;
     const projects = await loadProjects();
-    const floor = await loadFloor(); // the films AND the held places, in json order
+    const floor = reelOn ? [] : await loadFloor(); // the films AND the held places, in json order
     await loadLoopManifest(); // tiles build their loop chains synchronously
     mountWorksOverlay();
     // THE LEGEND (owner's testers, 2026-09-27: "not knowing what to do … what to click on"): the floor's controls in
@@ -43,6 +48,7 @@ startPage(
     const host = document.getElementById('floor')!;
 
     let world: WorksWorld | null = null;
+    let reel: Reel | null = null;
     let active: ChannelKey = channelFromSearch(location.search);
     let flipping = false;
 
@@ -52,6 +58,8 @@ startPage(
     try { remembered = sessionStorage.getItem(VIEW_KEY); } catch { /* no storage: the address alone decides */ }
     let view: WorkView = viewFromSearch(location.search, remembered);
     const main = document.getElementById('app')!;
+    main.classList.toggle('is-reel', reelOn);
+    document.documentElement.classList.toggle('rvl-reel', reelOn);
     const listEl = document.getElementById('film-list')!;
     buildFilmList(listEl, projects);
     // THE LIST'S CITY AND ITS MACHINES (works/list-deco.ts): loaded the first time the list opens, painted while it shows
@@ -76,10 +84,11 @@ startPage(
       listEl.hidden = v !== 'list';
       listDeco(v === 'list');
       document.getElementById('sr-projects')?.toggleAttribute('hidden', v === 'list'); // (the list says it all)
-      toggle.textContent = toggleText(v, projects.length);
+      toggle.textContent = toggleText(v, projects.length, reelOn);
       toggle.dataset.cursor = v === 'list' ? 'FILM WALL ◂' : 'LIST ▸';
       if (v === 'list') world?.pause();
       else world?.resume();
+      reel?.park(v === 'list');
       hud.setCount(v === 'list' ? projects.length : channelProjects(projects, active).length);
       try { sessionStorage.setItem(VIEW_KEY, v); } catch { /* no storage */ }
       if (!byHand) return;
@@ -155,21 +164,31 @@ startPage(
       void scrambleEl(nameEl, ch.name, 480);
       sound.chime();
       staticEl.classList.add('on');
-      // the whole world leaves physically — panes, furniture and lattice
-      // tearing off along the floor's grain under the misregistration rig
-      world?.unhover();
-      await world?.exit();
-      world?.destroy();
-      world = null;
-      await mount(key);
-      world!.arrive();
+      if (reel) {
+        // the reel: the other chapter's strip under the static, from its first film
+        await new Promise((r) => setTimeout(r, reducedMotion() ? 60 : 240));
+        reel.tune(key);
+        hud.setCount(channelProjects(projects, key).length);
+      } else {
+        // the whole world leaves physically — panes, furniture and lattice
+        // tearing off along the floor's grain under the misregistration rig
+        world?.unhover();
+        await world?.exit();
+        world?.destroy();
+        world = null;
+        await mount(key);
+        world!.arrive();
+      }
       await new Promise((r) => setTimeout(r, reducedMotion() ? 80 : 380));
       staticEl.classList.remove('on');
       flipping = false;
     };
 
     paint();
-    await mount(active);
+    if (reelOn) {
+      reel = mountReel(main, projects, { active, onTune: (key) => void flip(key), onAll: () => setView('list', true) });
+      hud.setCount(channelProjects(projects, active).length);
+    } else await mount(active);
     setView(view);
 
     window.addEventListener('keydown', (e) => {

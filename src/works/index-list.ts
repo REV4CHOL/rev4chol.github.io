@@ -1,6 +1,7 @@
 import type { Project } from '../lib/content';
 import { aspectRatio } from '../lib/content';
 import { CHANNELS, channelProjects, type ChannelKey } from './channels';
+import { REEL_WORDS } from './reel';
 
 /** THE LIST (owner's testers, 2026-09-30: "they dont know how to navigate the website … they feel lost, as they have
  *  never seen a website like this before"). The floor is the site's own idea, and a first-time visitor had no plain
@@ -33,9 +34,11 @@ export function chapterTabLabel(index: string, count: number, on: boolean): stri
   return `${index} ▪ ${count} ${on ? '' : 'MORE '}${count === 1 ? 'FILM' : 'FILMS'}`;
 }
 
-/** The control that changes the view says what it gives; the way back says where it leads. */
-export function toggleText(view: WorkView, total: number): string {
-  return view === 'list' ? '◂ BACK TO THE FILM WALL' : `LIST ALL ${films(total)} ▸`;
+/** The control that changes the view says what it gives; the way back says where it leads — on a phone, the reel
+ *  (works/reel.ts). */
+export function toggleText(view: WorkView, total: number, reel = false): string {
+  if (view === 'list') return reel ? REEL_WORDS.back : '◂ BACK TO THE FILM WALL';
+  return `LIST ALL ${films(total)} ▸`;
 }
 
 /** A row's thumbnail: the film's own shape inside a 128 × 72 box, never cropped (owner 2026-09-28: vertical footage is

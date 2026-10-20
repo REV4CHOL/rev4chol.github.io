@@ -105,7 +105,7 @@ describe('the site draws every letter in its own type', () => {
       return out;
     };
     const comp = sheet('components.css'), proj = sheet('project.css');
-    for (const [src, sel] of [[comp, '#tile-label .tl-title'], [comp, '.fl-title'], [proj, '.p-title, .p-title-ghost'], [proj, '.p-back, .p-nextlink'], [proj, '.p-ticker .tk, .p-ticker .tk-sep']] as const) {
+    for (const [src, sel] of [[comp, '#tile-label .tl-title'], [comp, '.fl-title'], [comp, '.rl-title'], [proj, '.p-title, .p-title-ghost'], [proj, '.p-back, .p-nextlink'], [proj, '.p-ticker .tk, .p-ticker .tk-sep']] as const) {
       expect(families(src, sel), sel).toEqual(['var(--f-display)']);
     }
   });
