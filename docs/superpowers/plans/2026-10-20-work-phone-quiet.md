@@ -25,24 +25,24 @@
 
 **Files:** `src/works/reel.ts`, `tests/reel.test.ts`, `HOW-TO-EDIT.md`
 
-- [ ] **Step 1:** Set `ROLL_SECONDS` to 18, and pin it.
-- [ ] **Step 2:** The owner's guide says "one screen every 18 seconds".
+- [x] **Step 1:** Set `ROLL_SECONDS` to 18, and pin it.
+- [x] **Step 2:** The owner's guide says "one screen every 18 seconds".
 
 ### Task 2: Sounds on presses only
 
 **Files:** `works.html`, `src/shell/shell.ts`, `src/works/world.ts`, `tests/floor-ways.test.ts`
 
-- [ ] **Step 1:** The body asks for `data-sfx="press"`. The shell's `pointerover` blip stands down on that ask.
-- [ ] **Step 2:** The floor's wake drops `sound.hover()`. `enter()` keeps its click.
-- [ ] **Step 3:** Pin both, with the strip's silence and a tap's click.
+- [x] **Step 1:** The body asks for `data-sfx="press"`. The shell's `pointerover` blip stands down on that ask.
+- [x] **Step 2:** The floor's wake drops `sound.hover()`. `enter()` keeps its click.
+- [x] **Step 3:** Pin both, with the strip's silence and a tap's click.
 
 ### Task 3: Gates, verification, ship
 
-- [ ] **Step 1:** Get `npm run check`, `npm test` and `npm run build` green.
-- [ ] **Step 2:** On the built site, with the sound calls counted:
+- [x] **Step 1:** Get `npm run check`, `npm test` and `npm run build` green.
+- [x] **Step 2:** On the built site, with the sound calls counted:
   - the phone's strip pace;
   - drags, throws and the rail, silent;
   - the presses, sounding;
   - the desktop floor, its links and a pan, silent, while its presses sound;
   - the homepage still blipping.
-- [ ] **Step 3:** Commit, push, watch the Pages run, and check the same on the live site.
+- [x] **Step 3:** Commit, push, watch the Pages run, and check the same on the live site.
