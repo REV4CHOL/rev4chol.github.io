@@ -29,41 +29,41 @@ phones.
 
 **Files:** `src/works/reel.ts`, `src/works/reel-view.ts`, `tests/reel.test.ts`, `tests/floor-ways.test.ts`
 
-- [ ] **Step 1:** Loops on every tier; posters only on Save-Data or a 2g line.
-- [ ] **Step 2:** The next pane's loop warm. A pane two away gives its video back. Every touch, and a return from the
+- [x] **Step 1:** Loops on every tier; posters only on Save-Data or a 2g line.
+- [x] **Step 2:** The next pane's loop warm. A pane two away gives its video back. Every touch, and a return from the
   back-forward cache, re-offers the loop.
 
 ### Task 2: The panes
 
 **Files:** `src/works/reel-view.ts`, `src/styles/components.css`
 
-- [ ] **Step 1:** A pane is the screen.
+- [x] **Step 1:** A pane is the screen.
   - The poster and the loop cover it.
   - A vertical film stands whole on a phone held on its side.
   - The cut between panes is a hairline.
-- [ ] **Step 2:** The words: the name with its ▸, and the roles. Nothing else on a pane.
-- [ ] **Step 3:** The hardware without words: the accent tab, the viewfinder's corners, the scan lines, the sprockets and
+- [x] **Step 2:** The words: the name with its ▸, and the roles. Nothing else on a pane.
+- [x] **Step 3:** The hardware without words: the accent tab, the viewfinder's corners, the scan lines, the sprockets and
   the rail.
-- [ ] **Step 4:** The chrome over the picture: the header's veil, the switches' halo, and the foot on a fade. The EOF
+- [x] **Step 4:** The chrome over the picture: the header's veil, the switches' halo, and the foot on a fade. The EOF
   slate is a whole screen.
 
 ### Task 3: The names and the words
 
 **Files:** `src/works/reel.ts`, `src/works/reel-view.ts`, `tests/reel.test.ts`, `HOW-TO-EDIT.md`
 
-- [ ] **Step 1:** The roles' line: upper case, a role never broken inside, no line opening on a slash.
-- [ ] **Step 2:** The name's size, measured in its own face:
+- [x] **Step 1:** The roles' line: upper case, a role never broken inside, no line opening on a slash.
+- [x] **Step 2:** The name's size, measured in its own face:
   - one line at 34 to 52 px when it fits;
   - otherwise it wraps at its words from 34, 28 or 24 px by length, never under 22.
-- [ ] **Step 3:** The owner's guide says what a phone shows, and that a film's middle is what stands.
+- [x] **Step 3:** The owner's guide says what a phone shows, and that a film's middle is what stands.
 
 ### Task 4: Gates, verification, ship
 
-- [ ] **Step 1:** Get `npm run check`, `npm test` and `npm run build` green.
-- [ ] **Step 2:** On the built site, on touch phones at 390 × 844, 375 × 667, 360 × 780, 430 × 932 and 844 × 390:
+- [x] **Step 1:** Get `npm run check`, `npm test` and `npm run build` green.
+- [x] **Step 2:** On the built site, on touch phones at 390 × 844, 375 × 667, 360 × 780, 430 × 932 and 844 × 390:
   - the walkthrough;
   - every pane's words clear of the chrome;
   - the loops under a remembered LITE, a pinned LITE, Save-Data and a battery saver;
   - CALM.
   Check that a tablet and desktops keep the floor.
-- [ ] **Step 3:** Commit, push, watch the Pages run, and check the same on the live site.
+- [x] **Step 3:** Commit, push, watch the Pages run, and check the same on the live site.
