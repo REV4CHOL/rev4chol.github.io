@@ -53,8 +53,8 @@
 
 **Files:** `works.html`, `src/pages/works.ts`, `src/shell/shell.ts`, `src/works/world.ts`, `tests/floor-ways.test.ts`
 
-- [ ] **Step 1:** `works.html` and the floor's wake blip go back as they were. The page sets `data-sfx="press"` when it
+- [x] **Step 1:** `works.html` and the floor's wake blip go back as they were. The page sets `data-sfx="press"` when it
   builds the phone's strip, and the shell reads the ask as each pointer comes over.
-- [ ] **Step 2:** Re-pin: the ask on a phone alone; the floor keeps its blip.
-- [ ] **Step 3:** Gates; then, with the sounds counted: the phone silent on swipes, and a desktop and a tablet blipping
+- [x] **Step 2:** Re-pin: the ask on a phone alone; the floor keeps its blip.
+- [x] **Step 3:** Gates; then, with the sounds counted: the phone silent on swipes, and a desktop and a tablet blipping
   as before. Commit, push, watch the Pages run, and check the same live.
