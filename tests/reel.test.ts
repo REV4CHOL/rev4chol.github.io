@@ -140,8 +140,8 @@ describe('the rolling strip', () => {
   });
 
   // (owner, 2026-10-20: "I want the auto scrolling to happen instantly, but slower and smoother")
-  it('rolls one screen every 12 seconds; a throw coasts to its target, a rest swells into the roll', () => {
-    expect(ROLL_SECONDS).toBe(12);
+  it('rolls one screen every 18 seconds ("Even slower"); a throw coasts to its target, a rest swells into the roll', () => {
+    expect(ROLL_SECONDS).toBe(18);
     expect(coast(3000, 0, COAST_TAU)).toBeCloseTo(3000 / Math.E, 6);
     let v = 3000;
     for (let t = 0; t < 3; t += 1 / 60) v = coast(v, 0, 1 / 60);

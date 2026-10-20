@@ -77,8 +77,12 @@ export function mountShell(site: SiteContent, active: PageKey, opts: ShellOption
   // MUSIC (owner): started in page.ts ahead of the boot screen; a cold load plays at the first gesture, wired here.
   // (The ambient room tone is gone: owner.)
   for (const ev of ['pointerdown', 'pointerup', 'click', 'keydown', 'touchend']) document.addEventListener(ev, () => music.gesture(), { passive: true }); // (pointerup, click: iOS grants sound inside these, not a pointerdown)
+  // (a page whose body says data-sfx="press" sounds only when something is pressed — WORK, owner 2026-10-20: "I prefer
+  // the only SFX is when pressing any text or buttons in the work section. No SFX when scrolling pls its too much": a
+  // touch fires a pointerover first, so every swipe of the strip began with a blip)
+  const pressOnly = document.body.dataset.sfx === 'press';
   document.addEventListener('pointerover', (e) => {
-    if ((e.target as Element).closest?.('a, button')) sound.hover();
+    if (!pressOnly && (e.target as Element).closest?.('a, button')) sound.hover();
   });
 
   return { hud };

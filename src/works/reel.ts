@@ -56,9 +56,9 @@ export function roleLine(role: string): string {
 /* ---------------------------------------------------------------------- the rolling strip -- */
 
 /** The strip's pace: one screen every ROLL_SECONDS (owner, 2026-10-20, on the first roll at 7: "I want the auto
- *  scrolling to happen instantly, but slower and smoother"). It rolls at this pace from the first frame, and a throw
- *  eases straight back into it. */
-export const ROLL_SECONDS = 12;
+ *  scrolling to happen instantly, but slower and smoother"; then, at 12: "Even slower"). It rolls at this pace from the
+ *  first frame, and a throw eases straight back into it. */
+export const ROLL_SECONDS = 18;
 /** The coast's time constant, s: the strip's speed closes on its target by a factor e every COAST_TAU. */
 export const COAST_TAU = 0.45;
 /** A press that travels less than this, px, is a tap: it opens the film under it. */

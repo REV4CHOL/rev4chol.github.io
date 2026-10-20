@@ -407,6 +407,20 @@ describe('a phone gets the reel, never the floor (pins)', () => {
     expect(css).toContain('.hero-img.is-on { opacity: 1; }');
   });
 
+  // (owner, 2026-10-20: "I prefer the only SFX is when pressing any text or buttons in the work section. No SFX when
+  // scrolling pls its too much")
+  it('WORK sounds only when something is pressed: no hover blips, the strip silent, opening a film still clicks', () => {
+    expect(readFileSync('works.html', 'utf8')).toContain('<body class="page-work" data-sfx="press">');
+    const shell = readFileSync('src/shell/shell.ts', 'utf8');
+    expect(shell).toContain("const pressOnly = document.body.dataset.sfx === 'press';");
+    expect(shell).toContain("if (!pressOnly && (e.target as Element).closest?.('a, button')) sound.hover();");
+    const world = readFileSync('src/works/world.ts', 'utf8');
+    expect(world).not.toContain('sound.hover()');
+    expect(world).toMatch(/enter\(slug: string\): void \{[\s\S]*?sound\.click\(\);/);
+    expect(view).not.toContain('sound.'); // (the strip itself never sounds)
+    expect(readFileSync('src/lib/transitions.ts', 'utf8')).toMatch(/a\[data-internal\][\s\S]*?sound\.click\(\);/); // (a tap on a film)
+  });
+
   it('one tap opens a film, with the house wipe', () => {
     expect(view).toContain('a.href = `/project.html?p=${p.slug}`;');
     expect(view).toContain("a.dataset.internal = '';");
