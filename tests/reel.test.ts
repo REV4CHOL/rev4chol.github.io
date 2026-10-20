@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseJson, parseProjects } from '../src/lib/content';
 import { softBreaks } from '../src/lib/escape';
 import {
-  coast, COAST_TAU, loopsAllowed, MAX_THROW, offsetForRail, ONE_LINE_MIN, oneLineSize, paneInView, panePlay, paneTop, railProgress,
+  capOpacity, coast, COAST_TAU, loopsAllowed, MAX_THROW, offsetForRail, ONE_LINE_MIN, oneLineSize, paneInView, panePlay, paneTop, railProgress,
   REEL_QUERY, REEL_WORDS, reelMode, releaseSpeed, roleLine, ROLL_SECONDS, stripOrder, TITLE_MAX, TITLE_MIN, wrapStart,
 } from '../src/works/reel';
 
@@ -157,6 +157,18 @@ describe('the rolling strip', () => {
     expect(releaseSpeed([[0, 600], [40, 400], [300, 400]], 300)).toBe(0); // (stopped, then lifted)
     expect(releaseSpeed([[0, 600]], 0)).toBe(0);
     expect(releaseSpeed([[0, 900], [10, 0]], 10)).toBe(MAX_THROW);
+  });
+
+  it("a pane's words fade as they pass under the header or the foot, and stand whole between", () => {
+    const band = [140, 782] as const; // (under the switches; above a 62 px foot on an 844 screen)
+    expect(capOpacity(600, 700, ...band)).toBe(1);
+    expect(capOpacity(700, 782, ...band)).toBe(0); // (its foot at the foot's top)
+    expect(capOpacity(700, 768, ...band)).toBeCloseTo(0.5, 6); // (14 px clear of 28)
+    expect(capOpacity(700, 900, ...band)).toBe(0); // (under the foot)
+    expect(capOpacity(140, 240, ...band)).toBe(0); // (its top at the header's bottom)
+    expect(capOpacity(154, 254, ...band)).toBeCloseTo(0.5, 6);
+    expect(capOpacity(-40, 60, ...band)).toBe(0); // (under the header)
+    expect(capOpacity(600, 700, 500, 400)).toBe(1); // (no band to measure: whole)
   });
 
   it('plays every pane on the screen and the next to come in; rests the near; lets the far go', () => {

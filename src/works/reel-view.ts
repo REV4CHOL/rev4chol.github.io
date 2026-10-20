@@ -18,8 +18,9 @@ import { reducedMotion } from '../lib/env';
 import { softBreaks } from '../lib/escape';
 import { CHANNELS, type ChannelKey, channelProjects } from './channels';
 import {
-  coast, loopsAllowed, offsetForRail, oneLineSize, paneInView, panePlay, paneTop, railProgress, REEL_WORDS, releaseSpeed,
-  REST_AFTER_TOUCH_MS, roleLine, ROLL_SECONDS, stripOrder, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart, type PanePlay,
+  capOpacity, coast, loopsAllowed, offsetForRail, oneLineSize, paneInView, panePlay, paneTop, railProgress, REEL_WORDS,
+  releaseSpeed, REST_AFTER_TOUCH_MS, roleLine, ROLL_SECONDS, stripOrder, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
+  type PanePlay,
 } from './reel';
 
 export interface Reel {
@@ -44,7 +45,14 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: s
 };
 
 type Loop = HTMLVideoElement | HTMLImageElement;
-interface Strip { ol: HTMLOListElement; panes: HTMLLIElement[]; films: number }
+interface Strip {
+  ol: HTMLOListElement;
+  panes: HTMLLIElement[];
+  /** each pane's words, and where they stand in it (px from its top: measured by fit) */
+  caps: HTMLElement[];
+  spans: [number, number][];
+  films: number;
+}
 
 export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions): Reel {
   const total = projects.length;
@@ -102,7 +110,8 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     });
     ol.append(...panes);
     root.append(ol);
-    strips.set(ch.key, { ol, panes, films: films.length });
+    const caps = panes.map((li) => li.querySelector<HTMLElement>('.rl-cap')!);
+    strips.set(ch.key, { ol, panes, caps, spans: caps.map(() => [0, 0]), films: films.length });
   }
 
   /* --------------------------------------------------------------- the foot -- */
@@ -136,7 +145,9 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
 
   /* ------------------------------------------------------------- the fit -- */
 
-  // the header's bottom (the menu and the switches, measured): the viewfinder and the rail start under it
+  // the header's bottom (the menu and the switches, measured): the viewfinder and the rail start under it; between it
+  // and the foot's top lies the clear band a pane's words stand in (the foot by its box: its arrival rise moves it)
+  let bandTop = 0, bandBottom = 0;
   const measureTop = () => {
     let bottom = 0;
     for (const sel of ['.brand', '.nav-links', '.hud-tr']) {
@@ -144,6 +155,8 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
       if (e) bottom = Math.max(bottom, e.getBoundingClientRect().bottom);
     }
     main.style.setProperty('--reel-top', `${Math.ceil(bottom + 8)}px`);
+    bandTop = bottom;
+    bandBottom = window.innerHeight - foot.offsetHeight;
   };
   /** a name at its size in its caption (works/reel.ts), measured in its own face with its ▸ */
   const fitTitle = (t: HTMLElement, room: number) => {
@@ -154,13 +167,16 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     s.whiteSpace = '';
     if (one !== null) { s.fontSize = `${one}px`; return; }
     s.overflowWrap = 'normal'; // (whole words while it measures: a word too wide widens the name instead of breaking)
-    let size = wrapStart([...(t.textContent ?? '').replace(/​/g, '')].length); // (letters, not its break marks)
+    let size = wrapStart([...(t.textContent ?? '').replace(/\u200b/g, '')].length); // (letters, not its break marks)
     s.fontSize = `${size}px`;
     while (size > TITLE_MIN && t.scrollWidth > room + 0.5) s.fontSize = `${--size}px`;
     s.overflowWrap = '';
   };
   const fit = (s: Strip) => {
-    for (const cap of s.ol.querySelectorAll<HTMLElement>('.rl-cap')) fitTitle(cap.querySelector<HTMLElement>('.rl-title')!, cap.clientWidth);
+    s.caps.forEach((cap, i) => {
+      fitTitle(cap.querySelector<HTMLElement>('.rl-title')!, cap.clientWidth);
+      s.spans[i] = [cap.offsetTop, cap.offsetTop + cap.offsetHeight];
+    });
   };
 
   /* ------------------------------------------------------------ the strip -- */
@@ -176,7 +192,13 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   const place = () => {
     const n = strip.panes.length, dpr = window.devicePixelRatio || 1;
     strip.panes.forEach((li, i) => {
-      li.style.transform = `translate3d(0, ${Math.round(paneTop(i, offset, h, n) * dpr) / dpr}px, 0)`;
+      const top = paneTop(i, offset, h, n);
+      li.style.transform = `translate3d(0, ${Math.round(top * dpr) / dpr}px, 0)`;
+      // a pane's words travel with it, and fade as they near the header or the foot: they never print over them
+      const [a, b] = strip.spans[i];
+      const o = capOpacity(top + a, top + b, bandTop, bandBottom);
+      const val = o >= 1 ? '' : o.toFixed(2);
+      if (strip.caps[i].style.opacity !== val) strip.caps[i].style.opacity = val;
     });
     const play = rail.querySelector<HTMLElement>('.rl-play');
     if (play) play.style.top = `${railProgress(offset, h, strip.films) * 100}%`;

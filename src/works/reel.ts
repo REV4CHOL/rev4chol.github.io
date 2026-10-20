@@ -116,6 +116,14 @@ export function releaseSpeed(moves: readonly (readonly [number, number])[], now:
   return Math.max(-MAX_THROW, Math.min(MAX_THROW, v));
 }
 
+/** A pane's words, standing `top`..`bottom` px on the screen as their pane passes, against the clear band between the
+ *  header and the foot: whole inside it, fading out over `fade` px as they near either edge, gone under the chrome. */
+export function capOpacity(top: number, bottom: number, bandTop: number, bandBottom: number, fade = 28): number {
+  if (bandBottom <= bandTop) return 1;
+  const below = (bandBottom - bottom) / fade, above = (top - bandTop) / fade;
+  return Math.max(0, Math.min(1, below, above));
+}
+
 export type PanePlay = 'play' | 'rest' | 'free';
 /** What a pane at `top` (px, `h` tall, on a screen `view` tall) does with its loop while the strip moves `dir`: on the
  *  screen, or the next to come in, it plays; within two screens it rests, loaded; further off it gives the video back. */

@@ -19,6 +19,9 @@ The owner, on the whole-screen panes shipped the same day (6b70c85):
   - Letting go throws it with the finger's speed. The throw slows to a rest.
   - After 2.5 seconds at rest, it eases back into its roll.
 - **A tap opens the film under it.** A drag never opens one.
+- **A pane's words travel with it,** and fade over 28 px as they near the header or the foot. They stand whole in the
+  clear band between and never print over the chrome. (Added after the first live look: a rising name crossed the
+  foot's chapter labels.)
 - **The rail** shows where the strip stands: the lime playhead travels continuously, and a tick marks each film in its
   accent. Touching or dragging along the rail moves the strip there.
 - **CALM** (the visitor's MOTION switch): the strip never rolls by itself. A finger still moves it. The loops still play.

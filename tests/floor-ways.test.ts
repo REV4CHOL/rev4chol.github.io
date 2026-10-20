@@ -361,7 +361,8 @@ describe('a phone gets the reel, never the floor (pins)', () => {
   it('the strip rolls on its own, endless, and a finger takes it; CALM never rolls it; a drag opens no film', () => {
     expect(css).toMatch(/\n\.rl-strip \{[^}]*overflow: hidden;[^}]*touch-action: none;/);
     expect(css).not.toContain('scroll-snap');
-    expect(view).toContain('li.style.transform = `translate3d(0, ${Math.round(paneTop(i, offset, h, n) * dpr) / dpr}px, 0)`;');
+    expect(view).toContain('li.style.transform = `translate3d(0, ${Math.round(top * dpr) / dpr}px, 0)`;');
+    expect(view).toContain('const o = capOpacity(top + a, top + b, bandTop, bandBottom);'); // (its words never print over the chrome)
     expect(view).toContain('const rollSpeed = () => (reducedMotion() ? 0 : h / ROLL_SECONDS);');
     expect(view).toContain('v = moved ? releaseSpeed(moves, e.timeStamp) : 0;');
     expect(view).toContain('restUntil = performance.now() + REST_AFTER_TOUCH_MS;');
