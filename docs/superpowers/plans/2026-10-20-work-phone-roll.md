@@ -24,25 +24,25 @@ CDP touch events and the screencast.
 
 **Files:** `src/works/reel.ts`, `tests/reel.test.ts`
 
-- [ ] **Step 1:** The pace becomes 12 s. The words' fade becomes 20 px, so square words stand whole.
-- [ ] **Step 2:** lapProgress and offsetFromLap, tested against paneTop.
-- [ ] **Step 3:** paneKeyframes, and capKeyframes tested against capOpacity.
+- [x] **Step 1:** The pace becomes 12 s. The words' fade becomes 20 px, so square words stand whole.
+- [x] **Step 2:** lapProgress and offsetFromLap, tested against paneTop.
+- [x] **Step 3:** paneKeyframes, and capKeyframes tested against capOpacity.
 
 ### Task 2: The roll on the compositor
 
 **Files:** `src/works/reel-view.ts`, `src/styles/components.css`, `tests/floor-ways.test.ts`
 
-- [ ] **Step 1:** Build the animations per strip, paused at the offset.
-- [ ] **Step 2:** Roll from the first frame. Hold for a finger, the rail or a keyboard's focus. The coast hands back to
+- [x] **Step 1:** Build the animations per strip, paused at the offset.
+- [x] **Step 2:** Roll from the first frame. Hold for a finger, the rail or a keyboard's focus. The coast hands back to
   the clock at the pace.
-- [ ] **Step 3:** The loops on a 150 ms beat. The playhead becomes a rail-tall transform, and the words' layer is
+- [x] **Step 3:** The loops on a 150 ms beat. The playhead becomes a rail-tall transform, and the words' layer is
   composited.
 
 ### Task 3: Gates, verification, ship
 
-- [ ] **Step 1:** Get `npm run check`, `npm test` and `npm run build` green.
-- [ ] **Step 2:** On the built site:
+- [x] **Step 1:** Get `npm run check`, `npm test` and `npm run build` green.
+- [x] **Step 2:** On the built site:
   - the blocked-main-thread screencast;
   - the strip at two sizes;
   - the playhead, the words, the loops, CALM, and a tablet and desktops.
-- [ ] **Step 3:** Commit, push, watch the Pages run, and check the same on the live site.
+- [x] **Step 3:** Commit, push, watch the Pages run, and check the same on the live site.
