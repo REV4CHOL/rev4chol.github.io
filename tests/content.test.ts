@@ -214,6 +214,17 @@ describe('helpers', () => {
     expect(() => parseProjects([{ ...validProject(), filmPending: 'yes' }])).toThrow(ContentError);
   });
 
+  it('focus: where the subject sits, "X% Y%" (owner 2026-10-20: a focus point per film for the phone\'s crop)', () => {
+    expect(parseProjects([validProject()])[0].focus).toBe('50% 50%');
+    expect(parseProjects([{ ...validProject(), focus: '35% 50%' }])[0].focus).toBe('35% 50%');
+    expect(parseProjects([{ ...validProject(), focus: ' 0%   100% ' }])[0].focus).toBe('0% 100%');
+    expect(parseProjects([{ ...validProject(), focus: '62.5% 40%' }])[0].focus).toBe('62.5% 40%');
+    for (const bad of ['35%', '35 50', 'left', '35% 50% 10%', '101% 50%', '50% 120%', '-5% 50%', '']) {
+      expect(() => parseProjects([{ ...validProject(), focus: bad }]), bad).toThrow(/focus must look like "35% 50%"/);
+    }
+    expect(() => parseProjects([{ ...validProject(), focus: 35 }])).toThrow(ContentError);
+  });
+
   it('aspect 9:16, a vertical film (owner 2026-09-28: "a special vertical pane … vertical stills for all vertical projects")', () => {
     expect(parseProjects([{ ...validProject(), aspect: '9:16' }])[0].aspect).toBe('9:16');
     expect(aspectRatio('9:16')).toBeCloseTo(0.5625, 6);

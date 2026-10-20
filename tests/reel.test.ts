@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { parseJson, parseProjects } from '../src/lib/content';
 import { softBreaks } from '../src/lib/escape';
 import {
-  gateIndex, loopsAllowed, ONE_LINE_MIN, oneLineSize, railIndex, REEL_QUERY, REEL_WORDS, reelMode, roleLine, TITLE_MAX, TITLE_MIN, wrapStart,
+  coast, COAST_TAU, loopsAllowed, MAX_THROW, offsetForRail, ONE_LINE_MIN, oneLineSize, paneInView, panePlay, paneTop, railProgress,
+  REEL_QUERY, REEL_WORDS, reelMode, releaseSpeed, roleLine, ROLL_SECONDS, stripOrder, TITLE_MAX, TITLE_MIN, wrapStart,
 } from '../src/works/reel';
 
 // WORK ON A PHONE (owner, 2026-10-20: "on Phone, its completely overwhelming and disorienting … a complete redesign of
@@ -85,22 +86,90 @@ describe("a pane's words: the film's name and its roles, nothing else", () => {
   });
 });
 
-describe('the scrub rail and the gate', () => {
-  it('a thumb on the rail picks the film under it, never past either end', () => {
-    expect(railIndex(0, 400, 12)).toBe(0);
-    expect(railIndex(399, 400, 12)).toBe(11);
-    expect(railIndex(200, 400, 12)).toBe(6);
-    expect(railIndex(-30, 400, 12)).toBe(0);
-    expect(railIndex(900, 400, 12)).toBe(11);
-    expect(railIndex(100, 0, 12)).toBe(0);
+// (owner, 2026-10-20: "The moment we enter the work section, we can see the already continously scrolling down to the
+// next film in a continuous strips. And we can slide our finger up and down to scroll through the strip")
+describe('the rolling strip', () => {
+  const H = 844;
+
+  it('is endless: every pane stands once in a lap, from one pane above the screen to the lap\'s end', () => {
+    for (const n of [3, 5, 12]) for (const offset of [0, 1, 420, H, 5 * H + 17, -3 * H - 5, 1e6]) {
+      const tops = Array.from({ length: n }, (_, i) => paneTop(i, offset, H, n));
+      for (const t of tops) { expect(t).toBeGreaterThanOrEqual(-H); expect(t).toBeLessThan((n - 1) * H + 1e-6); }
+      const sorted = [...tops].sort((a, b) => a - b);
+      for (let k = 1; k < n; k++) expect(sorted[k] - sorted[k - 1]).toBeCloseTo(H, 6); // (no gap, no overlap)
+      expect(tops.some((t) => t <= 0 && t + H > 0)).toBe(true); // (the screen's top is always covered)
+    }
   });
 
-  it('the pane in the gate is the nearest snap, the EOF slate included', () => {
-    expect(gateIndex(0, 844, 13)).toBe(0);
-    expect(gateIndex(1680, 844, 13)).toBe(2);
-    expect(gateIndex(12 * 844, 844, 13)).toBe(12);
-    expect(gateIndex(99999, 844, 13)).toBe(12);
-    expect(gateIndex(300, 0, 13)).toBe(0);
+  it('rolls the next film in from below: one pane on, the strip has moved one pane', () => {
+    expect(paneTop(0, 0, H, 12)).toBe(0);
+    expect(paneTop(1, 0, H, 12)).toBe(H);
+    expect(paneTop(1, H, H, 12)).toBe(0);
+    expect(paneTop(0, H, H, 12)).toBe(-H);
+    expect(paneTop(0, 12 * H, H, 12)).toBe(0); // (a whole lap: the first film again)
+    expect(paneTop(11, -H, H, 12)).toBe(0); // (dragged back from the first film: the last one)
+  });
+
+  it('knows the film in view, and the rail\'s playhead sits on its tick when it stands square', () => {
+    expect(paneInView(0, H, 12)).toBe(0);
+    expect(paneInView(H * 0.4, H, 12)).toBe(0);
+    expect(paneInView(H * 0.6, H, 12)).toBe(1);
+    expect(paneInView(-H, H, 12)).toBe(11);
+    for (const i of [0, 4, 11]) expect(railProgress(i * H, H, 12)).toBeCloseTo((i + 0.5) / 12, 9);
+    expect(railProgress(12 * H, H, 12)).toBeCloseTo(0.5 / 12, 9);
+  });
+
+  it('a touch on the rail moves the strip there, on the lap it is already on', () => {
+    for (const i of [0, 3, 5, 11]) {
+      const at = offsetForRail((i + 0.5) / 12, H, 12, 0);
+      expect(paneInView(at, H, 12)).toBe(i);
+      expect(Math.abs(at)).toBeLessThanOrEqual(6 * H); // (the short way round: the last film is one pane back)
+    }
+    expect(offsetForRail(11.5 / 12, H, 12, 0)).toBeCloseTo(-H, 6);
+    const far = 40 * 12 * H; // (forty laps on)
+    expect(Math.abs(offsetForRail(0.5, H, 12, far) - far)).toBeLessThanOrEqual(6 * H);
+    expect(offsetForRail(-1, H, 12, 0)).toBeCloseTo(-H / 2, 6); // (held to the rail's ends)
+  });
+
+  it('a short chapter is laid again, so the strip never shows a gap', () => {
+    expect(stripOrder(12)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(stripOrder(5)).toEqual([0, 1, 2, 3, 4]);
+    expect(stripOrder(2)).toEqual([0, 1, 0, 1]);
+    expect(stripOrder(1)).toEqual([0, 0, 0]);
+    expect(stripOrder(0)).toEqual([]);
+  });
+
+  it('rolls one screen every 7 seconds; a throw coasts to its target, a rest swells into the roll', () => {
+    expect(ROLL_SECONDS).toBe(7);
+    expect(coast(3000, 0, COAST_TAU)).toBeCloseTo(3000 / Math.E, 6);
+    let v = 3000;
+    for (let t = 0; t < 3; t += 1 / 60) v = coast(v, 0, 1 / 60);
+    expect(Math.abs(v)).toBeLessThan(5); // (a hard throw is at rest within three seconds)
+    let r = 0;
+    for (let t = 0; t < 2; t += 1 / 60) r = coast(r, H / ROLL_SECONDS, 1 / 60);
+    expect(r).toBeGreaterThan(0.98 * (H / ROLL_SECONDS)); // (and the roll is back to pace within two)
+    expect(coast(500, 120, 0)).toBe(500);
+  });
+
+  it('the finger\'s throw: its travel over its last 100 ms, up moving the strip on, held still throwing nothing', () => {
+    expect(releaseSpeed([[0, 600], [50, 500], [100, 400]], 100)).toBeCloseTo(2000, 6); // (up 200 px in 0.1 s)
+    expect(releaseSpeed([[0, 400], [100, 600]], 100)).toBeCloseTo(-2000, 6); // (down: back)
+    expect(releaseSpeed([[0, 600], [40, 400], [300, 400]], 300)).toBe(0); // (stopped, then lifted)
+    expect(releaseSpeed([[0, 600]], 0)).toBe(0);
+    expect(releaseSpeed([[0, 900], [10, 0]], 10)).toBe(MAX_THROW);
+  });
+
+  it('plays every pane on the screen and the next to come in; rests the near; lets the far go', () => {
+    expect(panePlay(0, H, H, 1)).toBe('play');
+    expect(panePlay(-H / 2, H, H, 1)).toBe('play'); // (half out at the top)
+    expect(panePlay(H / 2, H, H, 1)).toBe('play'); // (half in from below)
+    expect(panePlay(H, H, H, 1)).toBe('play'); // (the next to come in, rolling on)
+    expect(panePlay(H, H, H, -1)).toBe('rest'); // (… but not while the strip goes back)
+    expect(panePlay(-H, H, H, -1)).toBe('play'); // (going back, the one above comes in)
+    expect(panePlay(-H, H, H, 1)).toBe('rest');
+    expect(panePlay(2 * H, H, H, 1)).toBe('rest');
+    expect(panePlay(3 * H, H, H, 1)).toBe('free');
+    expect(panePlay(-3 * H, H, H, 1)).toBe('free');
   });
 });
 
@@ -109,13 +178,6 @@ describe("the reel's words (controls in plain sentences, the house's codes as th
     expect(REEL_WORDS.back).toBe('◂ BACK TO THE REEL');
     expect(REEL_WORDS.all).toBe('LIST ▸');
     expect(REEL_WORDS.allLabel(17)).toBe('List all 17 films');
-    expect(REEL_WORDS.list(17)).toBe('SEE ALL 17 FILMS IN A LIST ▸');
-  });
-
-  it("the end slate tunes to the other chapter, counting its films; the foot counts each chapter's", () => {
-    expect(REEL_WORDS.eof('CH·01', 12)).toBe('EOF ▪ CH·01 ▪ 12 FILMS');
-    expect(REEL_WORDS.tune('CH·02', 'AI', 5)).toBe('TUNE TO CH·02 ▸ AI — 5 MORE FILMS');
-    expect(REEL_WORDS.tune('CH·01', 'COLORIST', 1)).toBe('TUNE TO CH·01 ▸ COLORIST — 1 MORE FILM');
     expect(REEL_WORDS.chapterLine('CH·02', 5)).toBe('CH·02 ▪ 5 FILMS');
   });
 });

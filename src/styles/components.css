@@ -172,6 +172,20 @@
    furniture, and one human line of Old English against all of it. */
 #hero-host { position: fixed; inset: 0; z-index: 1; }
 #hero-host canvas { width: 100%; height: 100%; display: block; }
+/* the reel as images (src/home/hero.ts, lib/autoplay.ts): a battery saver refused the videos' play() (iOS Low Power
+   Mode), and Safari shows each loop in an <img>, outside the video rules (owner, 2026-10-20: "i dont care which power
+   mode iphone is on, but I want all the sections in both the homepage and work section to play all video right
+   away"). One stands at a time; a cut is a short tear; under CALM a plain cut */
+.hero-imgs { position: absolute; inset: 0; overflow: hidden; }
+.hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; }
+.hero-img.is-on { opacity: 1; }
+@keyframes hero-cut {
+  0% { transform: translateX(-10px); filter: saturate(2.2) contrast(1.5); }
+  40% { transform: translateX(7px); filter: hue-rotate(40deg) contrast(1.3); }
+  100% { transform: none; filter: none; }
+}
+.hero-imgs.is-cut { animation: hero-cut 0.24s steps(3) 1; }
+.rvl-calm .hero-imgs.is-cut { animation: none; }
 .hero-veil {
   position: absolute; inset: 0; width: 100%; height: 100%;
   image-rendering: pixelated; opacity: 1;
@@ -633,8 +647,11 @@
    (touch, and under 640 px wide or 500 px tall): one film to a screen and a swipe per film. A pane is the whole screen,
    its loop covering it, as antiantiart.com's on a phone (owner, the same day, with two screenshots of it: "I would
    prefer the sizing of all panes on Phone in the work section to be like this website"); on it only the film's name
-   and its roles ("Do not clog this section up with texts"). The header and the foot lie over the picture, the rail
-   down its right edge. The floor, its legend and its tabs leave a phone; THE LIST stays, as the index. */
+   and its roles ("Do not clog this section up with texts"). The panes run as one endless strip that rolls on its own
+   and a finger drags ("we can see the already continously scrolling down to the next film in a continuous strips. And
+   we can slide our finger up and down"): works/reel-view.ts moves it, each pane by its transform. The header and the
+   foot lie over the picture, the rail down its right edge. The floor, its legend and its tabs leave a phone; THE LIST
+   stays, as the index. */
 .works-main.is-reel { --reel-foot: 62px; }
 .works-main.is-reel #floor, .works-main.is-reel .ch-switch, .works-main.is-reel #tile-label,
 .works-main.is-reel #sr-projects { display: none; }
@@ -649,17 +666,16 @@
 .rvl-reel .hud button { color: var(--bone); text-shadow: 0 0 6px rgba(6, 6, 6, 0.95); }
 .rvl-reel .hud button[aria-pressed="false"] { color: color-mix(in srgb, var(--bone) 55%, transparent); }
 .reel { position: fixed; inset: 0; z-index: 900; }
+/* the strip: no scrolling — the finger and the roll move it (touch-action: none hands every touch to the script) */
 .rl-strip {
-  position: absolute; inset: 0; margin: 0; padding: 0; list-style: none;
-  overflow-y: auto; overscroll-behavior: contain; scroll-snap-type: y mandatory; scrollbar-width: none;
+  position: absolute; inset: 0; margin: 0; padding: 0; list-style: none; overflow: hidden;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
-.rl-strip::-webkit-scrollbar { display: none; }
 .rl-strip[hidden] { display: none; }
-/* a pane: the whole screen, one film, the cut between two a hairline of field blue */
+/* a pane: the whole screen, one film, set along the strip by its transform; the cut between two a hairline of field blue */
 .rl-frame {
-  position: relative; box-sizing: border-box; height: 100%; overflow: hidden; background: var(--void);
-  scroll-snap-align: start; scroll-snap-stop: always;
-  border-bottom: 1px solid color-mix(in srgb, var(--field) 60%, transparent);
+  position: absolute; left: 0; right: 0; top: 0; box-sizing: border-box; height: 100%; overflow: hidden;
+  background: var(--void); will-change: transform; border-bottom: 1px solid color-mix(in srgb, var(--field) 60%, transparent);
 }
 /* the film's edge: sprockets down the left, riding with the panes */
 .rl-frame::before {
@@ -668,7 +684,8 @@
 }
 .rl-link { position: absolute; inset: 0; display: block; color: inherit; text-decoration: none; -webkit-tap-highlight-color: transparent; }
 .rl-pane { position: absolute; inset: 0; display: block; overflow: hidden; background: var(--surface); }
-.rl-poster, .rl-loop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.rl-poster, .rl-loop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: var(--focus, 50% 50%); }
+/* (the crop keeps the film's subject: its focus point, "X% Y%" in projects.json — owner, 2026-10-20) */
 .rl-loop { opacity: 0; transition: opacity 0.25s; }
 .rl-loop.is-live { opacity: 1; }
 .rl-scan { position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(6, 6, 6, 0.16) 0 1px, transparent 1px 3px); }
@@ -709,39 +726,11 @@
   text-shadow: 0 0 4px rgba(6, 6, 6, 0.95), 0 1px 2px rgba(6, 6, 6, 0.9);
 }
 .rl-link:active .rl-title { color: var(--acc); }
-.rl-frame.is-flick .rl-title { animation: rgb-flick 0.32s steps(2) 1; }
-/* the end of a reel: EOF, the other chapter's name, the way to it — over a film leader's ring */
-.rl-eof {
-  display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 14px;
-  padding: calc(var(--reel-top, 132px) + 8px) 44px calc(var(--reel-foot) + env(safe-area-inset-bottom) + 16px) 30px;
-}
-.rl-eof::after {
-  content: ''; position: absolute; right: -70px; top: 50%; width: 300px; height: 300px; margin-top: -150px; z-index: -1;
-  border: 1px solid color-mix(in srgb, var(--field) 70%, transparent); border-radius: 50%; pointer-events: none;
-  background:
-    linear-gradient(color-mix(in srgb, var(--field) 70%, transparent), color-mix(in srgb, var(--field) 70%, transparent)) center / 1px 100% no-repeat,
-    linear-gradient(color-mix(in srgb, var(--field) 70%, transparent), color-mix(in srgb, var(--field) 70%, transparent)) center / 100% 1px no-repeat,
-    radial-gradient(circle, transparent 0 96px, color-mix(in srgb, var(--field) 55%, transparent) 96px 97px, transparent 97px);
-}
-.rl-eof { isolation: isolate; }
-.rl-edge {
-  position: absolute; left: 20px; top: calc(var(--reel-top, 132px) + 14px); writing-mode: vertical-rl; white-space: nowrap;
-  font-size: 8px; letter-spacing: 0.3em; color: color-mix(in srgb, var(--signal) 72%, transparent);
-}
-.rl-eof-line { margin: 0; font-size: 10px; letter-spacing: 0.24em; color: color-mix(in srgb, var(--bone) 70%, transparent); }
-.rl-eof-next {
-  margin: 0; font-family: var(--f-display); font-weight: 700; font-size: 88px; line-height: 0.9; letter-spacing: 0.02em;
-  color: transparent; -webkit-text-stroke: 1.5px var(--signal);
-}
-.rl-tune {
-  min-height: 48px; padding: 0 28px 0 16px; border: 0; text-align: left; font-size: 11px; letter-spacing: 0.2em;
-  background: var(--signal); color: var(--void); clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 100%, 8px 100%);
-}
-.rl-all, .rl-allbtn {
+.rl-allbtn {
   min-height: 44px; padding: 9px 18px 8px; border: 1px solid color-mix(in srgb, var(--bone) 70%, transparent);
   border-radius: 999px; background: transparent; color: var(--bone); font-size: 10px; letter-spacing: 0.2em; white-space: nowrap;
 }
-.rl-tune:active, .rl-all:active, .rl-allbtn:active { background: var(--bone); color: var(--void); }
+.rl-allbtn:active { background: var(--bone); color: var(--void); }
 /* the scrub rail: an editor's timeline down the picture's right edge — a tick per film in its accent, the lime playhead
    on the film in the gate */
 .rl-rail {
@@ -753,7 +742,7 @@
   background: color-mix(in srgb, var(--bone) 40%, transparent); box-shadow: 0 0 3px rgba(6, 6, 6, 0.8);
 }
 .rl-tick { position: absolute; right: 13px; width: 8px; height: 2px; margin-top: -1px; background: var(--acc); box-shadow: 0 0 3px rgba(6, 6, 6, 0.85); }
-.rl-play { position: absolute; right: 8px; width: 18px; height: 3px; margin-top: -1.5px; background: var(--signal); box-shadow: 0 0 4px rgba(6, 6, 6, 0.85); transition: top 0.18s; }
+.rl-play { position: absolute; right: 8px; width: 18px; height: 3px; margin-top: -1.5px; background: var(--signal); box-shadow: 0 0 4px rgba(6, 6, 6, 0.85); }
 /* the foot over the picture: the chapters in their tab grammar (the name always bigger than its CH·NN), and LIST */
 .rl-foot {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 945; display: flex; align-items: center; gap: 2px;
@@ -773,13 +762,14 @@
 .rl-chap.is-on { color: var(--signal); }
 .rl-chap.is-on .rl-chap-name { text-decoration: none; }
 .rl-allbtn { margin-left: auto; padding: 9px 14px 8px; background: color-mix(in srgb, var(--void) 45%, transparent); }
-/* arrival: the first picture comes up through the gate, the foot rises; under CALM it all simply stands */
+/* arrival: the first picture comes up through the gate, the foot rises; under CALM it all simply stands (and the strip
+   never rolls by itself: works/reel-view.ts) */
 @keyframes rl-gate { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes rl-rise { from { transform: translateY(100%); } to { transform: none; } }
 .works-main.is-arriving .rl-strip:not([hidden]) .rl-frame:first-child .rl-pane { animation: rl-gate 0.42s steps(7) both; }
 .works-main.is-arriving .rl-foot { animation: rl-rise 0.36s var(--ease-out) both; }
-.rvl-calm .rl-frame.is-flick .rl-title, .rvl-calm .works-main.is-arriving .rl-pane, .rvl-calm .works-main.is-arriving .rl-foot { animation: none; }
-.rvl-calm .rl-play, .rvl-calm .rl-loop { transition: none; }
+.rvl-calm .works-main.is-arriving .rl-pane, .rvl-calm .works-main.is-arriving .rl-foot { animation: none; }
+.rvl-calm .rl-loop { transition: none; }
 /* a phone on its side: the same whole-screen pane; a vertical film stands whole in the middle, never cropped wide (the
    owner's standing rule: vertical footage gets vertical treatment); the words keep to the left; the foot slims */
 @media (max-height: 500px) {
@@ -788,9 +778,6 @@
   .rl-cap { right: auto; width: 56%; bottom: calc(var(--reel-foot) + env(safe-area-inset-bottom) + 22px); gap: 6px; }
   .rl-chap { min-height: 40px; padding: 2px 8px; }
   .rl-chap-name { font-size: 16px; }
-  .rl-eof-next { font-size: 48px; }
-  .rl-eof { flex-direction: row; flex-wrap: wrap; align-items: center; align-content: center; }
-  .rl-eof::after { right: 30px; width: 200px; height: 200px; margin-top: -100px; } /* (the leader's ring inside a short frame) */
 }
 
 /* THE LIST'S CITY AND ITS MACHINES (works/list-deco.ts; owner, 2026-10-13: "decoration art filling up the two sides'

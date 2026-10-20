@@ -22,7 +22,7 @@ const project = (over: Partial<Project> = {}): Project => ({
   slug: 'philia', title: 'PHILIA', year: 2026, role: 'Colorist', runtime: '11:42', client: '', short: '', tags: [],
   accent: '#c8ff00', tileSize: 'large', aspect: '16:9', category: 'human', synopsis: '', credits: [],
   film: { type: 'youtube', src: 'https://youtu.be/abcdefghijk' }, films: [], filmPending: false, filmPrivate: false,
-  stills: [], position: null,
+  stills: [], position: null, focus: '50% 50%',
   ...over,
 });
 
@@ -349,10 +349,24 @@ describe('a phone gets the reel, never the floor (pins)', () => {
 
   // (owner, 2026-10-20, with two screenshots of antiantiart.com on a phone: "I would prefer the sizing of all panes on
   // Phone in the work section to be like this website")
-  it('a pane is the whole screen, its picture covering it', () => {
+  it('a pane is the whole screen, its picture covering it around the film\'s focus point', () => {
     expect(css).toContain('.reel { position: fixed; inset: 0; z-index: 900; }');
-    expect(css).toMatch(/\n\.rl-frame \{[^}]*height: 100%;[^}]*scroll-snap-align: start; scroll-snap-stop: always;/);
-    expect(css).toContain('.rl-poster, .rl-loop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }');
+    expect(css).toMatch(/\n\.rl-frame \{[^}]*position: absolute;[^}]*height: 100%;/);
+    expect(css).toContain('.rl-poster, .rl-loop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: var(--focus, 50% 50%); }');
+    expect(view).toContain("pane.style.setProperty('--focus', p.focus);");
+  });
+
+  // (owner, 2026-10-20: "The moment we enter the work section, we can see the already continously scrolling down to the
+  // next film in a continuous strips. And we can slide our finger up and down to scroll through the strip")
+  it('the strip rolls on its own, endless, and a finger takes it; CALM never rolls it; a drag opens no film', () => {
+    expect(css).toMatch(/\n\.rl-strip \{[^}]*overflow: hidden;[^}]*touch-action: none;/);
+    expect(css).not.toContain('scroll-snap');
+    expect(view).toContain('li.style.transform = `translate3d(0, ${Math.round(paneTop(i, offset, h, n) * dpr) / dpr}px, 0)`;');
+    expect(view).toContain('const rollSpeed = () => (reducedMotion() ? 0 : h / ROLL_SECONDS);');
+    expect(view).toContain('v = moved ? releaseSpeed(moves, e.timeStamp) : 0;');
+    expect(view).toContain('restUntil = performance.now() + REST_AFTER_TOUCH_MS;');
+    expect(view).toMatch(/root\.addEventListener\('click', \(e\) => \{\s+if \(!dragged\) return;[\s\S]*?e\.preventDefault\(\);/);
+    expect(view).not.toContain('rl-eof'); // (endless: no end slate on a phone)
   });
 
   it("a vertical film stands vertical: on a phone held on its side it stands whole, never cropped wide", () => {
@@ -368,14 +382,25 @@ describe('a phone gets the reel, never the floor (pins)', () => {
     }
   });
 
-  it('only the film in the gate plays, on every tier; a touch re-offers it; CALM keeps the reel still', () => {
-    expect(view).toContain("if (!li || !loops || li.classList.contains('rl-eof')) return null;");
+  it('every pane in view plays, on every tier; a refusal turns the loops to images; a touch re-offers a video', () => {
+    expect(view).toContain("if (!allowed) return null; // (Save-Data or a 2g line: the posters)");
     expect(view).not.toContain('quality.tier()'); // (a remembered LITE once left a phone on posters all visit)
+    expect(view).toContain("else if (want[i] === 'rest') { const l = loops.get(li); if (l instanceof HTMLVideoElement) l.pause(); }");
+    expect(view).toContain('l = loopsAsImages() ? imageLoop(li, chain) : videoLoop(chain);');
+    expect(view).toContain('if (isRefusal(e)) noteRefusal();');
     expect(view).toContain("window.addEventListener('touchend', kick, { passive: true });");
-    expect(view).toContain('if (Math.abs(j - gate) > 1) release(li);');
-    expect(view).toContain('if (!li || reducedMotion()) return;');
     expect(view).toContain('if (!reducedMotion()) {');
-    expect(css).toContain('.rvl-calm .rl-frame.is-flick .rl-title, .rvl-calm .works-main.is-arriving .rl-pane, .rvl-calm .works-main.is-arriving .rl-foot { animation: none; }');
+    expect(css).toContain('.rvl-calm .works-main.is-arriving .rl-pane, .rvl-calm .works-main.is-arriving .rl-foot { animation: none; }');
+  });
+
+  // (owner, 2026-10-20: "i dont care which power mode iphone is on, but I want all the sections in both the homepage
+  // and work section to play all video right away")
+  it('the homepage turns to images on a refusal, at once when the visit was refused before', () => {
+    const hero = readFileSync('src/home/hero.ts', 'utf8');
+    expect(hero).toContain('if (probe) playOrNote(v);');
+    expect(hero).toContain('if (loopsAsImages()) mountImageReel();');
+    expect(hero).toContain('onRefusal(() => { if (imageLoopsWork() !== false) mountImageReel(); });');
+    expect(css).toContain('.hero-img.is-on { opacity: 1; }');
   });
 
   it('one tap opens a film, with the house wipe', () => {

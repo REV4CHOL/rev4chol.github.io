@@ -24,6 +24,7 @@ const proj = (slug: string, category: 'human' | 'machine'): Project => ({
   films: [],
   stills: [],
   position: null,
+  focus: '50% 50%',
 });
 
 describe('the two channels', () => {

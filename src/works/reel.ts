@@ -2,11 +2,13 @@
  *  Phone, its completely overwhelming and disorienting … I want a complete redesign of the interface of the Work
  *  section, still keeping the fundamental art direction, but changing the UI/UX specifically for Phones").
  *
- *  On a phone the section is a showreel: one film to a screen, a swipe per film. Each pane is the whole screen, its loop
- *  covering it, and on it only the film's name and its roles (owner, the same day, with two screenshots of
- *  antiantiart.com on a phone: "I would prefer the sizing of all panes on Phone in the work section to be like this
- *  website" — "only the Project name, and the Role names are enough. Do not clog this section up with texts"). Pure:
- *  which screens get it, its words, the loops' rule, the rail's scrub; works/reel-view.ts builds it. */
+ *  On a phone the section is a rolling strip of films, endless: each pane is the whole screen, its loop covering it,
+ *  and on it only the film's name and its roles (owner, the same day, with two screenshots of antiantiart.com on a
+ *  phone: "I would prefer the sizing of all panes on Phone in the work section to be like this website" — "only the
+ *  Project name, and the Role names are enough"). It rolls on its own from arrival, and a finger takes it ("The moment
+ *  we enter the work section, we can see the already continously scrolling down to the next film in a continuous
+ *  strips. And we can slide our finger up and down to scroll through the strip"). Pure: which screens get it, the
+ *  strip's arithmetic, its words, the loops' rule; works/reel-view.ts builds it. */
 
 /** A phone: touch, and narrow (portrait) or short (landscape). A tablet and a desktop keep the floor. */
 export function reelMode(m: { coarse: boolean; width: number; height: number }): boolean {
@@ -51,16 +53,79 @@ export function roleLine(role: string): string {
     .join(' / ');
 }
 
-/** Scrubbing the rail: the film under a thumb at `y` on a rail `h` tall holding `n` films. */
-export function railIndex(y: number, h: number, n: number): number {
-  if (n <= 0 || h <= 0) return 0;
-  return Math.max(0, Math.min(n - 1, Math.floor((y / h) * n)));
+/* ---------------------------------------------------------------------- the rolling strip -- */
+
+/** The strip's pace: one screen every ROLL_SECONDS. */
+export const ROLL_SECONDS = 7;
+/** After a finger lets go, the strip coasts to rest and waits this long before it rolls on. */
+export const REST_AFTER_TOUCH_MS = 2500;
+/** The coast's time constant, s: the strip's speed closes on its target by a factor e every COAST_TAU. */
+export const COAST_TAU = 0.45;
+/** A press that travels less than this, px, is a tap: it opens the film under it. */
+export const TAP_SLOP = 8;
+/** The fastest throw, px/s. */
+export const MAX_THROW = 6000;
+
+const mod = (a: number, m: number): number => ((a % m) + m) % m;
+
+/** The film behind each pane of the strip: the chapter in order, laid twice or thrice when it holds one or two films,
+ *  so the endless strip never shows a gap. */
+export function stripOrder(films: number): number[] {
+  if (films <= 0) return [];
+  const laps = films >= 3 ? 1 : Math.ceil(3 / films);
+  return Array.from({ length: films * laps }, (_, i) => i % films);
 }
 
-/** Which pane stands in the gate when the reel has scrolled `top` px with panes `step` px apart. */
-export function gateIndex(top: number, step: number, frames: number): number {
-  if (frames <= 0 || step <= 0) return 0;
-  return Math.max(0, Math.min(frames - 1, Math.round(top / step)));
+/** A pane's top on the screen, px: pane `i` of `n`, each `h` tall, the strip moved `offset` px on. Endless: every pane
+ *  stands once in a lap, from one pane above the screen down to the lap's end. */
+export function paneTop(i: number, offset: number, h: number, n: number): number {
+  return mod(i * h - offset + h, n * h) - h;
+}
+
+/** The pane most in view: the one standing nearest square in the screen. */
+export function paneInView(offset: number, h: number, n: number): number {
+  return n > 0 && h > 0 ? mod(Math.round(offset / h), n) : 0;
+}
+
+/** The rail's playhead, 0..1 down the rail: on a pane's tick when that pane stands square in the screen. */
+export function railProgress(offset: number, h: number, n: number): number {
+  return n > 0 && h > 0 ? mod(offset + h / 2, n * h) / (n * h) : 0;
+}
+
+/** Where a touch `p` (0..1) down the rail moves the strip: that point of the lap square in the screen, on the lap the
+ *  strip is already on (a scrub never spins it through a whole lap). */
+export function offsetForRail(p: number, h: number, n: number, current: number): number {
+  const lap = n * h;
+  const target = Math.max(0, Math.min(1, p)) * lap - h / 2;
+  return target + Math.round((current - target) / lap) * lap;
+}
+
+/** The strip's speed, px/s, eased toward `target` over `dt` s: a throw slows to rest, a rest swells into the roll. */
+export function coast(v: number, target: number, dt: number, tau = COAST_TAU): number {
+  return target + (v - target) * Math.exp(-Math.max(0, dt) / tau);
+}
+
+/** The finger's speed as it lets go, px/s along the strip (a finger moving up moves the strip on): its travel over the
+ *  last 100 ms of moves, so a finger held still before it lifts throws nothing. `moves` are [ms, y px], oldest first. */
+export function releaseSpeed(moves: readonly (readonly [number, number])[], now: number): number {
+  const recent = moves.filter(([t]) => now - t <= 100);
+  if (recent.length < 2) return 0;
+  const [t0, y0] = recent[0], [t1, y1] = recent[recent.length - 1];
+  if (t1 - t0 <= 0) return 0;
+  const v = -((y1 - y0) / (t1 - t0)) * 1000;
+  return Math.max(-MAX_THROW, Math.min(MAX_THROW, v));
+}
+
+export type PanePlay = 'play' | 'rest' | 'free';
+/** What a pane at `top` (px, `h` tall, on a screen `view` tall) does with its loop while the strip moves `dir`: on the
+ *  screen, or the next to come in, it plays; within two screens it rests, loaded; further off it gives the video back. */
+export function panePlay(top: number, h: number, view: number, dir: number): PanePlay {
+  const bottom = top + h;
+  if (bottom > 0 && top < view) return 'play';
+  if (dir >= 0 && top >= view && top < view + h) return 'play';
+  if (dir < 0 && bottom <= 0 && bottom > -h) return 'play';
+  if (top < view + 2 * h && bottom > -2 * h) return 'rest';
+  return 'free';
 }
 
 const films = (n: number) => `${n} ${n === 1 ? 'FILM' : 'FILMS'}`;
@@ -71,7 +136,4 @@ export const REEL_WORDS = {
   /** a chapter's small line in the foot: its index and its count */
   chapterLine: (index: string, count: number): string => `${index} ▪ ${films(count)}`,
   back: '◂ BACK TO THE REEL',
-  eof: (index: string, n: number): string => `EOF ▪ ${index} ▪ ${films(n)}`,
-  tune: (index: string, name: string, more: number): string => `TUNE TO ${index} ▸ ${name} — ${more} MORE ${more === 1 ? 'FILM' : 'FILMS'}`,
-  list: (total: number): string => `SEE ALL ${films(total)} IN A LIST ▸`,
 };

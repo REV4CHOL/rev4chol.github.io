@@ -10,6 +10,7 @@
       "supernatural"
     ],
     "accent": "#8FCC6B",
+    "focus": "45% 50%",
     "tileSize": "large",
     "category": "human",
     "synopsis": "A ghost of the past, the present and the future.",
@@ -34,6 +35,7 @@
       "experimental"
     ],
     "accent": "#9AD8E6",
+    "focus": "62% 50%",
     "aspect": "4:3",
     "tileSize": "large",
     "synopsis": "Present as if in the past.",
@@ -207,6 +209,7 @@
       "spec advertisement"
     ],
     "accent": "#FFA84D",
+    "focus": "60% 50%",
     "synopsis": "A dog, a city and one long golden hour on the road. A machine-dreamt spec ad for the JAECOO J5.",
     "credits": [
       {
@@ -366,6 +369,7 @@
       "indie short film"
     ],
     "accent": "#F5AE4A",
+    "focus": "46% 50%",
     "aspect": "2.39:1",
     "synopsis": "Failure is not an option. Neither is studying.",
     "credits": [

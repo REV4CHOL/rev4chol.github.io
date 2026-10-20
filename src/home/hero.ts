@@ -2,6 +2,7 @@
 import 'pixi.js/unsafe-eval';
 import { Application, Assets, Container, DisplacementFilter, Sprite, Texture } from 'pixi.js';
 import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
+import { imageLoopsWork, isRefusal, loopsAsImages, noteImageLoops, noteRefusal, onRefusal } from '../lib/autoplay';
 import { homeLoopFiles, loadLoopManifest } from '../lib/content';
 import { ditherImageToCanvas } from '../lib/dither';
 import { dprCap, reducedMotion } from '../lib/env';
@@ -101,7 +102,12 @@ interface Clip {
   sample(): CanvasImageSource | null;
 }
 
-function loadVideoClip(url: string, autostart: boolean, eager = true): Promise<Clip | null> {
+/** A play() that a battery saver refuses (iOS Low Power Mode) says so: the reel turns to images (lib/autoplay.ts). */
+const playOrNote = (v: HTMLVideoElement): void => {
+  void v.play().catch((e) => { if (isRefusal(e)) noteRefusal(); /* (else: stays on its frame; a touch retries) */ });
+};
+
+function loadVideoClip(url: string, autostart: boolean, eager = true, probe = false): Promise<Clip | null> {
   return new Promise((resolve) => {
     const v = document.createElement('video');
     v.muted = true;
@@ -127,20 +133,23 @@ function loadVideoClip(url: string, autostart: boolean, eager = true): Promise<C
       clearTimeout(bail);
       const sprite = new Sprite(videoTexture(v));
       sprite.anchor.set(0.5);
-      if (autostart) void v.play().catch(() => { /* poster frame remains */ });
+      if (autostart) playOrNote(v);
       else v.pause();
       resolve({
         url,
         sprite,
         width: v.videoWidth,
         height: v.videoHeight,
-        play: () => { void v.play().catch(() => { /* stays on its frame */ }); },
+        play: () => playOrNote(v),
         pause: () => v.pause(),
         rewind: () => { try { v.currentTime = 0; } catch { /* not seekable yet */ } },
         sample: () => v,
       });
     }, { once: true });
     v.src = url;
+    // the first clip asks to play at once: a battery saver's refusal is then known before any metadata arrives (its
+    // metadata may never come without a play); played early, it is paused at metadata and taken up by the reel
+    if (probe) playOrNote(v);
   });
 }
 
@@ -176,8 +185,11 @@ interface FoundLoop { url: string; ext: string }
 type CropVerdict = { x: number; y: number; w: number; h: number } | 'clean' | 'dark';
 
 function detectActiveRegion(v: HTMLVideoElement): CropVerdict {
-  const vw = v.videoWidth;
-  const vh = v.videoHeight;
+  return detectRegion(v, v.videoWidth, v.videoHeight);
+}
+
+/** The same scan over any picture `vw` × `vh` — a video's frame, or the frame an image stands on. */
+function detectRegion(v: CanvasImageSource, vw: number, vh: number): CropVerdict {
   if (!vw || !vh) return 'dark';
   const W = 96;
   const H = Math.max(6, Math.round((W * vh) / vw));
@@ -580,32 +592,105 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
     ensureCropped(c); // cached verdicts apply here, long before first show
     if (clips.length === 2) warm(c); // the very next window — start buffering now
   };
-  let reelUp = false;
-  foundLoops.forEach((fl, i) => {
-    const load = fl.ext === 'gif' ? loadGifClip(fl.url, false) : loadVideoClip(fl.url, false, i < 2);
-    void load.then((c) => {
-      if (!c) return;
-      if (!reelUp) {
-        reelUp = true;
-        mountReel([c]);
-        armFirstFrameCrop(c);
-      } else {
-        attachClip(c);
-      }
+  let reelUp = false, videoStarted = false;
+  const startVideoReel = () => {
+    if (videoStarted) return;
+    videoStarted = true;
+    foundLoops.forEach((fl, i) => {
+      const load = fl.ext === 'gif' ? loadGifClip(fl.url, false) : loadVideoClip(fl.url, false, i < 2, i === 0);
+      void load.then((c) => {
+        if (!c) return;
+        if (!reelUp) {
+          reelUp = true;
+          mountReel([c]);
+          armFirstFrameCrop(c);
+        } else {
+          attachClip(c);
+        }
+      });
     });
-  });
+  };
+
+  // ---- the reel as images (lib/autoplay.ts; owner, 2026-10-20: "i dont care which power mode iphone is on, but I want
+  // all the sections in both the homepage and work section to play all video right away"). A battery saver refuses the
+  // videos' play(); Safari shows each loop in an <img> instead, outside the video rules, from the same files. The cuts
+  // keep the reel's clock and the page still takes its colour from each loop; the datamosh and the lens need a video
+  // and wait for one. An image that will not load (no MP4 in an image here) hands back to the videos and their touch.
+  let imageReel: { at(): number } | null = null;
+  const mountImageReel = () => {
+    if (imageReel) return;
+    app.ticker.stop();
+    root.visible = false;
+    for (const c of clips) c.pause();
+    const layer = document.createElement('div');
+    layer.className = 'hero-imgs';
+    host.prepend(layer);
+    const imgs: HTMLImageElement[] = [];
+    let at = -1, timer = 0;
+    const stop = () => {
+      clearInterval(timer);
+      layer.remove();
+      imageReel = null;
+      root.visible = true;
+      app.ticker.start();
+    };
+    const trim = (im: HTMLImageElement) => { // (a loop's baked bars, cut as the video reel cuts them)
+      const r = detectRegion(im, im.naturalWidth, im.naturalHeight);
+      if (typeof r === 'object') im.style.transform = `scale(${Math.max(im.naturalWidth / r.w, im.naturalHeight / r.h)})`;
+    };
+    const load = (i: number): HTMLImageElement => {
+      if (imgs[i]) return imgs[i];
+      const im = new Image();
+      im.className = 'hero-img';
+      im.alt = '';
+      im.decoding = 'async';
+      im.addEventListener('load', () => { noteImageLoops(true); trim(im); }, { once: true });
+      im.addEventListener('error', () => {
+        if (!imageReel) return;
+        noteImageLoops(false);
+        stop();
+        startVideoReel(); // (the videos again: a touch starts them)
+        for (const c of clips) c.pause();
+        clips[active]?.play();
+      }, { once: true });
+      im.src = foundLoops[i].url;
+      layer.append(im);
+      imgs[i] = im;
+      return im;
+    };
+    const show = (i: number) => {
+      const im = load(i);
+      const cut = () => {
+        if (!imageReel || at === i) return;
+        if (at >= 0 && !reducedMotion()) { layer.classList.remove('is-cut'); void layer.offsetWidth; layer.classList.add('is-cut'); }
+        imgs.forEach((x, k) => x?.classList.toggle('is-on', k === i));
+        at = i;
+        try { setAccent(accentFromSource(im)); } catch { /* keep the colour */ }
+        if (foundLoops.length > 1) load((i + 1) % foundLoops.length); // (the next, on its way)
+      };
+      if (im.complete && im.naturalWidth) cut();
+      else im.addEventListener('load', cut, { once: true });
+    };
+    imageReel = { at: () => at };
+    show(0);
+    if (foundLoops.length > 1) timer = window.setInterval(() => show((Math.max(0, at) + 1) % foundLoops.length), CLIP_MS);
+  };
+  if (loopsAsImages()) mountImageReel(); // (this visit was refused before: images at once)
+  else startVideoReel();
+  onRefusal(() => { if (imageLoopsWork() !== false) mountImageReel(); });
+  (window as unknown as { rvlHeroImages: unknown }).rvlHeroImages = { on: () => !!imageReel, at: () => imageReel?.at() ?? -1 };
 
   // playback hygiene: browsers pause media on tab-hide and bfcache restore.
   // Coming back always restarts the window from the clip's top — resuming the
   // paused position mid-GOP opens on held frames, same as the swap case.
   const resumeActive = () => {
-    if (clips.length === 0 || document.hidden) return;
+    if (clips.length === 0 || document.hidden || imageReel) return; // (the images roll by themselves)
     clips[active].rewind();
     clips[active].play();
     clipClock = 0;
   };
   document.addEventListener('visibilitychange', () => {
-    if (clips.length === 0) return;
+    if (clips.length === 0 || imageReel) return;
     if (document.hidden) clips[active].pause();
     else resumeActive();
   });
@@ -614,7 +699,7 @@ export async function mountHero(host: HTMLElement): Promise<HeroInfo | null> {
   // does not come from a user gesture — so every touch quietly re-offers playback
   // to the active clip. A no-op when it is already rolling; the heal when not.
   const gestureKick = () => {
-    if (clips.length === 0 || document.hidden) return;
+    if (clips.length === 0 || document.hidden || imageReel) return;
     clips[active].play();
     // battery-saver phones reject the warm-plays too — a real touch is the
     // one moment they allow it, so re-offer the upcoming clip as well

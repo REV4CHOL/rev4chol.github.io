@@ -1,29 +1,31 @@
-/** WORK ON A PHONE: THE REEL, built (works/reel.ts says what it is and holds its rules).
+/** WORK ON A PHONE: THE REEL, built — a rolling strip (works/reel.ts says what it is and holds its rules).
  *
- *  - A strip per chapter: one film to a screen, a swipe per film (the panes snap one at a time), an EOF slate at the end
- *    that tunes to the other chapter.
- *  - A pane is the whole screen (owner, 2026-10-20, with antiantiart.com on a phone): the film's poster, then its loop,
- *    covering it. A vertical film on a phone held on its side stands whole in the middle, never cropped wide. On the
- *    pane only the film's name and its roles, and the house's hardware without words: the accent tab, the viewfinder's
- *    corners in the film's accent, the scan lines, the sprockets down the left edge. The header and the foot lie over
- *    the picture.
- *  - Down the right, the scrub rail: a tick per film and a lime playhead, to tap or drag along. At the foot, the
- *    chapters and LIST.
- *  - The pane in the gate plays its loop on every tier and the next one waits warm; a pane two away gives its video
- *    back. Save-Data or a 2g line shows posters. A touch re-offers the loop (battery savers). The page (pages/works.ts)
- *    runs the channel change and the list. */
+ *  - A strip per chapter: its films' panes, each the whole screen, set endlessly along the strip's offset by a transform
+ *    (no scrolling: the strip never ends and never jumps). From arrival it rolls on, one screen every ROLL_SECONDS.
+ *  - A finger takes it: the strip follows the finger, a release throws it, the throw coasts to rest, and after a rest it
+ *    rolls on. A tap opens the film under it; a drag opens none. Under CALM it never rolls by itself.
+ *  - A pane: the film's poster, then its loop, covering it around the film's focus point; on it only the film's name
+ *    and its roles, and the house's hardware without words (the accent tab, the viewfinder's corners, the scan lines,
+ *    the sprockets). A vertical film on a phone held on its side stands whole in the middle.
+ *  - Down the right, the scrub rail: a tick per film, the lime playhead travelling with the strip; a touch along it moves
+ *    the strip there. At the foot, the chapters and LIST.
+ *  - Every pane on the screen plays its loop, and so does the next to come in; panes further off rest, then give their
+ *    video back. A refused play() (iOS Low Power Mode) turns the loops into MP4 images (lib/autoplay.ts). Save-Data or
+ *    a 2g line shows posters. The page (pages/works.ts) runs the channel change and the list. */
 import { aspectRatio, loopSrcChain, projectAssetUrl, type Project } from '../lib/content';
+import { autoplayRefused, imageLoopsWork, isRefusal, loopsAsImages, noteImageLoops, noteRefusal, onRefusal } from '../lib/autoplay';
 import { reducedMotion } from '../lib/env';
 import { softBreaks } from '../lib/escape';
-import { scrambleEl } from '../lib/scramble';
-import { sound } from '../lib/sound';
-import { CHANNELS, type Channel, type ChannelKey, channelProjects } from './channels';
-import { gateIndex, loopsAllowed, oneLineSize, railIndex, REEL_WORDS, roleLine, TITLE_MAX, TITLE_MIN, wrapStart } from './reel';
+import { CHANNELS, type ChannelKey, channelProjects } from './channels';
+import {
+  coast, loopsAllowed, offsetForRail, oneLineSize, paneInView, panePlay, paneTop, railProgress, REEL_WORDS, releaseSpeed,
+  REST_AFTER_TOUCH_MS, roleLine, ROLL_SECONDS, stripOrder, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart, type PanePlay,
+} from './reel';
 
 export interface Reel {
   /** show a chapter's strip from its first film */
   tune(key: ChannelKey): void;
-  /** the list stands over it (true): the loop rests; false: back */
+  /** the list stands over it (true): the strip stops and its loops rest; false: back */
   park(parked: boolean): void;
 }
 export interface ReelOptions {
@@ -41,10 +43,13 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: s
   return e;
 };
 
+type Loop = HTMLVideoElement | HTMLImageElement;
+interface Strip { ol: HTMLOListElement; panes: HTMLLIElement[]; films: number }
+
 export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions): Reel {
   const total = projects.length;
   const root = el('section', 'reel');
-  root.setAttribute('aria-label', 'The films, one at a time');
+  root.setAttribute('aria-label', 'The films, rolling');
   const rail = el('div', 'rl-rail');
   rail.setAttribute('aria-hidden', 'true');
   const foot = el('nav', 'rl-foot');
@@ -62,50 +67,42 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     const a = el('a', 'rl-link');
     a.href = `/project.html?p=${p.slug}`;
     a.dataset.internal = '';
+    a.draggable = false;
     a.setAttribute('aria-label', `${p.title}. ${p.role}. Open this film.`);
     const pane = el('span', `rl-pane${aspectRatio(p.aspect) < 1 ? ' is-vertical' : ''}`);
+    pane.style.setProperty('--focus', p.focus); // (the crop keeps the film's subject: its focus point)
     const img = el('img', 'rl-poster');
     img.alt = '';
     img.decoding = 'async';
+    img.draggable = false;
     img.loading = i < 2 ? 'eager' : 'lazy';
     img.src = projectAssetUrl(p.slug, 'poster.jpg');
     pane.append(img, el('i', 'rl-scan'));
-    const marks = el('i', 'rl-marks');
     const cap = el('span', 'rl-cap');
     cap.append(el('i', 'rl-bar'), el('span', 'rl-title', softBreaks(p.title)), el('span', 'rl-role micro', roleLine(p.role))); // (a long name breaks at its _)
-    a.append(pane, marks, cap);
+    a.append(pane, el('i', 'rl-marks'), cap);
     li.append(a);
     return li;
   };
 
-  const slateOf = (ch: Channel, n: number): HTMLLIElement => {
-    const other = CHANNELS.find((c) => c.key !== ch.key)!;
-    const li = el('li', 'rl-frame rl-eof');
-    const edge = el('span', 'rl-edge micro', `RVL ▸ EOF ▸ ${ch.index}`);
-    edge.setAttribute('aria-hidden', 'true');
-    const next = el('p', 'rl-eof-next', other.name);
-    next.setAttribute('aria-hidden', 'true');
-    const tune = el('button', 'rl-tune micro', REEL_WORDS.tune(other.index, other.name, channelProjects(projects, other.key).length));
-    tune.type = 'button';
-    tune.addEventListener('click', () => o.onTune(other.key));
-    const all = el('button', 'rl-all micro', REEL_WORDS.list(total));
-    all.type = 'button';
-    all.addEventListener('click', () => o.onAll());
-    li.append(edge, el('p', 'rl-eof-line micro', REEL_WORDS.eof(ch.index, n)), next, tune, all);
-    return li;
-  };
-
-  const strips = new Map<ChannelKey, HTMLOListElement>();
+  const strips = new Map<ChannelKey, Strip>();
   for (const ch of CHANNELS) {
     const films = channelProjects(projects, ch.key);
     const ol = el('ol', 'rl-strip');
     ol.dataset.ch = ch.key;
     ol.hidden = true;
     ol.setAttribute('aria-label', `${ch.index} ${ch.name}`);
-    films.forEach((p, i) => ol.append(frameOf(p, i)));
-    ol.append(slateOf(ch, films.length));
+    const panes = stripOrder(films.length).map((f, i) => {
+      const li = frameOf(films[f], i);
+      if (i >= films.length) { // (a short chapter laid again: the repeats are for the eye only)
+        li.setAttribute('aria-hidden', 'true');
+        li.querySelector('a')!.tabIndex = -1;
+      }
+      return li;
+    });
+    ol.append(...panes);
     root.append(ol);
-    strips.set(ch.key, ol);
+    strips.set(ch.key, { ol, panes, films: films.length });
   }
 
   /* --------------------------------------------------------------- the foot -- */
@@ -139,7 +136,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
 
   /* ------------------------------------------------------------- the fit -- */
 
-  // the header's bottom (the menu and the switches, measured): the viewfinder, the rail and the slate start under it
+  // the header's bottom (the menu and the switches, measured): the viewfinder and the rail start under it
   const measureTop = () => {
     let bottom = 0;
     for (const sel of ['.brand', '.nav-links', '.hud-tr']) {
@@ -157,108 +154,207 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     s.whiteSpace = '';
     if (one !== null) { s.fontSize = `${one}px`; return; }
     s.overflowWrap = 'normal'; // (whole words while it measures: a word too wide widens the name instead of breaking)
-    let size = wrapStart([...(t.textContent ?? '').replace(/\u200b/g, '')].length); // (letters, not its break marks)
+    let size = wrapStart([...(t.textContent ?? '').replace(/​/g, '')].length); // (letters, not its break marks)
     s.fontSize = `${size}px`;
     while (size > TITLE_MIN && t.scrollWidth > room + 0.5) s.fontSize = `${--size}px`;
     s.overflowWrap = '';
   };
-  /** each name at its size in its caption; the end slate's name as big as the column holds it */
-  const fit = (strip: HTMLOListElement) => {
-    const slate = strip.querySelector<HTMLElement>('.rl-eof-next');
-    if (slate) slate.style.fontSize = `${Math.min(88, Math.floor((slate.parentElement!.clientWidth - 80) / (Math.max(2, (slate.textContent ?? '').length) * 0.74)))}px`;
-    for (const cap of strip.querySelectorAll<HTMLElement>('.rl-cap')) fitTitle(cap.querySelector<HTMLElement>('.rl-title')!, cap.clientWidth);
+  const fit = (s: Strip) => {
+    for (const cap of s.ol.querySelectorAll<HTMLElement>('.rl-cap')) fitTitle(cap.querySelector<HTMLElement>('.rl-title')!, cap.clientWidth);
   };
 
-  /* ------------------------------------------------------------ the gate -- */
+  /* ------------------------------------------------------------ the strip -- */
 
   let active: ChannelKey = o.active;
   let strip = strips.get(active)!;
-  let gate = -1, parked = false, scrubbing = false, raf = 0;
-  const videos = new Map<HTMLLIElement, HTMLVideoElement>();
-  const loops = loopsAllowed((navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection);
-  const framesOf = (s: HTMLOListElement) => [...s.querySelectorAll<HTMLLIElement>('.rl-frame')];
-  const filmCount = () => channelProjects(projects, active).length;
+  let offset = 0, v = 0, h = 1, raf = 0, last = 0, restUntil = 0;
+  let parked = false, touching = false, pointer: number | null = null, startY = 0, startOffset = 0, moved = false, dragged = false;
+  const moves: [number, number][] = [];
+  const rollSpeed = () => (reducedMotion() ? 0 : h / ROLL_SECONDS); // (CALM: it never rolls by itself)
+  const measure = () => { h = strip.ol.clientHeight || window.innerHeight; };
 
-  const ensureVideo = (li: HTMLLIElement | undefined): HTMLVideoElement | null => {
-    if (!li || !loops || li.classList.contains('rl-eof')) return null; // (Save-Data or a 2g line: the posters)
-    let v = videos.get(li);
-    if (v) return v;
-    const chain = loopSrcChain(li.dataset.slug!);
+  const place = () => {
+    const n = strip.panes.length, dpr = window.devicePixelRatio || 1;
+    strip.panes.forEach((li, i) => {
+      li.style.transform = `translate3d(0, ${Math.round(paneTop(i, offset, h, n) * dpr) / dpr}px, 0)`;
+    });
+    const play = rail.querySelector<HTMLElement>('.rl-play');
+    if (play) play.style.top = `${railProgress(offset, h, strip.films) * 100}%`;
+  };
+
+  /* ------------------------------------------------------------ the loops -- */
+
+  const loops = new Map<HTMLLIElement, Loop>();
+  const allowed = loopsAllowed((navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection);
+  const tryPlay = (vid: HTMLVideoElement) => {
+    void vid.play().catch((e) => { if (isRefusal(e)) noteRefusal(); /* (else: the poster stands; a touch retries) */ });
+  };
+  const release = (li: HTMLLIElement) => {
+    const l = loops.get(li);
+    if (!l) return;
+    if (l instanceof HTMLVideoElement) { l.pause(); l.removeAttribute('src'); l.load(); } else l.removeAttribute('src');
+    l.remove();
+    loops.delete(li);
+  };
+  let planned = '';
+  const replan = () => { planned = ''; plan(); };
+  const videoLoop = (chain: string[]): HTMLVideoElement => {
     let k = 0;
-    v = el('video', 'rl-loop');
-    v.muted = true; v.loop = true; v.playsInline = true; v.preload = 'auto';
-    v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('aria-hidden', 'true');
-    const vid = v;
-    v.addEventListener('error', () => { // (the next name the folder may hold)
+    const vid = el('video', 'rl-loop');
+    vid.muted = true; vid.loop = true; vid.playsInline = true; vid.preload = 'auto';
+    vid.setAttribute('muted', ''); vid.setAttribute('playsinline', ''); vid.setAttribute('aria-hidden', 'true');
+    vid.addEventListener('error', () => { // (the next name the folder may hold)
       if (++k >= chain.length) return;
       vid.src = chain[k];
       vid.load();
-      if (framesOf(strip)[gate] === li && !parked) void vid.play().catch(() => { /* the poster stands */ });
+      tryPlay(vid);
     });
-    v.addEventListener('playing', () => vid.classList.add('is-live')); // (the poster until the loop has a picture)
-    v.src = chain[0];
-    li.querySelector('.rl-pane')!.insertBefore(v, li.querySelector('.rl-scan'));
-    videos.set(li, v);
-    return v;
+    vid.addEventListener('playing', () => vid.classList.add('is-live')); // (the poster until the loop has a picture)
+    vid.src = chain[0];
+    return vid;
   };
-  const release = (li: HTMLLIElement) => {
-    const v = videos.get(li);
-    if (!v) return;
-    v.pause();
-    v.removeAttribute('src');
-    v.load();
-    v.remove();
-    videos.delete(li);
-  };
-  /** the next pane's loop, warmed: played until it has a picture, then held, so a swipe lands on it rolling (a phone
-   *  ignores preload: a muted play() is the one lever every engine obeys) */
-  const warm = (li: HTMLLIElement | undefined) => {
-    const v = ensureVideo(li);
-    if (!v || v.readyState >= 2 || !v.paused) return;
-    v.addEventListener('playing', () => { if (framesOf(strip)[gate] !== li) v.pause(); }, { once: true });
-    void v.play().catch(() => { /* a later touch re-offers it */ });
-  };
-  const playGate = () => {
-    const frames = framesOf(strip);
-    frames.forEach((li, j) => {
-      if (Math.abs(j - gate) > 1) release(li);
-      else if (j !== gate) videos.get(li)?.pause();
+  // Safari plays an MP4 inside an image like a silent looping picture, outside the rules that refuse a video's play()
+  const imageLoop = (li: HTMLLIElement, chain: string[]): HTMLImageElement => {
+    let k = 0;
+    const im = el('img', 'rl-loop');
+    im.alt = '';
+    im.decoding = 'async';
+    im.draggable = false;
+    im.setAttribute('aria-hidden', 'true');
+    im.addEventListener('load', () => { noteImageLoops(true); im.classList.add('is-live'); });
+    im.addEventListener('error', () => {
+      if (!im.isConnected) return; // (let go on purpose)
+      if (++k < chain.length) { im.src = chain[k]; return; }
+      noteImageLoops(false); // (no MP4 in an image here: back to video, which a touch starts)
+      release(li);
+      replan();
     });
-    for (const [li] of videos) if (li.closest('.rl-strip') !== strip) release(li);
-    if (parked || document.hidden || gate < 0) { videos.get(frames[gate])?.pause(); return; }
-    const here = frames[gate], next = frames[gate + 1];
-    const v = ensureVideo(here);
-    if (!v) return;
-    void v.play().catch(() => { /* (a battery saver: the poster stands until a touch) */ });
-    if (v.readyState >= 3) warm(next);
-    else v.addEventListener('playing', () => { if (framesOf(strip)[gate] === here) warm(next); }, { once: true });
+    im.src = chain[0];
+    return im;
   };
+  const ensureLoop = (li: HTMLLIElement): Loop | null => {
+    if (!allowed) return null; // (Save-Data or a 2g line: the posters)
+    let l = loops.get(li);
+    if (l) return l;
+    const chain = loopSrcChain(li.dataset.slug!);
+    l = loopsAsImages() ? imageLoop(li, chain) : videoLoop(chain);
+    li.querySelector('.rl-pane')!.insertBefore(l, li.querySelector('.rl-scan'));
+    loops.set(li, l);
+    return l;
+  };
+  /** every pane's loop as the strip stands: on the screen or next in, playing; near, resting; far, let go */
+  const plan = () => {
+    const n = strip.panes.length, dir = v < -1 ? -1 : 1, still = parked || document.hidden;
+    const want: PanePlay[] = strip.panes.map((_, i) => {
+      const p = panePlay(paneTop(i, offset, h, n), h, h, dir);
+      return still && p === 'play' ? 'rest' : p;
+    });
+    const key = want.join(',');
+    if (key === planned) return;
+    planned = key;
+    strip.panes.forEach((li, i) => {
+      if (want[i] === 'free') release(li);
+      else if (want[i] === 'rest') { const l = loops.get(li); if (l instanceof HTMLVideoElement) l.pause(); }
+      else { const l = ensureLoop(li); if (l instanceof HTMLVideoElement && l.paused) tryPlay(l); }
+    });
+  };
+  // a refused play(): from now on the loops stand as images (lib/autoplay.ts)
+  onRefusal(() => {
+    if (imageLoopsWork() === false) return;
+    for (const [li, l] of [...loops]) if (l instanceof HTMLVideoElement) release(li);
+    replan();
+  });
+  // where a browser shows no MP4 in an image, a touch is the moment it allows a video: re-offer the ones in view
+  const kick = () => {
+    if (parked || document.hidden) return;
+    strip.panes.forEach((li, i) => {
+      const l = loops.get(li);
+      if (l instanceof HTMLVideoElement && l.paused && panePlay(paneTop(i, offset, h, strip.panes.length), h, h, 1) === 'play') tryPlay(l);
+    });
+  };
+  window.addEventListener('pointerdown', kick, { passive: true });
+  window.addEventListener('touchend', kick, { passive: true });
 
-  const setGate = (i: number, quiet = false) => {
-    if (i === gate) return;
-    gate = i;
-    const frames = framesOf(strip);
-    frames.forEach((li, j) => li.classList.toggle('is-gate', j === i));
-    const n = filmCount();
-    const play = rail.querySelector<HTMLElement>('.rl-play');
-    if (play) play.style.top = `${i < n ? ((i + 0.5) / n) * 100 : 100}%`;
-    playGate();
-    if (quiet) return;
-    sound.hover(); // (the gate's tick: the reel advances)
-    const li = frames[i];
-    if (!li || reducedMotion()) return;
-    li.classList.remove('is-flick');
-    void li.offsetWidth; // (restart the flick)
-    li.classList.add('is-flick');
-    const role = li.querySelector<HTMLElement>('.rl-role');
-    if (role) void scrambleEl(role, role.textContent ?? '', 320);
-  };
-  const step = () => framesOf(strip)[0]?.offsetHeight || 1;
-  const onScroll = () => {
+  /* -------------------------------------------------------------- the roll -- */
+
+  const frame = (now: number) => {
     raf = 0;
-    setGate(gateIndex(strip.scrollTop, step(), framesOf(strip).length));
+    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+    last = now;
+    if (!touching) {
+      const target = now < restUntil ? 0 : rollSpeed();
+      v = coast(v, target, dt);
+      if (Math.abs(v - target) < 0.5) v = target;
+      offset += v * dt;
+    }
+    place();
+    plan();
+    // (it sleeps when nothing moves and nothing will: CALM at rest; a touch or the MOTION switch wakes it)
+    if (touching || v !== 0 || rollSpeed() > 0 || now < restUntil) wake();
   };
-  for (const s of strips.values()) s.addEventListener('scroll', () => { if (s === strip && !raf) raf = requestAnimationFrame(onScroll); }, { passive: true });
+  const wake = () => {
+    if (raf || parked || document.hidden) return;
+    if (!last) last = performance.now();
+    raf = requestAnimationFrame(frame);
+  };
+  const sleep = () => { if (raf) cancelAnimationFrame(raf); raf = 0; last = 0; };
+  new MutationObserver(() => wake()).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+  /* ------------------------------------------------------------ the finger -- */
+
+  for (const s of strips.values()) {
+    s.ol.addEventListener('pointerdown', (e) => {
+      if (pointer !== null || !e.isPrimary) return;
+      pointer = e.pointerId;
+      startY = e.clientY;
+      startOffset = offset;
+      moved = false;
+      dragged = false;
+      touching = true;
+      v = 0;
+      moves.length = 0;
+      moves.push([e.timeStamp, e.clientY]);
+      wake();
+    });
+    s.ol.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== pointer) return;
+      const dy = e.clientY - startY;
+      if (!moved && Math.abs(dy) > TAP_SLOP) moved = true;
+      if (moved) offset = startOffset - dy;
+      moves.push([e.timeStamp, e.clientY]);
+      if (moves.length > 16) moves.shift();
+    });
+    const up = (e: PointerEvent) => {
+      if (e.pointerId !== pointer) return;
+      pointer = null;
+      touching = false;
+      dragged = moved;
+      v = moved ? releaseSpeed(moves, e.timeStamp) : 0;
+      restUntil = performance.now() + REST_AFTER_TOUCH_MS;
+      wake();
+    };
+    s.ol.addEventListener('pointerup', up);
+    s.ol.addEventListener('pointercancel', up);
+  }
+  // a drag never opens a film; a tap does (the link's own click, with the house wipe)
+  root.addEventListener('click', (e) => {
+    if (!dragged) return;
+    dragged = false;
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
+  // a keyboard's focus brings its pane square into the screen, and the strip rests there
+  root.addEventListener('focusin', (e) => {
+    const li = (e.target as Element).closest<HTMLLIElement>('.rl-frame');
+    const i = li ? strip.panes.indexOf(li) : -1;
+    if (i < 0) return;
+    const lap = strip.panes.length * h;
+    offset = i * h + Math.round((offset - i * h) / lap) * lap;
+    v = 0;
+    restUntil = performance.now() + REST_AFTER_TOUCH_MS;
+    place();
+    wake();
+  });
 
   /* ------------------------------------------------------------- the rail -- */
 
@@ -273,10 +369,14 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     });
     rail.append(el('b', 'rl-play'));
   };
+  let scrubbing = false;
   const scrubTo = (clientY: number) => {
     const r = rail.getBoundingClientRect();
-    const i = railIndex(clientY - r.top, r.height, filmCount());
-    if (i !== gate) strip.scrollTo({ top: i * step(), behavior: 'instant' as ScrollBehavior });
+    offset = offsetForRail((clientY - r.top) / Math.max(1, r.height), h, strip.films, offset);
+    v = 0;
+    restUntil = performance.now() + REST_AFTER_TOUCH_MS;
+    place();
+    wake();
   };
   rail.addEventListener('pointerdown', (e) => { scrubbing = true; rail.setPointerCapture(e.pointerId); scrubTo(e.clientY); });
   rail.addEventListener('pointermove', (e) => { if (scrubbing) scrubTo(e.clientY); });
@@ -287,33 +387,39 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   /* ------------------------------------------------------------ the rest -- */
 
   const show = (key: ChannelKey) => {
+    for (const li of [...loops.keys()]) release(li);
     active = key;
-    for (const [k, s] of strips) s.hidden = k !== key;
     strip = strips.get(key)!;
+    for (const [k, s] of strips) s.ol.hidden = k !== key;
     paintFoot();
     paintRail();
     measureTop();
+    measure();
     fit(strip);
-    strip.scrollTop = 0;
-    gate = -1;
-    setGate(0, true);
+    offset = 0;
+    v = 0;
+    restUntil = 0;
+    place();
+    replan();
+    wake();
   };
   let resizeT = 0;
   window.addEventListener('resize', () => {
     clearTimeout(resizeT);
     resizeT = window.setTimeout(() => {
+      const was = h;
       measureTop();
+      measure();
+      offset = (offset / Math.max(1, was)) * h; // (the same film stays in view through a turn of the phone)
       fit(strip);
-      strip.scrollTop = Math.max(0, gate) * step();
+      place();
+      replan();
     }, 120);
   });
-  document.addEventListener('visibilitychange', () => playGate());
-  window.addEventListener('pageshow', (e) => { if (e.persisted) playGate(); });
-  // battery savers (iOS Low Power Mode and kin) refuse a play() no touch asked for: every touch re-offers the loop in
-  // the gate, as on the homepage — a no-op while it rolls, the heal when it does not
-  const kick = () => { if (!parked && !document.hidden) playGate(); };
-  window.addEventListener('pointerdown', kick, { passive: true });
-  window.addEventListener('touchend', kick, { passive: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { sleep(); replan(); } else { replan(); wake(); }
+  });
+  window.addEventListener('pageshow', (e) => { if (e.persisted) { replan(); wake(); } });
   void document.fonts?.ready.then(() => fit(strip));
   document.fonts?.addEventListener('loadingdone', () => fit(strip)); // (a face that loads late, as the Vietnamese ones)
 
@@ -323,18 +429,36 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     window.setTimeout(() => main.classList.remove('is-arriving'), 900);
   }
   (window as unknown as { rvlWorkReel: unknown }).rvlWorkReel = { // a debug handle for verification (rvlReel is the homepage's)
-    gate: () => gate,
+    offset: () => offset,
+    speed: () => v,
+    inView: () => strip.panes[paneInView(offset, h, strip.panes.length)]?.dataset.slug,
     chapter: () => active,
-    playing: () => [...videos].filter(([, v]) => !v.paused).map(([li]) => li.dataset.slug),
-    videos: () => videos.size,
+    playing: () => [...loops].filter(([, l]) => (l instanceof HTMLVideoElement ? !l.paused : l.classList.contains('is-live'))).map(([li]) => li.dataset.slug),
+    loops: () => loops.size,
+    mode: () => (loopsAsImages() ? 'image' : 'video'),
+    refused: () => autoplayRefused(),
+    /** hold the strip at `px` (a screenshot's still frame); null lets it roll again */
+    hold: (px: number | null) => {
+      if (px === null) { restUntil = 0; wake(); return; }
+      offset = px;
+      v = 0;
+      restUntil = Number.POSITIVE_INFINITY;
+      place();
+      replan();
+    },
   };
 
   return {
     tune: (key) => show(key),
     park(p) {
       parked = p;
-      if (!p) { measureTop(); fit(strip); strip.scrollTop = Math.max(0, gate) * step(); }
-      playGate();
+      if (p) { sleep(); replan(); return; }
+      measureTop();
+      measure();
+      fit(strip);
+      place();
+      replan();
+      wake();
     },
   };
 }

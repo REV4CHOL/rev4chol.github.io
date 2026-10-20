@@ -47,6 +47,9 @@ export interface Project {
   filmPrivate: boolean;
   stills: string[];
   position: GridPos | null;
+  /** where the picture's subject sits, "X% Y%" across then down (default "50% 50%", the middle): a phone's
+   *  whole-screen pane crops the film around it (owner, 2026-10-20, on a focus point per film: "yes please") */
+  focus: string;
 }
 
 /** A held place on the works floor: an unlit screen keeping a spot for a film
@@ -217,6 +220,11 @@ export function parseProject(raw: unknown, i: number): Project {
 
   const position = gridPosOf(r.position, file, where);
 
+  const focus = r.focus === undefined ? '50% 50%' : str(r.focus, file, `${where} focus`).trim().replace(/\s+/g, ' ');
+  const fm = FOCUS.exec(focus);
+  if (!fm || Number(fm[1]) > 100 || Number(fm[2]) > 100)
+    fail(file, `${where} focus must look like "35% 50%": how far across, then how far down, each from 0% to 100%`);
+
   return {
     slug,
     title,
@@ -238,6 +246,7 @@ export function parseProject(raw: unknown, i: number): Project {
     filmPrivate,
     stills: stills as string[],
     position,
+    focus,
   };
 }
 
@@ -274,6 +283,8 @@ function gridPosOf(v: unknown, file: string, where: string): GridPos | null {
 }
 
 const BLANK_KEY = /^(blank|gap)-\d+$/;
+/** a focus point: "X% Y%", each a number of percent (the range is checked apart, for a plain message) */
+const FOCUS = /^(\d{1,3}(?:\.\d+)?)% (\d{1,3}(?:\.\d+)?)%$/;
 
 function parseBlank(r: Record<string, unknown>, i: number): FloorBlank {
   const file = 'projects.json';
