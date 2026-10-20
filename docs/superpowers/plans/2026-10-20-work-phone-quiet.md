@@ -4,12 +4,14 @@
 
 **Goal:** Deliver `docs/superpowers/specs/2026-10-20-work-phone-quiet-design.md`:
 - The phone strip rolls one screen every 18 seconds.
-- WORK sounds only when something is pressed.
+- WORK on a phone sounds only when something is pressed. (Tasks 1 to 3 shipped it on every device; Task 4 narrows it
+  to the phone, as the owner asked.)
 
 **Architecture:**
 - `works/reel.ts` sets the pace.
-- `works.html` asks for press-only sounds with `data-sfx="press"`, and `shell/shell.ts` stands its blip down on that ask.
-- `works/world.ts` drops the floor's wake blip.
+- The phone's WORK asks for press-only sounds with `data-sfx="press"`, and `shell/shell.ts` stands its blip down on that
+  ask. (First shipped from `works.html` for every device, with the floor's wake blip dropped in `works/world.ts`; Task 4
+  moves the ask to `pages/works.ts`, on a phone alone, and gives the floor its blip back.)
 
 **Tech Stack:** TypeScript, vitest; Playwright with Chrome and CDP touch events, with every sound call counted.
 
@@ -46,3 +48,13 @@
   - the desktop floor, its links and a pan, silent, while its presses sound;
   - the homepage still blipping.
 - [x] **Step 3:** Commit, push, watch the Pages run, and check the same on the live site.
+
+### Task 4: The quiet on the phone alone (owner, after the first ship: "no no that quiet only go with PHONE. bruh revert others")
+
+**Files:** `works.html`, `src/pages/works.ts`, `src/shell/shell.ts`, `src/works/world.ts`, `tests/floor-ways.test.ts`
+
+- [ ] **Step 1:** `works.html` and the floor's wake blip go back as they were. The page sets `data-sfx="press"` when it
+  builds the phone's strip, and the shell reads the ask as each pointer comes over.
+- [ ] **Step 2:** Re-pin: the ask on a phone alone; the floor keeps its blip.
+- [ ] **Step 3:** Gates; then, with the sounds counted: the phone silent on swipes, and a desktop and a tablet blipping
+  as before. Commit, push, watch the Pages run, and check the same live.

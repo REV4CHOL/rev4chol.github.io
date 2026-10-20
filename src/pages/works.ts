@@ -24,6 +24,10 @@ startPage(
     // WORK ON A PHONE (owner, 2026-10-20: "on Phone, its completely overwhelming and disorienting … a complete redesign
     // … specifically for Phones"): the reel (works/reel.ts), decided once as the page loads; a phone builds no floor
     const reelOn = window.matchMedia(REEL_QUERY).matches;
+    // (and it sounds only when something is pressed, never as a finger swipes: owner, 2026-10-20, "I prefer the only SFX
+    // is when pressing any text or buttons in the work section. No SFX when scrolling pls its too much", then "that
+    // quiet only go with PHONE" — the floor on a tablet or a desktop keeps its blips)
+    if (reelOn) document.body.dataset.sfx = 'press';
     const projects = await loadProjects();
     const floor = reelOn ? [] : await loadFloor(); // the films AND the held places, in json order
     await loadLoopManifest(); // tiles build their loop chains synchronously

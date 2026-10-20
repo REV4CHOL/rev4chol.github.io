@@ -331,8 +331,7 @@ export class WorksWorld {
     const tile = this.tiles.get(slug);
     if (!tile) return;
     this.hoveredSlug = slug;
-    // (no blip as a pane wakes: WORK sounds only when something is pressed — owner, 2026-10-20 — and a pane wakes under
-    // a dragging finger or a passing pointer; opening it still clicks, in enter())
+    sound.hover();
     this.fxLayer.addChild(tile); // lift out of the dimmed/desaturated layer
     // LITE (lib/quality.ts): the alpha dim below is the whole cue — a colour-matrix pass over the carpet is a
     // full-screen filter a weak GPU pays for on every frame of the hover

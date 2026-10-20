@@ -408,14 +408,14 @@ describe('a phone gets the reel, never the floor (pins)', () => {
   });
 
   // (owner, 2026-10-20: "I prefer the only SFX is when pressing any text or buttons in the work section. No SFX when
-  // scrolling pls its too much")
-  it('WORK sounds only when something is pressed: no hover blips, the strip silent, opening a film still clicks', () => {
-    expect(readFileSync('works.html', 'utf8')).toContain('<body class="page-work" data-sfx="press">');
+  // scrolling pls its too much", then: "that quiet only go with PHONE")
+  it('WORK on a phone sounds only when something is pressed; the floor and its links keep their blips', () => {
+    expect(readFileSync('src/pages/works.ts', 'utf8')).toContain("if (reelOn) document.body.dataset.sfx = 'press';");
+    expect(readFileSync('works.html', 'utf8')).not.toContain('data-sfx'); // (a tablet's or a desktop's WORK: as before)
     const shell = readFileSync('src/shell/shell.ts', 'utf8');
-    expect(shell).toContain("const pressOnly = document.body.dataset.sfx === 'press';");
-    expect(shell).toContain("if (!pressOnly && (e.target as Element).closest?.('a, button')) sound.hover();");
+    expect(shell).toContain("if (document.body.dataset.sfx !== 'press' && (e.target as Element).closest?.('a, button')) sound.hover();");
     const world = readFileSync('src/works/world.ts', 'utf8');
-    expect(world).not.toContain('sound.hover()');
+    expect(world).toMatch(/this\.hoveredSlug = slug;\s*sound\.hover\(\);/); // (the floor's blip as a pane wakes)
     expect(world).toMatch(/enter\(slug: string\): void \{[\s\S]*?sound\.click\(\);/);
     expect(view).not.toContain('sound.'); // (the strip itself never sounds)
     expect(readFileSync('src/lib/transitions.ts', 'utf8')).toMatch(/a\[data-internal\][\s\S]*?sound\.click\(\);/); // (a tap on a film)
