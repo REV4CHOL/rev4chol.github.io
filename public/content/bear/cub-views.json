@@ -1,0 +1,146 @@
+{
+ "cams": {
+  "front": [
+   0.0,
+   0.165,
+   690.0,
+   254.0,
+   736.75
+  ],
+  "back": [
+   3.141592653589793,
+   0.165,
+   690.0,
+   257.0,
+   725.0
+  ],
+  "side": [
+   -1.5707963267948966,
+   0.165,
+   690.0,
+   200.0,
+   758.5
+  ],
+  "threeq": [
+   0.7825000000000001,
+   0.165,
+   690.0,
+   250.75,
+   733.375
+  ]
+ },
+ "atlas": {
+  "w": 1328,
+  "h": 1468,
+  "tiles": {
+   "front": {
+    "x": 0,
+    "y": 0,
+    "w": 480,
+    "h": 710,
+    "cropX": 38,
+    "cropY": 55
+   },
+   "threeq": {
+    "x": 480,
+    "y": 0,
+    "w": 455,
+    "h": 726,
+    "cropX": 43,
+    "cropY": 50
+   },
+   "side": {
+    "x": 935,
+    "y": 0,
+    "w": 391,
+    "h": 734,
+    "cropX": 26,
+    "cropY": 54
+   },
+   "back": {
+    "x": 0,
+    "y": 734,
+    "w": 444,
+    "h": 692,
+    "cropX": 23,
+    "cropY": 55
+   },
+   "sideclean": {
+    "x": 444,
+    "y": 734,
+    "w": 391,
+    "h": 734,
+    "cropX": 26,
+    "cropY": 54
+   }
+  }
+ },
+ "views": [
+  {
+   "cam": "front",
+   "tile": "front",
+   "mirror": false,
+   "primary": false
+  },
+  {
+   "cam": "threeq",
+   "tile": "threeq",
+   "mirror": false,
+   "primary": true
+  },
+  {
+   "cam": "side",
+   "tile": "side",
+   "mirror": false,
+   "primary": false
+  },
+  {
+   "cam": "back",
+   "tile": "back",
+   "mirror": false,
+   "primary": false
+  },
+  {
+   "cam": "side",
+   "tile": "sideclean",
+   "mirror": true,
+   "primary": false
+  },
+  {
+   "cam": "threeq",
+   "tile": "threeq",
+   "mirror": true,
+   "primary": false
+  }
+ ],
+ "marks": {
+  "eyes": [
+   {
+    "at": [
+     -0.1228,
+     0.851,
+     0.1036
+    ],
+    "r": 0.0203
+   },
+   {
+    "at": [
+     0.0369,
+     0.8748,
+     0.112
+    ],
+    "r": 0.012
+   }
+  ],
+  "camUp": [
+   0.1158,
+   0.9864,
+   -0.1165
+  ],
+  "camRight": [
+   0.7092,
+   0.0,
+   0.7051
+  ]
+ }
+}

@@ -32,7 +32,11 @@ import type { TileRect, ViewRect } from './priority';
 import { nearestPane, strayed } from './stray';
 import { ProjectTile } from './tile';
 
-export interface WorldHooks { onCoords(x: number, y: number): void }
+export interface WorldHooks {
+  onCoords(x: number, y: number): void;
+  /** a film is being opened (the cub waves it off: works/bear-view.ts) */
+  onEnter?(slug: string): void;
+}
 
 export class WorksWorld {
   tiles = new Map<string, ProjectTile>();
@@ -320,6 +324,19 @@ export class WorksWorld {
     };
   }
 
+  /** The awake pane's middle on the screen (viewport px: the floor is lock-exempt) and its accent, for the cub to watch;
+   *  null while no pane is awake. */
+  awakeSpot(): { x: number; y: number; accent: string } | null {
+    const tile = this.hoveredSlug ? this.tiles.get(this.hoveredSlug) : undefined;
+    if (!tile || this.paused) return null;
+    const zs = this.worldC.scale.x || 1;
+    return {
+      x: this.app.screen.width / 2 + this.pan.pos.x + tile.x * zs,
+      y: this.app.screen.height / 2 + this.pan.pos.y + (tile.y - HOVER_LIFT) * zs,
+      accent: tile.project.accent,
+    };
+  }
+
   panBy(dx: number, dy: number): void {
     this.pan.panBy(dx, dy);
   }
@@ -415,6 +432,7 @@ export class WorksWorld {
     const tile = this.tiles.get(slug);
     if (!tile) return;
     this.entering = true;
+    this.hooks.onEnter?.(slug);
     sound.click();
     // the legend has done its first job (owner's testers, 2026-09-27): remembered, and dimmed from here on
     try { markFloorOpened(localStorage); } catch { /* no storage */ }

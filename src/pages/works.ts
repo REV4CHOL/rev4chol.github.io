@@ -11,6 +11,7 @@ import { chapterTabLabel, listGroups, searchForView, toggleText, viewFromSearch,
 import { floorOpened, legendText } from '../works/legend';
 import { mountWorksOverlay } from '../works/overlay';
 import { REEL_QUERY } from '../works/reel';
+import type { Cub } from '../works/bear-view';
 import { mountReel, type Reel } from '../works/reel-view';
 import { WorksWorld } from '../works/world';
 
@@ -93,6 +94,7 @@ startPage(
       if (v === 'list') world?.pause();
       else world?.resume();
       reel?.park(v === 'list');
+      cub?.park(v === 'list');
       hud.setCount(v === 'list' ? projects.length : channelProjects(projects, active).length);
       try { sessionStorage.setItem(VIEW_KEY, v); } catch { /* no storage */ }
       if (!byHand) return;
@@ -106,11 +108,16 @@ startPage(
     toggle.addEventListener('click', () => setView(view === 'list' ? 'floor' : 'list', true));
     (window as unknown as { rvlGsap: typeof gsap }).rvlGsap = gsap; // debug handle for verification
 
+    // THE CUB (works/bear-view.ts; owner, 2026-10-20: "a giant 3D teddy bear model exactly on this in the work section
+    // (PC and tablet), watching over the panes and being cute"): the floor's, so never on a phone's reel; fetched once
+    // the floor stands, and never waited on
+    let cub: Cub | null = null;
     const mount = async (key: ChannelKey) => {
       const list = channelProjects(projects, key);
       hud.setCount(list.length); // films only — a held place is not a project
       world = await WorksWorld.create(host, channelProjects(floor, key), {
         onCoords: (x, y) => hud.setCoords(x, y),
+        onEnter: () => cub?.react('bye'),
       });
       (window as unknown as { rvlWorld: WorksWorld }).rvlWorld = world; // debug handle for verification
       buildSemanticList(list, world);
@@ -167,6 +174,7 @@ startPage(
       void scrambleEl(document.getElementById('ch-ident-idx')!, `${ch.index} ▸ TUNING`, 320);
       void scrambleEl(nameEl, ch.name, 480);
       sound.chime();
+      cub?.react('flip');
       staticEl.classList.add('on');
       if (reel) {
         // the reel: the other chapter's strip under the static, from its first film
@@ -194,6 +202,12 @@ startPage(
       hud.setCount(channelProjects(projects, active).length);
     } else await mount(active);
     setView(view);
+    if (!reelOn) {
+      void import('../works/bear-view')
+        .then(({ mountCub }) => mountCub({ awake: () => world?.awakeSpot() ?? null }))
+        .then((c) => { cub = c; c?.park(view === 'list'); })
+        .catch(() => { /* no cub: the floor carries on */ });
+    }
 
     window.addEventListener('keydown', (e) => {
       if (!world || view === 'list') return; // (in the list the keys scroll the list)

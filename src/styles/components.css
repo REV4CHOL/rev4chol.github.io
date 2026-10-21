@@ -494,6 +494,36 @@
 .wk-reg-bl { left: 12px; bottom: 12px; }
 .wk-reg-br { right: 12px; bottom: 12px; }
 
+/* ---- the cub (works/bear-view.ts): the owner's teddy bear, bottom left over the floor, under its chrome ----
+   His canvas takes the pointer only while it is on him (set from JS); over his empty corners the floor keeps it. */
+#cub { position: fixed; z-index: 915; pointer-events: none; }
+#cub[hidden], .works-main.is-list ~ #cub { display: none; }
+.cub-gl { position: absolute; left: 0; top: 0; display: block; pointer-events: none; touch-action: none; }
+.cub-fx { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+/* his hearts: the site's 8-bit pixels, in the alert pink, rising from his head */
+.cub-heart {
+  position: absolute; width: 21px; height: 18px; margin: -9px 0 0 -10px; font-size: 0; color: transparent;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 6' shape-rendering='crispEdges'%3E%3Cg fill='%23FF2E63'%3E%3Crect x='1' width='2' height='1'/%3E%3Crect x='4' width='2' height='1'/%3E%3Crect y='1' width='7' height='2'/%3E%3Crect x='1' y='3' width='5' height='1'/%3E%3Crect x='2' y='4' width='3' height='1'/%3E%3Crect x='3' y='5' width='1' height='1'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / contain; image-rendering: pixelated;
+  filter: drop-shadow(0 0 6px rgba(255, 46, 99, 0.55)); animation: cub-heart 1.35s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+@keyframes cub-heart {
+  0% { opacity: 0; transform: translateY(0) scale(0.35); }
+  16% { opacity: 1; transform: translateY(-14px) scale(1.2); }
+  100% { opacity: 0; transform: translateY(-120px) scale(0.85); }
+}
+/* his Zs, dozing: the HUD's own letters, drifting up */
+.cub-z { position: absolute; font-size: 15px; color: var(--bone); letter-spacing: 0; animation: cub-z 2.6s ease-out both; }
+@keyframes cub-z {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  22% { opacity: 0.9; }
+  100% { opacity: 0; transform: translate(28px, -96px) scale(1.45); }
+}
+.rvl-calm .cub-heart, .rvl-calm .cub-z { animation: cub-fade 1.2s ease-out both; }
+@keyframes cub-fade { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; } }
+#cub.is-arriving .cub-gl { animation: cub-arrive 0.75s cubic-bezier(0.2, 1.35, 0.4, 1) both; }
+@keyframes cub-arrive { 0% { opacity: 0; transform: translateY(35%) scale(0.92); } 100% { opacity: 1; transform: none; } }
+.rvl-calm #cub.is-arriving .cub-gl { animation: none; }
+
 /* ---- works channel switcher (bottom-center bezel dial, zoom-pinned) ---- */
 .ch-switch {
   position: fixed; left: 50%; translate: -50% 0; bottom: calc(24px * var(--uiz));

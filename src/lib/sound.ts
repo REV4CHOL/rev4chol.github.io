@@ -200,6 +200,35 @@ class SoundEngine {
     note(587.33, 0.09, 0.12); // D5 — a gentle lift
   }
 
+  /** The cub petted (works/bear-view.ts): a soft rubber-toy squeak, two quick rising chirps, lowpassed — three when
+   *  he hops for joy. */
+  squeak(big = false): void {
+    if (!this.enabled) return;
+    const ctx = this.ctx();
+    const out = this.out();
+    if (!ctx || !out) return;
+    const t = ctx.currentTime;
+    const chirp = (at: number, f0: number, f1: number, len: number, peak: number) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(f0, t + at);
+      osc.frequency.exponentialRampToValueAtTime(f1, t + at + len);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 2400;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t + at);
+      g.gain.linearRampToValueAtTime(peak, t + at + 0.014);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + at + len);
+      osc.connect(lp).connect(g).connect(out);
+      osc.start(t + at);
+      osc.stop(t + at + len + 0.02);
+    };
+    chirp(0, 680, 1080, 0.09, 0.085);
+    chirp(0.085, 800, 1240, 0.1, 0.075);
+    if (big) chirp(0.19, 900, 1480, 0.12, 0.075);
+  }
+
   /** The void answering a touch: one soft round droplet — a sine easing down
    *  a third, lowpassed, quiet. The gentle counterpart to zap(). */
   drop(): void {
