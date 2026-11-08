@@ -176,9 +176,10 @@ describe('shipped content files', () => {
   // the owner's fourth batch (2026-09-27): REMNANTS OF A DREAM for "the empty blank space in chapter 1" — the held
   // place at json 25, kept that morning for "two more" films (ĂN HỎI took the other) — and MISSION: IMPASSIBLE to
   // "Replace Copper Lullaby in chapter 1". MISSION's folder holds five stills twice (the same frames, exported with
-  // two letterbox sizes): its wall shows each once, 19 of the 24.
+  // two letterbox sizes): its wall shows each once, 19 of the 24. (2026-11-08, the owner: "Switch the places between
+  // PHILIA and REMMANTS OF A DREAM in the work section": REMNANTS now stands at json 0, PHILIA at 13.)
   const BATCH4 = [
-    { slug: 'remnants-of-a-dream', slot: 13, where: 'fills the last held place, featured',
+    { slug: 'remnants-of-a-dream', slot: 0, where: 'stands in PHILIA\'s old place, featured',
       title: 'Remnants of a Dream', year: 2026, role: 'Colorist', runtime: '24:16',
       tags: ['drama', 'indie short film'], synopsis: 'Avalon promises a bright future, but at what cost?',
       category: 'human', tileSize: 'large', aspect: '16:9', youtube: 'tKWevMRBOzY', stills: 40, accent: '#ED6B85' },
@@ -300,7 +301,8 @@ describe('shipped content files', () => {
     expect(floor.some(isBlank)).toBe(false);
     const slot = (i: number) => [floor[i].slug, floor[i].tileSize];
     expect(slot(6)).toEqual(['an-hoi', 'large']); // the upper held place
-    expect(slot(13)).toEqual(['remnants-of-a-dream', 'large']); // the lower one
+    expect(slot(13)).toEqual(['philia', 'large']); // the lower one: REMNANTS filled it, then traded places with PHILIA
+    expect(slot(0)).toEqual(['remnants-of-a-dream', 'large']); // (owner 2026-11-08)
     expect(slot(5)).toEqual(['far-east', 'normal']); // COPPER LULLABY's place
     expect(slot(14)).toEqual(['mission-impassible', 'normal']); // FAR EAST's old one: COPPER LULLABY's, until the fourth batch
     expect(slot(9)).toEqual(['soda-coast', 'normal']); // RUST CHOIR's place
@@ -369,11 +371,12 @@ describe('shipped content files', () => {
   };
 
   // (2026-09-28: the placeholders gone, then SALINE THRONE: CH·01's twelve fill a 4 × 3 block, no slot empty — the
-  //  six featured 3 × 2 at its top left, the regular films after them in json order, MISTCHILD last, in the corner)
+  //  six featured 3 × 2 at its top left, the regular films after them in json order, MISTCHILD last, in the corner;
+  //  2026-11-08, the owner: PHILIA and REMNANTS OF A DREAM switch places)
   it('CH·01 lies cell by cell: a full 4 × 3 block, every pane a real film', () => {
     expect(cells('human')).toEqual({
-      philia: [0, 0], 'mien-vien': [1, 0], 'an-hoi': [2, 0], 'far-east': [3, 0],
-      'lien-quan': [0, 1], 'electric-fish': [1, 1], 'remnants-of-a-dream': [2, 1], 'soda-coast': [3, 1],
+      'remnants-of-a-dream': [0, 0], 'mien-vien': [1, 0], 'an-hoi': [2, 0], 'far-east': [3, 0],
+      'lien-quan': [0, 1], 'electric-fish': [1, 1], philia: [2, 1], 'soda-coast': [3, 1],
       'soft-hours-lonely-lands': [0, 2], 'mission-impassible': [1, 2], halide: [2, 2], mistchild: [3, 2],
     });
   });

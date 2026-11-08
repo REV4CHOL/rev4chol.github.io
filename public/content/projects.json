@@ -1,19 +1,16 @@
 [
   {
-    "slug": "philia",
-    "title": "PHILIA",
+    "slug": "remnants-of-a-dream",
+    "title": "Remnants of a Dream",
     "year": 2026,
     "role": "Colorist",
-    "runtime": "11:42",
+    "runtime": "24:16",
     "tags": [
-      "experimental",
-      "supernatural"
+      "drama",
+      "indie short film"
     ],
-    "accent": "#8FCC6B",
-    "focus": "45% 50%",
-    "tileSize": "large",
-    "category": "human",
-    "synopsis": "A ghost of the past, the present and the future.",
+    "accent": "#ED6B85",
+    "synopsis": "Avalon promises a bright future, but at what cost?",
     "credits": [
       {
         "role": "Colorist",
@@ -22,8 +19,10 @@
     ],
     "film": {
       "type": "youtube",
-      "src": "https://www.youtube.com/embed/iX0XhpNSaTY"
-    }
+      "src": "https://www.youtube.com/embed/tKWevMRBOzY"
+    },
+    "category": "human",
+    "tileSize": "large"
   },
   {
     "slug": "mien-vien",
@@ -334,17 +333,20 @@
     "tileSize": "normal"
   },
   {
-    "slug": "remnants-of-a-dream",
-    "title": "Remnants of a Dream",
+    "slug": "philia",
+    "title": "PHILIA",
     "year": 2026,
     "role": "Colorist",
-    "runtime": "24:16",
+    "runtime": "11:42",
     "tags": [
-      "drama",
-      "indie short film"
+      "experimental",
+      "supernatural"
     ],
-    "accent": "#ED6B85",
-    "synopsis": "Avalon promises a bright future, but at what cost?",
+    "accent": "#8FCC6B",
+    "focus": "45% 50%",
+    "tileSize": "large",
+    "category": "human",
+    "synopsis": "A ghost of the past, the present and the future.",
     "credits": [
       {
         "role": "Colorist",
@@ -353,10 +355,8 @@
     ],
     "film": {
       "type": "youtube",
-      "src": "https://www.youtube.com/embed/tKWevMRBOzY"
-    },
-    "category": "human",
-    "tileSize": "large"
+      "src": "https://www.youtube.com/embed/iX0XhpNSaTY"
+    }
   },
   {
     "slug": "mission-impassible",
