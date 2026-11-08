@@ -1,6 +1,6 @@
 # WORK: Almost Every Pane Plays at Once — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Deliver `docs/superpowers/specs/2026-11-08-work-loops-at-once-design.md`. On a desktop, every pane in the view
 plays its loop at FULL and at BALANCED. The far panes wait until the view comes near.
