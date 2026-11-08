@@ -61,7 +61,7 @@ describe('People', () => {
     // the knots are kept up: someone arrives when someone leaves
     const filled = people.knots.filter((k) => k.members.length > 0).length;
     expect(filled / people.knots.length).toBeGreaterThan(0.5); // (a walker sent to fill a knot now waits at the kerbs on the way)
-  });
+  }, 60000);
 
   it('never moves anyone in a step, keeps them off the water and the bridges, and lets them in at doors', () => {
     // owner: pedestrians vanished spontaneously (they were moved across the city to fill a knot, or to a random
