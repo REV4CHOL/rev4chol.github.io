@@ -189,9 +189,14 @@ export function saveState(session: KeyStore | null, local: KeyStore | null, g: G
 
 /* ------------------------------------------------------------------------- the knobs -- */
 
-/** Live loops on the floor: 10 · 6 · 3 on a desktop, 4 · 3 · 2 on a phone. */
+/** Live loops on the floor: 12 · 12 · 3 on a desktop, 4 · 3 · 2 on a tablet or a window under 820 px (a phone has its
+ *  strip, works/reel.ts). A desktop's 12 is a whole chapter, so at FULL and BALANCED every pane in the view plays and
+ *  only the far ones, past the window's margin (works/priority.ts), keep their posters until the view comes near —
+ *  owner 2026-11-08: "almost all panes to load at once", the old 10 · 6 left five posters on a BALANCED screen. The
+ *  loops were never the floor's cost (the 09-27 lag: uploads, blurs, sleeping decodes; 09-28: the resting glows), and
+ *  LITE keeps 3 for a machine that can't keep up. */
 export function videoCapFor(tier: Tier, phone: boolean): number {
-  return [[3, 2], [6, 3], [10, 4]][tier][phone ? 1 : 0];
+  return [[3, 2], [12, 3], [12, 4]][tier][phone ? 1 : 0];
 }
 
 /** The Pixi canvas's resolution: FULL as before (DPR ≤ 2, a phone ≤ 1.5); BALANCED ≤ 1.5 (a phone 1); LITE 1. */

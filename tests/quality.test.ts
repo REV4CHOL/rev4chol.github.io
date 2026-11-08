@@ -180,8 +180,10 @@ describe('the verdict travels: the session carries the state, the day carries th
 const TIERS: Tier[] = [2, 1, 0];
 
 describe('the knobs by tier', () => {
-  it('live loops: 10 · 6 · 3 on a desktop, 4 · 3 · 2 on a phone', () => {
-    expect(TIERS.map((t) => videoCapFor(t, false))).toEqual([10, 6, 3]);
+  // (owner 2026-11-08: "I want almost all panes to load at once. Only panes at the far end not loaded until I drag the
+  //  view over them": a desktop's FULL and BALANCED play a whole chapter's 12, the window rule leaves the far ones)
+  it('live loops: 12 · 12 · 3 on a desktop, 4 · 3 · 2 on a tablet or a narrow window', () => {
+    expect(TIERS.map((t) => videoCapFor(t, false))).toEqual([12, 12, 3]);
     expect(TIERS.map((t) => videoCapFor(t, true))).toEqual([4, 3, 2]);
   });
 

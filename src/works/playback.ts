@@ -5,7 +5,8 @@ import type { ProjectTile } from './tile';
 /** Applies the pure play-set to the stateful tiles + caps total video elements. */
 export class PlaybackManager {
   /** Live loops right now: the site's tier decides (lib/quality.ts), read on every update — a step down sleeps the
-   *  excess at the next pass, a step up wakes more. (A phone's counts are lower at every tier.) */
+   *  excess at the next pass, a step up wakes more. A desktop's 12 covers a chapter: every pane in the view plays.
+   *  (A tablet's and a narrow window's counts are lower at every tier.) */
   get cap(): number { return liveVideoCap(); }
   get maxElements(): number { return this.cap * 2; }
   private lastSet = new Set<string>();
