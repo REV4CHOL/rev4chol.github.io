@@ -23,7 +23,7 @@ machines"). Everything else that design set stays.
 
 ## The owner's choice
 
-Three prototypes, shown as one picture at 1,440 × 900 (and one at 1,366 × 768):
+Three prototypes, shown as one picture at 1,440 × 900:
 
 - A: the machines shrink to fit the thin side strips;
 - **B: the list gets narrower, each row its name above its details, so full-size machines fit (chosen)**;
@@ -125,7 +125,7 @@ Screens 1,920 wide and more stay exactly as they are.
   8 GB or 16 GB with 8 threads, the processor slowed six times.
   - Straight to `?view=list`, the list opened at LITE, with no machines, at 3, 15 and 30 s. It stood at BALANCED, with
     the machines, at 75 s. This held on both profiles, on this branch and on the weak-machine release.
-  - By the floor and then THE LIST's button, it was the same in four runs of five. In the fifth (16 GB, this branch),
+  - By the floor and then THE LIST's button, it was the same in three runs of four. In the fourth (16 GB, this branch),
     the floor had already reached BALANCED, and the list stood at FULL with its machines from 3 s.
   - The rows stood 768 wide in every reading: the tier never moved them. The same page unslowed held FULL at 57 to
     60 frames a second.
