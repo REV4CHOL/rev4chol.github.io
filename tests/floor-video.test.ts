@@ -85,3 +85,36 @@ describe("a pane reports its own loop to the health reading (pins)", () => {
     expect(tile).toContain("typeof v.getVideoPlaybackQuality !== 'function'");
   });
 });
+
+describe('the readout reads the floor and changes nothing (pins)', () => {
+  const world = read('src/works/world.ts');
+  const shell = read('src/shell/shell.ts');
+
+  it('the floor offers its readings while it stands, and takes them back when it is destroyed', () => {
+    expect(world).toContain('offerFloorReadings(() => w.readings());');
+    expect(world).toMatch(/destroy\(\): void \{\s+offerFloorReadings\(null\);/);
+  });
+
+  it("the loops' health is read once a second and only kept: ship A acts on no reading", () => {
+    expect(world).toContain('this.healthNow = this.health.read(now, samples, document.hidden || this.paused);');
+    // (the reading's only reader is the readout)
+    expect(world.match(/healthNow/g)).toHaveLength(3);
+  });
+
+  it('nothing of the readout loads without ?stats=1: the shell imports the panel only then', () => {
+    expect(shell).toContain("if (statsWanted(location.search)) void import('./stats').then((m) => m.mountStats());");
+    expect(shell).not.toMatch(/from '\.\/stats'/);
+    for (const file of ['src/lib/quality.ts', 'src/works/world.ts', 'src/pages/works.ts']) {
+      expect(read(file), file).not.toMatch(/shell\/stats|styles\/stats\.css/);
+    }
+  });
+
+  it("the panel's sheet styles the panel and nothing else", () => {
+    const css = read('src/styles/stats.css').replace(/\/\*[\s\S]*?\*\//g, '');
+    const selectors = [...css.matchAll(/(^|\})\s*([^{}]+)\{/g)].map((m) => m[2]!.trim());
+    expect(selectors.length).toBeGreaterThan(0);
+    for (const s of selectors) {
+      for (const one of s.split(',')) expect(one.trim(), s).toMatch(/^#rvl-stats\b/);
+    }
+  });
+});

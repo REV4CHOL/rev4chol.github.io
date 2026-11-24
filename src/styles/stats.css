@@ -1,0 +1,38 @@
+/* THE READOUT (?stats=1; src/shell/stats.ts): seven lines at the left edge, over everything, for whoever is
+   measuring. Nothing here shows without the parameter: this sheet is loaded with the panel. The panel lets every
+   press and hover through to the page under it (the floor's panes, THE LIST's button); only COPY takes a press. */
+#rvl-stats {
+  position: fixed;
+  left: 8px;
+  top: 96px;
+  z-index: 990;
+  max-width: min(520px, calc(100vw - 16px));
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--void) 86%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bone) 30%, transparent);
+  color: var(--bone);
+  font-family: var(--f-micro);
+  font-size: 10px;
+  line-height: 1.7;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+#rvl-stats pre {
+  margin: 0;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#rvl-stats button {
+  margin-top: 6px;
+  padding: 3px 10px;
+  background: none;
+  border: 1px solid var(--signal);
+  color: var(--signal);
+  font: inherit;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+  pointer-events: auto;
+}
+#rvl-stats button:hover,
+#rvl-stats button:focus-visible { background: var(--signal); color: var(--void); }

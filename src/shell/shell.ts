@@ -2,6 +2,7 @@ import type { SiteContent } from '../lib/content';
 import { escapeHtml } from '../lib/escape';
 import { music } from '../lib/music';
 import { quality } from '../lib/quality';
+import { statsWanted } from '../lib/readout';
 import { sound } from '../lib/sound';
 import { initTransitions } from '../lib/transitions';
 import { initCursor } from './cursor';
@@ -83,6 +84,9 @@ export function mountShell(site: SiteContent, active: PageKey, opts: ShellOption
   document.addEventListener('pointerover', (e) => {
     if (document.body.dataset.sfx !== 'press' && (e.target as Element).closest?.('a, button')) sound.hover();
   });
+
+  // THE READOUT (`?stats=1`, lib/readout.ts): the panel and its sheet are loaded only when the address asks
+  if (statsWanted(location.search)) void import('./stats').then((m) => m.mountStats());
 
   return { hud };
 }

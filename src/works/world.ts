@@ -6,10 +6,12 @@ import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
 import type { FloorItem, Project } from '../lib/content';
 import { aspectRatio, isBlank, wallFor } from '../lib/content';
 import { dprCap, finePointer, isMobile, reducedMotion } from '../lib/env';
+import { textureBytes } from '../lib/meter';
 import { posterZoom } from '../lib/poster-lock';
 import {
   floorMode, maxFpsFor, modeAfterTierChange, ownLoopCap, quality, type FloorFacts, type FloorMode,
 } from '../lib/quality';
+import { offerFloorReadings, type FloorReadings } from '../lib/readout';
 import type { WallEntry } from '../lib/wall-files';
 import { softBreaks } from '../lib/escape';
 import { scrambleEl } from '../lib/scramble';
@@ -29,6 +31,7 @@ import { paneToWake } from './hover';
 import { PanController } from './input';
 import { BlankPane } from './blank';
 import { layoutProjects, packRows, paneBand, rowsOf, type Placed } from './layout';
+import { LoopHealth, type HealthReading, type LoopSample } from './loop-health';
 import { PlaybackManager, releaseAfterMs } from './playback';
 import { loadPosterCanvas } from './poster';
 import type { TileRect, ViewRect } from './priority';
@@ -75,6 +78,11 @@ export class WorksWorld {
   private tiled = new Set<string>();
   /** what the wall's watch found this session, and the wall files that failed in it (works/wall-watch.ts) */
   private wallMem: WallMemory = { verdict: 'ok', failed: [] };
+  /** THE LOOPS' HEALTH (works/loop-health.ts): read once a second and shown on the readout (`?stats=1`). Ship A acts
+   *  on no reading: the numbers are set after the old laptop has been read. */
+  private health = new LoopHealth();
+  private healthNow: HealthReading = { counted: 0, presented: null, due: null, judged: false, failed: false };
+  private healthClock = 0;
   /** the awake pane's lift: the scale its preview stands at (hoverFit, hoverFitIn) */
   private lift = 1;
   /** where the awake pane's caption stands from its card's centre (plate px), and the zoom it was placed at */
@@ -275,6 +283,7 @@ export class WorksWorld {
     // THE FLOOR'S VIDEO, from the machine's class and the tier (lib/quality.ts)
     w.takeMode(w.modeNow());
     quality.floorBuilt();
+    offerFloorReadings(() => w.readings()); // (the readout, ?stats=1: lib/readout.ts)
     return w;
   }
 
@@ -297,6 +306,11 @@ export class WorksWorld {
       this.lastPlayPos = { x: this.pan.pos.x, y: this.pan.pos.y };
       this.playback.update(this.viewRect(), this.hoveredSlug);
     }
+    this.healthClock += dtMs;
+    if (this.healthClock >= 1000) {
+      this.healthClock = 0;
+      this.readHealth();
+    }
     // sleeping posters get occasional glitch ticks — the floor never looks frozen
     this.shimmerClock += dtMs;
     if (this.shimmerClock > 380 && !reducedMotion() && quality.tier() > 0) { // (LITE: the loops are the life)
@@ -307,6 +321,47 @@ export class WorksWorld {
         sleeping[Math.floor(Math.random() * sleeping.length)].shimmer();
       }
     }
+  }
+
+  /** One reading of the panes' own loops: each video's frames presented against the frames due at its loop's frame
+   *  rate (the manifest's, from the wall's map; 24 where it lists none). A hidden page and a paused floor are not
+   *  read. */
+  private readHealth(): void {
+    const now = performance.now();
+    const listed = wallFor(this.chapter)?.tiles ?? {};
+    const samples: LoopSample[] = [];
+    for (const [slug, tile] of this.tiles) {
+      const s = tile.loopSample(now, listed[slug]?.fps ?? 24);
+      if (s) samples.push(s);
+    }
+    this.healthNow = this.health.read(now, samples, document.hidden || this.paused);
+  }
+
+  /** What the readout shows of the floor (lib/readout.ts): the mode, the wall's reading, the own loops playing and
+   *  their health, and the meter: the textures Pixi holds against the budget for this canvas, with every live video's
+   *  picture size listed beside it. Read when asked; nothing here runs unless the readout is open. */
+  readings(): FloorReadings {
+    const canvas = this.app.canvas;
+    const entry = this.wall ? wallFor(this.chapter) : null;
+    const videos: string[] = [];
+    if (entry && this.wall) {
+      const k = this.wall.which === 'small' ? 0.5 : 1;
+      videos.push(`${entry.width * k}×${entry.height * k}`);
+    }
+    let playing = 0;
+    for (const t of this.tiles.values()) {
+      if (t.video) videos.push(`${t.video.videoWidth}×${t.video.videoHeight}`);
+      if (t.mode !== 'sleep' && t.hasVideo()) playing++;
+    }
+    return {
+      mode: this.mode,
+      wall: this.wall ? this.wall.reading() : null,
+      playing,
+      health: this.healthNow,
+      textures: textureBytes(this.app.renderer),
+      videos,
+      budget: quality.budget(canvas.width * canvas.height),
+    };
   }
 
   /** NEVER LOST IN EMPTY FLOOR (stray.ts; the review's walkthroughs, 2026-09-30): four times a second, once the floor has come
@@ -686,6 +741,7 @@ export class WorksWorld {
    *  release every tile's video element, drop the pan listeners, hide the
    *  floating label, then let Pixi destroy the app, canvas and scene graph. */
   destroy(): void {
+    offerFloorReadings(null);
     this.offQuality?.();
     this.offQuality = null;
     this.misreg?.dispose();
