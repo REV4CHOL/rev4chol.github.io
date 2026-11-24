@@ -6,7 +6,8 @@ import { stopScramble } from './scramble';
  *  wherever a film's name is a headline, as a lockup: line 1 the English name as a one-part title is drawn there; line 2
  *  the Vietnamese name at LOCKUP.ratio of it, in the film's accent, same face and weight; both lines' INK starting at
  *  one left edge; line 2's tallest mark (Ễ) clearing line 1's baseline by LOCKUP.clearEm. Running text and what is not
- *  seen (the tab title, aria labels, the ticker, the screen-reader list) keep the plain string with its slash.
+ *  seen (the tab title, aria labels, the screen-reader list) keep the plain string with its slash; the film page's
+ *  ticker, one running line, sets a dot between the two names (runningTitle).
  *  The numbers live twice, here and as components.css's :root custom properties (--tt-ratio, --tt-mark, --tt-clear);
  *  tests/title-lockup.test.ts ties them. */
 
@@ -26,6 +27,16 @@ export function splitTitle(title: string): TitleParts {
   const alt = title.slice(i + TITLE_SEP.length).trim();
   if (!main || !alt) return { main: title.trim(), alt: null };
   return { main, alt };
+}
+
+/** The mark between a two-language title's names where it runs on one line. */
+export const TITLE_DOT = ' · ';
+
+/** A title as one running line (the film page's ticker): a two-part one with a centred dot in the slash's place
+ *  (owner, 2026-11-24, asked what the ticker should show: "A dot instead"); a one-part one as it is. */
+export function runningTitle(title: string): string {
+  const { main, alt } = splitTitle(title);
+  return alt === null ? title : `${main}${TITLE_DOT}${alt}`;
 }
 
 export const LOCKUP = {

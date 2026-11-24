@@ -39,7 +39,7 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | Field | What it is | Example |
 |---|---|---|
 | slug | folder name, lowercase-with-hyphens | `"neon-dream"` |
-| title | film title as shown. A film with a name in two languages is written `English / Vietnamese` (space, slash, space): the site stands it as two lines, the English name above and the Vietnamese name beneath it, smaller and in the film's accent colour (no slash shown). The browser tab, the ticker and screen readers keep the slash | `"Neon Dream"`, `"Temptation / Xiêu Lòng"` |
+| title | film title as shown. A film with a name in two languages is written `English / Vietnamese` (space, slash, space): the site stands it as two lines, the English name above and the Vietnamese name beneath it, smaller and in the film's accent colour (no slash shown). The film page's ticker runs them with a dot between; the browser tab and screen readers keep the slash | `"Neon Dream"`, `"Temptation / Xiêu Lòng"` |
 | year | number, no quotes | `2026` |
 | role | your role line | `"Director / DoP"` |
 | runtime | free text; kept in the file, shown nowhere on the site | `"12:40"` |

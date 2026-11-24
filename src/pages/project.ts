@@ -6,7 +6,7 @@ import { escapeHtml, softBreaks } from '../lib/escape';
 import { reducedMotion } from '../lib/env';
 import { armPosterLock, posterZoom } from '../lib/poster-lock';
 import { scrambleEl } from '../lib/scramble';
-import { baselineOf, fillTitle, heroLockupSize, lockupHtml, settleLockup, splitTitle, zoomOf } from '../lib/title';
+import { baselineOf, fillTitle, heroLockupSize, lockupHtml, runningTitle, settleLockup, splitTitle, zoomOf } from '../lib/title';
 import { music } from '../lib/music';
 import { sound } from '../lib/sound';
 import { hashSlug, stillSlotUrls, wallRhythm } from '../project/dossier';
@@ -459,7 +459,7 @@ function armEffectHole(slot: 'player' | 'wall', target: HTMLElement): void {
 /* -------------------------------------------------------------- ticker -- */
 
 function mountTicker(p: Project, stamp: string): void {
-  const items = [p.title, ...p.tags, 'REVACHOL', stamp];
+  const items = [runningTitle(p.title), ...p.tags, 'REVACHOL', stamp];
   const spanFor = (t: string, i: number) =>
     `<span class="tk tk-${(i % 4) + 1}">${escapeHtml(t.toUpperCase())}</span><span class="tk-sep">${i % 2 ? '▪' : '✚'}</span>`;
   const track = document.getElementById('p-ticker-track')!;

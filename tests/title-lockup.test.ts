@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { altPullEm, heroLockupSize, inkShiftEm, LOCKUP, lockupInkEm, splitTitle } from '../src/lib/title';
+import { altPullEm, heroLockupSize, inkShiftEm, LOCKUP, lockupInkEm, runningTitle, splitTitle } from '../src/lib/title';
 
 // The owner, 2026-11-24, of "Temptation / Xiêu Lòng" and "Ever Faraway / Miên Viễn": 'can we design something special
 // to replace the "/" to make it more appealing? Right now it looks rough'; shown four mock-ups: "go for A. But I want
@@ -147,11 +147,24 @@ describe('the surfaces that draw a film\'s name as a headline use the lockup', (
   });
 });
 
-describe('running text and the unseen keep the plain string with its slash', () => {
-  it('the tab title, the ticker, aria labels and the screen-reader list', () => {
+// The owner, 2026-11-24, asked what the film page's ticker should show for a two-language name (it still ran the
+// slash, TEMPTATION / XIÊU LÒNG): "A dot instead".
+describe("the film page's ticker sets a dot between a two-language title's names", () => {
+  it('a two-part title runs as English · Vietnamese; a one-part title as it is', () => {
+    expect(runningTitle('Temptation / Xiêu Lòng')).toBe('Temptation · Xiêu Lòng');
+    expect(runningTitle('Ever Faraway / Miên Viễn')).toBe('Ever Faraway · Miên Viễn');
+    expect(runningTitle('Remnants of a Dream')).toBe('Remnants of a Dream');
+    expect(runningTitle('Galaxy Z Fold 8 Ultra | Digital Ad')).toBe('Galaxy Z Fold 8 Ultra | Digital Ad');
+  });
+  it('the ticker is built from it', () => {
+    expect(src('src/pages/project.ts')).toContain("const items = [runningTitle(p.title), ...p.tags, 'REVACHOL', stamp];");
+  });
+});
+
+describe('the unseen keep the plain string with its slash', () => {
+  it('the tab title, aria labels and the screen-reader list', () => {
     const project = src('src/pages/project.ts');
     expect(project).toContain('document.title = `${p.title.toUpperCase()} — REVACHOL`;');
-    expect(project).toContain("const items = [p.title, ...p.tags, 'REVACHOL', stamp];");
     expect(src('src/works/reel-view.ts')).toContain("a.setAttribute('aria-label', `${p.title}. ${p.role}. Open this film.`);");
     expect(src('src/pages/works.ts')).toContain("a.textContent = `${p.title} (${p.year})${isPlaceholder(p) ? ' — placeholder' : ''}`;");
   });
