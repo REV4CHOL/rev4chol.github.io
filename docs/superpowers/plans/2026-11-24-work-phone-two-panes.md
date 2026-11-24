@@ -76,7 +76,11 @@ Rules for this plan:
 - **A known local failure, not caused by this work:** on this PC `npm test` fails one test of
   `tests/floor-ways.test.ts`, `the list's city never stands under a title: the sheet keeps its black over the reading
   column, all black on a phone`. Its pin holds a literal `\n` and this checkout's `components.css` is CRLF. It fails the
-  same way before any change here and passes where the checkout is LF (the deploy). Every other test must pass.
+  same way before any change here and passes where the checkout is LF (the deploy).
+- **A second local failure, while the owner's uncommitted `public/content/home/loop-7.mp4` sits in the tree:**
+  `tests/loop-frames.test.ts` (it needs ffmpeg on PATH and reads the working tree's loops) fails with
+  `home/loop-7.mp4: frame 1 from the end`. That file is the owner's own, not yet committed; it is not this work's and
+  must not be touched. Tell the coordinator the test names it. Every other test must pass.
 - The checks named "the reel's pins" run `npx vitest run tests/floor-ways.test.ts -t "a phone gets the reel"`. The
   count of skipped tests in its output is the rest of that file and may differ from the numbers quoted here.
 
@@ -1704,8 +1708,9 @@ Run: `npm run check`
 Expected: no error, exit 0.
 
 Run: `npm test`
-Expected: every test passes, except on this PC the one known local failure named in Global Constraints. Any other
-failure is this work's: stop and fix it.
+Expected: every test passes, except on this PC the two known local failures named in Global Constraints (the list's
+city pin; the black-frame test on the owner's uncommitted loop, if it is still in the tree). Any other failure is this
+work's: stop and fix it.
 
 Run: `tail -c 120 src/styles/components.css`
 Expected: the file still ends with `body { visibility: visible; }`.
@@ -2220,8 +2225,9 @@ owner's own uncommitted media if it was there before.
      phone). The design gave no number.
   9. The vertical film's tall pane covers the upright screen as before: on a 390 × 844 screen a 9:16 picture loses
      about 9% at each side. "Uncropped" was read as "never cropped to a wide shape".
-  10. The top corner marks stand 14 px inside every pane's top, the tall pane's too: when it stands square they lie
-      under the header.
+  10. The top corner marks stand 14 px inside every pane's top (the design's number). So the top marks of whichever
+      pane stands at the screen's top lie under the header: the upper pane's at rest, and the tall pane's when it stands
+      square. Before, a pane's top marks stood 4 px under the header's end.
   11. A resting pane's video loads ahead only while the strip shows and the loops are videos. Under the LIST nothing
       loads; in iOS Low Power Mode, where loops are images, a pane's loop still starts when it enters.
   12. On a short phone the upper pane's name lies partly under the header when the strip stands still (the three
@@ -2310,4 +2316,7 @@ script reads only handle fields that exist: `sizes()` comes with Task 2, the res
 
 **Every state was run.** The patches above were applied in order to a scratch copy of the sources, outside the
 repository. After each task the type gate and both test files gave the results quoted in that task, failing first and
-passing after. A scratch build of the last state passed all 60 checks of the script, headless.
+passing after. The whole suite, run in that copy at the starting state and at the last, fails the same tests before
+and after (none of them the strip's), and nine more pass. A scratch build of the last state passed all 60 checks of the
+script, headless. The patches that start from untouched files also pass `git apply --check --ignore-whitespace` in the
+real checkout.
