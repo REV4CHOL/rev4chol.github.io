@@ -168,15 +168,18 @@ export function knownTrack(store: Store | null, id: string, offered: string | nu
 }
 
 /** THE LOADED BAND (owner, 2026-11-25: "Player: Should've a preload indicator like YouTube, so user can know and not try
- *  to skip the playhead past it and ended up lagging themselves"): a lighter band on the seek rail from the start to
- *  where the player says the film is loaded, under the played part.
+ *  to skip the playhead past it and ended up lagging themselves"): a lighter band on the seek rail from where the film
+ *  stands to where the player says it is loaded. The fraction says only where the run around the playhead ENDS, not
+ *  where it starts (measured: 0.748 just after a seek to 70 %, the stretch from 0.12 to 0.70 never loaded), so the band
+ *  starts at the playhead: under the played part that looks like YouTube's band from the start, and while the rail is
+ *  held (the fill drawn back to the held place) it claims nothing behind the playhead.
  *  A seek BACK moves the playhead at once, but the fraction the player last said was the end of the run around the OLD
- *  playhead, and it stands until the player's next word; so, while a seek back is unanswered (`stale`), the band is
- *  drawn no further than the playhead. (A seek forward inside the run keeps it true: the run is one piece from the old
- *  playhead to its end. Past it, the band lies under the played part anyway.) */
-export function loadedBand(loaded: number | null, played: number, stale: boolean): number | null {
-  if (loaded === null) return null;
-  return stale ? Math.min(loaded, played) : loaded;
+ *  playhead, and it stands until the player's next word; so, while a seek back is unanswered (`stale`), no band.
+ *  (A seek forward inside the run keeps it true: the run is one piece from the old playhead to its end. Past it, the
+ *  end lies behind the playhead: no band.) */
+export function loadedBand(loaded: number | null, played: number, stale: boolean): { from: number; to: number } | null {
+  if (loaded === null || stale || loaded <= played) return null;
+  return { from: played, to: loaded };
 }
 
 /** How long a seek back may hold the band at the playhead without a new word from the player. */
@@ -415,7 +418,8 @@ export function armBar(film: BigFilm, programme: Programme): void {
     if (!stillStale(stale, i.loaded, now())) stale = null;
     const band = loadedBand(view.loaded, dur ? Math.min(1, t / dur) : 0, stale !== null);
     loadEl.hidden = band === null;
-    seek.style.setProperty('--l', String(band ?? 0));
+    seek.style.setProperty('--ls', String(band ? band.from : 0));
+    seek.style.setProperty('--l', String(band ? band.to : 0));
     seek.setAttribute('aria-disabled', String(!view.seekable));
     seek.setAttribute('aria-valuemax', String(Math.round(dur)));
     seek.setAttribute('aria-valuenow', String(Math.round(p * dur)));

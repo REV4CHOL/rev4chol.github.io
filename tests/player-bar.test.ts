@@ -274,10 +274,26 @@ describe('the loaded part of the film', () => {
   // is drawn no further than the playhead. A seek forward inside the run keeps it true (the run is one piece from the
   // old playhead to its end); past it, the band lies under the played part anyway.
   it('after a seek back, the old fraction is not drawn ahead of the playhead until the player says anew', () => {
-    expect(loadedBand(0.748, 0.1, true)).toBeCloseTo(0.1, 6);
-    expect(loadedBand(0.158, 0.1, false)).toBeCloseTo(0.158, 6);
-    expect(loadedBand(0.3, 0.5, true)).toBeCloseTo(0.3, 6);
+    expect(loadedBand(0.748, 0.1, true)).toBeNull();
+    expect(loadedBand(0.158, 0.1, false)).toEqual({ from: 0.1, to: 0.158 });
     expect(loadedBand(null, 0.5, false)).toBeNull();
+  });
+
+  // the fraction tells only where the run around the playhead ENDS, not where it starts (measured: 0.748 just after a
+  // seek to 70 %, the stretch from 0.12 to 0.70 never loaded); so the band runs from where the film stands to that end.
+  // Under the played part that looks the same as a band from 0; while a finger or the mouse holds the rail (the fill
+  // drawn back to the held place) it claims nothing between the held place and the playhead.
+  it('runs from the playhead to the loaded end, and is nothing where the end lies behind the playhead', () => {
+    expect(loadedBand(0.77, 0.72, false)).toEqual({ from: 0.72, to: 0.77 });
+    expect(loadedBand(0.3, 0.5, false)).toBeNull();
+    expect(loadedBand(0.5, 0.5, false)).toBeNull();
+    expect(loadedBand(1, 0, false)).toEqual({ from: 0, to: 1 });
+  });
+
+  it('drawn from --ls to --l', () => {
+    const css = readFileSync('src/styles/project.css', 'utf8');
+    const rule = /\.p-bar-load \{([^}]*)\}/.exec(css)?.[1] ?? '';
+    expect(rule).toContain('var(--ls');
   });
 
   it('a seek is stale only backward, until a new fraction is said or STALE_MS pass', () => {

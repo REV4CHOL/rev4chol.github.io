@@ -497,9 +497,12 @@
 }
 .p-bar-seek[aria-disabled="true"] { cursor: default; opacity: 0.35; }
 .p-bar-rail { position: relative; flex: 1; height: 3px; background: rgba(237, 237, 230, 0.22); }
-/* THE LOADED BAND (owner, 2026-11-25: "Should've a preload indicator like YouTube"): from the start to where the player
-   says the film is loaded, under the played part; bone, brighter than the empty rail, never the film's accent */
-.p-bar-load { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--l, 0) * 100%); background: rgba(237, 237, 230, 0.6); }
+/* THE LOADED BAND (owner, 2026-11-25: "Should've a preload indicator like YouTube"): from where the film stands to where
+   the player says it is loaded, under the played part; bone, brighter than the empty rail, never the film's accent */
+.p-bar-load {
+  position: absolute; left: calc(var(--ls, 0) * 100%); top: 0; bottom: 0; width: calc((var(--l, 0) - var(--ls, 0)) * 100%);
+  background: rgba(237, 237, 230, 0.6);
+}
 .p-bar-load[hidden] { display: none; }
 .p-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--p, 0) * 100%); background: var(--film-acc); }
 .p-bar-knob {
