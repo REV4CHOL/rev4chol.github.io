@@ -458,3 +458,23 @@ describe('the page wires it', () => {
     expect(page).toContain('controls: false');
   });
 });
+
+// The review's walkthroughs, 2026-11-25: on a PC, Tab from "ALL FILMS" went INTO the big frame and stayed there for
+// seven presses with no visible ring (Shift+Tab too), and Space there started nothing; only then came the bar. Where the
+// site's bar stands for the film, the frame is out of the Tab order (its insides with it: measured in a headless
+// Chrome, forwards and backwards); a press inside it is untouched. Wherever no bar stands, the frame keeps its place.
+describe("the keyboard's way to PLAY", () => {
+  const bar = readFileSync('src/project/player-bar.ts', 'utf8');
+  it('the big frame is out of the Tab order: the bar stands for it', () => {
+    const mount = bar.slice(bar.indexOf('export function mountBig('), bar.indexOf('export function armBar('));
+    expect(mount).toContain('frame.tabIndex = -1;');
+  });
+  it("the handshake's fallback gives the frame back to the keyboard (YouTube's own controls are then the only way)", () => {
+    const fall = bar.slice(bar.indexOf('const fallBack = '));
+    expect(fall).toContain("frame.removeAttribute('tabindex')");
+  });
+  it('a plain frame (a phone, a film that is not YouTube, a fallback) is never taken out of the Tab order', () => {
+    const page = readFileSync('src/pages/project.ts', 'utf8');
+    expect(page).not.toMatch(/tabIndex\s*=\s*-1|tabindex/);
+  });
+});

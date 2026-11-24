@@ -329,6 +329,11 @@ export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { pl
   const pic = document.createElement('div');
   pic.className = 'p-film-pic';
   frame.classList.add('p-frame--big');
+  // THE KEYBOARD'S WAY GOES BY THE SITE'S BAR (the review's walkthroughs: Tab went from ALL FILMS into the frame's
+  // insides, seven presses with no ring, and Space there started nothing): the bar stands for the film, so the frame is
+  // out of the Tab order, its insides with it; a press inside it with the mouse or a finger still lands there. The
+  // handshake's fallback gives it back (fallBack below): YouTube's own player is then the only way to play.
+  frame.tabIndex = -1;
   const mark = document.createElement('span');
   mark.className = 'p-film-mark';
   mark.setAttribute('aria-hidden', 'true');
@@ -783,6 +788,7 @@ export function armBar(film: BigFilm, programme: Programme): void {
     frame.classList.remove('p-frame--big');
     frame.removeAttribute('style');
     frame.removeAttribute('data-covered');
+    frame.removeAttribute('tabindex'); // (no bar now: the keyboard reaches YouTube's own controls again)
     // out of the page first, then the plain address, then back in its place: an iframe put back in the page navigates
     // to the address it holds (moved first, measured: it asked for the big address again and the plain one never came)
     frame.remove();
