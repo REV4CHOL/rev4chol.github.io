@@ -110,15 +110,15 @@ describe('the site draws every letter in its own type', () => {
     }
   });
 
-  it('the Vietnamese companions stand second in their voices, and the micro voice falls back to Geist Mono', () => {
-    expect(stack('f-display').slice(0, 2)).toEqual(['Clash Display', 'RVL Viet Display']);
-    expect(stack('f-serif').slice(0, 2)).toEqual(['Bodoni Moda', 'RVL Viet Serif']);
+  it('the Vietnamese companions stand on both sides of the primary in their voices, and the micro voice falls back to Geist Mono', () => {
+    expect(stack('f-display').slice(0, 3)).toEqual(['RVL Viet Display First', 'Clash Display', 'RVL Viet Display']);
+    expect(stack('f-serif').slice(0, 3)).toEqual(['RVL Viet Serif First', 'Bodoni Moda', 'RVL Viet Serif']);
     expect(stack('f-micro').slice(0, 2)).toEqual(['Martian Mono', 'Geist Mono']); // Geist Mono has the whole block
   });
 
   it('each companion face is on disk, covers the Vietnamese block, and keeps its primary\'s line metrics', () => {
     const viet = [0x1a0, 0x1a1, 0x1af, 0x1b0, ...Array.from({ length: 0x1ef9 - 0x1ea0 + 1 }, (_, i) => 0x1ea0 + i)];
-    const companions = faces.filter((f) => f.family.startsWith('RVL Viet'));
+    const companions = faces.filter((f) => f.family.startsWith('RVL Viet') && !f.family.endsWith(' First'));
     expect(companions.map((f) => f.family)).toEqual(['RVL Viet Display', 'RVL Viet Display', 'RVL Viet Serif']);
     for (const f of companions) {
       expect(existsSync(pub + f.url.slice(1)), f.url).toBe(true);
@@ -129,5 +129,23 @@ describe('the site draws every letter in its own type', () => {
       expect([/ascent-override:\s*([\d.]+%)/, /descent-override:\s*([\d.]+%)/, /line-gap-override:\s*([\d.]+%)/]
         .map((re) => re.exec(f.body)?.[1]), f.url).toEqual(want);
     }
+  });
+
+  // The owner, 2026-11-24, of EVER FARAWAY / MIÊN VIỄN: 'the "~" in Miên Viễn got demolished'. Clash Display has no Ễ of
+  // its own, but it has Ê and a loose combining tilde, so the browser built the letter from those two glyphs, the tilde
+  // beside the Ê and over the next letter, and never fell through to the companion. Measured in Chrome: Clash pieced 24
+  // letters of the Vietnamese block that way, Bodoni Moda 48, none outside the block. So each companion stands a second
+  // time, limited to that block and named FIRST in its voice: it takes those letters whole before the primary is asked.
+  it('the Vietnamese block is drawn whole by the companions: a face limited to it leads the display and serif voices', () => {
+    const first = faces.filter((f) => f.family.endsWith(' First'));
+    expect(first.map((f) => f.family)).toEqual(['RVL Viet Display First', 'RVL Viet Display First', 'RVL Viet Serif First']);
+    for (const f of first) {
+      expect(/unicode-range:\s*([^;]+);/.exec(f.body)?.[1].trim(), f.url).toBe('U+1EA0-1EF9'); // (that block only: every other letter stays the primary's)
+      const twin = faces.find((g) => g.family === f.family.replace(' First', '') && g.url === f.url);
+      expect(twin, f.url).toBeDefined(); // (the same file as the companion it doubles…)
+      for (const re of [/font-weight:\s*([^;]+);/, /ascent-override:\s*([\d.]+%)/, /descent-override:\s*([\d.]+%)/, /line-gap-override:\s*([\d.]+%)/])
+        expect(re.exec(f.body)?.[1], f.url).toBe(re.exec(twin!.body)?.[1]); // (…with its weights and its line metrics)
+    }
+    for (const voice of ['f-display', 'f-serif']) expect(stack(voice)[0].endsWith(' First'), voice).toBe(true);
   });
 });
