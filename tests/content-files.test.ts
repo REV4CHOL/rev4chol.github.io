@@ -323,7 +323,7 @@ describe('shipped content files', () => {
   //  when SALINE THRONE left it)
   it('the CH·01 moves: FAR EAST and SODA COAST in their new places; both held places filled, none left', () => {
     const floor = parseFloor(rawProjects());
-    expect(floor).toHaveLength(19); // (17 until THE LOVERS and XIÊU LÒNG joined at the chapter's end, 2026-11-24)
+    expect(floor).toHaveLength(20); // (17 until THE LOVERS and XIÊU LÒNG joined at the chapter's end, 2026-11-24; 19 until DEATHMAN)
     expect(floor.some(isBlank)).toBe(false);
     const slot = (i: number) => [floor[i].slug, floor[i].tileSize];
     expect(slot(6)).toEqual(['an-hoi', 'large']); // the upper held place
@@ -423,23 +423,62 @@ describe('shipped content files', () => {
   });
 
   // (owner 2026-09-28: "The verticle pane must be bigger and larger, as they are allowed to run irregular sizing")
-  it('CH·02: the four landscape films 2 × 2, GALAXY standing the height of both rows at their right', () => {
+  // (2026-11-24: DEATHMAN joins at the chapter's end as a regular pane. The featured five keep their cells and their
+  //  place in the world, cell for cell; DEATHMAN stands right of GALAXY on the top row, and the slot under it is open:
+  //  a 4 × 2 band with one corner open, a design call left to the owner. As a featured pane it would have made a 3 × 3
+  //  cluster, moved every pane a row and left two slots open)
+  it('CH·02: the four landscape films 2 × 2, GALAXY standing the height of both rows at their right, DEATHMAN beside it', () => {
     expect(cells('machine')).toEqual({
-      katara: [0, 0], 'the-father': [1, 0], 'galaxy-z-fold-8-ultra': [2, 0],
+      katara: [0, 0], 'the-father': [1, 0], 'galaxy-z-fold-8-ultra': [2, 0], deathman: [3, 0],
       'forest-onsen': [0, 1], 'jaecoo-j5': [1, 1],
+    });
+    // the world places the five exactly where they stood before DEATHMAN came (lattice cells, not just their order)
+    const at = Object.fromEntries(placedOf('machine').map((p) => [p.slug, [p.col, p.row]]));
+    expect(at).toEqual({
+      katara: [-3, -2], 'the-father': [-1, -2], 'galaxy-z-fold-8-ultra': [1, -2], deathman: [3, -2],
+      'forest-onsen': [-3, 0], 'jaecoo-j5': [-1, 0],
     });
     expect(placedOf('machine').filter((p) => p.tall).map((p) => p.slug)).toEqual(['galaxy-z-fold-8-ultra']);
   });
 
-  it('projects.json is valid: CH·01 holds 14 films (6 featured), CH·02 5 (all featured): 19 in all', () => {
+  it('projects.json is valid: CH·01 holds 14 films (6 featured), CH·02 6 (5 featured): 20 in all', () => {
     const films = parseProjects(rawProjects());
     const human = films.filter((p) => p.category === 'human');
     const machine = films.filter((p) => p.category === 'machine');
-    expect(machine).toHaveLength(5);
+    expect(machine).toHaveLength(6); // (5 until DEATHMAN, 2026-11-24)
     expect(machine.filter((p) => p.tileSize === 'large')).toHaveLength(5);
     expect(human).toHaveLength(14); // (12 until THE LOVERS and XIÊU LÒNG, 2026-11-24)
     expect(human.filter((p) => p.tileSize === 'large')).toHaveLength(6);
-    expect(films).toHaveLength(19);
+    expect(films).toHaveLength(20);
+  });
+
+  // the owner, 2026-11-24: "here's embed code for the DEATHMAN film" (YouTube: "DEATHMAN | AI Short Film"), with its
+  // webloop, five main stills and thirteen more. The loop comes 1080 × 720, but its picture is 4:3: 960 × 720 between
+  // two black bars 60 px wide, and every still is 4:3 (2880 × 2160). So the film stands 4:3, its loop cropped to the
+  // picture (no bar in a pane). Role, genre and credits wait on the owner's words: empty until they come.
+  it('DEATHMAN joins the end of CH·02: 4:3, linked, a regular pane, with its media (owner 2026-11-24)', () => {
+    const floor = parseFloor(rawProjects());
+    expect(floor.findIndex((it) => it.slug === 'deathman')).toBe(19);
+    expect(floor.filter((it) => it.category === 'machine').at(-1)!.slug).toBe('deathman');
+    const p = parseProjects(rawProjects()).find((q) => q.slug === 'deathman')!;
+    expect([p.title, p.year, p.aspect, p.category, p.tileSize]).toEqual(['DEATHMAN', 2026, '4:3', 'machine', 'normal']);
+    expect([p.film, p.filmPending, p.filmPrivate]).toEqual([{ type: 'youtube', src: 'https://www.youtube.com/embed/mdSUGmCclTY' }, false, false]);
+    expect([p.role, p.tags, p.credits, p.runtime]).toEqual(['', [], [], '']); // (waiting on the owner's words)
+    expect([p.client, p.artist, p.director, p.productionHouse]).toEqual(['', '', '', '']);
+    expect(p.accent).toBe('#DCD3BE');
+    expect(p.synopsis).toBe('Wind on the cliffs, water in the empty rooms, and a cloaked figure with a skull for a face. An AI short film.');
+    const dir = `${root}projects/deathman/`;
+    expect(existsSync(`${dir}poster.jpg`)).toBe(true);
+    const loop = mp4Facts(`${dir}preview.mp4`);
+    expect(loop.seconds).toBeCloseTo(8, 2); // (192 frames at 24 fps)
+    expect(loop.boxes.indexOf('moov')).toBeGreaterThanOrEqual(0);
+    expect(loop.boxes.indexOf('moov')).toBeLessThan(loop.boxes.indexOf('mdat')); // faststart
+    expect(loop.bytes).toBeLessThan(3 * 1024 * 1024);
+    expect(mp4Size(`${dir}preview.mp4`)).toEqual([960, 720]); // the picture between the master's bars
+    expect(960 / 720).toBeCloseTo(aspectRatio(p.aspect), 6);
+    const stills = readdirSync(`${dir}stills`).sort();
+    expect(stills).toEqual(Array.from({ length: 18 }, (_, i) => `${String(i + 1).padStart(2, '0')}.jpg`));
+    expect(1600 / 1200).toBeCloseTo(aspectRatio(p.aspect), 6);
   });
 
   // the owner, 2026-11-24: "after all tasks done, upload these two to the COLORIST section"; asked with pictures the

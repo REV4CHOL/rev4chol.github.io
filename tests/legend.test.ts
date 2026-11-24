@@ -61,7 +61,7 @@ describe("the floor's legend (owner's testers, 2026-09-27: 'not knowing what to 
   });
 });
 
-describe('placeholders: no film, none pending, none private (none left: 18 linked films + MIEN VIEN, private)', () => {
+describe('placeholders: no film, none pending, none private (none left: 19 linked films + MIEN VIEN, private)', () => {
   it('isPlaceholder', () => {
     expect(isPlaceholder(film())).toBe(false);
     expect(isPlaceholder(film({ film: null, filmPending: true }))).toBe(false);
@@ -77,10 +77,10 @@ describe('placeholders: no film, none pending, none private (none left: 18 linke
     // (until 2026-11-24 none did; then the owner, of THE LOVERS and XIÊU LÒNG: "Film coming soon"; both links came
     // the same day)
     expect(projects.filter((p) => p.filmPending).map((p) => p.slug)).toEqual([]);
-    expect(projects.filter((p) => p.film).length).toBe(18);
+    expect(projects.filter((p) => p.film).length).toBe(19); // (18 until DEATHMAN joined CH·02 with its link, 2026-11-24)
   });
 
-  it('projects.json today: no placeholder at all, 19 films; mien-vien is not one', () => {
+  it('projects.json today: no placeholder at all, 20 films; mien-vien is not one', () => {
     const root = fileURLToPath(new URL('../public/content/', import.meta.url));
     const projects = parseProjects(parseJson(readFileSync(root + 'projects.json', 'utf8'), 'projects.json'));
     // (24 until NEON LITURGY left; 23 until MISSION: IMPASSIBLE took COPPER LULLABY's pane, owner 2026-09-27;
@@ -88,6 +88,6 @@ describe('placeholders: no film, none pending, none private (none left: 18 linke
     // all placeholder panes from the work section"; 18 until the last of them, SALINE THRONE, went the same day)
     expect(projects.filter(isPlaceholder).map((p) => p.slug)).toEqual([]);
     expect(isPlaceholder(projects.find((p) => p.slug === 'mien-vien')!)).toBe(false);
-    expect(projects).toHaveLength(19); // (17 until THE LOVERS and XIÊU LÒNG, 2026-11-24)
+    expect(projects).toHaveLength(20); // (17 until THE LOVERS and XIÊU LÒNG, 2026-11-24; 19 until DEATHMAN, the same day)
   });
 });

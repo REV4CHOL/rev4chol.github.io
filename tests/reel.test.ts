@@ -342,15 +342,17 @@ describe('the strip, measured in units: two panes on an upright screen', () => {
     expect(REEL_QUERY).toContain(SIDE_QUERY); // (the short screen the page asks about is the sideways one)
   });
 
-  it("a pane's place is the units before it, and a lap is all of them: the two chapters hold 14 and 6", () => {
+  it("a pane's place is the units before it, and a lap is all of them: the two chapters hold 14 and 7", () => {
     expect(places([1, 1, 1, 1, 2])).toEqual([0, 1, 2, 3, 4]);
     expect(places([2, 1, 1])).toEqual([0, 2, 3]);
     expect(places([])).toEqual([]);
     expect(lapUnits([1, 1, 1, 1, 2])).toBe(6);
     expect(lapUnits([])).toBe(0);
     expect(lapUnits(unitsOf('human', false))).toBe(14); // (fourteen films since THE LOVERS and XIÊU LÒNG, 2026-11-24)
-    expect(unitsOf('machine', false)).toEqual([1, 1, 1, 1, 2]); // (GALAXY Z FOLD 8 ULTRA, 9:16, stands last)
-    expect(lapUnits(unitsOf('machine', true))).toBe(5); // (on its side every pane is one unit)
+    // (GALAXY Z FOLD 8 ULTRA, 9:16, stood last until DEATHMAN joined the chapter's end, 2026-11-24)
+    expect(unitsOf('machine', false)).toEqual([1, 1, 1, 1, 2, 1]);
+    expect(lapUnits(unitsOf('machine', false))).toBe(7);
+    expect(lapUnits(unitsOf('machine', true))).toBe(6); // (on its side every pane is one unit)
   });
 
   it("the pace is one screen's height every 18 seconds, whatever a pane's height", () => {

@@ -489,5 +489,23 @@
     },
     "category": "human",
     "tileSize": "normal"
+  },
+  {
+    "slug": "deathman",
+    "title": "DEATHMAN",
+    "year": 2026,
+    "role": "",
+    "runtime": "",
+    "tags": [],
+    "accent": "#DCD3BE",
+    "aspect": "4:3",
+    "synopsis": "Wind on the cliffs, water in the empty rooms, and a cloaked figure with a skull for a face. An AI short film.",
+    "credits": [],
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/mdSUGmCclTY"
+    },
+    "category": "machine",
+    "tileSize": "normal"
   }
 ]
