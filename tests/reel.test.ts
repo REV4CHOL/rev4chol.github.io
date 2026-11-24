@@ -6,7 +6,7 @@ import {
   capKeyframes, capOpacity, coast, COAST_TAU, lapProgress, loopsAllowed, MAX_THROW, offsetFromLap, paneKeyframes, offsetForRail, ONE_LINE_MIN, oneLineSize, paneInView, panePlay, paneTop, railProgress,
   REEL_QUERY, REEL_WORDS, reelMode, releaseSpeed, roleLine, ROLL_SECONDS, shownSize, stripOrder, TITLE_MAX, TITLE_MIN, TITLE_SCALE, wrapStart,
   lapSeconds, lapUnits, offsetForPane, offsetForPlace, paneUnits, places, railTicks, rollPace, screenUnits, SIDE_QUERY, stripPlace,
-  arrivalOffset,
+  arrivalOffset, lanesToRetime,
 } from '../src/works/reel';
 
 // WORK ON A PHONE (owner, 2026-10-20: "on Phone, its completely overwhelming and disorienting … a complete redesign of
@@ -456,5 +456,57 @@ describe("the reel's words (controls in plain sentences, the house's codes as th
     expect(REEL_WORDS.all).toBe('LIST ▸');
     expect(REEL_WORDS.allLabel(17)).toBe('List all 17 films');
     expect(REEL_WORDS.chapterLine('CH·02', 5)).toBe('CH·02 ▪ 5 FILMS');
+  });
+});
+
+// (owner, 2026-11-25: "I am using phone. The performance when scrolling the Work section is super laggy") A finger on the
+// strip re-timed every pane's two timelines on every move: each one a style pass and a compositor update for a pane no
+// one can see. By hand, only the panes near the screen are re-timed; a pane off it keeps the time it was last given.
+describe('by hand, only the panes near the screen are re-timed', () => {
+  const unit = 422, view = 844;
+  const lap = (units: number[]) => ({ units, at: places(units), total: lapUnits(units) });
+
+  it('a pane far from the screen, now and where it was last shown, is left alone; a pane never timed is always timed', () => {
+    const { units, at, total } = lap(Array.from({ length: 14 }, () => 1));
+    const off = arrivalOffset(units, unit, view);
+    const near = units.map((u, i) => panePlay(paneTop(at[i], u, off, unit, total), u * unit, view, unit) !== 'free');
+    const all = units.map(() => off);
+    const want = near.flatMap((n, i) => (n ? [i] : []));
+    expect(lanesToRetime(at, units, off, all, unit, view, total)).toEqual(want);
+    expect(want.length).toBeLessThan(6); // (of fourteen)
+    const never = all.slice();
+    never[7] = Number.NaN;
+    expect(lanesToRetime(at, units, off, never, unit, view, total)).toEqual([...want, 7].sort((a, b) => a - b));
+  });
+
+  it('a pane shown on the screen at its old time is re-timed even when it has left it, so nothing stale stands there', () => {
+    const { units, at, total } = lap([1, 1, 1, 1, 2, 1, 1, 1]);
+    const off = 1000, moved = off + 3 * unit; // (a long drag in one move: three units)
+    const shown = units.map(() => off);
+    const got = lanesToRetime(at, units, moved, shown, unit, view, total);
+    units.forEach((u, i) => {
+      const was = panePlay(paneTop(at[i], u, off, unit, total), u * unit, view, unit) !== 'free';
+      const now = panePlay(paneTop(at[i], u, moved, unit, total), u * unit, view, unit) !== 'free';
+      expect(got.includes(i), `pane ${i}`).toBe(was || now);
+    });
+  });
+
+  it('over any drag, every pane on the screen stands where the strip says (a thousand moves, both chapters, upright and on its side)', () => {
+    let seed = 7;
+    const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (const [units, v, un] of [[Array.from({ length: 14 }, () => 1), 844, 422], [[1, 1, 1, 1, 2, 1], 844, 422], [[1, 1, 1, 1, 1, 1], 390, 390]] as [number[], number, number][]) {
+      const at = places(units), total = lapUnits(units);
+      let off = rand() * 5000;
+      const shown = units.map(() => Number.NaN);
+      for (let k = 0; k < 1000; k++) {
+        off += (rand() - 0.5) * (k % 50 === 0 ? 4 * un : 120); // (small moves, now and then a jump)
+        for (const i of lanesToRetime(at, units, off, shown, un, v, total)) shown[i] = off;
+        units.forEach((u, i) => {
+          const top = paneTop(at[i], u, off, un, total), shownTop = paneTop(at[i], u, shown[i], un, total);
+          const onScreen = (t: number) => t + u * un > 0 && t < v;
+          if (onScreen(top) || onScreen(shownTop)) expect(Math.abs(shownTop - top), `move ${k} pane ${i}`).toBeLessThan(1e-6);
+        });
+      }
+    }
   });
 });

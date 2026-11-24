@@ -25,15 +25,30 @@ class SoundEngine {
   /** Called once by the shell. Optimistic: Chrome propagates user activation
    *  across same-origin navigations, so a page reached by clicking a link may
    *  start its AudioContext immediately — sound then flows page to page
-   *  instead of re-locking on every load. Cold loads (no activation yet) skip
-   *  context creation to avoid the autoplay warning and arm gesture listeners
-   *  instead. */
+   *  instead of re-locking on every load. Cold loads (no activation yet) arm
+   *  gesture listeners; off a touch screen they skip context creation (no
+   *  autoplay warning), on one they make it at idle (ensureCtxAtIdle: Chrome
+   *  then logs "The AudioContext was not allowed to start", once). */
   init(): void {
     const activated = (navigator as Partial<{ userActivation: { hasBeenActive: boolean } }>)
       .userActivation?.hasBeenActive;
     if (activated !== false) this.ensureCtx();
+    else if (navigator.maxTouchPoints > 0) this.ensureCtxAtIdle();
     this.arm(); // stays armed even when already running — recovery is free
     if (this.ready()) this.flushUnlockCbs();
+  }
+
+  /** On a touch screen the context is made once the page is loaded and idle, suspended, so the first touch only
+   *  resumes it. Made inside that touch it was one long task (about 160 ms on a slowed phone profile) right as the
+   *  finger lands, and the first touch on WORK's strip starts a drag (owner, 2026-11-25: "The performance when
+   *  scrolling the Work section is super laggy"). A gesture before then still makes it there, as before. */
+  private ensureCtxAtIdle(): void {
+    const make = () => { if (!ctxRef) this.ensureCtx(); };
+    const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    // (a second after the load, then at idle: clear of the boot's own work and of the strip's arrival; Safari has no idle callback)
+    const later = () => window.setTimeout(() => { if (ric) ric(make, { timeout: 3000 }); else make(); }, 1000);
+    if (document.readyState === 'complete') later();
+    else window.addEventListener('load', later, { once: true });
   }
 
   /** Any user gesture may call this; idempotent. */

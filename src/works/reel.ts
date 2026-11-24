@@ -263,6 +263,18 @@ export function panePlay(top: number, height: number, view: number, unit: number
   return 'free';
 }
 
+/** By hand (a finger, a coast, a hold), the panes whose timelines are set from the strip's offset: those near the screen
+ *  now (within one unit of it: panePlay's 'play' and 'rest'), and those that were near it at the offset they were last
+ *  set from (`shown`; NaN when never), so none stays standing stale on the screen. The others keep the time they were
+ *  given: off the screen, where they stand is never seen, and each re-timing costs a style pass and a compositor update
+ *  (owner, 2026-11-25: "The performance when scrolling the Work section is super laggy"). */
+export function lanesToRetime(at: readonly number[], units: readonly number[], offset: number, shown: readonly number[], unit: number, view: number, total: number): number[] {
+  const near = (i: number, off: number) => panePlay(paneTop(at[i], units[i], off, unit, total), units[i] * unit, view, unit) !== 'free';
+  const out: number[] = [];
+  for (let i = 0; i < units.length; i++) if (Number.isNaN(shown[i]) || near(i, offset) || near(i, shown[i])) out.push(i);
+  return out;
+}
+
 const films = (n: number) => `${n} ${n === 1 ? 'FILM' : 'FILMS'}`;
 /** The reel's words: its controls in plain sentences, the house's codes as they are. None of them stands on a pane. */
 export const REEL_WORDS = {

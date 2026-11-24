@@ -29,7 +29,7 @@ import { softBreaks } from '../lib/escape';
 import { fillTitle, settleLockup } from '../lib/title';
 import { CHANNELS, type ChannelKey, channelProjects } from './channels';
 import {
-  arrivalOffset, capKeyframes, coast, lapProgress, lapSeconds, lapUnits, loopsAllowed, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
+  arrivalOffset, capKeyframes, coast, lanesToRetime, lapProgress, lapSeconds, lapUnits, loopsAllowed, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
   oneLineSize, paneInView, paneKeyframes, panePlay, paneTop, paneUnits, places, railProgress, railTicks, REEL_WORDS, releaseSpeed,
   roleLine, rollPace, screenUnits, shownSize, SIDE_QUERY, stripOrder, stripPlace, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
   type PanePlay,
@@ -254,14 +254,20 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   const lapMs = () => lapSeconds(strip.total, unit, view) * 1000;
   const headMs = () => lapSeconds(strip.chapter, unit, view) * 1000;
   const timelines = (): Animation[] => [...lanes.flatMap((l) => [l.pane, l.cap]), ...(head ? [head] : [])];
-  /** every timeline set from the strip's offset */
-  const setTimes = () => {
+  // the offset each pane's timelines were last set from (NaN: not since they last ran or were built)
+  let shown: number[] = [];
+  /** the timelines set from the strip's offset: every one (`all`), or by hand only the panes near the screen
+   *  (works/reel.ts: lanesToRetime): a pane off it keeps its time, unseen, and each re-timing costs a style pass */
+  const setTimes = (all = false) => {
     const lap = lapMs();
-    lanes.forEach((l, i) => {
-      const t = lapProgress(strip.at[i], strip.units[i], offset, unit, strip.total) * lap;
+    if (shown.length !== lanes.length) shown = lanes.map(() => Number.NaN);
+    const which = all ? lanes.map((_, i) => i) : lanesToRetime(strip.at, strip.units, offset, shown, unit, view, strip.total);
+    for (const i of which) {
+      const l = lanes[i], t = lapProgress(strip.at[i], strip.units[i], offset, unit, strip.total) * lap;
       l.pane.currentTime = t;
       l.cap.currentTime = t;
-    });
+      shown[i] = offset;
+    }
     if (head) head.currentTime = railProgress(offset, unit, view, strip.chapter) * headMs();
   };
   /** the strip's offset now: its own by hand; read from the clock while it rolls */
@@ -288,15 +294,16 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     head = ph ? ph.animate([{ transform: 'translate3d(0, 0%, 0)' }, { transform: 'translate3d(0, 100%, 0)' }], { duration: headMs(), iterations: Infinity, easing: 'linear' }) : null;
     for (const a of timelines()) a.pause();
     rolling = false;
-    setTimes();
+    setTimes(true);
   };
   /** the clock takes the strip, from where it stands — at once, at the roll's pace */
   const roll = () => {
     if (rolling || parked || pinned || touching || document.hidden || reducedMotion() || !lanes.length) return;
     sleep();
     v = rollSpeed();
-    setTimes();
+    setTimes(true);
     for (const a of timelines()) a.play();
+    shown = lanes.map(() => Number.NaN); // (the clock moves them all now)
     rolling = true;
   };
   /** the strip by hand, where it stands */
@@ -305,7 +312,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     offsetNow();
     for (const a of timelines()) a.pause();
     rolling = false;
-    setTimes(); // (all on the one frame they stopped on)
+    setTimes(true); // (all on the one frame they stopped on)
   };
 
   /* ------------------------------------------------------------ the loops -- */
@@ -420,11 +427,16 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     plan();
     if (target > 0 && Math.abs(v - target) < 2) { roll(); return; }
     if (target === 0 && Math.abs(v) < 1) { v = 0; return; } // (CALM, or held: at rest)
-    wake();
+    wake(now); // (the next step is timed from this frame's time, not from when this frame's work ended: so each step is
+    // the whole time between two frames, however long the work took)
   };
-  const wake = () => {
+  /** the coast on the screen's clock, from `since` (a frame's time); by default from the frame on the screen now: the
+   *  animations' own clock, the time the frame being drawn was given. (From performance.now(), the moment this line ran,
+   *  each step was short of a frame by however long the frame's work had taken, and the first after a release short
+   *  by a third: the strip faltered as the finger let go, the more the busier the phone.) */
+  const wake = (since?: number) => {
     if (raf || rolling || parked || document.hidden) return;
-    last = performance.now();
+    last = since ?? (Number(document.timeline?.currentTime ?? Number.NaN) || performance.now());
     raf = requestAnimationFrame(frame);
   };
   const sleep = () => { if (raf) cancelAnimationFrame(raf); raf = 0; };
@@ -619,7 +631,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
       remeasure();
       fit(strip);
       capFrames();
-      setTimes();
+      setTimes(true); // (the heights measured anew: every pane)
       replan();
       roll();
       wake();
