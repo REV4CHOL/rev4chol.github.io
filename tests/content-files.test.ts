@@ -143,8 +143,9 @@ describe('shipped content files', () => {
     // (…and on 2026-09-27 the owner moved it to NEON LITURGY's corner — a swap: json 18 ↔ 32; then, the same day,
     //  "bring MISTCHILD down to Neon Liturgy (chapter 1), then remove the pane where MISTCHILD once stood": back to
     //  json 32 for good, NEON LITURGY off the site, json 18 an open gap; since 2026-09-28, the placeholders and the
-    //  gap gone, json 17; then 16, SALINE THRONE gone too)
-    { slug: 'mistchild', slot: 16, was: 'low-tide-gospel', title: 'MISTCHILD', year: 2025, role: 'Director / Colorist / Editor', runtime: '0:47',
+    //  gap gone, json 17; then 16, SALINE THRONE gone too; on 2026-11-24 the owner: 'swap the place between
+    //  "MISTCHILD" with "FAR EAST"': json 5, FAR EAST's old place)
+    { slug: 'mistchild', slot: 5, was: 'low-tide-gospel', title: 'MISTCHILD', year: 2025, role: 'Director / Colorist / Editor', runtime: '0:47',
       tags: ['experimental'], synopsis: 'The child must have felt so lonely, in the mist.', category: 'human',
       tileSize: 'normal', aspect: '2.39:1', youtube: 'dyqpjo4eKJI', stills: 16 },
   ];
@@ -152,6 +153,7 @@ describe('shipped content files', () => {
   // the owner's third batch (2026-09-27): FOREST ONSEN into TENDER MACHINES' place; SOFT HOURS & LONELY LANDS
   // "at the pane where SODA COAST just left"; "ĂN HỎI" CEREMONY into the "upper blank space", featured.
   // The owner's text verbatim — straight quotes, the ampersand, the diacritics (NFC), the curly apostrophe.
+  // (2026-11-24, the owner: 'Rename "ăn hỏi" ceremony to "The Betrothal"'. Its slug, `an-hoi`, and its address stay.)
   const BATCH3 = [
     { slug: 'forest-onsen', slot: 4, where: 'takes TENDER MACHINES\' featured place in CH·02',
       title: 'FOREST ONSEN - Ecopark\'s Eco Retreat Commercial', year: 2026, role: 'AI Lead / Colorist', runtime: '0:47',
@@ -163,7 +165,7 @@ describe('shipped content files', () => {
       synopsis: 'The stillness of ordinary moments, in familiar places that feel strangely distant, with the extraordinary emotions for the empty spaces.',
       category: 'human', tileSize: 'normal', aspect: '2.39:1', youtube: 'G_wItkJWT2o', stills: 36 },
     { slug: 'an-hoi', slot: 6, where: 'fills the upper held place, featured',
-      title: '"Ăn Hỏi" Ceremony', year: 2026, role: 'Director / Colorist / Editor / Sound Designer', runtime: '3:17',
+      title: 'The Betrothal', year: 2026, role: 'Director / Colorist / Editor / Sound Designer', runtime: '3:17',
       tags: ['experimental', 'slice of life'],
       synopsis: 'Gathering together, saying the first words, for their time spent together for all eternity.',
       category: 'human', tileSize: 'large', aspect: '4:3', youtube: 'XKkHkLVUC40', stills: 35 },
@@ -303,7 +305,8 @@ describe('shipped content files', () => {
     expect(slot(6)).toEqual(['an-hoi', 'large']); // the upper held place
     expect(slot(13)).toEqual(['philia', 'large']); // the lower one: REMNANTS filled it, then traded places with PHILIA
     expect(slot(0)).toEqual(['remnants-of-a-dream', 'large']); // (owner 2026-11-08)
-    expect(slot(5)).toEqual(['far-east', 'normal']); // COPPER LULLABY's place
+    expect(slot(16)).toEqual(['far-east', 'normal']); // (COPPER LULLABY's place, json 5, until it and MISTCHILD traded places, owner 2026-11-24)
+    expect(slot(5)).toEqual(['mistchild', 'normal']);
     expect(slot(14)).toEqual(['mission-impassible', 'normal']); // FAR EAST's old one: COPPER LULLABY's, until the fourth batch
     expect(slot(9)).toEqual(['soda-coast', 'normal']); // RUST CHOIR's place
     for (const gone of ['sodium-haze', 'motel-eden', 'rust-choir', 'tender-machines', 'copper-lullaby']) {
@@ -322,9 +325,13 @@ describe('shipped content files', () => {
   //  slide into that corner, went with them)
   // (2026-11-24, the owner: "Film coming soon, role COLORIST, at the chapter's end": THE LOVERS and XIÊU LÒNG
   //  follow MISTCHILD, the last two of CH·01's order)
-  it("MISTCHILD stands last of CH·01's films before the two newest; NEON LITURGY and the open gap are gone", () => {
+  // (later that day, the owner: 'Also swap the place between "MISTCHILD" with "FAR EAST" for me': MISTCHILD takes
+  //  FAR EAST's place, first of the regular films, and FAR EAST stands where MISTCHILD stood)
+  it("FAR EAST stands last of CH·01's films before the two newest, where MISTCHILD stood; NEON LITURGY and the open gap are gone", () => {
     const floor = parseFloor(rawProjects());
-    expect(floor.filter((it) => it.category === 'human').slice(-3).map((it) => it.slug)).toEqual(['mistchild', 'the-lovers', 'xieu-long']);
+    expect(floor.filter((it) => it.category === 'human').slice(-3).map((it) => it.slug)).toEqual(['far-east', 'the-lovers', 'xieu-long']);
+    expect(floor.findIndex((it) => it.slug === 'mistchild')).toBe(5);
+    expect(floor.findIndex((it) => it.slug === 'far-east')).toBe(16);
     expect(floor.some(isBlank)).toBe(false);
     expect(floor.some((it) => it.slug === 'neon-liturgy')).toBe(false);
     expect(existsSync(`${root}projects/neon-liturgy`)).toBe(false);
@@ -376,12 +383,13 @@ describe('shipped content files', () => {
   //  2026-11-08, the owner: PHILIA and REMNANTS OF A DREAM switch places; 2026-11-24, THE LOVERS and XIÊU LÒNG join
   //  at the chapter's end: fourteen, and the layout's own choice is a 5 × 3 band — the six featured 3 × 2 in its
   //  middle, the regular films round them in json order, the two new ones last on the bottom row — with ONE slot
-  //  open, the bottom-right corner. That slot is a design call left to the owner: they asked for no gap in a block)
+  //  open, the bottom-right corner. That slot is a design call left to the owner: they asked for no gap in a block;
+  //  later on 2026-11-24 the owner had MISTCHILD and FAR EAST switch places: top left and bottom row, second)
   it('CH·01 lies cell by cell: 14 films on a 5 × 3 band, every pane a real film, one corner slot open', () => {
     expect(cells('human')).toEqual({
-      'far-east': [0, 0], 'remnants-of-a-dream': [1, 0], 'mien-vien': [2, 0], 'an-hoi': [3, 0], 'soda-coast': [4, 0],
+      mistchild: [0, 0], 'remnants-of-a-dream': [1, 0], 'mien-vien': [2, 0], 'an-hoi': [3, 0], 'soda-coast': [4, 0],
       'soft-hours-lonely-lands': [0, 1], 'lien-quan': [1, 1], 'electric-fish': [2, 1], philia: [3, 1], 'mission-impassible': [4, 1],
-      halide: [0, 2], mistchild: [1, 2], 'the-lovers': [2, 2], 'xieu-long': [3, 2],
+      halide: [0, 2], 'far-east': [1, 2], 'the-lovers': [2, 2], 'xieu-long': [3, 2],
     });
     const taken = new Set(Object.values(cells('human')).map(([c, r]) => `${c},${r}`));
     const open: number[][] = [];
@@ -413,14 +421,17 @@ describe('shipped content files', () => {
   // same day, they chose "Keep 3:2, add that pane", the titles "THE LOVERS and XIÊU LÒNG", and "Film coming soon, role
   // COLORIST, at the chapter's end". THE LOVERS is a 4:3 wedding film, XIÊU LÒNG a 3:2 music video.
   // Later that day, the owner: "The Lovers should be role: director / Editor / colorist", with its YouTube embed code
-  // and "Runtime is 3:17". XIÊU LÒNG's film is still to come.
+  // and "Runtime is 3:17". Then XIÊU LÒNG's embed code, and: "Also in Xiêu Lòng, I need the following info: Artist:
+  // Dung Hoang Pham / PHUCNAM. Production House: Explosion Kitchen. Runtime: 4:20. Genre: Music Video".
   const BATCH5 = [
     { slug: 'the-lovers', slot: 17, title: 'THE LOVERS', aspect: '4:3', client: '', tags: ['wedding film'],
       role: 'Director / Editor / Colorist', runtime: '3:17', film: 'https://www.youtube.com/embed/4nkgqyVtfsg',
+      artist: '', productionHouse: '',
       synopsis: 'A vow in a green garden, held close.', accent: '#6FE0B4', focus: '70% 50%',
       loop: { size: [960, 720], seconds: 8 }, stills: 50, still: [1600, 1200] },
     { slug: 'xieu-long', slot: 18, title: 'XIÊU LÒNG', aspect: '3:2', client: 'DHP & Khadarec', tags: ['music video'],
-      role: 'Colorist', runtime: '', film: null,
+      role: 'Colorist', runtime: '4:20', film: 'https://www.youtube.com/embed/wZNPHtoPZzk',
+      artist: 'Dung Hoang Pham / PHUCNAM', productionHouse: 'Explosion Kitchen',
       synopsis: 'Silk, a red curtain and a paper fan: the moment a heart gives way.', accent: '#FF3D5A', focus: '50% 50%',
       loop: { size: [1080, 720], seconds: 5.4 }, stills: 27, still: [1600, 1067] },
   ] as const;
@@ -432,6 +443,7 @@ describe('shipped content files', () => {
     expect(p.title).toBe(p.title.normalize('NFC')); // (Ê and Ò as single letters, the way the display face carries them)
     expect([p.year, p.role, p.runtime, p.client, p.category, p.tileSize]).toEqual([2026, f.role, f.runtime, f.client, 'human', 'normal']);
     expect(p.credits).toEqual([{ role: f.role, name: 'Revachol' }]);
+    expect([p.artist, p.productionHouse]).toEqual([f.artist, f.productionHouse]);
     expect([p.aspect, p.tags, p.synopsis, p.accent, p.focus]).toEqual([f.aspect, [...f.tags], f.synopsis, f.accent, f.focus]);
     // (a film with its link plays; one without keeps WATCH greyed until the link comes)
     expect([p.film, p.filmPending, p.filmPrivate]).toEqual(f.film ? [{ type: 'youtube', src: f.film }, false, false] : [null, true, false]);

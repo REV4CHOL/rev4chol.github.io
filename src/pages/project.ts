@@ -215,6 +215,8 @@ function mountSpec(p: Project): void {
   rows.push(['YEAR', `<span>${p.year}</span>`]);
   if (p.role) rows.push(['ROLE', `<span>${escapeHtml(p.role.toUpperCase())}</span>`]);
   if (p.client) rows.push(['CLIENT', `<span>${escapeHtml(p.client.toUpperCase())}</span>`]);
+  if (p.artist) rows.push(['ARTIST', `<span>${escapeHtml(p.artist.toUpperCase())}</span>`]);
+  if (p.productionHouse) rows.push(['PRODUCTION HOUSE', `<span>${escapeHtml(p.productionHouse.toUpperCase())}</span>`]);
   if (p.runtime) rows.push(['RUNTIME', `<span>${escapeHtml(p.runtime)}</span>`]);
   if (p.tags.length)
     rows.push(['GENRE', p.tags.map((t) => `<span class="p-pill">${escapeHtml(t.toUpperCase())}</span>`).join('')]);

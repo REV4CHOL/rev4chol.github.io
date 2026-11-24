@@ -122,33 +122,33 @@
     "tileSize": "large"
   },
   {
-    "slug": "far-east",
-    "title": "FAR EAST",
+    "slug": "mistchild",
+    "title": "MISTCHILD",
     "year": 2025,
-    "role": "Director / Editor / Colorist",
-    "runtime": "1:30",
+    "role": "Director / Colorist / Editor",
+    "runtime": "0:47",
     "tags": [
       "experimental"
     ],
-    "accent": "#EFC468",
+    "accent": "#85AFE0",
     "aspect": "2.39:1",
-    "synopsis": "East of memory, the grass holds the sun and a house waits. Two silhouettes learn the horizon — the land keeping a warmth the day has already left.",
+    "synopsis": "The child must have felt so lonely, in the mist.",
     "credits": [
       {
-        "role": "Director / Editor / Colorist",
+        "role": "Director / Colorist / Editor",
         "name": "Revachol"
       }
     ],
     "film": {
       "type": "youtube",
-      "src": "https://www.youtube.com/embed/DrezQ5zlHqI"
+      "src": "https://www.youtube.com/embed/dyqpjo4eKJI"
     },
     "category": "human",
     "tileSize": "normal"
   },
   {
     "slug": "an-hoi",
-    "title": "\"Ăn Hỏi\" Ceremony",
+    "title": "The Betrothal",
     "year": 2026,
     "role": "Director / Colorist / Editor / Sound Designer",
     "runtime": "3:17",
@@ -411,26 +411,26 @@
     "tileSize": "normal"
   },
   {
-    "slug": "mistchild",
-    "title": "MISTCHILD",
+    "slug": "far-east",
+    "title": "FAR EAST",
     "year": 2025,
-    "role": "Director / Colorist / Editor",
-    "runtime": "0:47",
+    "role": "Director / Editor / Colorist",
+    "runtime": "1:30",
     "tags": [
       "experimental"
     ],
-    "accent": "#85AFE0",
+    "accent": "#EFC468",
     "aspect": "2.39:1",
-    "synopsis": "The child must have felt so lonely, in the mist.",
+    "synopsis": "East of memory, the grass holds the sun and a house waits. Two silhouettes learn the horizon — the land keeping a warmth the day has already left.",
     "credits": [
       {
-        "role": "Director / Colorist / Editor",
+        "role": "Director / Editor / Colorist",
         "name": "Revachol"
       }
     ],
     "film": {
       "type": "youtube",
-      "src": "https://www.youtube.com/embed/dyqpjo4eKJI"
+      "src": "https://www.youtube.com/embed/DrezQ5zlHqI"
     },
     "category": "human",
     "tileSize": "normal"
@@ -466,8 +466,10 @@
     "title": "XIÊU LÒNG",
     "year": 2026,
     "role": "Colorist",
-    "runtime": "",
+    "runtime": "4:20",
     "client": "DHP & Khadarec",
+    "artist": "Dung Hoang Pham / PHUCNAM",
+    "productionHouse": "Explosion Kitchen",
     "tags": [
       "music video"
     ],
@@ -480,8 +482,10 @@
         "name": "Revachol"
       }
     ],
-    "film": null,
-    "filmPending": true,
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/wZNPHtoPZzk"
+    },
     "category": "human",
     "tileSize": "normal"
   }

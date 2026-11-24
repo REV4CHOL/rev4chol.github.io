@@ -201,6 +201,16 @@ describe('helpers', () => {
     expect(parseProjects([{ ...validProject(), client: 'Garena' }])[0].client).toBe('Garena');
   });
 
+  // the owner, 2026-11-24, of XIÊU LÒNG: "I need the following info: Artist: … Production House: …"
+  it('artist and productionHouse: default empty, accept a name, reject junk', () => {
+    const [bare] = parseProjects([validProject()]);
+    expect([bare.artist, bare.productionHouse]).toEqual(['', '']);
+    const [p] = parseProjects([{ ...validProject(), artist: 'Dung Hoang Pham / PHUCNAM', productionHouse: 'Explosion Kitchen' }]);
+    expect([p.artist, p.productionHouse]).toEqual(['Dung Hoang Pham / PHUCNAM', 'Explosion Kitchen']);
+    expect(() => parseProjects([{ ...validProject(), artist: 7 }])).toThrow(ContentError);
+    expect(() => parseProjects([{ ...validProject(), productionHouse: ['Explosion Kitchen'] }])).toThrow(ContentError);
+  });
+
   it('film.type embed: accepted, carrying any platform iframe verbatim', () => {
     const [p] = parseProjects([
       { ...validProject(), film: { type: 'embed', src: '<iframe src="https://www.facebook.com/plugins/video.php?x=1"></iframe>' } },

@@ -138,3 +138,18 @@ describe("the film page's marks keep clear of the menu, and read over a bright p
     expect(css).toMatch(/\.p-back, \.p-nextlink \{[^}]*overflow-wrap: anywhere;/);
   });
 });
+
+// The owner, 2026-11-24, of XIÊU LÒNG: "I need the following info: Artist: Dung Hoang Pham / PHUCNAM. Production
+// House: Explosion Kitchen. Runtime: 4:20. Genre: Music Video". The spec sheet had no row for the first two.
+describe("the spec sheet's rows", () => {
+  const page = readFileSync('src/pages/project.ts', 'utf8').replace(/\r\n/g, '\n');
+  const rowAt = (label: string) => page.indexOf(`rows.push(['${label}',`);
+
+  it('ARTIST and PRODUCTION HOUSE stand after CLIENT and before RUNTIME, each only when its film carries it', () => {
+    const order = ['YEAR', 'ROLE', 'CLIENT', 'ARTIST', 'PRODUCTION HOUSE', 'RUNTIME', 'GENRE'].map(rowAt);
+    expect(order.every((at) => at > 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(page).toContain("if (p.artist) rows.push(['ARTIST', `<span>${escapeHtml(p.artist.toUpperCase())}</span>`]);");
+    expect(page).toContain("if (p.productionHouse) rows.push(['PRODUCTION HOUSE', `<span>${escapeHtml(p.productionHouse.toUpperCase())}</span>`]);");
+  });
+});

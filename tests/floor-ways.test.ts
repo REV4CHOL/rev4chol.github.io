@@ -19,7 +19,7 @@ import { nearestPane, strayed } from '../src/works/stray';
 // screen's edge; two names for one film.
 
 const project = (over: Partial<Project> = {}): Project => ({
-  slug: 'philia', title: 'PHILIA', year: 2026, role: 'Colorist', runtime: '11:42', client: '', short: '', tags: [],
+  slug: 'philia', title: 'PHILIA', year: 2026, role: 'Colorist', runtime: '11:42', client: '', artist: '', productionHouse: '', short: '', tags: [],
   accent: '#c8ff00', tileSize: 'large', aspect: '16:9', category: 'human', synopsis: '', credits: [],
   film: { type: 'youtube', src: 'https://youtu.be/abcdefghijk' }, films: [], filmPending: false, filmPrivate: false,
   stills: [], position: null, focus: '50% 50%',

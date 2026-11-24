@@ -25,6 +25,10 @@ export interface Project {
   runtime: string;
   /** commissioning client — a CLIENT row on the spec sheet when set */
   client: string;
+  /** the performing artist, and the production house that made the film: an ARTIST and a PRODUCTION HOUSE row on the
+   *  spec sheet, each when set (owner 2026-11-24, of XIÊU LÒNG: "I need the following info: Artist … Production House") */
+  artist: string;
+  productionHouse: string;
   /** short display name for the floor pane's hover label — the dossier
    *  always carries the full title */
   short: string;
@@ -235,6 +239,8 @@ export function parseProject(raw: unknown, i: number): Project {
     role: str(r.role, file, `${where} role`, ''),
     runtime: str(r.runtime, file, `${where} runtime`, ''),
     client: str(r.client, file, `${where} client`, ''),
+    artist: str(r.artist, file, `${where} artist`, ''),
+    productionHouse: str(r.productionHouse, file, `${where} productionHouse`, ''),
     short: str(r.short, file, `${where} short`, ''),
     tags: tags as string[],
     accent,
