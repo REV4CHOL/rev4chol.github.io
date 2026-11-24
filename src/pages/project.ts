@@ -6,6 +6,7 @@ import { escapeHtml, softBreaks } from '../lib/escape';
 import { reducedMotion } from '../lib/env';
 import { armPosterLock, posterZoom } from '../lib/poster-lock';
 import { scrambleEl } from '../lib/scramble';
+import { baselineOf, fillTitle, heroLockupSize, lockupHtml, settleLockup, splitTitle, zoomOf } from '../lib/title';
 import { music } from '../lib/music';
 import { sound } from '../lib/sound';
 import { hashSlug, stillSlotUrls, wallRhythm } from '../project/dossier';
@@ -187,7 +188,10 @@ function mountHero(p: Project, stamp: string): void {
   const title = p.title.toUpperCase();
   const stack = document.querySelector<HTMLElement>('.p-title-stack')!;
   const ghost = document.getElementById('p-title-ghost')!;
-  ghost.textContent = title;
+  const titleEl = document.getElementById('p-title')!;
+  const shout = (s: string) => s.toUpperCase();
+  fillTitle(ghost, p.title, shout);
+  const two = splitTitle(p.title).alt !== null;
   // the title never breaks: measure the name (via the ghost — it carries the
   // full text at once, the visible copy is still scrambling in) and scale the
   // shared font-size so any length holds exactly one line at any viewport
@@ -200,11 +204,41 @@ function mountHero(p: Project, stamp: string): void {
       stack.style.setProperty('--tfs', `${Math.max(12, Math.floor(base * (w / sw) * 98) / 100)}px`);
     }
   };
-  fitTitle();
+  // A TWO-LANGUAGE TITLE (lib/title.ts) stands as two lines, one column: fitted on each line's width (the English sets
+  // it), and on a share of the hero's height. The viewfinder is an overlay and yields: its bottom edge rises to stand
+  // FRAME_GAP clear of line 1's ink, never lower than its own (a one-part page never sets it)
+  const heroSec = document.getElementById('p-hero')!;
+  const FRAME_GAP = 18;
+  const fitLockup = () => {
+    stack.style.removeProperty('--tfs');
+    heroSec.style.removeProperty('--p-frame-b');
+    const a = ghost.querySelector<HTMLElement>('.tt-main')!, b = ghost.querySelector<HTMLElement>('.tt-alt')!;
+    const z = zoomOf(heroSec); // (screen px to the hero's own: the poster lock zooms the page)
+    const width = (e: HTMLElement) => { e.style.display = 'inline-block'; const r = e.getBoundingClientRect().width / z; e.style.display = ''; return r; };
+    const base = parseFloat(getComputedStyle(ghost).fontSize);
+    const c = document.createElement('canvas').getContext('2d');
+    let cap = 0.67;
+    if (c) { c.font = `700 1000px ${getComputedStyle(ghost).fontFamily}`; cap = c.measureText('H').actualBoundingBoxAscent / 1000 || cap; }
+    stack.style.setProperty('--tfs', `${heroLockupSize(base, stack.clientWidth, width(a), width(b), heroSec.clientHeight, cap)}px`);
+    for (const e of [ghost, titleEl]) settleLockup(e);
+    const frame = heroSec.querySelector<HTMLElement>('.p-scanframe');
+    if (!frame) return;
+    const own = (heroSec.getBoundingClientRect().bottom - frame.getBoundingClientRect().bottom) / z;
+    const main = titleEl.querySelector<HTMLElement>('.tt-main')!;
+    const capTop = baselineOf(main) / z - cap * parseFloat(getComputedStyle(main).fontSize); // (line 1's cap top: its ink)
+    const need = heroSec.getBoundingClientRect().bottom / z - capTop + FRAME_GAP;
+    if (need > own) heroSec.style.setProperty('--p-frame-b', `${Math.ceil(need)}px`);
+  };
+  const fit = two ? fitLockup : fitTitle;
+  if (two) stack.style.setProperty('--tt-acc', p.accent);
+  fillTitle(titleEl, p.title, shout); // (its words in place for the measure; the scramble then runs over them)
+  fit();
   // a fallback-font measurement lies — refit once the display face is in
-  void document.fonts?.ready?.then(fitTitle);
-  window.addEventListener('resize', fitTitle);
-  void scrambleEl(document.getElementById('p-title')!, title, 650);
+  void document.fonts?.ready?.then(fit);
+  window.addEventListener('resize', fit);
+  if (!two) { void scrambleEl(titleEl, title, 650); return; }
+  void scrambleEl(titleEl.querySelector<HTMLElement>('.tt-main')!, shout(splitTitle(p.title).main), 650);
+  void scrambleEl(titleEl.querySelector<HTMLElement>('.tt-alt')!, shout(splitTitle(p.title).alt!), 650);
 }
 
 /* ---------------------------------------------------------- spec sheet -- */
@@ -622,6 +656,9 @@ function mountEndNav(all: Project[], idx: number): void {
   document.getElementById('p-confirm')!.innerHTML = `
     <div class="p-endnav" data-stamp>
       <a class="p-back" href="/works.html" data-internal data-cursor="BACK ◂">◂ BACK TO ALL FILMS</a>
-      ${solo ? '' : `<a class="p-nextlink" href="/project.html?p=${next.slug}" data-internal data-cursor="NEXT ▸">NEXT FILM ▸ ${escapeHtml(softBreaks(next.title.toUpperCase()))}</a>`}
+      ${solo ? '' : `<a class="p-nextlink" href="/project.html?p=${next.slug}" data-internal data-cursor="NEXT ▸" style="--tt-acc: ${escapeHtml(next.accent)}">NEXT FILM ▸ ${lockupHtml(next.title.toUpperCase(), softBreaks)}</a>`}
     </div>`;
+  // (a two-language name stands as its lockup, lib/title.ts: settled now and once the display face is in)
+  const lock = document.querySelector<HTMLElement>('.p-nextlink .tt-lock');
+  if (lock) { settleLockup(lock); void document.fonts?.ready?.then(() => settleLockup(lock)); }
 }

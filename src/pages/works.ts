@@ -2,6 +2,7 @@ import gsap from 'gsap';
 import { isPlaceholder, loadFloor, loadLoopManifest, loadProjects, projectAssetUrl, type Project } from '../lib/content';
 import { finePointer, reducedMotion } from '../lib/env';
 import { softBreaks } from '../lib/escape';
+import { settleAll, titleSpan } from '../lib/title';
 import { armPosterLock, posterZoom } from '../lib/poster-lock';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
@@ -94,6 +95,7 @@ startPage(
       view = v;
       main.classList.toggle('is-list', v === 'list');
       listEl.hidden = v !== 'list';
+      if (v === 'list') settleAll(listEl); // (a two-language name's lockup measures itself once it shows: lib/title.ts)
       listDeco(v === 'list');
       document.getElementById('sr-projects')?.toggleAttribute('hidden', v === 'list'); // (the list says it all)
       toggle.textContent = toggleText(v, projects.length, reelOn);
@@ -270,7 +272,7 @@ function buildFilmList(host: HTMLElement, projects: Project[]): void {
       img.height = r.thumb.h;
       img.src = projectAssetUrl(r.slug, 'poster.jpg');
       thumb.append(img);
-      a.append(thumb, span('fl-title', softBreaks(r.title)), span('fl-meta micro', r.meta), span('fl-open micro', 'OPEN ▸'));
+      a.append(thumb, titleSpan('fl-title', r.title, softBreaks), span('fl-meta micro', r.meta), span('fl-open micro', 'OPEN ▸'));
       const li = document.createElement('li');
       li.append(a);
       rows.append(li);

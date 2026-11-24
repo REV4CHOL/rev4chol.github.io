@@ -180,7 +180,8 @@
 
 /* scan frame — corner ticks + hairline, the works-tile grammar writ large */
 .p-scanframe {
-  position: absolute; inset: 108px 210px 120px 92px; z-index: 3; pointer-events: none;
+  /* (its bottom edge yields to a two-language title: mountHero sets --p-frame-b, FRAME_GAP clear of line 1's ink) */
+  position: absolute; inset: 108px 210px var(--p-frame-b, 120px) 92px; z-index: 3; pointer-events: none;
   outline: 1px solid rgba(200, 255, 0, 0.28);
   background:
     linear-gradient(var(--signal), var(--signal)) 0 0 / 22px 2px,
@@ -252,6 +253,11 @@
 }
 @supports not (-webkit-text-stroke: 1px #000) {
   .p-title-ghost { color: var(--alert); opacity: 0.3; }
+}
+/* a two-language title (lib/title.ts): the ghost outlines both lines in its own pink */
+.p-title-ghost.tt-two > .tt-alt { color: transparent; }
+@supports not (-webkit-text-stroke: 1px #000) {
+  .p-title-ghost.tt-two > .tt-alt { color: var(--alert); }
 }
 
 /* ---------------------------------------------------------- sections -- */
@@ -597,6 +603,10 @@
 .p-back:hover { background: var(--alert); color: var(--void); }
 .p-nextlink { color: var(--signal); margin-left: auto; }
 .p-nextlink:hover { background: var(--signal); color: var(--void); }
+/* a two-language name (lib/title.ts) stands as its lockup after NEXT FILM ▸, line 1 on the link's own line; pressed,
+   the accent gives way to the void, as the rest of the link does */
+.p-nextlink .tt-lock { display: inline-block; vertical-align: top; max-width: 100%; }
+.p-nextlink:hover .tt-alt { color: inherit; }
 
 /* ---------------------------------------------------------------- eof -- */
 
@@ -615,7 +625,7 @@
    desktop viewport crosses 760px too, only touch devices reflow */
 @media (max-width: 760px) and (pointer: coarse) {
   .p-hero { --hero-h: min(88svh, 820px); }
-  .p-scanframe { inset: 96px 16px 130px 16px; }
+  .p-scanframe { inset: 96px 16px var(--p-frame-b, 130px) 16px; }
   .p-status { left: 16px; right: 16px; top: 130px; } /* wraps; clears nav + fixed HUD row */
   .p-index { right: 16px; top: 176px; } /* stacked under the status line */
   .p-callouts { display: none; } /* the I: sheet repeats every value below */

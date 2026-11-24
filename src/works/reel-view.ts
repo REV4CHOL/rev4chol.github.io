@@ -25,6 +25,7 @@ import { aspectRatio, loopSrcChain, projectAssetUrl, type Project } from '../lib
 import { autoplayRefused, imageLoopsWork, isRefusal, loopsAsImages, noteImageLoops, noteRefusal, onRefusal } from '../lib/autoplay';
 import { reducedMotion } from '../lib/env';
 import { softBreaks } from '../lib/escape';
+import { fillTitle, settleLockup } from '../lib/title';
 import { CHANNELS, type ChannelKey, channelProjects } from './channels';
 import {
   arrivalOffset, capKeyframes, coast, lapProgress, lapSeconds, lapUnits, loopsAllowed, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
@@ -106,7 +107,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     img.src = projectAssetUrl(p.slug, 'poster.jpg');
     pane.append(img, el('i', 'rl-scan'));
     const cap = el('span', 'rl-cap');
-    cap.append(el('i', 'rl-bar'), el('span', 'rl-title', softBreaks(p.title)), el('span', 'rl-role micro', roleLine(p.role))); // (a long name breaks at its _)
+    cap.append(el('i', 'rl-bar'), fillTitle(el('span', 'rl-title'), p.title, softBreaks), el('span', 'rl-role micro', roleLine(p.role))); // (a long name breaks at its _; a two-language name stands as two lines, lib/title.ts)
     a.append(pane, el('i', 'rl-marks'), cap);
     li.append(a);
     return li;
@@ -182,18 +183,26 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   };
   /** a name at its size in its caption (works/reel.ts), measured in its own face with its ▸ */
   const fitTitle = (t: HTMLElement, room: number) => {
+    // a two-language name (lib/title.ts) fits on its English line alone, with its ▸; its second line then stands at
+    // --tt-ratio of the SHOWN size, wrapping only if it must
+    const main = t.querySelector<HTMLElement>('.tt-main');
+    const alt = t.querySelector<HTMLElement>('.tt-alt');
+    if (alt) alt.style.display = 'none';
     const s = t.style;
     s.whiteSpace = 'nowrap';
     s.fontSize = `${TITLE_MAX}px`;
     const one = oneLineSize(t.scrollWidth, room);
     s.whiteSpace = '';
-    if (one !== null) { s.fontSize = `${shownSize(one)}px`; return; }
-    s.overflowWrap = 'normal'; // (whole words while it measures: a word too wide widens the name instead of breaking)
-    let size = wrapStart([...(t.textContent ?? '').replace(/​/g, '')].length); // (letters, not its break marks)
-    s.fontSize = `${size}px`;
-    while (size > TITLE_MIN && t.scrollWidth > room + 0.5) s.fontSize = `${--size}px`;
-    s.overflowWrap = '';
-    s.fontSize = `${shownSize(size)}px`; // (the fit settled: the name shown smaller, wrapping as it will)
+    if (one !== null) s.fontSize = `${shownSize(one)}px`;
+    else {
+      s.overflowWrap = 'normal'; // (whole words while it measures: a word too wide widens the name instead of breaking)
+      let size = wrapStart([...(main ?? t).textContent!.replace(/​/g, '')].length); // (letters, not its break marks)
+      s.fontSize = `${size}px`;
+      while (size > TITLE_MIN && t.scrollWidth > room + 0.5) s.fontSize = `${--size}px`;
+      s.overflowWrap = '';
+      s.fontSize = `${shownSize(size)}px`; // (the fit settled: the name shown smaller, wrapping as it will)
+    }
+    if (alt) { alt.style.display = ''; settleLockup(t); }
   };
   const fit = (s: Strip) => {
     s.caps.forEach((cap, i) => {

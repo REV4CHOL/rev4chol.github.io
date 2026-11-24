@@ -14,6 +14,7 @@ import {
 import { offerFloorReadings, type FloorReadings } from '../lib/readout';
 import type { WallEntry } from '../lib/wall-files';
 import { softBreaks } from '../lib/escape';
+import { fillTitle, settleLockup } from '../lib/title';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { leaveTo } from '../lib/transitions';
@@ -771,14 +772,21 @@ export class WorksWorld {
     const p = tile.project;
     const title = el.querySelector('.tl-title') as HTMLElement;
     const meta = el.querySelector('.tl-meta') as HTMLElement;
-    const name = softBreaks((p.short || p.title).toUpperCase());
+    const shout = (s: string) => softBreaks(s.toUpperCase());
     meta.textContent = captionMeta(p, finePointer()); // …ending with the verb that opens the pane
     meta.style.color = p.accent;
-    title.textContent = name; // (placed by its real words; the scramble then runs over them)
+    // (placed by its real words; the scramble then runs over them. A two-language name stands as its lockup, each line
+    // scrambling in its own span: lib/title.ts)
+    fillTitle(title, p.short || p.title, shout);
+    title.style.setProperty('--tt-acc', p.accent);
     el.hidden = false;
+    settleLockup(title);
     this.placeCaption(tile, cx, cy);
     this.followCaption(); // (a touch screen: the card has yet to travel to where its caption was placed)
-    void scrambleEl(title, name, 420);
+    const main = title.querySelector<HTMLElement>('.tt-main');
+    if (!main) { void scrambleEl(title, title.textContent ?? '', 420); return; }
+    void scrambleEl(title.querySelector<HTMLElement>('.tt-main')!, main.textContent ?? '', 420);
+    void scrambleEl(title.querySelector<HTMLElement>('.tt-alt')!, title.querySelector('.tt-alt')!.textContent ?? '', 420);
   }
 
   /** The caption stands by the lifted card, never on the picture while there is room, never off the screen

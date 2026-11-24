@@ -52,8 +52,10 @@ describe('a plain list of every film', () => {
     expect(softBreaks('MR_PURPLE_DREAMS')).toBe('MR_\u200bPURPLE_\u200bDREAMS');
     expect(softBreaks('PHILIA')).toBe('PHILIA');
     expect(scrambleFrame('A_\u200bB', 0, () => 0)[2]).toBe('\u200b');
-    expect(readFileSync('src/works/world.ts', 'utf8')).toContain('softBreaks((p.short || p.title).toUpperCase())');
-    expect(readFileSync('src/pages/works.ts', 'utf8')).toContain("span('fl-title', softBreaks(r.title))");
+    // (a two-language name breaks at its _ in each of its lines: lib/title.ts fills each line through the same shape)
+    expect(readFileSync('src/works/world.ts', 'utf8')).toContain('const shout = (s: string) => softBreaks(s.toUpperCase());');
+    expect(readFileSync('src/works/world.ts', 'utf8')).toContain('fillTitle(title, p.short || p.title, shout)');
+    expect(readFileSync('src/pages/works.ts', 'utf8')).toContain("titleSpan('fl-title', r.title, softBreaks)");
   });
 
   it('a chapter with no film has no heading', () => {
@@ -430,7 +432,7 @@ describe('a phone gets the reel, never the floor (pins)', () => {
   });
 
   it('a pane carries the film\'s name and its roles, nothing else (owner: "Do not clog this section up with texts")', () => {
-    expect(view).toContain("el('span', 'rl-title', softBreaks(p.title)), el('span', 'rl-role micro', roleLine(p.role))");
+    expect(view).toContain("fillTitle(el('span', 'rl-title'), p.title, softBreaks), el('span', 'rl-role micro', roleLine(p.role))");
     for (const gone of ['rl-syn', 'rl-tags', 'rl-meta', 'rl-door', 'rl-stills', 'rl-num', 'rl-cue', 'teaser(', 'rowMeta(']) {
       expect(view, gone).not.toContain(gone);
     }
@@ -438,7 +440,7 @@ describe('a phone gets the reel, never the floor (pins)', () => {
 
   it('a pane\'s words are smaller (owner, 2026-11-24: "The texts need to be smaller in size. Currently too large"; C)', () => {
     // the name: fitted as before, then shown at 66% of that size (works/reel.ts shownSize), in both of the fit's ends
-    expect(view).toContain("if (one !== null) { s.fontSize = `${shownSize(one)}px`; return; }");
+    expect(view).toContain('if (one !== null) s.fontSize = `${shownSize(one)}px`;');
     expect(view).toContain('s.fontSize = `${shownSize(size)}px`; // (the fit settled: the name shown smaller, wrapping as it will)');
     // the roles at 10 px (were 11), upright and on its side (the side rules leave the size alone)
     const role = css.slice(css.indexOf('.rl-role {'));
