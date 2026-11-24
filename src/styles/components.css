@@ -1079,6 +1079,23 @@ html.rvl-list-touch .fl-group { max-width: clamp(488px, 100% - 616px, 1120px); }
   .home-data { font-size: 11px; }
 }
 
+/* A TABLET'S FINGER (touch, wider than a phone; the phone's own rules stand above): the menu's links were 30 px tall and
+   the three switches 16 px, a finger misses them. The HIT AREA grows to 44 px: an invisible box with no layout of its
+   own, so not one visible pixel moves. The two rows share the space between them, and no box crosses into the other's:
+   the switches' row stands 18 px under the links' at 1024 px and 10 px at 1280 and up (the menu's type grows with the
+   screen), so a link's box ends 7 px under its words and a switch's starts 10 px over its own (1100 px and up: 4 and 4),
+   each reaching its 44 px on the side away from the other row. Measured at 800, 1024, 1180, 1280 and 1366. */
+@media (pointer: coarse) and (min-width: 641px) {
+  .nav-links a::after, .hud-tr button::after { content: ''; position: absolute; left: 0; right: 0; height: 44px; }
+  .nav-links a::after { top: calc((100% - 44px) / 2); }
+  .hud-tr button { position: relative; }
+  .hud-tr button::after { top: -10px; }
+}
+@media (pointer: coarse) and (min-width: 1100px) {
+  .nav-links a::after { top: calc(100% - 40px); }
+  .hud-tr button::after { top: -4px; }
+}
+
 /* TWO-LANGUAGE TITLES (lib/title.ts; owner, 2026-11-24: "go for A. But I want the two texts to be organise neatly in
    the same column, and it need to sit a bit closer to each other via their line spacing"). A title written
    `English / Vietnamese` stands as two lines wherever a film's name is a headline: the English name as a one-part

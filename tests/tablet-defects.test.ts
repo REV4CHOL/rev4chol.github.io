@@ -61,3 +61,24 @@ describe('WORK on a tablet: the legend over the floor fits the screen (800 px: i
     expect(src).toContain('if (finePointer()) words.textContent = legend;'); // a fine pointer keeps its one text
   });
 });
+
+describe('touch targets on a tablet: the menu links and the three switches are 44 px tall to a finger', () => {
+  const components = css('components');
+  const head = '@media (pointer: coarse) and (min-width: 641px) {\n  .nav-links a::after, .hud-tr button::after';
+  it('an invisible box, 44 px tall, on touch only and not on a phone: no padding, no margin, no layout of its own', () => {
+    const b = block(components, head);
+    expect(b).toContain(".nav-links a::after, .hud-tr button::after { content: ''; position: absolute; left: 0; right: 0; height: 44px; }");
+    expect(b).toContain('.nav-links a::after { top: calc((100% - 44px) / 2); }');
+    expect(b).toContain('.hud-tr button { position: relative; }');
+    expect(b).toContain('.hud-tr button::after { top: -10px; }');
+    expect(b).not.toMatch(/padding|margin/);
+  });
+  it('from 1100 px, where the two rows stand 10 px apart, the boxes meet no closer than 4 px each way', () => {
+    const b = block(components, '@media (pointer: coarse) and (min-width: 1100px) {');
+    expect(b).toContain('.nav-links a::after { top: calc(100% - 40px); }');
+    expect(b).toContain('.hud-tr button::after { top: -4px; }');
+  });
+  it('stands after the phone block (the phone keeps its own padding trick)', () => {
+    expect(components.indexOf(head)).toBeGreaterThan(components.indexOf('.hud-tr button { padding: 10px 4px 14px; margin: -10px 0 -14px; }'));
+  });
+});
