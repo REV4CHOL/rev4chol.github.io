@@ -2,11 +2,13 @@ import '../styles/stats.css';
 import { heapBytes } from '../lib/meter';
 import { watchPressure } from '../lib/pressure';
 import { quality } from '../lib/quality';
+import { playerLine, playerRecords } from '../lib/player-record';
 import { floorReadings, readoutLines } from '../lib/readout';
 
-/** THE READOUT'S PANEL (`?stats=1` on any page; the shell loads this file only then). Eight lines in the house's mono
+/** THE READOUT'S PANEL (`?stats=1` on any page; the shell loads this file only then). Nine lines in the house's mono
  *  type at the left edge, refreshed once a second, and a COPY button that puts them on the clipboard as text. It
- *  reads what the page already knows and sends nothing anywhere. The lines themselves are lib/readout.ts. */
+ *  reads what the page already knows and sends nothing anywhere. The first eight lines are lib/readout.ts; the
+ *  ninth, PLAYER, says which player a film page gave its film and why (lib/player-record.ts). */
 export function mountStats(): void {
   if (document.getElementById('rvl-stats')) return;
   const panel = document.createElement('aside');
@@ -37,7 +39,7 @@ export function mountStats(): void {
     first = false;
     frames = 0;
     since = now;
-    text = readoutLines(quality.report(), fps, floorReadings(), heapBytes(), pressure(), now).join('\n');
+    text = [...readoutLines(quality.report(), fps, floorReadings(), heapBytes(), pressure(), now), playerLine(playerRecords())].join('\n');
     lines.textContent = text;
   };
   refresh();

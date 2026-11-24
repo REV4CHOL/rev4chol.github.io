@@ -11,11 +11,14 @@
  *  - Once the player says it has started, a clear catcher covers the picture: a press plays or pauses, a double press
  *    goes fullscreen. Paused, nothing of the site's is drawn over the picture.
  *  - The bar stands under the picture in the page; in fullscreen it lies over the picture's foot and hides when idle.
- *  - The bar is trusted only once the player has answered the page; a player silent 6 s after its load is swapped for
- *    the plain frame with YouTube's own controls (Safari and every browser that could not be tested). */
+ *  - The bar is trusted only once the player has answered the page; a player silent HANDSHAKE_MS after its load,
+ *    counted only while the page is seen, is swapped for the plain frame with YouTube's own controls (Safari and
+ *    every browser that could not be tested). That swap is the ONLY way a film that got this player loses it, and it
+ *    writes its reason into the player's record (lib/player-record.ts: the readout's PLAYER line). */
 
 import type { PartInfo, Programme } from './parts';
 import { bigFrame } from './frame-size';
+import type { PlayerRecord } from '../lib/player-record';
 import { posterZoom } from '../lib/poster-lock';
 
 /* ----------------------------------------------------------------------------------------------------- the words -- */
@@ -171,21 +174,35 @@ export function seekTo(key: string, time: number, duration: number): number | nu
   return null;
 }
 
-/** THE HANDSHAKE: `loaded()` at each load of the frame's real address starts a count of `wait` ms; a player still
- *  silent at its end calls `fail` (once, ever). The answer at the count's end latches it either way. */
-export const HANDSHAKE_MS = 6000;
-export function handshake(o: { talks: () => boolean; fail: () => void; wait?: number }): { loaded(): void; stop(): void } {
+/** THE HANDSHAKE: `loaded()` at each load of the frame's real address starts a count of `wait` ms, which runs only
+ *  while the page is seen (`visible`); a player still silent at its end calls `fail` with the time counted (once,
+ *  ever). An answer ends it for good: a player that has spoken is never swapped.
+ *  (6 s of clock time until the owner's "YouTube player is appearing now wtf", 2026-11-24: a tab loaded in the
+ *  background, a slow line or a busy machine must not cost the film its player.) */
+export const HANDSHAKE_MS = 15000;
+const HANDSHAKE_TICK = 250;
+export function handshake(o: { talks: () => boolean; fail: (silent: number) => void; wait?: number; visible?: () => boolean }): { loaded(): void; stop(): void } {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let done = false;
+  let counted = 0;
+  const wait = o.wait ?? HANDSHAKE_MS;
+  const step = () => {
+    if (done) return;
+    if (o.talks()) { done = true; return; }
+    if (!o.visible || o.visible()) counted += HANDSHAKE_TICK;
+    if (counted >= wait) {
+      done = true;
+      o.fail(counted);
+      return;
+    }
+    timer = setTimeout(step, HANDSHAKE_TICK);
+  };
   return {
     loaded() {
       if (done) return;
       clearTimeout(timer);
-      timer = setTimeout(() => {
-        if (done) return;
-        done = true;
-        if (!o.talks()) o.fail();
-      }, o.wait ?? HANDSHAKE_MS);
+      counted = 0;
+      timer = setTimeout(step, HANDSHAKE_TICK);
     },
     stop() {
       done = true;
@@ -223,6 +240,8 @@ export interface BigFilm {
   plainSrc: string;
   /** the film's own picture ratio (width over height): the frame is sized on the picture inside it */
   ratio: number;
+  /** the player's record (lib/player-record.ts): its state and its frame, for the readout */
+  record: PlayerRecord | null;
 }
 
 type FsDoc = Document & { webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => void };
@@ -230,20 +249,26 @@ type FsEl = HTMLElement & { webkitRequestFullscreen?: () => void };
 const fsElement = (): Element | null => document.fullscreenElement ?? (document as FsDoc).webkitFullscreenElement ?? null;
 
 /** Lay the frame out for the box as it stands now: large and scaled down while the box is under 2160 device px on its
- *  short side, at the box's own size once it is not (a box grown that far: a fullscreen on a 4K screen). */
-function fitFrame(pic: HTMLElement, frame: HTMLIFrameElement, ratio: number): void {
+ *  short side, at the box's own size once it is not (a box grown that far: a fullscreen on a 4K screen). A box
+ *  without a size is left alone (a tab not laid out yet, a hidden section): the box is watched, and the frame is
+ *  fitted the moment it has one. Returns the layout in the readout's words, null for a box without a size. */
+function fitFrame(pic: HTMLElement, frame: HTMLIFrameElement, ratio: number): string | null {
   // plate px (clientWidth): under the poster lock a box's own px hold still while the window zooms the plate
   const w = pic.clientWidth, h = pic.clientHeight;
-  if (!w || !h) return;
+  if (!w || !h) return null;
   const f = bigFrame({ width: w, height: h }, window.devicePixelRatio || 1, posterZoom(), ratio);
   frame.style.width = `${f ? f.width : w}px`;
   frame.style.height = `${f ? f.height : h}px`;
   frame.style.transform = f ? `scale(${f.scale})` : '';
+  return f ? `FRAME ${f.width} × ${f.height} AT ${f.scale.toFixed(2)}` : `FRAME ${w} × ${h} AT ITS OWN SIZE`;
 }
+const NO_SIZE = 'ITS BOX HAS NO SIZE YET';
 
-/** Build the big player around `frame` (made with the big address, `controls=0`) at the end of `host`. Returns null,
- *  and leaves nothing in the page, when the box needs no big frame (its short side already stands 2160 device px). */
-export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { plainSrc: string; accent: string; ratio: number }): BigFilm | null {
+/** Build the big player around `frame` (made with the big address, `controls=0`) at the end of `host`. It always
+ *  stands: a box without a size yet, or one that needs no larger frame, keeps the site's player all the same (until
+ *  2026-11-24 it gave the film YouTube's own player for the whole visit: measured, a page loaded in a tab that was
+ *  not laid out yet). */
+export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { plainSrc: string; accent: string; ratio: number; record?: PlayerRecord | null }): BigFilm {
   const root = document.createElement('div');
   root.className = 'p-film';
   root.dataset.phase = 'waiting';
@@ -275,18 +300,15 @@ export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { pl
     `<button type="button" class="p-bar-btn p-bar-full" aria-label="Full screen">${svg('full')}<span class="p-bar-word">FULL SCREEN</span></button>`;
   root.append(pic, bar);
   host.append(root);
-  if (!bigFrame({ width: pic.clientWidth, height: pic.clientHeight }, window.devicePixelRatio || 1, posterZoom(), opts.ratio)) {
-    frame.classList.remove('p-frame--big');
-    root.remove();
-    return null;
-  }
-  fitFrame(pic, frame, opts.ratio);
-  return { root, pic, frame, mark, catcher, bar, plainSrc: opts.plainSrc, ratio: opts.ratio };
+  const record = opts.record ?? null;
+  const said = fitFrame(pic, frame, opts.ratio);
+  if (record) record.frame = said ?? NO_SIZE;
+  return { root, pic, frame, mark, catcher, bar, plainSrc: opts.plainSrc, ratio: opts.ratio, record };
 }
 
 /** Wire a big film's bar to the programme: the frame's fit, the handshake, the presses, the keys, fullscreen. */
 export function armBar(film: BigFilm, programme: Programme): void {
-  const { root, pic, frame, mark, catcher, bar } = film;
+  const { root, pic, frame, mark, catcher, bar, record } = film;
   const q = <T extends HTMLElement>(s: string) => bar.querySelector<T>(s)!;
   const playBtn = q<HTMLButtonElement>('.p-bar-play'), soundBtn = q<HTMLButtonElement>('.p-bar-sound'), fullBtn = q<HTMLButtonElement>('.p-bar-full');
   const timeEl = q('.p-bar-time'), elEl = q('.p-bar-el'), totEl = q('.p-bar-tot'), seek = q('.p-bar-seek'), levelEl = q('.p-bar-level');
@@ -294,7 +316,10 @@ export function armBar(film: BigFilm, programme: Programme): void {
 
   // THE FIT: the box is watched (the page's reflows, fullscreen) and so is the window (the poster lock's zoom, a move
   // to a screen of another pixel ratio, which leave the box's own px as they were)
-  const fit = () => fitFrame(pic, frame, film.ratio);
+  const fit = () => {
+    const said = fitFrame(pic, frame, film.ratio);
+    if (record && record.kind === 'site') record.frame = said ?? NO_SIZE;
+  };
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null;
   ro?.observe(pic);
   window.addEventListener('resize', fit);
@@ -377,7 +402,12 @@ export function armBar(film: BigFilm, programme: Programme): void {
 
   // THE FIRST START: the press was inside the frame, where the page hears no keys; the keys come to the catcher
   let wasStarted = false;
-  const unwatch = programme.watch(frame, (i) => {
+  let loadedAt = 0;
+  let answered = false;
+  const unwatch = programme.watch(frame, (i, talks) => {
+    // the record: how long after its frame's load the player first answered the page
+    if (talks && !answered && record) record.why = `ANSWERED ${Math.round(now() - loadedAt)} MS AFTER ITS LOAD`;
+    answered = talks;
     if (i.started && !wasStarted && document.activeElement === frame) catcher.focus({ preventScroll: true });
     wasStarted = i.started;
     // each load of the player's captions module (the start, a replay, a new document) is answered with the visitor's
@@ -562,11 +592,22 @@ export function armBar(film: BigFilm, programme: Programme): void {
   });
 
   // THE HANDSHAKE (Safari, and every browser that could not be tested): counted from each load of the real address
-  // (a frame whose address is held loads an empty page first); a silent player gets the plain frame, for good
-  const hs = handshake({ talks: () => programme.talks(frame), fail: () => fallBack() });
-  frame.addEventListener('load', () => { if (frame.getAttribute('src')) hs.loaded(); });
-  const fallBack = () => {
+  // (a frame whose address is held loads an empty page first), only while the page is seen; a silent player gets the
+  // plain frame, for good, and the record says so
+  const hs = handshake({ talks: () => programme.talks(frame), fail: (silent) => fallBack(silent), visible: () => !document.hidden });
+  frame.addEventListener('load', () => {
+    if (!frame.getAttribute('src')) return;
+    loadedAt = now();
+    if (record && !plain && !answered) record.why = 'ITS FRAME LOADED · WAITING FOR ITS ANSWER';
+    hs.loaded();
+  });
+  const fallBack = (silent: number) => {
     plain = true;
+    if (record) {
+      record.kind = 'platform';
+      record.why = `ITS PLAYER STAYED SILENT ${Math.round(silent / 1000)} S AFTER ITS LOAD · YOUTUBE'S OWN PLAYER TOOK ITS PLACE`;
+      record.frame = null;
+    }
     unwatch();
     ro?.disconnect();
     window.removeEventListener('resize', fit);

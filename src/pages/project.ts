@@ -10,10 +10,10 @@ import { baselineOf, fillTitle, heroLockupSize, lockupHtml, runningTitle, settle
 import { music } from '../lib/music';
 import { sound } from '../lib/sound';
 import { hashSlug, stillSlotUrls, wallRhythm } from '../project/dossier';
-import { bigFrameWanted, fullscreenApi } from '../project/frame-size';
+import { fullscreenApi, plainReason } from '../project/frame-size';
 import { linkParts, startedByFocus } from '../project/parts';
 import { armBar, BigFilm, mountBig } from '../project/player-bar';
-import { quality } from '../lib/quality';
+import { playerRecords, recordPlayer } from '../lib/player-record';
 import { stillParts } from '../project/pillars';
 import { meets, playerRatio, watchKind } from '../project/watch';
 import { armStamps } from '../lib/stamps';
@@ -330,6 +330,8 @@ function mountSynopsis(p: Project): void {
   };
   const programme = linkParts(talking, { onPlay: start });
   for (const b of bigs) armBar(b, programme); // (the site's own bar speaks to its player over the programme's link)
+  // which player stands and why, for a check (the readout's PLAYER line reads the same records: `?stats=1`)
+  (window as unknown as { rvlPlayer: unknown }).rvlPlayer = { state: () => playerRecords().map((r) => ({ ...r })) };
   // THE HERO FIRST: the frames' place stands from the start, but a platform's player (a megabyte of its own script) is
   // sent for only once the hero's loop shows its first frame (or fails), the player nears the screen, the hero is
   // pressed, or four seconds have passed. Measured: with the browser's own lazy loading alone, the frames were asked
@@ -382,28 +384,33 @@ interface Mounted {
 /** THE BIG FRAME (owner, 2026-11-24: "force all video players on the website to start at 2160p when watch"; of the
  *  ways shown, "2160p + site's own controls"): a YouTube film, on a screen that can take an element fullscreen (an
  *  iPhone keeps YouTube's own player and its own fullscreen), not Android (its player stayed at 480p whatever the
- *  frame's size), not at LITE (a machine measured slow keeps the plain player; the tier the page opened at, decided
- *  once here). The box's own size is the last gate (mountBig). Every other film's player is as it was. */
-function wantsBig(film: FilmRef): boolean {
-  return bigFrameWanted({
+ *  frame's size). Nothing else decides it: not the site's quality tier, not the box's size (frame-size.ts,
+ *  plainReason). Returns why a film keeps its platform's own player, with what the browser said of fullscreen; null
+ *  when it gets the site's. */
+function plainWhy(film: FilmRef): string | null {
+  const d = document as Document & { webkitFullscreenEnabled?: boolean };
+  const why = plainReason({
     youtube: film.type === 'youtube',
-    fullscreen: fullscreenApi(document as Document & { webkitFullscreenEnabled?: boolean }),
+    fullscreen: fullscreenApi(d),
     userAgent: navigator.userAgent,
-    lite: quality.tier() === 0,
   });
+  return why === 'NO ELEMENT FULLSCREEN HERE'
+    ? `${why} (FULLSCREEN ${String(d.fullscreenEnabled).toUpperCase()}, WEBKIT ${String(d.webkitFullscreenEnabled).toUpperCase()})`
+    : why;
 }
 
-/** A YouTube film's player in `host`: the big frame with the site's bar where it is wanted and the box needs it, else
- *  the plain frame with YouTube's own controls, as before. */
-function youTubeIn(host: HTMLElement, film: FilmRef, title: string, p: Project, out: Mounted): HTMLIFrameElement {
+/** A YouTube film's player in `host`: the big frame with the site's bar, or, where the gates say so, the plain frame
+ *  with YouTube's own controls. Either way it leaves its record (`name`: FILM, PART 1 …; lib/player-record.ts). */
+function youTubeIn(host: HTMLElement, film: FilmRef, title: string, p: Project, out: Mounted, name: string): HTMLIFrameElement {
   const plainSrc = embedSrc(film, { autoplay: false, origin: location.origin })!;
-  if (wantsBig(film)) {
-    const big = mountBig(host, frameFor(embedSrc(film, { autoplay: false, origin: location.origin, controls: false })!, title), { plainSrc, accent: p.accent, ratio: aspectRatio(p.aspect) });
-    if (big) {
-      out.bigs.push(big);
-      return big.frame;
-    }
+  const why = plainWhy(film);
+  if (why === null) {
+    const record = recordPlayer(name, 'site', 'WAITING FOR ITS FRAME');
+    const big = mountBig(host, frameFor(embedSrc(film, { autoplay: false, origin: location.origin, controls: false })!, title), { plainSrc, accent: p.accent, ratio: aspectRatio(p.aspect), record });
+    out.bigs.push(big);
+    return big.frame;
   }
+  recordPlayer(name, 'platform', why);
   const f = frameFor(plainSrc, title);
   host.append(f);
   return f;
@@ -449,17 +456,19 @@ function mountFilm(p: Project, player: HTMLElement): Mounted {
   if (film.type === 'local') {
     const v = videoFor(p, film.src, p.title);
     player.append(v);
+    recordPlayer('FILM', 'platform', "THE OWNER'S OWN FILE");
     return { frames: [], talking: [], videos: [v], bigs: [] };
   }
   const out: Mounted = { frames: [], talking: [], videos: [], bigs: [] };
   if (film.type === 'youtube' && embedSrc(film)) {
-    const f = youTubeIn(player, film, p.title, p, out);
+    const f = youTubeIn(player, film, p.title, p, out, 'FILM');
     return { ...out, frames: [f], talking: [f] };
   }
   const src = embedSrc(film, { autoplay: false, origin: location.origin });
   if (!src) return out;
   const f = frameFor(src, p.title);
   player.append(f);
+  recordPlayer('FILM', 'platform', 'NOT A YOUTUBE FILM');
   return { ...out, frames: [f] };
 }
 
@@ -494,15 +503,17 @@ function mountParts(p: Project, player: HTMLElement): Mounted {
       const v = videoFor(p, film.src, `${p.title}: ${label}`);
       fig.append(v);
       out.videos.push(v);
+      recordPlayer(`PART ${i + 1}`, 'platform', "THE OWNER'S OWN FILE");
     } else if (film.type === 'youtube') {
       // each part has its own player and its own bar
-      const f = youTubeIn(fig, film, `${p.title}: ${label}`, p, out);
+      const f = youTubeIn(fig, film, `${p.title}: ${label}`, p, out, `PART ${i + 1}`);
       out.frames.push(f);
       out.talking.push(f);
     } else {
       const f = frameFor(embedSrc(film, { autoplay: false, origin: location.origin })!, `${p.title}: ${label}`);
       fig.append(f);
       out.frames.push(f);
+      recordPlayer(`PART ${i + 1}`, 'platform', 'NOT A YOUTUBE FILM');
     }
     const cap = document.createElement('figcaption');
     cap.innerHTML = `<span class="p-part-num" aria-hidden="true">${pad2(i + 1)}</span><span class="p-part-label micro">${escapeHtml(label)}</span>`;

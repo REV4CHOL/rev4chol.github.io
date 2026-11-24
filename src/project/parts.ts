@@ -143,6 +143,13 @@ export interface Programme {
   unwire(): void;
 }
 
+/** A silent player is greeted every GREETING_MS after each load of its frame, GREETINGS times, counted only while the
+ *  page is seen: thirty seconds, twice the wait of the site's bar (player-bar.ts, HANDSHAKE_MS), so the greeting never
+ *  stops before that wait ends (ten seconds of clock time until 2026-11-24: a tab loaded in the background spent
+ *  them unseen). */
+export const GREETING_MS = 250;
+export const GREETINGS = 120;
+
 /** Wires the YouTube players (built with enablejsapi and this page's origin) into one programme, in order. `onPlay`
  *  hears every start. */
 export function linkParts(frames: HTMLIFrameElement[], opts: { onPlay?: () => void } = {}): Programme {
@@ -178,13 +185,16 @@ export function linkParts(frames: HTMLIFrameElement[], opts: { onPlay?: () => vo
   window.addEventListener('message', onMessage);
   const timers: number[] = [];
   frames.forEach((f, i) => {
-    // a player speaks once spoken to: say listening until it answers, ten seconds at most
+    // a player speaks once spoken to: say listening until it answers, GREETINGS times at most while the page is seen
     // (counted afresh at each load: a frame whose address is held loads an empty page first)
     let tries = 0;
+    let greeting = 0;
     const hello = () => {
-      if (heard[i] || tries++ >= 40) return;
+      if (heard[i]) return;
+      if (!document.hidden && tries++ >= GREETINGS) return;
       post(i, JSON.stringify({ event: 'listening', id: i + 1, channel: 'widget' }));
-      timers.push(window.setTimeout(hello, 250));
+      greeting = window.setTimeout(hello, GREETING_MS);
+      timers.push(greeting);
     };
     f.addEventListener('load', () => {
       // a new document in the frame (the held address arriving, or the plain player swapped in: player-bar.ts) is a
@@ -193,6 +203,7 @@ export function linkParts(frames: HTMLIFrameElement[], opts: { onPlay?: () => vo
       infos[i] = NO_INFO;
       tell(i);
       tries = 0;
+      clearTimeout(greeting); // (one chain of greetings a frame)
       hello();
     });
   });

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { barView, captionCommand, handshake, knownTrack, levelLabel, phaseOf, seekTo, timeText, volumeCommands, volumeKey } from '../src/project/player-bar';
-import { mergeInfo, NO_INFO, ytInfo } from '../src/project/parts';
+import { barView, captionCommand, handshake, HANDSHAKE_MS, knownTrack, levelLabel, phaseOf, seekTo, timeText, volumeCommands, volumeKey } from '../src/project/player-bar';
+import { GREETING_MS, GREETINGS, mergeInfo, NO_INFO, ytInfo } from '../src/project/parts';
 import { embedSrc } from '../src/lib/embeds';
 
 // The owner, 2026-11-24, shown the choice as a picture, chose "2160p + site's own controls": the same 2160p-size player,
@@ -241,8 +241,10 @@ describe('the seek track, by key', () => {
 });
 
 // Safari and every browser that could not be tested: the site's bar is trusted only once the player has answered the
-// page. A big frame whose player has not answered within about 6 s of its load is swapped for the plain frame with
-// YouTube's own controls, and the bar goes. Never the other way round.
+// page. A big frame whose player has not answered within 15 s of its load, counted only while the page is seen, is
+// swapped for the plain frame with YouTube's own controls, and the bar goes. Never the other way round.
+// (6 s of clock time until the owner's "YouTube player is appearing now wtf", 2026-11-24: a tab loaded in the
+//  background, or a slow line, must not cost the film its player.)
 describe('the handshake', () => {
   afterEach(() => vi.useRealTimers());
 
@@ -258,18 +260,55 @@ describe('the handshake', () => {
     expect(fail).not.toHaveBeenCalled();
   });
 
-  it('a player silent 6 s after its load falls back, once', () => {
+  it('a player silent 15 s after its load falls back, once, and says how long it waited', () => {
     vi.useFakeTimers();
     const fail = vi.fn();
     const h = handshake({ talks: () => false, fail });
+    expect(HANDSHAKE_MS).toBe(15000);
     h.loaded();
-    vi.advanceTimersByTime(5900);
+    vi.advanceTimersByTime(14700);
     expect(fail).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(200);
+    vi.advanceTimersByTime(600);
     expect(fail).toHaveBeenCalledTimes(1);
+    expect(fail.mock.calls[0][0]).toBeGreaterThanOrEqual(15000);
     h.loaded(); // (the plain frame's own load)
     vi.advanceTimersByTime(20000);
     expect(fail).toHaveBeenCalledTimes(1);
+  });
+
+  it('time the page is not seen does not count (a tab loaded in the background)', () => {
+    vi.useFakeTimers();
+    let seen = false;
+    const fail = vi.fn();
+    const h = handshake({ talks: () => false, fail, visible: () => seen });
+    h.loaded();
+    vi.advanceTimersByTime(120000);
+    expect(fail).not.toHaveBeenCalled();
+    seen = true;
+    vi.advanceTimersByTime(14000);
+    expect(fail).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1500);
+    expect(fail).toHaveBeenCalledTimes(1);
+  });
+
+  it('an answer ends the wait for good: a player that has spoken is never swapped', () => {
+    vi.useFakeTimers();
+    let answered = false;
+    const fail = vi.fn();
+    const h = handshake({ talks: () => answered, fail });
+    h.loaded();
+    vi.advanceTimersByTime(3000);
+    answered = true;
+    vi.advanceTimersByTime(1000);
+    answered = false;
+    vi.advanceTimersByTime(60000);
+    expect(fail).not.toHaveBeenCalled();
+  });
+
+  it('the greeting outlasts the wait: a silent player is still spoken to when the wait ends', () => {
+    expect(GREETINGS * GREETING_MS).toBeGreaterThanOrEqual(HANDSHAKE_MS * 2);
+    const link = readFileSync('src/project/parts.ts', 'utf8');
+    expect(link).toContain('document.hidden'); // (greetings sent to a page nobody sees are not counted)
   });
 
   it('the count starts afresh at each load, and a stopped handshake never fires', () => {
@@ -277,9 +316,9 @@ describe('the handshake', () => {
     const fail = vi.fn();
     const h = handshake({ talks: () => false, fail });
     h.loaded();
-    vi.advanceTimersByTime(4000);
+    vi.advanceTimersByTime(10000);
     h.loaded();
-    vi.advanceTimersByTime(4000);
+    vi.advanceTimersByTime(10000);
     expect(fail).not.toHaveBeenCalled();
     h.stop();
     vi.advanceTimersByTime(10000);
@@ -289,9 +328,24 @@ describe('the handshake', () => {
 
 describe('the page wires it', () => {
   const page = readFileSync('src/pages/project.ts', 'utf8');
-  it('the big frame is decided once, at mount, from the tier the page opened at', () => {
-    expect(page).toContain('bigFrameWanted({');
-    expect(page).toContain("lite: quality.tier() === 0");
+  it('the big frame is decided once, at mount, from the film and the browser: never from the quality tier', () => {
+    expect(page).toContain('plainReason({');
+    expect(page).not.toContain('quality.tier()');
+    expect(page).not.toMatch(/\blite\s*:/);
+  });
+  // (measured in the Claude browser pane, 2026-11-24: a film page loaded in a tab not yet laid out got YouTube's own
+  //  player for the whole visit, because the big player gave up on a box without a size)
+  it('a box without a size at mount still gets the site\'s player: mountBig never gives up', () => {
+    const bar = readFileSync('src/project/player-bar.ts', 'utf8');
+    const mount = bar.slice(bar.indexOf('export function mountBig('), bar.indexOf('export function armBar('));
+    expect(mount).toContain('): BigFilm {');
+    expect(mount).not.toContain('return null');
+    expect(mount).not.toContain('.remove()');
+  });
+  it('every player leaves its record, and the readout shows it', () => {
+    expect(page).toContain('recordPlayer(');
+    expect(page).toContain('rvlPlayer');
+    expect(readFileSync('src/shell/stats.ts', 'utf8')).toContain('playerLine(playerRecords())');
   });
   it("the plain frame's address is today's", () => {
     expect(page).toContain('embedSrc(film, { autoplay: false, origin: location.origin })');

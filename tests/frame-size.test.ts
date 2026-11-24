@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { bigFrame, bigFrameWanted, fullscreenApi, isAndroid, TARGET_PX } from '../src/project/frame-size';
+import { readFileSync } from 'node:fs';
+import { bigFrame, bigFrameWanted, fullscreenApi, isAndroid, plainReason, TARGET_PX } from '../src/project/frame-size';
 
 // The owner, 2026-11-24: "force all video players on the website to start at 2160p when watch". No address parameter or
 // player command does it (measured headless: vq=, hd=1, setPlaybackQuality, setPlaybackQualityRange, loadVideoById's
@@ -68,9 +69,9 @@ describe('when the big frame is used', () => {
   const PC = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36';
   const IPAD = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15';
   const ANDROID = 'Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
-  const ok = { youtube: true, fullscreen: true, userAgent: PC, lite: false };
+  const ok = { youtube: true, fullscreen: true, userAgent: PC };
 
-  it('a YouTube film, on a screen that can take an element fullscreen, not Android, not LITE', () => {
+  it('a YouTube film, on a screen that can take an element fullscreen, not Android', () => {
     expect(bigFrameWanted(ok)).toBe(true);
     expect(bigFrameWanted({ ...ok, userAgent: IPAD })).toBe(true);
   });
@@ -89,8 +90,23 @@ describe('when the big frame is used', () => {
     expect(bigFrameWanted({ ...ok, userAgent: ANDROID })).toBe(false);
   });
 
-  it('a machine measured slow (LITE) keeps the plain player', () => {
-    expect(bigFrameWanted({ ...ok, lite: true })).toBe(false);
+  // (owner, 2026-11-24: "I saw the player on PC for a time, and now it dissapeared, and YouTube player is appearing
+  //  now ... Also right now on iPad I cant even see the new player at all". Measured on the live site: a page whose
+  //  remembered quality tier was LITE mounted YouTube's own player. The tier moves with the machine's load and is
+  //  remembered for the session; the player is the film, not an effect, and no longer reads it.)
+  it('the quality tier is no gate: the gates are the film and the browser alone', () => {
+    expect(Object.keys(ok).sort()).toEqual(['fullscreen', 'userAgent', 'youtube']);
+    expect(readFileSync('src/project/frame-size.ts', 'utf8')).not.toMatch(/\blite\b\s*[:?]/);
+  });
+
+  it('says why a film keeps the platform\'s own player, for the readout', () => {
+    expect(plainReason(ok)).toBeNull();
+    expect(plainReason({ ...ok, youtube: false })).toBe('NOT A YOUTUBE FILM');
+    expect(plainReason({ ...ok, fullscreen: false })).toBe('NO ELEMENT FULLSCREEN HERE');
+    expect(plainReason({ ...ok, userAgent: ANDROID })).toBe('ANDROID');
+    for (const g of [ok, { ...ok, youtube: false }, { ...ok, fullscreen: false }, { ...ok, userAgent: ANDROID }]) {
+      expect(bigFrameWanted(g)).toBe(plainReason(g) === null);
+    }
   });
 
   it('the fullscreen API, standard or webkit', () => {

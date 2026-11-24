@@ -41,14 +41,25 @@ export interface BigGates {
   /** an element can go fullscreen (an iPhone has no such thing: it keeps YouTube's own player and its fullscreen) */
   fullscreen: boolean;
   userAgent: string;
-  /** the site's quality tier is LITE at the page's opening (a machine measured slow keeps the plain player) */
-  lite: boolean;
 }
 
-/** Whether a film gets the big frame and the site's bar, decided once as its player mounts. The box's own size is the
- *  last gate (bigFrame: a box already TARGET_PX tall stays plain). */
+/** Why a film keeps its platform's own player, in the readout's words (lib/player-record.ts); null when it gets the
+ *  big frame and the site's bar. Decided once as its player mounts, from the film and the browser alone.
+ *  NOT from the site's quality tier (owner, 2026-11-24: "I saw the player on PC for a time, and now it dissapeared,
+ *  and YouTube player is appearing now ... on iPad I cant even see the new player at all"): until then a page that
+ *  opened at LITE kept YouTube's own player, and the tier moves with the machine's load and is remembered for the
+ *  session, so the player came and went (measured on the live site: a remembered LITE mounted the plain player).
+ *  NOT from the box's size either: a box that has no size yet, or needs no larger frame, still gets the site's
+ *  player, its frame fitted as the box stands (player-bar.ts, fitFrame). */
+export function plainReason(g: BigGates): string | null {
+  if (!g.youtube) return 'NOT A YOUTUBE FILM';
+  if (!g.fullscreen) return 'NO ELEMENT FULLSCREEN HERE';
+  if (isAndroid(g.userAgent)) return 'ANDROID';
+  return null;
+}
+
 export function bigFrameWanted(g: BigGates): boolean {
-  return g.youtube && g.fullscreen && !isAndroid(g.userAgent) && !g.lite;
+  return plainReason(g) === null;
 }
 
 /** Android: its YouTube player stayed at 480p whatever the frame's size (measured on the tablet profile, 2160 laid out). */
