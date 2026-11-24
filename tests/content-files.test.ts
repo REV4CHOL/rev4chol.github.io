@@ -338,9 +338,10 @@ describe('shipped content files', () => {
       expect(existsSync(`${root}projects/${gone}`), `${gone} folder`).toBe(false);
     }
     // FAR EAST moves whole: only its place changed
+    // (its year: 2026 since the owner's "the year for FAR EAST should be 2026", 2026-11-24)
     const fe = parseProjects(rawProjects()).find((p) => p.slug === 'far-east')!;
     expect(fe.film).toEqual({ type: 'youtube', src: 'https://www.youtube.com/embed/DrezQ5zlHqI' });
-    expect([fe.title, fe.year, fe.aspect, fe.category]).toEqual(['FAR EAST', 2025, '2.39:1', 'human']);
+    expect([fe.title, fe.year, fe.aspect, fe.category]).toEqual(['FAR EAST', 2026, '2.39:1', 'human']);
   });
 
   // (owner 2026-09-27: "bring MISTCHILD down to Neon Liturgy (chapter 1), then remove the pane where MISTCHILD once
