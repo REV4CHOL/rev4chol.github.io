@@ -6,6 +6,7 @@ import { loopCandidates } from '../src/home/loops';
 import { pickLoopFiles } from '../src/lib/loop-files';
 import { layoutProjects } from '../src/works/layout';
 import { stripName } from '../src/works/legend';
+import { wallRhythm } from '../src/project/dossier';
 
 const root = fileURLToPath(new URL('../public/content/', import.meta.url));
 const read = (f: string) => readFileSync(root + f, 'utf8');
@@ -423,20 +424,20 @@ describe('shipped content files', () => {
   });
 
   // (owner 2026-09-28: "The verticle pane must be bigger and larger, as they are allowed to run irregular sizing")
-  // (2026-11-24: DEATHMAN joins at the chapter's end as a regular pane. The featured five keep their cells and their
-  //  place in the world, cell for cell; DEATHMAN stands right of GALAXY on the top row, and the slot under it is open:
-  //  a 4 × 2 band with one corner open, a design call left to the owner. As a featured pane it would have made a 3 × 3
-  //  cluster, moved every pane a row and left two slots open)
-  it('CH·02: the four landscape films 2 × 2, GALAXY standing the height of both rows at their right, DEATHMAN beside it', () => {
+  // (2026-11-24, the owner: "Place this film in a new pane under JAECOO J5". DEATHMAN, a regular pane, is pinned to the
+  //  slot under JAECOO J5: the chapter grows a third row, and the five keep their cells and their place in the world)
+  it('CH·02: the four landscape films 2 × 2, GALAXY standing the height of both rows at their right, DEATHMAN under JAECOO J5', () => {
     expect(cells('machine')).toEqual({
-      katara: [0, 0], 'the-father': [1, 0], 'galaxy-z-fold-8-ultra': [2, 0], deathman: [3, 0],
+      katara: [0, 0], 'the-father': [1, 0], 'galaxy-z-fold-8-ultra': [2, 0],
       'forest-onsen': [0, 1], 'jaecoo-j5': [1, 1],
+      deathman: [1, 2],
     });
     // the world places the five exactly where they stood before DEATHMAN came (lattice cells, not just their order)
     const at = Object.fromEntries(placedOf('machine').map((p) => [p.slug, [p.col, p.row]]));
     expect(at).toEqual({
-      katara: [-3, -2], 'the-father': [-1, -2], 'galaxy-z-fold-8-ultra': [1, -2], deathman: [3, -2],
+      katara: [-3, -2], 'the-father': [-1, -2], 'galaxy-z-fold-8-ultra': [1, -2],
       'forest-onsen': [-3, 0], 'jaecoo-j5': [-1, 0],
+      deathman: [-1, 2],
     });
     expect(placedOf('machine').filter((p) => p.tall).map((p) => p.slug)).toEqual(['galaxy-z-fold-8-ultra']);
   });
@@ -453,9 +454,11 @@ describe('shipped content files', () => {
   });
 
   // the owner, 2026-11-24: "here's embed code for the DEATHMAN film" (YouTube: "DEATHMAN | AI Short Film"), with its
-  // webloop, five main stills and thirteen more. The loop comes 1080 × 720, but its picture is 4:3: 960 × 720 between
-  // two black bars 60 px wide, and every still is 4:3 (2880 × 2160). So the film stands 4:3, its loop cropped to the
-  // picture (no bar in a pane). Role, genre and credits wait on the owner's words: empty until they come.
+  // webloop, five main stills and thirteen more; then "upload this new film to the AI section. Notice the main.jpg, they
+  // are meant to be place in big pictures for the stills. Name is DEATHMAN. Genre: Short Film / Experimental. Role:
+  // Director / Editor / Colorist / Sound Designer. Year: 2026. Place this film in a new pane under JAECOO J5."
+  // The loop comes 1080 × 720, but its picture is 4:3: 960 × 720 between two black bars 60 px wide, and every still is
+  // 4:3 (2880 × 2160). So the film stands 4:3, its loop cropped to the picture (no bar in a pane).
   it('DEATHMAN joins the end of CH·02: 4:3, linked, a regular pane, with its media (owner 2026-11-24)', () => {
     const floor = parseFloor(rawProjects());
     expect(floor.findIndex((it) => it.slug === 'deathman')).toBe(19);
@@ -463,7 +466,10 @@ describe('shipped content files', () => {
     const p = parseProjects(rawProjects()).find((q) => q.slug === 'deathman')!;
     expect([p.title, p.year, p.aspect, p.category, p.tileSize]).toEqual(['DEATHMAN', 2026, '4:3', 'machine', 'normal']);
     expect([p.film, p.filmPending, p.filmPrivate]).toEqual([{ type: 'youtube', src: 'https://www.youtube.com/embed/mdSUGmCclTY' }, false, false]);
-    expect([p.role, p.tags, p.credits, p.runtime]).toEqual(['', [], [], '']); // (waiting on the owner's words)
+    const role = 'Director / Editor / Colorist / Sound Designer';
+    expect([p.role, p.tags, p.runtime]).toEqual([role, ['short film', 'experimental'], '']);
+    expect(p.credits).toEqual([{ role, name: 'Revachol' }]);
+    expect(p.position).toEqual({ col: -1, row: 1 }); // (the slot under JAECOO J5)
     expect([p.client, p.artist, p.director, p.productionHouse]).toEqual(['', '', '', '']);
     expect(p.accent).toBe('#DCD3BE');
     expect(p.synopsis).toBe('Wind on the cliffs, water in the empty rooms, and a cloaked figure with a skull for a face. An AI short film.');
@@ -479,6 +485,13 @@ describe('shipped content files', () => {
     const stills = readdirSync(`${dir}stills`).sort();
     expect(stills).toEqual(Array.from({ length: 18 }, (_, i) => `${String(i + 1).padStart(2, '0')}.jpg`));
     expect(1600 / 1200).toBeCloseTo(aspectRatio(p.aspect), 6);
+    // the owner's main pictures stand big: the wall's full rows of 18 stills are 05, 10, 15 and 18 (four), which carry
+    // Main0 to Main3; Main4 leads the wall at 01 (a pair). The others in the order of their numbers.
+    const rows = wallRhythm(18);
+    const big: number[] = [];
+    let at = 0;
+    for (const kind of rows) { at += kind === 'pair' ? 2 : 1; if (kind === 'full') big.push(at); }
+    expect(big).toEqual([5, 10, 15, 18]);
   });
 
   // the owner, 2026-11-24: "after all tasks done, upload these two to the COLORIST section"; asked with pictures the
