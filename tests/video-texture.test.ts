@@ -140,7 +140,8 @@ describe('a loop texture uploads its new frames, never the display clock (owner:
     };
     walk('src');
     for (const f of files) expect(readFileSync(f, 'utf8'), f).not.toMatch(/\.updateFPS\s*=[^=]/);
-    for (const f of ['src/works/tile.ts', 'src/home/hero.ts']) {
+    // (the wall unit, works/wall.ts, is the third player: one video for a whole chapter's panes)
+    for (const f of ['src/works/tile.ts', 'src/home/hero.ts', 'src/works/wall.ts']) {
       const s = readFileSync(f, 'utf8');
       expect(s, f).toMatch(/videoTexture\(/);
       expect(s, f).not.toMatch(/Texture\.from\((this\.)?video\)|Texture\.from\(v\)/);

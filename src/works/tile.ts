@@ -33,6 +33,8 @@ export class ProjectTile extends Container {
 
   video?: HTMLVideoElement;
   videoSprite?: Sprite;
+  /** this pane's tile of the chapter's wall video (works/wall.ts): above the poster, under the pane's own loop */
+  private wallSprite?: Sprite;
   private mediaFailed = false;
   private posterDegraded: boolean;
   private healAt = 0;
@@ -119,6 +121,27 @@ export class ProjectTile extends Container {
       this.video.load();
       this.video = undefined;
     }
+  }
+
+  /** Take a tile of the wall video, or give it back (`null`). The tile shows whenever the pane's own loop does not:
+   *  it lies above the poster and under the loop's sprite. The texture is the wall unit's, and so is the one source
+   *  behind every pane's tile: the pane destroys its own sprite and nothing else. */
+  setWall(tex: Texture | null): void {
+    if (this.wallSprite) {
+      this.wallSprite.destroy();
+      this.wallSprite = undefined;
+    }
+    if (!tex) return;
+    const s = new Sprite(tex);
+    s.anchor.set(0.5);
+    s.width = this.cw;
+    s.height = this.ch;
+    this.wallSprite = s;
+    this.card.addChildAt(s, this.card.getChildIndex(this.posterSprite) + 1);
+  }
+
+  hasWall(): boolean {
+    return !!this.wallSprite;
   }
 
   swapToMontage(): void {
@@ -232,7 +255,8 @@ export class ProjectTile extends Container {
     fit();
     s.texture.source.on('resize', fit); // montage swaps change resolution; re-fit when it lands
     this.videoSprite = s;
-    this.card.addChildAt(s, this.card.getChildIndex(this.posterSprite) + 1); // above poster, below labels
+    // above the poster and the wall's tile, below the labels
+    this.card.addChildAt(s, this.card.getChildIndex(this.wallSprite ?? this.posterSprite) + 1);
     s.visible = this.mode !== 'sleep' && this.frameSeen;
   }
 
