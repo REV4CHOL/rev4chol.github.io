@@ -61,6 +61,10 @@ export interface BarView {
   progress: number;
   seekable: boolean;
   sound: { label: string; aria: string; pressed: boolean };
+  /** the volume slider's place (0 while muted) and its words */
+  volume: { value: number; text: string };
+  /** the CC switch: null where the film's player has offered no track, or before the film has started */
+  cc: { label: string; aria: string; pressed: boolean } | null;
   level: string | null;
   /** the site's play mark over the resting picture (a picture: it takes no press) */
   mark: boolean;
@@ -75,11 +79,15 @@ export function elapsed(info: PartInfo, now?: number): number {
   return info.duration > 0 ? Math.min(t, info.duration) : t;
 }
 
-export function barView(talks: boolean, info: PartInfo, now?: number): BarView {
+/** `captions.track`: the language of a track this film's player has offered (as the page knows it, see knownTrack);
+ *  `captions.cc`: the visitor turned captions on (the player echoes no captions change: the page's own word). */
+export function barView(talks: boolean, info: PartInfo, now?: number, captions: { track?: string | null; cc?: boolean } = {}): BarView {
   const phase = phaseOf(talks, info);
   const live = phase === 'playing' || phase === 'paused' || phase === 'ended';
   const dur = info.duration > 0 ? info.duration : 0;
   const t = elapsed(info, now);
+  const vol = info.muted ? 0 : Math.round(Math.min(100, Math.max(0, info.volume)));
+  const ccOn = captions.cc === true;
   return {
     phase,
     play:
@@ -90,10 +98,65 @@ export function barView(talks: boolean, info: PartInfo, now?: number): BarView {
     progress: dur ? Math.min(1, Math.max(0, t / dur)) : 0,
     seekable: live && dur > 0,
     sound: info.muted ? { label: 'SOUND OFF', aria: 'Unmute', pressed: false } : { label: 'SOUND ON', aria: 'Mute', pressed: true },
+    volume: { value: vol, text: info.muted ? 'muted' : `${vol}%` },
+    cc: live && captions.track
+      ? (ccOn ? { label: 'CC ON', aria: 'Turn captions off', pressed: true } : { label: 'CC OFF', aria: 'Turn captions on', pressed: false })
+      : null,
     level: live ? levelLabel(info.level) : null,
     mark: phase === 'resting',
     catcher: live,
   };
+}
+
+/* ------------------------------------------------------------------------------------- volume and captions -- */
+
+/** The volume slider's keys: the arrows step VOLUME_STEP, Home and End go to the ends; null for any other key. */
+export const VOLUME_STEP = 5;
+export function volumeKey(key: string, v: number): number | null {
+  const clamp = (x: number) => Math.min(100, Math.max(0, x));
+  if (key === 'ArrowRight' || key === 'ArrowUp') return clamp(v + VOLUME_STEP);
+  if (key === 'ArrowLeft' || key === 'ArrowDown') return clamp(v - VOLUME_STEP);
+  if (key === 'Home') return 0;
+  if (key === 'End') return 100;
+  return null;
+}
+
+/** What the slider asks of the player at `v` (owner, 2026-11-24, ticked "A volume slider: A slider beside SOUND ON / OFF
+ *  on PCs"): above 0 the volume, and the sound back on if it was off; at 0 the sound off, the volume left where it
+ *  was, so SOUND ON brings back the level the visitor last heard (YouTube's own slider does the same). */
+export function volumeCommands(v: number, muted: boolean): [string, unknown[]][] {
+  const n = Math.round(Math.min(100, Math.max(0, v)));
+  if (n <= 0) return muted ? [] : [['mute', []]];
+  return muted ? [['setVolume', [n]], ['unMute', []]] : [['setVolume', [n]]];
+}
+
+/** The captions command (owner, 2026-11-24, ticked "Captions always off" and "A captions switch"). Measured on GALAXY
+ *  part 1 over the postMessage link: `setOption('captions', 'track', {})` sent at the captions module's load kept the
+ *  box away for the whole film (64 reads, every 400 ms, none showed one), and `{ languageCode }` brought it back.
+ *  (`unloadModule('captions')` sent at the load did nothing: the box showed 24 times of 64.) */
+export function captionCommand(on: boolean, track: string | null): [string, unknown[]] {
+  return ['setOption', ['captions', 'track', on && track ? { languageCode: track } : {}]];
+}
+
+/** THE CAPTIONS MEMORY: the track a film's player once offered in this browser. Measured: the player may remember the
+ *  page's off across loads and then offers no track at all (a reload offered `track: {}` on GALAXY part 1, in one run of
+ *  two), so without this the switch would vanish for a returning visitor. A store that throws is no memory. */
+const CC_KEY = 'rvl-cc-v1';
+type Store = Pick<Storage, 'getItem' | 'setItem'>;
+export function knownTrack(store: Store | null, id: string, offered: string | null): string | null {
+  let all: Record<string, string> = {};
+  try {
+    const raw = store?.getItem(CC_KEY);
+    if (raw) all = JSON.parse(raw) as Record<string, string>;
+  } catch { /* no memory */ }
+  if (offered) {
+    if (all[id] !== offered) {
+      all[id] = offered;
+      try { store?.setItem(CC_KEY, JSON.stringify(all)); } catch { /* no memory */ }
+    }
+    return offered;
+  }
+  return typeof all[id] === 'string' ? all[id] : null;
 }
 
 /** The seek track's keys: the arrows step SEEK_STEP s, Home and End go to the ends; null for any other key. */
@@ -141,6 +204,8 @@ const ICON: Record<string, string> = {
   off: '<path d="M1.5 5.5h3l4-3.5v12l-4-3.5h-3z"/><path d="M10.5 5.5l5 5M15.5 5.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.5"/>',
   full: '<path d="M1.5 6V1.5H6M10 1.5h4.5V6M14.5 10v4.5H10M6 14.5H1.5V10" fill="none" stroke="currentColor" stroke-width="1.6"/>',
   exit: '<path d="M6 1.5V6H1.5M14.5 6H10V1.5M10 14.5V10h4.5M1.5 10H6v4.5" fill="none" stroke="currentColor" stroke-width="1.6"/>',
+  cc: '<path d="M1.5 3h13v10h-13z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7.2 6.2H5v3.6h2.2M11.7 6.2H9.5v3.6h2.2" fill="none" stroke="currentColor" stroke-width="1.4"/>',
+  ccoff: '<path d="M1.5 3h13v10h-13z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7.2 6.2H5v3.6h2.2M11.7 6.2H9.5v3.6h2.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M1 15L15 1" fill="none" stroke="currentColor" stroke-width="1.5"/>',
 };
 const svg = (name: string) => `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor">${ICON[name]}</svg>`;
 
@@ -203,7 +268,9 @@ export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { pl
     `<span class="p-bar-time" hidden><span class="p-bar-el">0:00</span><span class="p-bar-sep"> / </span><span class="p-bar-tot">0:00</span></span>` +
     `<div class="p-bar-seek" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00" aria-disabled="true"><span class="p-bar-rail"><span class="p-bar-fill"></span><span class="p-bar-knob"></span></span></div>` +
     `<span class="p-bar-level" hidden></span>` +
+    `<button type="button" class="p-bar-btn p-bar-cc" aria-label="Turn captions on" aria-pressed="false" hidden>${svg('ccoff')}<span class="p-bar-word">CC OFF</span></button>` +
     `<button type="button" class="p-bar-btn p-bar-sound" aria-label="Mute" aria-pressed="true">${svg('on')}<span class="p-bar-word">SOUND ON</span></button>` +
+    `<div class="p-bar-vol" role="slider" tabindex="0" aria-label="Volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" aria-valuetext="100%"><span class="p-bar-vrail"><span class="p-bar-vfill"></span><span class="p-bar-vknob"></span></span></div>` +
     `<button type="button" class="p-bar-btn p-bar-full" aria-label="Full screen">${svg('full')}<span class="p-bar-word">FULL SCREEN</span></button>`;
   root.append(pic, bar);
   host.append(root);
@@ -222,6 +289,7 @@ export function armBar(film: BigFilm, programme: Programme): void {
   const q = <T extends HTMLElement>(s: string) => bar.querySelector<T>(s)!;
   const playBtn = q<HTMLButtonElement>('.p-bar-play'), soundBtn = q<HTMLButtonElement>('.p-bar-sound'), fullBtn = q<HTMLButtonElement>('.p-bar-full');
   const timeEl = q('.p-bar-time'), elEl = q('.p-bar-el'), totEl = q('.p-bar-tot'), seek = q('.p-bar-seek'), levelEl = q('.p-bar-level');
+  const ccBtn = q<HTMLButtonElement>('.p-bar-cc'), vol = q('.p-bar-vol');
 
   // THE FIT: the box is watched (the page's reflows, fullscreen) and so is the window (the poster lock's zoom, a move
   // to a screen of another pixel ratio, which leave the box's own px as they were)
@@ -235,6 +303,14 @@ export function armBar(film: BigFilm, programme: Programme): void {
   let drag: number | null = null; // the seek track's place while a finger or the mouse holds it (0..1)
   let shown: { t: number; until: number } | null = null; // a seek just asked for: shown until the player catches up
   let ticker = 0;
+  // CAPTIONS: off unless the visitor turns them on (the page's own word: the player echoes no captions change);
+  // `track` is what this film's player has offered, as the captions memory knows it
+  let ccOn = false;
+  let track: string | null = null;
+  let ccLoads = 0;
+  // the volume slider's place while the mouse holds it, and a level just asked for, shown until the player says it
+  let volDrag: number | null = null;
+  let volShown: { v: number; until: number } | null = null;
 
   const now = () => performance.now();
   const info = () => programme.info(frame);
@@ -253,7 +329,7 @@ export function armBar(film: BigFilm, programme: Programme): void {
   const paint = () => {
     if (plain) return;
     const i = info();
-    view = barView(programme.talks(frame), i, now());
+    view = barView(programme.talks(frame), i, now(), { track, cc: ccOn });
     root.dataset.phase = view.phase;
     mark.hidden = !view.mark;
     catcher.hidden = !view.catcher;
@@ -279,6 +355,18 @@ export function armBar(film: BigFilm, programme: Programme): void {
     levelEl.textContent = view.level ?? '';
     soundBtn.setAttribute('aria-pressed', String(view.sound.pressed));
     put(soundBtn, view.sound.aria, view.sound.pressed ? 'on' : 'off', view.sound.label);
+    let v = view.volume.value;
+    if (volShown && now() < volShown.until && Math.abs(v - volShown.v) > 1) v = volShown.v;
+    else volShown = null;
+    if (volDrag !== null) v = volDrag;
+    vol.style.setProperty('--v', String(v / 100));
+    vol.setAttribute('aria-valuenow', String(v));
+    vol.setAttribute('aria-valuetext', v === view.volume.value ? view.volume.text : `${v}%`);
+    ccBtn.hidden = !view.cc;
+    if (view.cc) {
+      ccBtn.setAttribute('aria-pressed', String(view.cc.pressed));
+      put(ccBtn, view.cc.aria, view.cc.pressed ? 'cc' : 'ccoff', view.cc.label);
+    }
     const on = fs();
     put(fullBtn, on ? 'Exit full screen' : 'Full screen', on ? 'exit' : 'full', on ? 'EXIT' : 'FULL SCREEN');
     // the time runs on between the player's deliveries while it plays
@@ -291,6 +379,17 @@ export function armBar(film: BigFilm, programme: Programme): void {
   const unwatch = programme.watch(frame, (i) => {
     if (i.started && !wasStarted && document.activeElement === frame) catcher.focus({ preventScroll: true });
     wasStarted = i.started;
+    // each load of the player's captions module (the start, a replay, a new document) is answered with the visitor's
+    // choice: off unless they turned them on (owner, 2026-11-24: "Turn YouTube's captions off on every film, so no
+    // caption box ever appears over the picture")
+    if (i.captionLoads > 0 && i.captionLoads !== ccLoads) {
+      ccLoads = i.captionLoads;
+      const id = /\/embed\/([^?/#]+)/.exec(frame.src)?.[1] ?? '';
+      let store: Storage | null = null;
+      try { store = window.localStorage; } catch { /* no memory */ }
+      track = id ? knownTrack(store, id, i.captions) : i.captions;
+      send(...captionCommand(ccOn, track));
+    } else if (i.captionLoads === 0) ccLoads = 0;
     const before = view.phase;
     paint();
     if (view.phase !== before) wake();
@@ -303,6 +402,17 @@ export function armBar(film: BigFilm, programme: Programme): void {
     else if (ph !== 'waiting') send('playVideo');
   };
   const toggleSound = () => send(info().muted ? 'unMute' : 'mute');
+  const toggleCc = () => {
+    if (!track) return;
+    ccOn = !ccOn;
+    send(...captionCommand(ccOn, track));
+    paint();
+  };
+  const setVolume = (v: number) => {
+    for (const [func, args] of volumeCommands(v, info().muted)) send(func, args);
+    volShown = { v: Math.round(v), until: now() + 1500 };
+    paint();
+  };
   const seekAt = (t: number) => {
     send('seekTo', [t, true]);
     shown = { t, until: now() + 1500 };
@@ -368,6 +478,7 @@ export function armBar(film: BigFilm, programme: Programme): void {
     if (k === ' ' || k === 'k' || k === 'K' || k === 'Enter') toggle();
     else if (k === 'f' || k === 'F') toggleFull();
     else if (k === 'm' || k === 'M') toggleSound();
+    else if ((k === 'c' || k === 'C') && view.cc) toggleCc();
     else if (k === 'ArrowLeft' || k === 'ArrowRight') {
       const i = info();
       const to = view.seekable ? seekTo(k, elapsed(i, now()), i.duration) : null;
@@ -380,7 +491,40 @@ export function armBar(film: BigFilm, programme: Programme): void {
 
   playBtn.addEventListener('click', toggle);
   soundBtn.addEventListener('click', toggleSound);
+  ccBtn.addEventListener('click', toggleCc);
   fullBtn.addEventListener('click', toggleFull);
+
+  // THE VOLUME SLIDER (a fine pointer only: a touch screen keeps its own volume keys; the CSS hides it there): press or
+  // drag along it, or its keys. Each move is sent, so the visitor hears the level as they go
+  const volAt = (x: number) => {
+    const r = vol.querySelector('.p-bar-vrail')!.getBoundingClientRect();
+    return r.width ? Math.round(Math.min(1, Math.max(0, (x - r.left) / r.width)) * 100) : 0;
+  };
+  vol.addEventListener('pointerdown', (e) => {
+    vol.setPointerCapture(e.pointerId);
+    volDrag = volAt(e.clientX);
+    setVolume(volDrag);
+  });
+  vol.addEventListener('pointermove', (e) => {
+    if (volDrag === null) return;
+    const v = volAt(e.clientX);
+    if (v === volDrag) return;
+    volDrag = v;
+    setVolume(v);
+  });
+  const volRelease = () => {
+    if (volDrag === null) return;
+    volDrag = null;
+    paint();
+  };
+  vol.addEventListener('pointerup', volRelease);
+  vol.addEventListener('pointercancel', volRelease);
+  vol.addEventListener('keydown', (e) => {
+    const to = volumeKey(e.key, view.volume.value);
+    if (to === null) return;
+    e.preventDefault();
+    setVolume(to);
+  });
 
   // THE SEEK TRACK: press or drag along it, or its keys
   const fracAt = (x: number) => {

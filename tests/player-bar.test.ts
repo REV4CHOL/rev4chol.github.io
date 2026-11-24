@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { barView, handshake, levelLabel, phaseOf, seekTo, timeText } from '../src/project/player-bar';
+import { barView, captionCommand, handshake, knownTrack, levelLabel, phaseOf, seekTo, timeText, volumeCommands, volumeKey } from '../src/project/player-bar';
 import { mergeInfo, NO_INFO, ytInfo } from '../src/project/parts';
 import { embedSrc } from '../src/lib/embeds';
 
@@ -39,19 +39,19 @@ describe('time, as the bar writes it', () => {
 });
 
 describe("reading the player's messages", () => {
-  it('reads time, duration, sound, level and state from an info delivery', () => {
+  it('reads time, duration, sound, volume, level and state from an info delivery', () => {
     expect(ytInfo('{"event":"infoDelivery","info":{"currentTime":7.02,"duration":260,"muted":false,"volume":100,"playerState":1,"playbackQuality":"hd2160"}}'))
-      .toEqual({ time: 7.02, duration: 260, muted: false, state: 1, level: 'hd2160' });
+      .toEqual({ time: 7.02, duration: 260, muted: false, volume: 100, state: 1, level: 'hd2160' });
   });
 
   it('a delivery carries only what changed', () => {
     expect(ytInfo({ event: 'infoDelivery', info: { currentTime: 9.5 } })).toEqual({ time: 9.5 });
-    expect(ytInfo({ event: 'infoDelivery', info: { muted: true, volume: 100 } })).toEqual({ muted: true });
+    expect(ytInfo({ event: 'infoDelivery', info: { muted: true, volume: 40 } })).toEqual({ muted: true, volume: 40 });
   });
 
   it('the first delivery, a state change and a level change say the same things', () => {
-    expect(ytInfo({ event: 'initialDelivery', info: { playerState: 5, currentTime: 0, duration: 260, muted: false, playbackQuality: 'unknown' } }))
-      .toEqual({ state: 5, time: 0, duration: 260, muted: false, level: 'unknown' });
+    expect(ytInfo({ event: 'initialDelivery', info: { playerState: 5, currentTime: 0, duration: 260, muted: false, volume: 100, playbackQuality: 'unknown' } }))
+      .toEqual({ state: 5, time: 0, duration: 260, muted: false, volume: 100, level: 'unknown' });
     expect(ytInfo({ event: 'onStateChange', info: 2 })).toEqual({ state: 2 });
     expect(ytInfo({ event: 'onPlaybackQualityChange', info: 'hd1440' })).toEqual({ level: 'hd1440' });
   });
@@ -70,6 +70,39 @@ describe("reading the player's messages", () => {
     s = mergeInfo(s, { state: 2 });
     expect(s.started).toBe(true);
     expect(s.duration).toBe(260);
+  });
+});
+
+// The owner, 2026-11-24, ticked "Captions always off: Turn YouTube's captions off on every film, so no caption box ever
+// appears over the picture" and "A captions switch: A CC button in the bar, so a visitor can turn captions on or off
+// where a film has them". The player says what captions it has when its captions module loads (measured: an
+// `apiInfoDelivery` about 0.65 s after the start, `captions.track` the auto-generated English track on GALAXY part 1,
+// `{}` on XIÊU LÒNG; `tracklist` was empty on both).
+describe("the player's captions", () => {
+  const api = (captions: unknown) => ({ event: 'apiInfoDelivery', info: { namespaces: ['captions'], captions } });
+
+  it('a captions delivery names the track the player offers', () => {
+    expect(ytInfo(api({ track: { languageCode: 'en', kind: 'asr' }, tracklist: [] }))).toEqual({ captions: 'en' });
+    expect(ytInfo(api({ track: {}, tracklist: [{ languageCode: 'vi' }] }))).toEqual({ captions: 'vi' });
+  });
+
+  it('a captions delivery with no track says so: the module loaded, nothing to show', () => {
+    expect(ytInfo(api({ track: {}, tracklist: [] }))).toEqual({ captions: null });
+  });
+
+  it('another namespace is no news', () => {
+    expect(ytInfo({ event: 'apiInfoDelivery', info: { namespaces: ['other'] } })).toBeNull();
+  });
+
+  it('each load of the module is counted, and a track once offered stays known (the off the page sends empties it)', () => {
+    let s = mergeInfo(NO_INFO, { captions: 'en' });
+    expect(s.captions).toBe('en');
+    expect(s.captionLoads).toBe(1);
+    s = mergeInfo(s, { captions: null });
+    expect(s.captions).toBe('en');
+    expect(s.captionLoads).toBe(2);
+    s = mergeInfo(s, { time: 3 });
+    expect(s.captionLoads).toBe(2);
   });
 });
 
@@ -138,6 +171,61 @@ describe("the bar's states", () => {
 
   it('the level readout is hidden until known', () => {
     expect(barView(true, at({ state: 1, level: 'unknown' })).level).toBeNull();
+  });
+
+  it('the CC switch stands only on a started film whose player offered a track, off unless the visitor turned it on', () => {
+    expect(barView(true, at({ state: 1 })).cc).toBeNull();
+    expect(barView(true, at({ state: 5, captions: 'en' }), undefined, { track: 'en' }).cc).toBeNull();
+    expect(barView(true, at({ state: 1 }), undefined, { track: 'en' }).cc).toEqual({ label: 'CC OFF', aria: 'Turn captions on', pressed: false });
+    expect(barView(true, mergeInfo(at({ state: 1 }), { state: 2 }), undefined, { track: 'en', cc: true }).cc).toEqual({ label: 'CC ON', aria: 'Turn captions off', pressed: true });
+  });
+
+  it('the volume slider draws the player\'s own volume, and nothing while muted', () => {
+    expect(barView(true, at({ state: 1, volume: 40 })).volume).toEqual({ value: 40, text: '40%' });
+    expect(barView(true, at({ state: 1, volume: 40, muted: true })).volume).toEqual({ value: 0, text: 'muted' });
+    expect(barView(true, NO_INFO).volume).toEqual({ value: 100, text: '100%' });
+  });
+});
+
+describe('the volume slider', () => {
+  it('arrows step 5, Home and End go to the ends, inside 0..100', () => {
+    expect(volumeKey('ArrowUp', 40)).toBe(45);
+    expect(volumeKey('ArrowRight', 98)).toBe(100);
+    expect(volumeKey('ArrowDown', 40)).toBe(35);
+    expect(volumeKey('ArrowLeft', 3)).toBe(0);
+    expect(volumeKey('Home', 40)).toBe(0);
+    expect(volumeKey('End', 40)).toBe(100);
+    expect(volumeKey('a', 40)).toBeNull();
+  });
+
+  it('above 0 it sets the volume and unmutes; at 0 it mutes and keeps the last level for SOUND ON', () => {
+    expect(volumeCommands(60, false)).toEqual([['setVolume', [60]]]);
+    expect(volumeCommands(60, true)).toEqual([['setVolume', [60]], ['unMute', []]]);
+    expect(volumeCommands(0, false)).toEqual([['mute', []]]);
+    expect(volumeCommands(0, true)).toEqual([]);
+    expect(volumeCommands(33.6, false)).toEqual([['setVolume', [34]]]);
+  });
+});
+
+describe('the CC switch, as commands', () => {
+  it('on asks for the offered track, off for none', () => {
+    expect(captionCommand(true, 'en')).toEqual(['setOption', ['captions', 'track', { languageCode: 'en' }]]);
+    expect(captionCommand(false, 'en')).toEqual(['setOption', ['captions', 'track', {}]]);
+    expect(captionCommand(true, null)).toEqual(['setOption', ['captions', 'track', {}]]);
+  });
+
+  // measured: the player may remember the page's off across loads (a reload then offered `track: {}` on GALAXY part 1
+  // in one run of two), so the page remembers, per film, the track its player once offered in this browser
+  it('a track once offered is remembered for that film; a film never offering one has none', () => {
+    const m = new Map<string, string>();
+    const store = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) };
+    expect(knownTrack(store, 'hfq64ykkQs4', 'en')).toBe('en');
+    expect(knownTrack(store, 'hfq64ykkQs4', null)).toBe('en');
+    expect(knownTrack(store, 'wZNPHtoPZzk', null)).toBeNull();
+    expect(knownTrack(null, 'x', 'fr')).toBe('fr');
+    const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
+    expect(knownTrack(broken, 'x', 'fr')).toBe('fr');
+    expect(knownTrack(broken, 'x', null)).toBeNull();
   });
 });
 

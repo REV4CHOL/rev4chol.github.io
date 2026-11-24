@@ -54,19 +54,35 @@ export interface PartInfo {
   at: number;
   duration: number;
   muted: boolean;
+  /** 0..100, the player's own level (kept while muted) */
+  volume: number;
   /** the level YouTube plays at ('hd2160', 'large', …), or null */
   level: string | null;
   /** it has played (or buffered towards playing) at least once */
   started: boolean;
+  /** the language of a captions track the player has offered (once offered, kept: the page's own off empties it) */
+  captions: string | null;
+  /** how many times the player's captions module has said it loaded (the page answers each with the visitor's choice) */
+  captionLoads: number;
 }
 
-export const NO_INFO: PartInfo = { state: null, time: 0, at: 0, duration: 0, muted: false, level: null, started: false };
+export const NO_INFO: PartInfo = {
+  state: null, time: 0, at: 0, duration: 0, muted: false, volume: 100, level: null, started: false, captions: null, captionLoads: 0,
+};
 
-type InfoNews = Partial<Pick<PartInfo, 'state' | 'time' | 'duration' | 'muted' | 'level'>>;
+type InfoNews = Partial<Pick<PartInfo, 'state' | 'time' | 'duration' | 'muted' | 'volume' | 'level' | 'captions'>>;
+
+/** The language of the track a captions delivery offers: the one on now, else the first listed; null for none. */
+function offeredTrack(c: Record<string, unknown>): string | null {
+  const lang = (t: unknown) => (typeof t === 'object' && t !== null && typeof (t as { languageCode?: unknown }).languageCode === 'string'
+    ? (t as { languageCode: string }).languageCode || null : null);
+  return lang(c.track) ?? (Array.isArray(c.tracklist) ? lang(c.tracklist[0]) : null);
+}
 
 /** The news in one of the player's messages: a delivery carries only what changed (measured: currentTime about every
- *  270 ms while playing; duration, muted, playerState, playbackQuality as they change), a state change its state, a
- *  level change its level. Null for anything else. */
+ *  270 ms while playing; duration, muted, volume, playerState, playbackQuality as they change), a state change its
+ *  state, a level change its level, the captions module's load the track it offers (`apiInfoDelivery`, measured about
+ *  0.65 s after the start: GALAXY part 1 offered its auto-generated English, XIÊU LÒNG nothing). Null for anything else. */
 export function ytInfo(data: unknown): InfoNews | null {
   let d: unknown = data;
   if (typeof d === 'string') {
@@ -87,8 +103,13 @@ export function ytInfo(data: unknown): InfoNews | null {
     if (typeof i.currentTime === 'number') out.time = i.currentTime;
     if (typeof i.duration === 'number') out.duration = i.duration;
     if (typeof i.muted === 'boolean') out.muted = i.muted;
+    if (typeof i.volume === 'number') out.volume = i.volume;
     if (typeof i.playbackQuality === 'string') out.level = i.playbackQuality;
     return Object.keys(out).length ? out : null;
+  }
+  if (m.event === 'apiInfoDelivery' && typeof m.info === 'object' && m.info !== null) {
+    const c = (m.info as { captions?: unknown }).captions;
+    if (typeof c === 'object' && c !== null) return { captions: offeredTrack(c as Record<string, unknown>) };
   }
   return null;
 }
@@ -97,6 +118,10 @@ export function ytInfo(data: unknown): InfoNews | null {
 export function mergeInfo(prev: PartInfo, news: InfoNews, now = 0): PartInfo {
   const next = { ...prev, ...news };
   if (news.time !== undefined) next.at = now;
+  if (news.captions !== undefined) {
+    next.captions = news.captions ?? prev.captions;
+    next.captionLoads = prev.captionLoads + 1;
+  }
   if (startsPlay(news.state ?? null)) next.started = true;
   return next;
 }
@@ -111,7 +136,7 @@ export interface Programme {
   talks(frame: HTMLIFrameElement): boolean;
   /** What this frame's player has said of itself (NO_INFO for a frame not in the programme). */
   info(frame: HTMLIFrameElement): PartInfo;
-  /** Send this frame's player a command (playVideo, pauseVideo, seekTo, mute, unMute). */
+  /** Send this frame's player a command (playVideo, pauseVideo, seekTo, mute, unMute, setVolume, setOption). */
   send(frame: HTMLIFrameElement, func: string, args?: unknown[]): void;
   /** Hear every change of this frame's info, and its first answer; returns the unsubscribe. */
   watch(frame: HTMLIFrameElement, cb: (info: PartInfo, talks: boolean) => void): () => void;

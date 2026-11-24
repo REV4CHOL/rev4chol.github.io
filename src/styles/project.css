@@ -507,9 +507,29 @@
   letter-spacing: 0.12em; white-space: nowrap;
 }
 .p-bar-level[hidden] { display: none; }
-/* narrow (a GALAXY part stands about 300 to 400 px wide): the time and the level go first, then the buttons' words */
+/* CC (owner, 2026-11-24, ticked "A captions switch"): only on a film whose player offered a track; off reads dimmed,
+   like SOUND OFF */
+.p-bar-btn[hidden] { display: none; }
+.p-bar-cc[aria-pressed="false"] { color: color-mix(in srgb, var(--bone) 55%, transparent); }
+/* THE VOLUME SLIDER (owner, 2026-11-24, ticked "A volume slider: A slider beside SOUND ON / OFF on PCs (phones and
+   tablets use their own volume keys)"): a fine pointer only, drawn like the seek track */
+.p-bar-vol { display: none; }
+@media (pointer: fine) {
+  .p-bar-vol {
+    flex: none; display: flex; align-items: center; width: 88px; height: 100%; padding: 0 12px 0 2px;
+    touch-action: none; cursor: pointer;
+  }
+}
+.p-bar-vrail { position: relative; flex: 1; height: 2px; background: rgba(237, 237, 230, 0.22); }
+.p-bar-vfill { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--v, 1) * 100%); background: var(--bone); }
+.p-bar-vknob {
+  position: absolute; top: 50%; left: calc(var(--v, 1) * 100%); width: 8px; height: 8px;
+  transform: translate(-50%, -50%); background: var(--bone);
+}
+/* narrow (a GALAXY part stands about 300 to 400 px wide): the time, the level and the volume slider go first, then the
+   buttons' words */
 @container (max-width: 640px) {
-  .p-bar-time, .p-bar-level { display: none; }
+  .p-bar-time, .p-bar-level, .p-bar-vol { display: none; }
 }
 @container (max-width: 470px) {
   .p-bar-word { display: none; }
@@ -532,7 +552,7 @@
 /* the site's own cursor lives outside the fullscreen layer: there the system's pointer shows, and hides with the bar */
 @media (pointer: fine) {
   body.cursor-live .p-film--fs, body.cursor-live .p-film--fs * { cursor: default !important; }
-  body.cursor-live .p-film--fs button, body.cursor-live .p-film--fs .p-bar-seek { cursor: pointer !important; }
+  body.cursor-live .p-film--fs button, body.cursor-live .p-film--fs .p-bar-seek, body.cursor-live .p-film--fs .p-bar-vol { cursor: pointer !important; }
   body.cursor-live .p-film--fs.p-film--idle, body.cursor-live .p-film--fs.p-film--idle * { cursor: none !important; }
 }
 
