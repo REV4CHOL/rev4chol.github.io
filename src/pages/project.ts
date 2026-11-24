@@ -12,6 +12,7 @@ import { music } from '../lib/music';
 import { sound } from '../lib/sound';
 import { hashSlug, stillSlotUrls, wallRows } from '../project/dossier';
 import { fullscreenApi, plainReason } from '../project/frame-size';
+import { holePad, holeProps, holeRect } from '../project/holes';
 import { linkParts, startedByFocus } from '../project/parts';
 import { armBar, BigFilm, mountBig } from '../project/player-bar';
 import { playerRecords, recordPlayer } from '../lib/player-record';
@@ -533,6 +534,8 @@ function mountParts(p: Project, player: HTMLElement): Mounted {
  *  texture. Two named slots ('player', 'wall') map to the two mask holes. */
 const holeTargets: { player?: HTMLElement; wall?: HTMLElement } = {};
 let holesWired = false;
+/** What each layer's mask was last given (a scroll that moves no hole writes nothing). */
+const holesWritten = new WeakMap<HTMLElement, string>();
 
 function syncHoles(): void {
   const layers = [
@@ -543,26 +546,31 @@ function syncHoles(): void {
   // layers, which lay out in plate px — divide or the holes drift off
   // their windows under the poster lock
   const z = posterZoom();
-  const put = (el: HTMLElement, prefix: string, t?: HTMLElement) => {
-    if (t && t.isConnected) {
-      const r = t.getBoundingClientRect();
-      el.style.setProperty(`${prefix}-x`, `${r.left / z}px`);
-      el.style.setProperty(`${prefix}-y`, `${r.top / z}px`);
-      el.style.setProperty(`${prefix}-w`, `${r.width / z}px`);
-      el.style.setProperty(`${prefix}-h`, `${r.height / z}px`);
-    }
-  };
+  // every box is read before anything is written (owner, 2026-11-25: "I am using phone. The performance when scrolling
+  // the Work section is super laggy"): a write between two reads made the browser work the page's styles out again for
+  // the next read, three times on every scroll event (measured on a phone profile). Each hole is clamped to the screen
+  // (project/holes.ts), and a layer whose values did not change is not written, so a scroll inside the stills wall, or
+  // with both regions off the screen, paints neither layer again.
+  // (the layers fill the layout viewport: the larger of it and the window, so a pinch-zoomed phone clamps nothing it shows)
+  const de = document.documentElement;
+  const vw = Math.max(window.innerWidth, de.clientWidth), vh = Math.max(window.innerHeight, de.clientHeight), pad = holePad(vh, z);
+  const boxOf = (t?: HTMLElement) => (t && t.isConnected ? t.getBoundingClientRect() : null);
+  const pl = boxOf(holeTargets.player), wl = boxOf(holeTargets.wall);
+  const huds = [...document.querySelectorAll<HTMLElement>('.hud-bl, .hud-br')].map((h) => [h, h.getBoundingClientRect()] as const);
+  const props = holeProps([
+    ['--hole', pl && holeRect(pl, z, vw, vh, pad)],
+    ['--hole2', wl && holeRect(wl, z, vw, vh, pad)],
+  ]);
+  const key = props.map(([k, v]) => `${k}:${v}`).join(';');
   for (const el of layers) {
+    if (holesWritten.get(el) === key) continue;
+    holesWritten.set(el, key);
     el.classList.add('has-hole');
-    put(el, '--hole', holeTargets.player);
-    put(el, '--hole2', holeTargets.wall);
+    for (const [k, v] of props) el.style.setProperty(k, v);
   }
   // the HUD's foot readouts (fixed, above the page) step aside while they meet the player: on a short screen a centred
   // player reaches the screen's foot, and the timecode stood over the picture's corner (measured, Android 1280 x 672)
-  const pl = holeTargets.player?.isConnected ? holeTargets.player.getBoundingClientRect() : null;
-  for (const h of document.querySelectorAll<HTMLElement>('.hud-bl, .hud-br')) {
-    h.classList.toggle('hud-yield', meets(pl ?? { left: 0, top: 0, right: 0, bottom: 0 }, h.getBoundingClientRect()));
-  }
+  for (const [h, r] of huds) h.classList.toggle('hud-yield', meets(pl ?? { left: 0, top: 0, right: 0, bottom: 0 }, r));
 }
 
 let holesRO: ResizeObserver | null = null;
