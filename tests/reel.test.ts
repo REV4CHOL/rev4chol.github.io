@@ -10,8 +10,8 @@ import {
 
 // WORK ON A PHONE (owner, 2026-10-20: "on Phone, its completely overwhelming and disorienting … a complete redesign of
 // the interface of the Work section, still keeping the fundamental art direction, but changing the UI/UX specifically
-// for Phones"): the reel, one film to a screen — a pane the size of the screen, as antiantiart.com's on a phone, with
-// only the film's name and its roles on it.
+// for Phones"): the reel, a rolling strip of panes with only the film's name and its roles on each. A pane was the size
+// of the screen, as antiantiart.com's on a phone; since 2026-11-24 it is half of it, and two show at once.
 const films = parseProjects(parseJson(readFileSync('public/content/projects.json', 'utf8'), 'projects.json'));
 
 describe('which screens get the reel', () => {

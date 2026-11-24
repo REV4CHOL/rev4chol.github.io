@@ -644,10 +644,11 @@
 /* WORK ON A PHONE: THE REEL (works/reel.ts, works/reel-view.ts; owner, 2026-10-20: "on Phone, its completely
    overwhelming and disorienting … a complete redesign of the interface of the Work section, still keeping the
    fundamental art direction, but changing the UI/UX specifically for Phones"). The class comes only with a phone
-   (touch, and under 640 px wide or 500 px tall): one film to a screen and a swipe per film. A pane is the whole screen,
-   its loop covering it, as antiantiart.com's on a phone (owner, the same day, with two screenshots of it: "I would
-   prefer the sizing of all panes on Phone in the work section to be like this website"); on it only the film's name
-   and its roles ("Do not clog this section up with texts"). The panes run as one endless strip that rolls on its own
+   (touch, and under 640 px wide or 500 px tall). A pane has its loop covering it, as antiantiart.com's on a phone
+   (owner, the same day, with two screenshots of it: "I would prefer the sizing of all panes on Phone in the work
+   section to be like this website"); it was the whole screen then, and is half of it since 2026-11-24 (the rule
+   stands at .rl-frame). On it only the film's name and its roles ("Do not clog this section up with texts"). The panes
+   run as one endless strip that rolls on its own
    and a finger drags ("we can see the already continously scrolling down to the next film in a continuous strips. And
    we can slide our finger up and down"): works/reel-view.ts moves it, each pane by its transform. The header and the
    foot lie over the picture, the rail down its right edge. The floor, its legend and its tabs leave a phone; THE LIST
@@ -672,11 +673,15 @@
   touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
 .rl-strip[hidden] { display: none; }
-/* a pane: the whole screen, one film, set along the strip by its transform; the cut between two a hairline of field blue */
+/* a pane: half the screen, one film, set along the strip by its transform; the cut between two a hairline of field blue.
+   Two panes show at once (owner, 2026-11-24: "the panes are too long in length and should be shorten. we should be
+   able to see two panes on the phone screen at the same time instead"). A vertical film's pane is two panes high, the
+   whole screen: vertical footage is never cropped wide. works/reel.ts measures the strip in these units. */
 .rl-frame {
-  position: absolute; left: 0; right: 0; top: 0; box-sizing: border-box; height: 100%; overflow: hidden;
+  position: absolute; left: 0; right: 0; top: 0; box-sizing: border-box; height: 50%; overflow: hidden;
   background: var(--void); will-change: transform; border-bottom: 1px solid color-mix(in srgb, var(--field) 60%, transparent);
 }
+.rl-frame.is-tall { height: 100%; }
 /* the film's edge: sprockets down the left, riding with the panes */
 .rl-frame::before {
   content: ''; position: absolute; left: 6px; top: 0; bottom: 0; width: 7px; z-index: 3; pointer-events: none;
@@ -689,15 +694,18 @@
 .rl-loop { opacity: 0; transition: opacity 0.25s; }
 .rl-loop.is-live { opacity: 1; }
 .rl-scan { position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(6, 6, 6, 0.16) 0 1px, transparent 1px 3px); }
-/* the dark the words and the foot stand on */
+/* the dark the words and the foot stand on: in a half pane it reaches over the words' whole span — their distance from
+   the pane's foot (the .rl-cap rule) and 200 px, room for the tallest name (143 px, measured) */
 .rl-pane::after {
-  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 48%; pointer-events: none;
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; pointer-events: none;
+  height: max(48%, calc(var(--reel-foot) + env(safe-area-inset-bottom) + 226px));
   background: linear-gradient(0deg, color-mix(in srgb, var(--void) 90%, transparent) 0%, color-mix(in srgb, var(--void) 58%, transparent) 42%, transparent 100%);
 }
-/* the viewfinder's corners in the film's accent (the floor's crop marks), round the picture between the header and the foot */
+/* the viewfinder's corners in the film's accent (the floor's crop marks), round the pane's own picture: 14 px inside its
+   top, and above the foot's height from its bottom (so the lower pane's stand clear of the foot) */
 .rl-marks {
   position: absolute; left: 20px; right: 40px; z-index: 2; pointer-events: none;
-  top: calc(var(--reel-top, 132px) + 4px); bottom: calc(var(--reel-foot) + env(safe-area-inset-bottom) + 10px);
+  top: 14px; bottom: calc(var(--reel-foot) + env(safe-area-inset-bottom) + 10px);
   background:
     linear-gradient(var(--acc), var(--acc)) left top / 20px 2px no-repeat,
     linear-gradient(var(--acc), var(--acc)) left top / 2px 20px no-repeat,
@@ -709,7 +717,8 @@
     linear-gradient(var(--acc), var(--acc)) right bottom / 2px 20px no-repeat;
 }
 /* the words: the film's name and its roles, nothing else (owner, 2026-10-20: "only the Project name, and the Role names
-   are enough"), inside the viewfinder's lower corner */
+   are enough"), inside the viewfinder's lower corner. They are placed from their pane's own bottom edge (the link fills
+   the pane), the foot's height and 26 px up: a pane standing at the screen's bottom shows them clear of the foot */
 .rl-cap {
   position: absolute; left: 34px; right: 54px; z-index: 2; bottom: calc(var(--reel-foot) + env(safe-area-inset-bottom) + 26px);
   display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
@@ -768,18 +777,23 @@
 .rl-chap.is-on { color: var(--signal); }
 .rl-chap.is-on .rl-chap-name { text-decoration: none; }
 .rl-allbtn { margin-left: auto; padding: 9px 14px 8px; background: color-mix(in srgb, var(--void) 45%, transparent); }
-/* arrival: the first picture comes up through the gate, the foot rises; under CALM it all simply stands (and the strip
-   never rolls by itself: works/reel-view.ts) */
+/* arrival: the pictures on the screen (the first two panes) come up through the gate, the foot rises; under CALM it all
+   simply stands (and the strip never rolls by itself: works/reel-view.ts) */
 @keyframes rl-gate { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes rl-rise { from { transform: translateY(100%); } to { transform: none; } }
-.works-main.is-arriving .rl-strip:not([hidden]) .rl-frame:first-child .rl-pane { animation: rl-gate 0.42s steps(7) both; }
+.works-main.is-arriving .rl-strip:not([hidden]) .rl-frame:nth-child(-n+2) .rl-pane { animation: rl-gate 0.42s steps(7) both; }
 .works-main.is-arriving .rl-foot { animation: rl-rise 0.36s var(--ease-out) both; }
 .rvl-calm .works-main.is-arriving .rl-pane, .rvl-calm .works-main.is-arriving .rl-foot { animation: none; }
 .rvl-calm .rl-loop { transition: none; }
-/* a phone on its side: the same whole-screen pane; a vertical film stands whole in the middle, never cropped wide (the
-   owner's standing rule: vertical footage gets vertical treatment); the words keep to the left; the foot slims */
+/* a phone on its side: every pane is the whole screen (half of a sideways screen would be a band about 195 px high),
+   its marks under the header and its dark as they were; a vertical film stands whole in the middle, never cropped wide
+   (the owner's standing rule: vertical footage gets vertical treatment); the words keep to the left; the foot slims.
+   The query is works/reel.ts's SIDE_QUERY: the view counts every pane one unit, the screen's height, on the same line */
 @media (max-height: 500px) {
   .works-main.is-reel { --reel-foot: 46px; }
+  .rl-frame { height: 100%; }
+  .rl-marks { top: calc(var(--reel-top, 132px) + 4px); }
+  .rl-pane::after { height: 48%; }
   .rl-pane.is-vertical .rl-poster, .rl-pane.is-vertical .rl-loop { object-fit: contain; }
   .rl-cap { right: auto; width: 56%; bottom: calc(var(--reel-foot) + env(safe-area-inset-bottom) + 22px); gap: 6px; }
   .rl-chap { min-height: 40px; padding: 2px 8px; }

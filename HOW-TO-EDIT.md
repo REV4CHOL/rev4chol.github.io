@@ -47,7 +47,7 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | accent | this film's color, hex | `"#C8FF00"` |
 | tileSize | `"normal"` or `"large"` (large = FEATURED: the centre cluster and the featured dress — every landscape pane is the same size; a vertical film's stands two rows tall) | `"large"` |
 | aspect | `"16:9"` (default), `"4:3"`, `"2.39:1"` or `"9:16"` (vertical footage) — the floor pane AND the whole dossier (hero + stills) present in this ratio; the carpet packs neighbors tight around any width. A `"9:16"` film gets the tall vertical pane (two pane rows high, its name up a spine on the left edge; featured, it stands in the right-hand column of the centre cluster), a vertical hero and a wall of portrait stills | `"4:3"` |
-| focus | where the picture's subject sits, `"X% Y%"` — how far across, then how far down (`"0% 0%"` top-left, `"50% 50%"` the middle, the default). A phone shows each film on its tall screen and crops the picture around this point; set it when the subject sits off the middle | `"60% 50%"` |
+| focus | where the picture's subject sits, `"X% Y%"` — how far across, then how far down (`"0% 0%"` top-left, `"50% 50%"` the middle, the default). A phone shows each film in a pane half its screen high and crops the picture around this point; set it when the subject sits off the middle | `"60% 50%"` |
 | category | which works channel: `"human"` or `"machine"` (leave out = human) | `"machine"` |
 | synopsis | one short paragraph | |
 | credits | list of `{ "role": …, "name": … }` | |
@@ -206,16 +206,18 @@ build step, no terminal.
   A film's `category` decides its channel. Give each channel a few
   `"large"` films so both floors get a featured centre cluster. Deep links:
   `works.html?ch=machine`.
-- **On a phone, WORK is a rolling strip** instead of the floor: one film to a
+- **On a phone, WORK is a rolling strip** instead of the floor: two films to a
   screen, in `projects.json` order, rolling up on its own from the moment the
-  page opens (one screen every 18 seconds) and round again, endlessly. A
-  finger drags it up and down and throws it, and it eases straight back into
-  its roll. A tap opens the film. Each film fills the whole screen with its loop (its poster
-  until the loop plays), and on it stand only its **title and its `role`** —
-  nothing else. The picture is cropped to the tall screen **around the film's
-  `focus`** (the middle unless you set one). A `"9:16"` film fills the screen
-  as it is; on a phone held sideways it stands whole in the middle. Nothing to
-  set up; a tablet and a computer keep the floor.
+  page opens (one screen's height every 18 seconds, so a film passes in 9) and
+  round again, endlessly. A finger drags it up and down and throws it, and it
+  eases straight back into its roll. A tap opens the film. Each film's pane is
+  half the screen, filled with its loop (its poster until the loop plays), and
+  on it stand only its **title and its `role`** — nothing else. The picture is
+  cropped to the pane **around the film's `focus`** (the middle unless you set
+  one). A `"9:16"` film gets a tall pane, two panes high: it fills the whole
+  screen as it is. On a phone held sideways every pane is the whole screen, and
+  a `"9:16"` film stands whole in the middle. Nothing to set up; a tablet and a
+  computer keep the floor.
 - **Loops on an iPhone in Low Power Mode:** iOS refuses to start videos by
   themselves there. The site then shows the same loop files as moving images,
   on the homepage and in WORK — nothing for you to make.

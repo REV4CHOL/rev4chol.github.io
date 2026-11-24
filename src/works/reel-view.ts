@@ -1,7 +1,9 @@
 /** WORK ON A PHONE: THE REEL, built — a rolling strip (works/reel.ts says what it is and holds its rules).
  *
- *  - A strip per chapter: its films' panes, each the whole screen, endless (no scrolling: the strip never ends and never
- *    jumps). From the first frame it rolls on, one screen every ROLL_SECONDS.
+ *  - A strip per chapter: its films' panes, endless (no scrolling: the strip never ends and never jumps). A pane is half
+ *    the screen, so two show at once (owner, 2026-11-24: "we should be able to see two panes on the phone screen at the
+ *    same time"); a vertical film's is the whole screen; on a phone held on its side every pane is the screen. From the
+ *    first frame it rolls on, one screen's height every ROLL_SECONDS.
  *  - The roll runs on the compositor: each pane, its words and the rail's playhead run one linear animation a lap,
  *    phased by where they stand, so the screen's own clock moves them and a busy page (a film's video starting) never
  *    stutters the strip (owner, 2026-10-20: "I want the auto scrolling to happen instantly, but slower and smoother").
@@ -26,7 +28,7 @@ import { CHANNELS, type ChannelKey, channelProjects } from './channels';
 import {
   capKeyframes, coast, lapProgress, lapSeconds, lapUnits, loopsAllowed, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
   oneLineSize, paneInView, paneKeyframes, panePlay, paneTop, paneUnits, places, railProgress, railTicks, REEL_WORDS, releaseSpeed,
-  roleLine, rollPace, screenUnits, stripOrder, stripPlace, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
+  roleLine, rollPace, screenUnits, SIDE_QUERY, stripOrder, stripPlace, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
   type PanePlay,
 } from './reel';
 
@@ -81,10 +83,11 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
 
   /* ------------------------------------------------------------ the strips -- */
 
-  // a pane: the picture over the whole screen, and on it the film's name and its roles — nothing else (owner,
-  // 2026-10-20: "only the Project name, and the Role names are enough. Do not clog this section up with texts")
+  // a pane: the picture over half the screen, and on it the film's name and its roles — nothing else (owner,
+  // 2026-10-20: "only the Project name, and the Role names are enough. Do not clog this section up with texts"). A
+  // vertical film's pane is tall, two panes high: the whole screen (the styles size both; works/reel.ts counts them)
   const frameOf = (p: Project, i: number): HTMLLIElement => {
-    const li = el('li', 'rl-frame');
+    const li = el('li', `rl-frame${aspectRatio(p.aspect) < 1 ? ' is-tall' : ''}`);
     li.dataset.slug = p.slug;
     li.style.setProperty('--acc', p.accent);
     const a = el('a', 'rl-link');
@@ -98,7 +101,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     img.alt = '';
     img.decoding = 'async';
     img.draggable = false;
-    img.loading = i < 2 ? 'eager' : 'lazy';
+    img.loading = i < 3 ? 'eager' : 'lazy'; // (the two on the screen, and the next to come in)
     img.src = projectAssetUrl(p.slug, 'poster.jpg');
     pane.append(img, el('i', 'rl-scan'));
     const cap = el('span', 'rl-cap');
@@ -209,7 +212,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   /** the two heights, and every pane's units and place as the screen stands */
   const measure = () => {
     view = strip.ol.clientHeight || window.innerHeight; // (no height yet under the LIST: the window's)
-    side = true; // (every pane the screen, as the styles still have it)
+    side = window.matchMedia(SIDE_QUERY).matches; // (the styles' own line: on its side every pane is the screen)
     unit = view / screenUnits(side);
     strip.units = strip.order.map((f) => paneUnits(strip.tall[f], side));
     strip.at = places(strip.units);

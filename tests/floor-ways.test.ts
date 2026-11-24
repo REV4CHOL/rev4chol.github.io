@@ -345,13 +345,27 @@ describe('a phone gets the reel, never the floor (pins)', () => {
   it('the foot stands inside the small viewport, above the home indicator, the words above it', () => {
     expect(css).toMatch(/\n\.rl-foot \{[^}]*position: fixed;[^}]*bottom: 0;[^}]*padding: 0 10px env\(safe-area-inset-bottom\);/);
     expect(css).toMatch(/\n\.rl-cap \{[^}]*bottom: calc\(var\(--reel-foot\) \+ env\(safe-area-inset-bottom\) \+ 26px\);/);
+    // the words and the marks are placed from their pane's own edges (the link fills the pane): a pane at the screen's
+    // bottom shows its words clear of the foot; the top marks stand 14 px inside the pane; the dark covers the words
+    expect(css).toContain('.rl-link { position: absolute; inset: 0; display: block;');
+    expect(css).toMatch(/\n\.rl-marks \{[^}]*top: 14px; bottom: calc\(var\(--reel-foot\) \+ env\(safe-area-inset-bottom\) \+ 10px\);/);
+    expect(css).toMatch(/\n\.rl-pane::after \{[^}]*height: max\(48%, calc\(var\(--reel-foot\) \+ env\(safe-area-inset-bottom\) \+ 226px\)\);/);
   });
 
-  // (owner, 2026-10-20, with two screenshots of antiantiart.com on a phone: "I would prefer the sizing of all panes on
-  // Phone in the work section to be like this website")
-  it('a pane is the whole screen, its picture covering it around the film\'s focus point', () => {
+  it('at arrival the gate wipe covers both panes on the screen, and their posters load at once', () => {
+    expect(css).toContain('.works-main.is-arriving .rl-strip:not([hidden]) .rl-frame:nth-child(-n+2) .rl-pane { animation: rl-gate 0.42s steps(7) both; }');
+    expect(view).toContain("img.loading = i < 3 ? 'eager' : 'lazy';");
+  });
+
+  // (owner, 2026-11-24: "the panes are too long in length and should be shorten. we should be able to see two panes on
+  // the phone screen at the same time instead"; from 2026-10-20 until then a pane was the whole screen)
+  it("a pane is half the screen and a vertical film's is the whole of it, its picture covering it around the film's focus point", () => {
     expect(css).toContain('.reel { position: fixed; inset: 0; z-index: 900; }');
-    expect(css).toMatch(/\n\.rl-frame \{[^}]*position: absolute;[^}]*height: 100%;/);
+    expect(css).toMatch(/\n\.rl-frame \{[^}]*position: absolute;[^}]*height: 50%;/);
+    expect(css).toContain('.rl-frame.is-tall { height: 100%; }');
+    expect(css.indexOf('.rl-frame.is-tall {')).toBeGreaterThan(css.indexOf('\n.rl-frame {')); // (after the rule it overrides)
+    expect(view).toContain("const li = el('li', `rl-frame${aspectRatio(p.aspect) < 1 ? ' is-tall' : ''}`);");
+    expect(view).toContain('side = window.matchMedia(SIDE_QUERY).matches;'); // (the view counts units on the styles' own line)
     expect(css).toContain('.rl-poster, .rl-loop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: var(--focus, 50% 50%); }');
     expect(view).toContain("pane.style.setProperty('--focus', p.focus);");
   });
@@ -391,6 +405,11 @@ describe('a phone gets the reel, never the floor (pins)', () => {
     expect(view).toContain("aspectRatio(p.aspect) < 1 ? ' is-vertical' : ''");
     const side = css.slice(css.indexOf('/* a phone on its side'));
     expect(side).toContain('.rl-pane.is-vertical .rl-poster, .rl-pane.is-vertical .rl-loop { object-fit: contain; }');
+    // on its side every pane is the whole screen, its marks under the header and its dark as they were
+    expect(side).toContain('@media (max-height: 500px) {'); // (works/reel.ts's SIDE_QUERY, pinned in tests/reel.test.ts)
+    expect(side).toContain('.rl-frame { height: 100%; }');
+    expect(side).toContain('.rl-marks { top: calc(var(--reel-top, 132px) + 4px); }');
+    expect(side).toContain('.rl-pane::after { height: 48%; }');
   });
 
   it('a pane carries the film\'s name and its roles, nothing else (owner: "Do not clog this section up with texts")', () => {

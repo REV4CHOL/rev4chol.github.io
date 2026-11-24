@@ -2,10 +2,12 @@
  *  Phone, its completely overwhelming and disorienting … I want a complete redesign of the interface of the Work
  *  section, still keeping the fundamental art direction, but changing the UI/UX specifically for Phones").
  *
- *  On a phone the section is a rolling strip of films, endless: each pane is the whole screen, its loop covering it,
- *  and on it only the film's name and its roles (owner, the same day, with two screenshots of antiantiart.com on a
- *  phone: "I would prefer the sizing of all panes on Phone in the work section to be like this website" — "only the
- *  Project name, and the Role names are enough"). It rolls on its own from arrival, and a finger takes it ("The moment
+ *  On a phone the section is a rolling strip of films, endless: each pane has its loop covering it, and on it only the
+ *  film's name and its roles (owner, the same day, with two screenshots of antiantiart.com on a phone: "I would prefer
+ *  the sizing of all panes on Phone in the work section to be like this website" — "only the Project name, and the Role
+ *  names are enough"). A pane was the whole screen then; it is half of it since 2026-11-24 (owner: "the panes are too
+ *  long in length and should be shorten. we should be able to see two panes on the phone screen at the same time
+ *  instead"), a vertical film's the whole of it. It rolls on its own from arrival, and a finger takes it ("The moment
  *  we enter the work section, we can see the already continously scrolling down to the next film in a continuous
  *  strips. And we can slide our finger up and down to scroll through the strip"). Pure: which screens get it, the
  *  strip's arithmetic, its words, the loops' rule; works/reel-view.ts builds it. */
