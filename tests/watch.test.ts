@@ -142,13 +142,14 @@ describe("the film page's marks keep clear of the menu, and read over a bright p
 // The owner, 2026-11-24, of XIÊU LÒNG: "I need the following info: Artist: Dung Hoang Pham / PHUCNAM. Production
 // House: Explosion Kitchen. Runtime: 4:20. Genre: Music Video". The spec sheet had no row for the first two. Then:
 // "Underneath PRODUCTION HOUSE, write Director: Khadarec [XPOKIT]". Shown the sheet live: "the order shouldve been
-// ARTIST - DIRECTOR - PRODUCTION HOUSE - GENRE - ROLE" and "Remove runtime from all sections on the website".
+// ARTIST - DIRECTOR - PRODUCTION HOUSE - GENRE - ROLE" and "Remove runtime from all sections on the website". Then, of
+// every film's sheet: "Website-wide: YEAR go under ROLE, Genre go above ROLE".
 describe("the spec sheet's rows", () => {
   const page = readFileSync('src/pages/project.ts', 'utf8').replace(/\r\n/g, '\n');
   const rowAt = (label: string) => page.indexOf(`rows.push(['${label}',`);
 
-  it('the rows stand in the order the owner gave: ARTIST, DIRECTOR, PRODUCTION HOUSE, GENRE, ROLE, under YEAR and CLIENT', () => {
-    const order = ['YEAR', 'CLIENT', 'ARTIST', 'DIRECTOR', 'PRODUCTION HOUSE', 'GENRE', 'ROLE'].map(rowAt);
+  it('the rows stand in the order the owner gave: ARTIST, DIRECTOR, PRODUCTION HOUSE, GENRE, ROLE, YEAR, under CLIENT', () => {
+    const order = ['CLIENT', 'ARTIST', 'DIRECTOR', 'PRODUCTION HOUSE', 'GENRE', 'ROLE', 'YEAR'].map(rowAt);
     expect(order.every((at) => at > 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(page).toContain("if (p.artist) rows.push(['ARTIST', `<span>${escapeHtml(p.artist.toUpperCase())}</span>`]);");

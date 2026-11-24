@@ -210,11 +210,11 @@ function mountHero(p: Project, stamp: string): void {
 /* ---------------------------------------------------------- spec sheet -- */
 
 // The rows stand in the owner's order (2026-11-24: "the order shouldve been ARTIST - DIRECTOR - PRODUCTION HOUSE - GENRE -
-// ROLE"), each only when its film carries it; YEAR and CLIENT, which they did not name, keep their place above. No running
-// time stands here, nor anywhere on the site ("Remove runtime from all sections on the website").
+// ROLE", then "Website-wide: YEAR go under ROLE, Genre go above ROLE"), each only when its film carries it; CLIENT, which
+// they did not name, keeps the top. No running time stands here, nor anywhere on the site ("Remove runtime from all
+// sections on the website").
 function mountSpec(p: Project): void {
   const rows: [string, string][] = [];
-  rows.push(['YEAR', `<span>${p.year}</span>`]);
   if (p.client) rows.push(['CLIENT', `<span>${escapeHtml(p.client.toUpperCase())}</span>`]);
   if (p.artist) rows.push(['ARTIST', `<span>${escapeHtml(p.artist.toUpperCase())}</span>`]);
   if (p.director) rows.push(['DIRECTOR', `<span>${escapeHtml(p.director.toUpperCase())}</span>`]);
@@ -222,6 +222,7 @@ function mountSpec(p: Project): void {
   if (p.tags.length)
     rows.push(['GENRE', p.tags.map((t) => `<span class="p-pill">${escapeHtml(t.toUpperCase())}</span>`).join('')]);
   if (p.role) rows.push(['ROLE', `<span>${escapeHtml(p.role.toUpperCase())}</span>`]);
+  rows.push(['YEAR', `<span>${p.year}</span>`]);
 
   document.getElementById('p-spec')!.innerHTML = rows
     .map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`)
