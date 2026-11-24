@@ -92,7 +92,7 @@ describe('the signposts are wired (pins)', () => {
     ['src/pages/works.ts', "dataset.cursor = 'SWITCH CHAPTER ▸'"],
     ['src/works/world.ts', "setCursorLabel('OPEN ▸')"],
     ['src/works/world.ts', 'captionMeta('],
-    ['src/works/world.ts', 'openingFrame('],
+    ['src/works/world.ts', 'openingFor('],
     ['src/works/world.ts', 'markFloorOpened('],
     ['src/works/tile.ts', "text: 'PLACEHOLDER'"],
     ['src/shell/cursor.ts', 'cursorLabelFor(e.target as Element, chromeWrote)'],

@@ -21,7 +21,7 @@ import { leaveTo } from '../lib/transitions';
 import { setCursorLabel } from '../shell/cursor';
 import { captionSpot } from './caption';
 import { captionMeta, markFloorOpened } from './legend';
-import { openingFrame } from './opening';
+import { openingFor } from './opening';
 import {
   CARD_W, HOVER_LIFT, HOVER_M, ISO, SEAM, STEP_W, WORLD_PAD, cardSize, hoverFit, hoverFitIn, previewBox, rowAxisWorld,
 } from './constants';
@@ -256,12 +256,14 @@ export class WorksWorld {
       },
     );
 
-    // THE PHONE'S FIRST FRAME (owner's testers, 2026-09-27): a touch screen opens on one whole featured pane, fitted
-    // and centred, not on the seam between two (works/opening.ts); a fine pointer keeps the cluster
+    // THE FIRST FRAME (works/opening.ts): a fine pointer keeps the cluster at scale 1; a tablet the cluster as a
+    // full-HD desktop shows it (owner, on an iPad: "zoomed WAY TOO CLOSE"); a phone-shaped touch screen one whole
+    // featured pane, fitted and centred, not the seam between two (owner's testers, 2026-09-27)
     if (!finePointer()) {
-      const frame = openingFrame(
+      const frame = openingFor(
         [...w.tiles.values()].map((t) => ({ x: t.x, y: t.y, halfW: t.extentX(), featured: t.project.tileSize === 'large' })),
-        app.screen.width,
+        { w: app.screen.width, h: app.screen.height },
+        false,
         minZoom(),
       );
       if (frame) {
