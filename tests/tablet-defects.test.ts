@@ -28,3 +28,17 @@ describe('ABOUT on a tablet: a skill name is never cut (android-portrait 800 px:
     expect(b).toContain('grid-template-columns: 1fr');
   });
 });
+
+describe('the film page on a portrait tablet: the format stamp clears the status line (it stood on PROCEDURE :: XIEU-LONG // ONLINE)', () => {
+  const project = css('project');
+  it('the stamp stays 124 px or more from the top once the band can hold it, and is capped to the room above the rail', () => {
+    const b = block(project, '@media (pointer: coarse) and (min-width: 761px) and (orientation: portrait) {');
+    expect(b).toContain('.p-band-t::after {');
+    expect(b).toContain('top: max(calc(50% - 0.5em), clamp(0px, calc((100% - 189px) * 200), 124px));');
+    expect(b).toMatch(/font-size: min\(var\(--t-2xl\), calc\(var\(--bh\) - 142px/);
+  });
+  it('a desktop (fine pointer) and a phone never see it', () => {
+    expect(block(project, '@media (pointer: coarse) and (min-width: 761px) and (orientation: portrait) {')).not.toContain('max-width');
+    expect(project.indexOf('@media (pointer: coarse) and (min-width: 761px) and (orientation: portrait)')).toBeGreaterThan(project.indexOf('.p-band-t::after { display: none; }'));
+  });
+});

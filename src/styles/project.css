@@ -96,6 +96,17 @@
      on MOTION and on the status line) */
   .p-band-t::after { display: none; }
 }
+/* a portrait tablet's top band is tall enough to reach the status line (PROCEDURE :: SLUG // ONLINE, 106 to 118 px down):
+   the centred stamp stood on it. Once the band can hold the stamp BELOW that line (190 px and up) the stamp's top is
+   at least 124 px and its size is capped to what is left above the sprocket rail; a shorter band keeps the stamp as it
+   was (a smaller stamp would be a speck), and a stamp already below 124 px does not move. --bh is the band's height. */
+@media (pointer: coarse) and (min-width: 761px) and (orientation: portrait) {
+  .p-band-t::after {
+    --bh: calc((100cqh - var(--pfith)) / 2);
+    top: max(calc(50% - 0.5em), clamp(0px, calc((100% - 189px) * 200), 124px));
+    font-size: min(var(--t-2xl), calc(var(--bh) - 142px + clamp(0px, calc((189px - var(--bh)) * 1000), 10000px)));
+  }
+}
 
 /* the side fields are RACK PANELS, not blank void: gate hairline, an
    inner-edge rail (checker left, tick rail right), a vertical format
