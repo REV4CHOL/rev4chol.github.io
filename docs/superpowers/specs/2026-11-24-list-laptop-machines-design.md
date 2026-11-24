@@ -121,7 +121,14 @@ Screens 1,920 wide and more stay exactly as they are.
 - Touch at 390 × 844, 1,180 × 820 and 1,366 × 1,024: no city, as before.
 - The keyboard: Tab reaches all 19 rows in order, each row stacked. The focus ring is whole around the row and inside
   the sheet. As before the change, a row the Tab has just scrolled to has its ring's bottom 5 px under the screen's edge.
-- The unpinned tier on a laptop (throttled profiles, no `?gfx=`): reported with the change, not here.
+- The unpinned tier on a laptop: a 1,440 × 900 screen, no `?gfx=`, a fresh browser per run, an integrated GPU's name,
+  8 GB or 16 GB with 8 threads, the processor slowed six times.
+  - Straight to `?view=list`, the list opened at LITE, with no machines, at 3, 15 and 30 s. It stood at BALANCED, with
+    the machines, at 75 s. This held on both profiles, on this branch and on the weak-machine release.
+  - By the floor and then THE LIST's button, it was the same in four runs of five. In the fifth (16 GB, this branch),
+    the floor had already reached BALANCED, and the list stood at FULL with its machines from 3 s.
+  - The rows stood 768 wide in every reading: the tier never moved them. The same page unslowed held FULL at 57 to
+    60 frames a second.
 
 ## Design calls for the owner
 
