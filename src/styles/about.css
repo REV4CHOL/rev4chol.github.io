@@ -312,6 +312,19 @@
 /* (a skill row no longer fills under the pointer: it is not a link, and the fill is what the site's real links do;
    the review's walkthroughs, 2026-09-30, both pressed the rows) */
 
+/* a tablet (touch, wider than a phone): a skill's name is never cut. It may wrap between words. Below 1000 px the two
+   columns are one (a column of 258 px at 800 could not hold CINEMATOGRAPHY); from 1000 px the counter at the
+   cartridge's end is dropped, as the phone drops it: two columns never leave room for it beside the longest name */
+@media (pointer: coarse) and (min-width: 761px) {
+  .a-bar-name { flex: 0 1 auto; min-width: 0; white-space: normal; }
+}
+@media (pointer: coarse) and (min-width: 761px) and (max-width: 999px) {
+  .a-rack { grid-template-columns: 1fr; gap: 36px; }
+}
+@media (pointer: coarse) and (min-width: 1000px) {
+  .a-bar-cap { display: none; }
+}
+
 /* --------------------------------------------------------- transmit -- */
 
 .a-transmit { position: relative; padding: 120px 44px 90px; margin-top: 64px; }
