@@ -1,5 +1,9 @@
 let ctxRef: AudioContext | null = null;
 
+/** How loud the effects are, as the master bus's gain: every sound of the site leaves through it. 0.7 since the owner's
+ *  "SFX a bit too loud" (2026-11-24); it stood at 1. */
+export const SFX_LEVEL = 0.7;
+
 class SoundEngine {
   enabled = true;
   private master: GainNode | null = null;
@@ -78,7 +82,7 @@ class SoundEngine {
       // one master bus: a single volume point, and an analyser tap so the
       // output is verifiable (window.rvlSound.level())
       this.master = ctxRef.createGain();
-      this.master.gain.value = 1;
+      this.master.gain.value = SFX_LEVEL;
       this.analyser = ctxRef.createAnalyser();
       this.analyser.fftSize = 256;
       this.master.connect(this.analyser);

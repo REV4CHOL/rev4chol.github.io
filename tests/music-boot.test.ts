@@ -30,7 +30,7 @@ describe('The music boot in the page heads', () => {
     expect(r.a.src).toBe('/content/music/night-road.mp3'); expect(r.a.loop).toBe(true); expect(r.a.preload).toBe('auto'); expect(r.a.plays).toBe(1);
     r.a.fire('loadedmetadata'); expect(r.a.currentTime).toBe(160); // 100 + 60 s of clock
     r.a.fire('playing'); while (r.timeouts.length) r.timeouts.shift()!();
-    expect(r.a.volume).toBeCloseTo(0.55, 5); expect(r.win.rvlMusicBoot).toBe(r.a); expect(r.win.rvlMusicAt).toBe(123);
+    expect(r.a.volume).toBeCloseTo(0.3, 5); expect(r.win.rvlMusicBoot).toBe(r.a); expect(r.win.rvlMusicAt).toBe(123);
     const h = run(JSON.stringify({ t: 100, at: 1000, held: true }), null); h.a.fire('loadedmetadata'); expect(h.a.currentTime).toBe(100);
     const w = run(JSON.stringify({ t: 210, at: 1000, held: false }), null); w.a.fire('loadedmetadata'); expect(w.a.currentTime).toBe(50); // wrapped by 220
     const off = run(null, 'off'); expect(off.a.plays).toBe(0); expect(off.win.rvlMusicBoot).toBeUndefined();

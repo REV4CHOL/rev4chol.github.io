@@ -6,7 +6,9 @@
  *  over), a cold load waits for the first gesture. The choice (on / off) lives in localStorage, on by default. Pure
  *  except for the element and the stores handed in: tested with stand-ins. */
 export const TRACK = '/content/music/night-road.mp3';
-export const VOLUME = 0.55;
+/** The track's volume. 0.3 since the owner's "Music too loud too" (2026-11-24); it stood at 0.55. The music boot in
+ *  every page's head ramps to the same number: change both together (tests/sound-levels.test.ts holds them). */
+export const VOLUME = 0.3;
 const CHOICE = 'rvl-music-v1', POS = 'rvl-music-pos';
 
 export interface Saved { t: number; at: number; held: boolean }
