@@ -68,8 +68,9 @@ export function initCursor(): void {
       const z = posterZoom();
       c.style.transform = `translate3d(${clientX / z}px, ${clientY / z}px, 0)`;
       coordsEl.textContent = cursorCoords(clientX, clientY);
-      // the cross, its label and its readout step aside wherever they would stand on a film's frame
-      const frames = document.getElementsByTagName('iframe');
+      // the cross, its label and its readout step aside wherever they would stand on a film's frame; a frame the site's
+      // own player covers (its catcher, project/player-bar.ts: `data-covered`) is the page's again, and the cross stays
+      const frames = [...document.getElementsByTagName('iframe')].filter((f) => !f.hasAttribute('data-covered'));
       c.classList.toggle('in-frame', frames.length > 0 && meetsAny(
         [...c.children].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0),
         [...frames].map((f) => f.getBoundingClientRect()),

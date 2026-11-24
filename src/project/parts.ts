@@ -45,6 +45,62 @@ export function startedByFocus<T>(active: T | null, frames: readonly T[], talks:
   return active !== null && frames.includes(active) && !talks(active);
 }
 
+/** What a part's player has said of itself so far (the site's own bar reads it: project/player-bar.ts). */
+export interface PartInfo {
+  /** the player's state: -1 unstarted, 0 ended, 1 playing, 2 paused, 3 buffering, 5 cued; null before it says */
+  state: number | null;
+  /** seconds; `at` is when `time` was said (performance.now) */
+  time: number;
+  at: number;
+  duration: number;
+  muted: boolean;
+  /** the level YouTube plays at ('hd2160', 'large', …), or null */
+  level: string | null;
+  /** it has played (or buffered towards playing) at least once */
+  started: boolean;
+}
+
+export const NO_INFO: PartInfo = { state: null, time: 0, at: 0, duration: 0, muted: false, level: null, started: false };
+
+type InfoNews = Partial<Pick<PartInfo, 'state' | 'time' | 'duration' | 'muted' | 'level'>>;
+
+/** The news in one of the player's messages: a delivery carries only what changed (measured: currentTime about every
+ *  270 ms while playing; duration, muted, playerState, playbackQuality as they change), a state change its state, a
+ *  level change its level. Null for anything else. */
+export function ytInfo(data: unknown): InfoNews | null {
+  let d: unknown = data;
+  if (typeof d === 'string') {
+    try {
+      d = JSON.parse(d);
+    } catch {
+      return null;
+    }
+  }
+  if (typeof d !== 'object' || d === null) return null;
+  const m = d as { event?: unknown; info?: unknown };
+  if (m.event === 'onStateChange' && typeof m.info === 'number') return { state: m.info };
+  if (m.event === 'onPlaybackQualityChange' && typeof m.info === 'string') return { level: m.info };
+  if ((m.event === 'infoDelivery' || m.event === 'initialDelivery') && typeof m.info === 'object' && m.info !== null) {
+    const i = m.info as Record<string, unknown>;
+    const out: InfoNews = {};
+    if (typeof i.playerState === 'number') out.state = i.playerState;
+    if (typeof i.currentTime === 'number') out.time = i.currentTime;
+    if (typeof i.duration === 'number') out.duration = i.duration;
+    if (typeof i.muted === 'boolean') out.muted = i.muted;
+    if (typeof i.playbackQuality === 'string') out.level = i.playbackQuality;
+    return Object.keys(out).length ? out : null;
+  }
+  return null;
+}
+
+/** A part's info with the news in it (`now`: when it was heard, for the time's age). */
+export function mergeInfo(prev: PartInfo, news: InfoNews, now = 0): PartInfo {
+  const next = { ...prev, ...news };
+  if (news.time !== undefined) next.at = now;
+  if (startsPlay(news.state ?? null)) next.started = true;
+  return next;
+}
+
 /** The page's hold on a film's YouTube players, in order. */
 export interface Programme {
   /** Start the first part: at once when its player has answered, else as soon as it does (a lazy frame may still be
@@ -53,6 +109,12 @@ export interface Programme {
   play(): void;
   /** Whether this frame's player has answered (and so says for itself when it plays). */
   talks(frame: HTMLIFrameElement): boolean;
+  /** What this frame's player has said of itself (NO_INFO for a frame not in the programme). */
+  info(frame: HTMLIFrameElement): PartInfo;
+  /** Send this frame's player a command (playVideo, pauseVideo, seekTo, mute, unMute). */
+  send(frame: HTMLIFrameElement, func: string, args?: unknown[]): void;
+  /** Hear every change of this frame's info, and its first answer; returns the unsubscribe. */
+  watch(frame: HTMLIFrameElement, cb: (info: PartInfo, talks: boolean) => void): () => void;
   unwire(): void;
 }
 
@@ -60,6 +122,9 @@ export interface Programme {
  *  hears every start. */
 export function linkParts(frames: HTMLIFrameElement[], opts: { onPlay?: () => void } = {}): Programme {
   const heard = frames.map(() => false);
+  const infos = frames.map(() => NO_INFO);
+  const watchers = frames.map(() => new Set<(info: PartInfo, talks: boolean) => void>());
+  const tell = (i: number) => watchers[i].forEach((cb) => cb(infos[i], heard[i]));
   let askedAt = -Infinity;
   const post = (i: number, msg: string) => frames[i].contentWindow?.postMessage(msg, YT_ORIGIN);
   const onMessage = (e: MessageEvent) => {
@@ -68,11 +133,15 @@ export function linkParts(frames: HTMLIFrameElement[], opts: { onPlay?: () => vo
     if (!heard[i]) {
       heard[i] = true;
       post(i, ytCommand('addEventListener', i + 1, ['onStateChange']));
+      post(i, ytCommand('addEventListener', i + 1, ['onPlaybackQualityChange']));
       if (i === 0 && performance.now() - askedAt < 15000) {
         askedAt = -Infinity;
         post(0, ytCommand('playVideo', 1));
       }
     }
+    const news = ytInfo(e.data);
+    if (news) infos[i] = mergeInfo(infos[i], news, performance.now());
+    tell(i);
     const state = ytState(e.data);
     if (startsPlay(state)) opts.onPlay?.();
     if (state === 1) {
@@ -93,17 +162,34 @@ export function linkParts(frames: HTMLIFrameElement[], opts: { onPlay?: () => vo
       timers.push(window.setTimeout(hello, 250));
     };
     f.addEventListener('load', () => {
+      // a new document in the frame (the held address arriving, or the plain player swapped in: player-bar.ts) is a
+      // new player: it is greeted afresh and knows nothing yet
+      heard[i] = false;
+      infos[i] = NO_INFO;
+      tell(i);
       tries = 0;
       hello();
     });
   });
+  const at = (f: HTMLIFrameElement) => frames.indexOf(f);
   return {
     play: () => {
       if (!frames.length) return;
       if (heard[0]) post(0, ytCommand('playVideo', 1));
       else askedAt = performance.now();
     },
-    talks: (f) => heard[frames.indexOf(f)] === true,
+    talks: (f) => heard[at(f)] === true,
+    info: (f) => infos[at(f)] ?? NO_INFO,
+    send: (f, func, args = []) => {
+      const i = at(f);
+      if (i >= 0) post(i, ytCommand(func, i + 1, args));
+    },
+    watch: (f, cb) => {
+      const i = at(f);
+      if (i < 0) return () => {};
+      watchers[i].add(cb);
+      return () => { watchers[i].delete(cb); };
+    },
     unwire: () => {
       window.removeEventListener('message', onMessage);
       timers.forEach((t) => clearTimeout(t));

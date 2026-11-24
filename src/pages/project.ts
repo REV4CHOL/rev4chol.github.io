@@ -1,4 +1,4 @@
-import { aspectRatio, getSlugFromSearch, isPlaceholder, loadLoopManifest, loadProjects, loopSrcChain, manifestStills, Project, projectAssetUrl } from '../lib/content';
+import { aspectRatio, FilmRef, getSlugFromSearch, isPlaceholder, loadLoopManifest, loadProjects, loopSrcChain, manifestStills, Project, projectAssetUrl } from '../lib/content';
 import { ditherImageToCanvas } from '../lib/dither';
 import { embedSrc } from '../lib/embeds';
 import { mulberry32 } from '../lib/rng';
@@ -10,7 +10,10 @@ import { baselineOf, fillTitle, heroLockupSize, lockupHtml, runningTitle, settle
 import { music } from '../lib/music';
 import { sound } from '../lib/sound';
 import { hashSlug, stillSlotUrls, wallRhythm } from '../project/dossier';
+import { bigFrameWanted, fullscreenApi } from '../project/frame-size';
 import { linkParts, startedByFocus } from '../project/parts';
+import { armBar, BigFilm, mountBig } from '../project/player-bar';
+import { quality } from '../lib/quality';
 import { stillParts } from '../project/pillars';
 import { meets, playerRatio, watchKind } from '../project/watch';
 import { armStamps } from '../lib/stamps';
@@ -313,7 +316,7 @@ function mountSynopsis(p: Project): void {
   player.style.setProperty('--player-ratio', String(playerRatio(aspectRatio(p.aspect))));
   player.hidden = false;
   const multi = p.films.length > 1;
-  const { frames, talking, videos } = multi ? mountParts(p, player) : mountFilm(p, player);
+  const { frames, talking, videos, bigs } = multi ? mountParts(p, player) : mountFilm(p, player);
   armEffectHole('player', multi ? player.querySelector<HTMLElement>('.p-parts') ?? player : player);
 
   // THE MUSIC GIVES WAY when the film starts, and stays stopped until the next section or page, as WATCH had it. The
@@ -326,6 +329,7 @@ function mountSynopsis(p: Project): void {
     music.hold();
   };
   const programme = linkParts(talking, { onPlay: start });
+  for (const b of bigs) armBar(b, programme); // (the site's own bar speaks to its player over the programme's link)
   // THE HERO FIRST: the frames' place stands from the start, but a platform's player (a megabyte of its own script) is
   // sent for only once the hero's loop shows its first frame (or fails), the player nears the screen, the hero is
   // pressed, or four seconds have passed. Measured: with the browser's own lazy loading alone, the frames were asked
@@ -366,11 +370,43 @@ function mountSynopsis(p: Project): void {
   });
 }
 
-/** What a film's player is made of: every frame, the frames whose player talks (YouTube), and the owner's own files. */
+/** What a film's player is made of: every frame, the frames whose player talks (YouTube), the owner's own files, and the
+ *  YouTube films in the big frame with the site's own bar (project/player-bar.ts). */
 interface Mounted {
   frames: HTMLIFrameElement[];
   talking: HTMLIFrameElement[];
   videos: HTMLVideoElement[];
+  bigs: BigFilm[];
+}
+
+/** THE BIG FRAME (owner, 2026-11-24: "force all video players on the website to start at 2160p when watch"; of the
+ *  ways shown, "2160p + site's own controls"): a YouTube film, on a screen that can take an element fullscreen (an
+ *  iPhone keeps YouTube's own player and its own fullscreen), not Android (its player stayed at 480p whatever the
+ *  frame's size), not at LITE (a machine measured slow keeps the plain player; the tier the page opened at, decided
+ *  once here). The box's own size is the last gate (mountBig). Every other film's player is as it was. */
+function wantsBig(film: FilmRef): boolean {
+  return bigFrameWanted({
+    youtube: film.type === 'youtube',
+    fullscreen: fullscreenApi(document as Document & { webkitFullscreenEnabled?: boolean }),
+    userAgent: navigator.userAgent,
+    lite: quality.tier() === 0,
+  });
+}
+
+/** A YouTube film's player in `host`: the big frame with the site's bar where it is wanted and the box needs it, else
+ *  the plain frame with YouTube's own controls, as before. */
+function youTubeIn(host: HTMLElement, film: FilmRef, title: string, accent: string, out: Mounted): HTMLIFrameElement {
+  const plainSrc = embedSrc(film, { autoplay: false, origin: location.origin })!;
+  if (wantsBig(film)) {
+    const big = mountBig(host, frameFor(embedSrc(film, { autoplay: false, origin: location.origin, controls: false })!, title), { plainSrc, accent });
+    if (big) {
+      out.bigs.push(big);
+      return big.frame;
+    }
+  }
+  const f = frameFor(plainSrc, title);
+  host.append(f);
+  return f;
 }
 
 /** A platform's player, not started: its place in the row at once, its address held until wakeFrames. */
@@ -413,13 +449,18 @@ function mountFilm(p: Project, player: HTMLElement): Mounted {
   if (film.type === 'local') {
     const v = videoFor(p, film.src, p.title);
     player.append(v);
-    return { frames: [], talking: [], videos: [v] };
+    return { frames: [], talking: [], videos: [v], bigs: [] };
+  }
+  const out: Mounted = { frames: [], talking: [], videos: [], bigs: [] };
+  if (film.type === 'youtube' && embedSrc(film)) {
+    const f = youTubeIn(player, film, p.title, p.accent, out);
+    return { ...out, frames: [f], talking: [f] };
   }
   const src = embedSrc(film, { autoplay: false, origin: location.origin });
-  if (!src) return { frames: [], talking: [], videos: [] };
+  if (!src) return out;
   const f = frameFor(src, p.title);
   player.append(f);
-  return { frames: [f], talking: film.type === 'youtube' ? [f] : [], videos: [] };
+  return { ...out, frames: [f] };
 }
 
 /** A film in parts (owner 2026-09-28, GALAXY Z FOLD 8 ULTRA: "one watch will spawn two embed YouTube videos at once,
@@ -436,7 +477,8 @@ function mountParts(p: Project, player: HTMLElement): Mounted {
   // vertical footage stands vertical; any other film's parts stand 16:9, like its single player
   const ratio = aspectRatio(p.aspect);
   stage.style.setProperty('--part-ratio', String(ratio < 1 ? ratio : 16 / 9));
-  const out: Mounted = { frames: [], talking: [], videos: [] };
+  const out: Mounted = { frames: [], talking: [], videos: [], bigs: [] };
+  player.append(stage); // (in the page first: a part's big frame is sized on its box as it mounts)
   parts.forEach((film, i) => {
     if (i > 0) {
       const hinge = document.createElement('span');
@@ -447,22 +489,25 @@ function mountParts(p: Project, player: HTMLElement): Mounted {
     const label = (film.label ?? `PART ${i + 1}`).toUpperCase();
     const fig = document.createElement('figure');
     fig.className = 'p-part';
+    stage.append(fig);
     if (film.type === 'local') {
       const v = videoFor(p, film.src, `${p.title}: ${label}`);
       fig.append(v);
       out.videos.push(v);
+    } else if (film.type === 'youtube') {
+      // each part has its own player and its own bar
+      const f = youTubeIn(fig, film, `${p.title}: ${label}`, p.accent, out);
+      out.frames.push(f);
+      out.talking.push(f);
     } else {
       const f = frameFor(embedSrc(film, { autoplay: false, origin: location.origin })!, `${p.title}: ${label}`);
       fig.append(f);
       out.frames.push(f);
-      if (film.type === 'youtube') out.talking.push(f);
     }
     const cap = document.createElement('figcaption');
     cap.innerHTML = `<span class="p-part-num" aria-hidden="true">${pad2(i + 1)}</span><span class="p-part-label micro">${escapeHtml(label)}</span>`;
     fig.append(cap);
-    stage.append(fig);
   });
-  player.append(stage);
   return out;
 }
 
