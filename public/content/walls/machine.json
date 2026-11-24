@@ -1,17 +1,17 @@
 {
-  "width": 1920,
-  "height": 824,
+  "width": 1676,
+  "height": 1080,
   "fps": 24,
-  "frames": 405,
-  "seconds": 16.875,
+  "frames": 642,
+  "seconds": 26.75,
   "file": "machine.mp4",
   "small": "machine-s.mp4",
   "tiles": {
     "katara": {
-      "x": 472,
+      "x": 412,
       "y": 4,
-      "w": 718,
-      "h": 404,
+      "w": 626,
+      "h": 352,
       "fps": 24,
       "loop": {
         "file": "preview.mp4",
@@ -20,10 +20,10 @@
       }
     },
     "the-father": {
-      "x": 1198,
+      "x": 1046,
       "y": 4,
-      "w": 718,
-      "h": 404,
+      "w": 626,
+      "h": 352,
       "fps": 24,
       "loop": {
         "file": "preview.mp4",
@@ -32,10 +32,10 @@
       }
     },
     "forest-onsen": {
-      "x": 472,
-      "y": 416,
-      "w": 718,
-      "h": 404,
+      "x": 412,
+      "y": 364,
+      "w": 626,
+      "h": 352,
       "fps": 24,
       "loop": {
         "file": "preview.mp4",
@@ -44,10 +44,10 @@
       }
     },
     "jaecoo-j5": {
-      "x": 1198,
-      "y": 416,
-      "w": 718,
-      "h": 404,
+      "x": 1046,
+      "y": 364,
+      "w": 626,
+      "h": 352,
       "fps": 23.976,
       "loop": {
         "file": "preview.mp4",
@@ -58,13 +58,25 @@
     "galaxy-z-fold-8-ultra": {
       "x": 4,
       "y": 4,
-      "w": 460,
-      "h": 816,
+      "w": 400,
+      "h": 712,
       "fps": 29.97,
       "loop": {
         "file": "preview.mp4",
         "bytes": 1654976,
         "sha256": "58e3aa705dfb03f72483757dec324430734f35e274faa41381db86f3ccdbc569"
+      }
+    },
+    "deathman": {
+      "x": 4,
+      "y": 724,
+      "w": 470,
+      "h": 352,
+      "fps": 24,
+      "loop": {
+        "file": "preview.mp4",
+        "bytes": 1074478,
+        "sha256": "1a4752353d569008969bcc0ce44f887a807763e0ddd7a200be164a36e2b0194f"
       }
     }
   }
