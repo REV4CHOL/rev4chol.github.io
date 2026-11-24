@@ -98,6 +98,8 @@ Then, while it was being built:
   still and no machines. The list's closing or a hidden tab stops it all.
 - Margins under 80 plate px a side (a phone, a tablet) build nothing; under 300 (1,440 wide) the city and the hardware
   but no machines; the callouts only where the margin has room (2,560).
+  (2026-11-24: a laptop's screen now gets its machines: under a 1,792 plate the column narrows to leave each margin
+  300, see `2026-11-24-list-laptop-machines-design.md`.)
 
 ## Tests
 
