@@ -181,3 +181,20 @@ describe("the spec sheet's rows", () => {
     expect(readers).toEqual(['src/lib/content.ts']);
   });
 });
+
+// (owner, 2026-11-24: "in the first seconds there is always a horizontal line cut through the video";
+//  shown the hero's scan sweep, a thin green line that fell through the loop for 5.6 s after every load and again
+//  every 9 s, they had it removed.)
+describe("nothing crosses the hero's picture", () => {
+  it('the film page draws no scan sweep over its hero', () => {
+    const css = readFileSync('src/styles/project.css', 'utf8');
+    expect(css).not.toContain('p-sweep');
+    expect(css).not.toMatch(/\.p-hero::before/);
+  });
+
+  it("the shade under the title stays: the hero's other layer is untouched", () => {
+    const css = readFileSync('src/styles/project.css', 'utf8');
+    expect(css).toContain('.p-hero::after {');
+    expect(css).toContain('background: linear-gradient(transparent 55%, rgba(6, 6, 6, 0.94));');
+  });
+});

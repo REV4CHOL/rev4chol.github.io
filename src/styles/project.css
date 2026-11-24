@@ -158,14 +158,8 @@
   background: linear-gradient(transparent 55%, rgba(6, 6, 6, 0.94));
 }
 
-/* scan sweep — one thin green line falling through the frame */
-.p-hero::before {
-  content: ''; position: absolute; left: 0; right: 0; top: -2%; height: 3px; z-index: 3;
-  background: linear-gradient(90deg, transparent, rgba(200, 255, 0, 0.5), transparent);
-  animation: p-sweep 9s linear infinite; pointer-events: none;
-}
-@keyframes p-sweep { 0% { top: -2%; } 62% { top: 102%; } 100% { top: 102%; } }
-.rvl-calm .p-hero::before, .rvl-lite .p-hero::before { display: none; } /* (.rvl-lite: lib/quality.ts's weak-machine tier) */
+/* (no scan sweep: the thin green line that fell through the frame is gone. Owner, 2026-11-24: "in the first
+   seconds there is always a horizontal line cut through the video") */
 
 /* datamosh hiccup on the loop — brief, rare, honest to the homepage burst */
 @keyframes p-vhs {
