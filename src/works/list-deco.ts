@@ -11,18 +11,21 @@
  *  city's. The reading column's
  *  black is the list's own CSS band: nothing here is ever under a title.
  *
- *  Everything steps twelve times a second. A margin under 80 plate px (a phone, a tablet) builds nothing; under 300 it
- *  keeps the city and the hardware but no machines. A laptop's plate (under 1,792) narrows the column to leave its
- *  margins 300 (works/list-art.ts columnFor; 2026-11-24): the page sets that layout, never this. CALM draws one still
+ *  Everything steps twelve times a second. A margin under 80 plate px (a phone, an upright tablet) builds nothing; under
+ *  300 it keeps the city and the hardware but no machines. A laptop's plate (under 1,792) narrows the column to leave its
+ *  margins 300 (works/list-art.ts columnFor; 2026-11-24), and so does a tablet's screen held on its side, down to a
+ *  column of 560 (COLUMN_TOUCH_MIN): the page sets that layout, never this. A phone's reel builds none. On touch the
+ *  machines cue the row a finger is on and go back to their own round when it lifts. CALM draws one still
  *  frame; the LITE tier draws the city's still, the machines moving over it (owner, 2026-11-24: "Animate them
  *  anyway"); the list's closing, or a hidden tab, stops it all. */
-import { isMobile, reducedMotion } from '../lib/env';
+import { finePointer, reducedMotion } from '../lib/env';
 import { posterZoom } from '../lib/poster-lock';
 import { quality } from '../lib/quality';
 import { sessionTag } from '../shell/session-tag';
-import { columnFor, conduitRun, Side, sideLayout, SPINES, TAGS } from './list-art';
+import { columnFor, conduitRun, listPointer, Side, sideLayout, SPINES, TAGS } from './list-art';
 import type { Anchor, MachineFilm, Machines, Stage } from './list-machines';
 import { cueAt } from './machines';
+import { REEL_QUERY } from './reel';
 import {
   bayer, beamAngle, carAt, carCount, cityScale, flyerAt, flyerCount, frameAt, INK, mastOn, Plan, planCity, signOn, signPixel,
   skyTone, starOn, STEPS, trainAt, TRAIN_LEN, windowLit,
@@ -72,9 +75,11 @@ export function mountListDeco(listEl: HTMLElement, films: MachineFilm[]): ListDe
   const build = () => {
     Z = posterZoom(); DPR = window.devicePixelRatio || 1;
     const plateW = window.innerWidth / Z, plateH = window.innerHeight / Z;
-    const l = sideLayout(plateW, plateH, 'left'), r = sideLayout(plateW, plateH, 'right');
+    // the pointer as the page reads it (works.ts): a tablet lays its margins on its own, narrower column
+    const pointer = listPointer(finePointer(), window.matchMedia(REEL_QUERY).matches), touch = pointer === 'touch';
+    const l = sideLayout(plateW, plateH, 'left', touch), r = sideLayout(plateW, plateH, 'right', touch);
     hud.replaceChildren(); cueEls = []; labels = { left: [], right: [] };
-    const built = !!l && !!r && !!cctx && !(isMobile() && !window.matchMedia('(pointer: fine)').matches);
+    const built = !!l && !!r && !!cctx && pointer !== 'none';
     document.documentElement.classList.toggle('rvl-list-city', built); // (the list's black narrows to its band: CSS)
     root.hidden = !built; // (a phone shows nothing of it at all)
     if (!built || !l || !r) { plan = null; sides = null; return; }
@@ -85,7 +90,7 @@ export function mountListDeco(listEl: HTMLElement, films: MachineFilm[]): ListDe
     const W = Math.ceil(dw / D), H = Math.ceil(dh / D);
     for (const c of [city, gl, inkC]) { c.style.width = `${(W * D) / (Z * DPR)}px`; c.style.height = `${(H * D) / (Z * DPR)}px`; }
     city.width = inkC.width = W; city.height = inkC.height = H;
-    const cx = W / 2, hw = ((columnFor(plateW) / 2) * Z * DPR) / D;
+    const cx = W / 2, hw = ((columnFor(plateW, touch) / 2) * Z * DPR) / D;
     plan = planCity(SEED, W, H, [Math.round(cx - hw), Math.round(cx + hw)]);
     paintLayers(plan);
     for (const s of sides) buildHardware(s);

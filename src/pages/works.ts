@@ -10,7 +10,7 @@ import { startPage } from '../shell/page';
 import { CHANNELS, ChannelKey, channelFromSearch, channelProjects } from '../works/channels';
 import { chapterTabLabel, listGroups, searchForView, toggleText, viewFromSearch, type WorkView } from '../works/index-list';
 import { floorOpened, legendText } from '../works/legend';
-import { listTight } from '../works/list-art';
+import { listPointer, listTight } from '../works/list-art';
 import { mountWorksOverlay } from '../works/overlay';
 import { REEL_QUERY } from '../works/reel';
 import { mountReel, type Reel } from '../works/reel-view';
@@ -32,9 +32,15 @@ startPage(
     if (reelOn) document.body.dataset.sfx = 'press';
     // A LAPTOP'S LIST (owner, 2026-11-24; works/list-art.ts columnFor): under a 1,792 plate THE LIST's column narrows,
     // each row its name over its details, so the side machines fit. Set here, the plate and the pointer known and the
-    // list not yet drawn, from the plate alone (never the tier: one device, one layout); a monitor hop sets it again
-    const tight = () => document.documentElement.classList
-      .toggle('rvl-list-tight', listTight(window.innerWidth / posterZoom(), !reelOn && finePointer()));
+    // list not yet drawn, from the plate alone (never the tier: one device, one layout); a monitor hop sets it again.
+    // A TABLET'S LIST (owner, of THE LIST on an iPad: "The film list does not have the animations appear"): a touch
+    // screen held on its side narrows the same way on its own screen, down to a narrower column (`rvl-list-touch`)
+    const tight = () => {
+      const pointer = listPointer(finePointer(), reelOn);
+      const on = listTight(window.innerWidth / posterZoom(), pointer);
+      document.documentElement.classList.toggle('rvl-list-tight', on);
+      document.documentElement.classList.toggle('rvl-list-touch', on && pointer === 'touch');
+    };
     tight();
     window.addEventListener('resize', tight);
     const projects = await loadProjects();

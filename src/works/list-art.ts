@@ -6,7 +6,7 @@
 
 /** The reading column, plate px: the rows' 1,120 and 36 a side. Nothing in the margins ever crosses into it. */
 export const COLUMN = 1192;
-/** Under this many plate px a side, a margin carries nothing: the plain black list (a phone, a tablet). */
+/** Under this many plate px a side, a margin carries nothing: the plain black list (a phone, an upright tablet). */
 export const MARGIN_MIN = 80;
 /** Under this many, a margin carries its hardware alone: the machines need the room. */
 export const MACHINES_MIN = 300;
@@ -15,11 +15,24 @@ export const MACHINES_MIN = 300;
  *  to 840 at the poster lock's 1,440 (the rows 768, each its name over its details: components.css). 1,792 and wider
  *  keep the 1,192 as they were; so does a plate under a laptop's (1,439 lets a zoomed 1,440 read 1,439.99). */
 export const COLUMN_MIN = 840;
-export const columnFor = (plateW: number): number =>
-  plateW < COLUMN_MIN + 2 * MACHINES_MIN - 1 ? COLUMN : Math.max(COLUMN_MIN, Math.min(COLUMN, plateW - 2 * MACHINES_MIN));
-/** The list's rows stand narrowed (`html.rvl-list-tight`) on a fine pointer whose plate narrows the column: decided by
- *  the plate alone, never the tier, so one device always reads one layout. A touch screen builds no city: never. */
-export const listTight = (plateW: number, fine: boolean): boolean => fine && columnFor(plateW) < COLUMN;
+/** A TABLET'S COLUMN (owner, of THE LIST on an iPad: "The film list does not have the animations appear"; "pls check
+ *  android tablet too"). A touch screen is never poster-locked, so its plate is its own screen, 1,366 on a 13-inch iPad,
+ *  1,280 on an Android tablet, 1,180 on an 11-inch iPad: the laptop's rule laid on it, margins MACHINES_MIN, the column
+ *  narrowing further, down to this. The rows keep their type at full size (a tablet's px are already small: scaling the
+ *  laptop's composition down would have left the details at 9 px). Under 1,159 (a tablet held upright) the plain list. */
+export const COLUMN_TOUCH_MIN = 560;
+export const columnFor = (plateW: number, touch = false): number => {
+  const min = touch ? COLUMN_TOUCH_MIN : COLUMN_MIN;
+  return plateW < min + 2 * MACHINES_MIN - 1 ? COLUMN : Math.max(min, Math.min(COLUMN, plateW - 2 * MACHINES_MIN));
+};
+/** The pointer THE LIST is laid out for: a fine one (a laptop's plate), a touch screen (a tablet, its own screen), or
+ *  none (a phone's reel: no city, no machines). The page and the deco both ask this. */
+export type ListPointer = 'fine' | 'touch' | 'none';
+export const listPointer = (fine: boolean, reel: boolean): ListPointer => (reel ? 'none' : fine ? 'fine' : 'touch');
+/** The list's rows stand narrowed (`html.rvl-list-tight`) wherever the column narrows: decided by the plate and the
+ *  pointer alone, never the tier, so one device always reads one layout. A phone's reel: never. */
+export const listTight = (plateW: number, pointer: ListPointer): boolean =>
+  pointer !== 'none' && columnFor(plateW, pointer === 'touch') < COLUMN;
 /** The header's rows and the HUD's, plate px: the margins' contents stand between. */
 export const TOP = 168, BOTTOM = 72;
 
@@ -50,10 +63,11 @@ export interface Side {
 
 const TAG_H = 26, CUE_H = 34, LABELS_MIN = 176, MACHINE_MAX = 460;
 
-/** Where a margin's hardware and machines stand on a plate `plateW` × `plateH`, or null when the margin is too narrow. */
-export function sideLayout(plateW: number, plateH: number, side: 'left' | 'right'): Side | null {
+/** Where a margin's hardware and machines stand on a plate `plateW` × `plateH` (`touch`: a tablet's column), or null
+ *  when the margin is too narrow. */
+export function sideLayout(plateW: number, plateH: number, side: 'left' | 'right', touch = false): Side | null {
   // (a narrowed column leaves MACHINES_MIN a side by construction: rounded, so a zoomed 1,439.99 keeps its machines)
-  const column = columnFor(plateW);
+  const column = columnFor(plateW, touch);
   const margin = column < COLUMN ? Math.round((plateW - column) / 2) : Math.floor((plateW - COLUMN) / 2);
   if (margin < MARGIN_MIN) return null;
   const left = side === 'left';

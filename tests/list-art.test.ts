@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
-  BAY_MACHINES, BOTTOM, COLUMN, COLUMN_MIN, columnFor, conduitRun, listTight, MACHINES_MIN, MARGIN_MIN, sideLayout, SPINES, TAGS,
-  TOP,
+  BAY_MACHINES, BOTTOM, COLUMN, COLUMN_MIN, COLUMN_TOUCH_MIN, columnFor, conduitRun, listPointer, listTight, MACHINES_MIN, MARGIN_MIN,
+  sideLayout, SPINES, TAGS, TOP,
 } from '../src/works/list-art';
 import { CALLOUTS } from '../src/works/machines';
 
@@ -134,15 +134,73 @@ describe('a laptop\'s list', () => {
     }
   });
 
-  it('narrows the list only for a fine pointer on a laptop\'s plate: never a touch screen, never a wide screen', () => {
-    expect(listTight(1440, true)).toBe(true);
-    expect(listTight(1728, true)).toBe(true);
-    expect(listTight(1791, true)).toBe(true);
-    expect(listTight(1792, true)).toBe(false);
-    expect(listTight(1920, true)).toBe(false);
-    expect(listTight(1440, false)).toBe(false); // (a touch screen builds no city: its list stays as it is)
-    expect(listTight(1180, false)).toBe(false);
-    expect(listTight(1366, true)).toBe(false);
+  it('narrows the list for a fine pointer on a laptop\'s plate, never on a wide screen nor on a phone', () => {
+    expect(listTight(1440, 'fine')).toBe(true);
+    expect(listTight(1728, 'fine')).toBe(true);
+    expect(listTight(1791, 'fine')).toBe(true);
+    expect(listTight(1792, 'fine')).toBe(false);
+    expect(listTight(1920, 'fine')).toBe(false);
+    expect(listTight(1366, 'fine')).toBe(false);
+    expect(listTight(1440, 'none')).toBe(false); // (a phone's reel: its list stays as it is)
+    expect(listTight(390, 'none')).toBe(false);
+  });
+});
+
+// A TABLET'S LIST (owner, of THE LIST on an iPad: "The film list does not have the animations appear"; and "pls check
+// android tablet too"). A touch screen that is not a phone's reel lays the laptop's rule on its own screen: the column
+// narrows to leave each margin MACHINES_MIN, down to COLUMN_TOUCH_MIN; a screen too narrow for that (a tablet held
+// upright) keeps the plain list.
+describe('a tablet\'s list', () => {
+  it('reads the pointer once: a fine pointer, a touch screen, or a phone\'s reel', () => {
+    expect(listPointer(true, false)).toBe('fine');
+    expect(listPointer(false, false)).toBe('touch');
+    expect(listPointer(false, true)).toBe('none');
+    expect(listPointer(true, true)).toBe('none');
+  });
+
+  it('narrows a landscape tablet\'s column to leave the machines their margins, and never an upright one\'s', () => {
+    const cases: [number, number][] = [
+      [1366, 766], [1280, 680], [1180, 580], [1160, 560], [1159, COLUMN_TOUCH_MIN], [1158, COLUMN], [1024, COLUMN], [800, COLUMN],
+      [1440, 840], [1792, 1192], [1920, 1192],
+    ];
+    for (const [w, c] of cases) expect(columnFor(w, true), `${w}`).toBe(c);
+    for (const w of [1024, 1180, 1280, 1366, 1440, 1600, 1920]) expect(columnFor(w, false), `${w}: a fine pointer as it was`).toBe(columnFor(w));
+    expect(COLUMN_TOUCH_MIN).toBeLessThan(COLUMN_MIN);
+  });
+
+  it('gives a landscape tablet both bays\' machines at full width, none of them over the column or the chrome', () => {
+    for (const [W, H] of [[1366, 939], [1366, 1024], [1280, 672], [1280, 800], [1180, 735], [1180, 820], [1160, 700]] as const) {
+      const col = columnFor(W, true), c0 = (W - col) / 2, c1 = (W + col) / 2;
+      for (const s of ['left', 'right'] as const) {
+        const side = sideLayout(W, H, s, true)!;
+        expect(side.slots.map((q) => q.key), `${W}×${H} ${s}`).toEqual([...BAY_MACHINES[s]]);
+        const boxes = [...side.slots.map((b) => [b.x, b.x + b.w]), ...(side.tag ? [[side.tag.x, side.tag.x + side.tag.w]] : []), [side.spine, side.spine + 14]];
+        for (const [a, b] of boxes) expect(b <= c0 || a >= c1, `${W}: ${s} ${a}–${b} against ${c0}–${c1}`).toBe(true);
+        for (const b of side.slots) {
+          expect(b.w).toBeGreaterThanOrEqual(MACHINES_MIN - 80);
+          expect(b.y).toBeGreaterThanOrEqual(TOP);
+          expect(b.y + b.h, `${W}×${H}: a machine under the HUD`).toBeLessThanOrEqual(H - BOTTOM);
+        }
+      }
+      expect(conduitRun(sideLayout(W, H, 'left', true)!, sideLayout(W, H, 'right', true)!), `${W}`).not.toBeNull();
+    }
+  });
+
+  it('leaves an upright tablet\'s list plain, and a fine pointer\'s margins exactly as they were', () => {
+    for (const [W, H] of [[1024, 1281], [800, 1152], [1158, 700]] as const) expect(sideLayout(W, H, 'left', true), `${W}`).toBeNull();
+    for (const [W, H] of [[1440, 900], [1600, 900], [1920, 1080], [2560, 1440], [1366, 1024]] as const) for (const s of ['left', 'right'] as const) {
+      expect(sideLayout(W, H, s, false), `${W}`).toEqual(sideLayout(W, H, s));
+    }
+  });
+
+  it('narrows a landscape tablet\'s rows, name over details, and never an upright one\'s', () => {
+    expect(listTight(1366, 'touch')).toBe(true);
+    expect(listTight(1280, 'touch')).toBe(true);
+    expect(listTight(1180, 'touch')).toBe(true);
+    expect(listTight(1158, 'touch')).toBe(false);
+    expect(listTight(1024, 'touch')).toBe(false);
+    expect(listTight(800, 'touch')).toBe(false);
+    expect(listTight(1920, 'touch')).toBe(false);
   });
 });
 
@@ -170,6 +228,18 @@ describe('the narrowed column, in its three places', () => {
       `max-width: clamp(${COLUMN_MIN - 2 * gutter}px, 100% - ${2 * MACHINES_MIN + 2 * gutter - 2 * side}px, ${COLUMN - 2 * gutter}px);`);
   });
 
+  it('draws a tablet\'s band and rows from its own floor, after the laptop\'s rules they override', () => {
+    const side = Number(/padding: \d+px (\d+)px \d+px;/.exec(rule('.film-list'))![1]), gutter = 36;
+    const half = `clamp(${COLUMN_TOUCH_MIN / 2}px, 50% - ${MACHINES_MIN}px, ${COLUMN / 2}px)`;
+    expect(rule('html.rvl-list-city.rvl-list-touch .film-list')).toContain(
+      `background: linear-gradient(90deg, transparent calc(50% - ${half}), var(--void) calc(50% - ${half}) calc(50% + ${half}), transparent calc(50% + ${half}));`);
+    expect(rule('html.rvl-list-touch .fl-group')).toContain(
+      `max-width: clamp(${COLUMN_TOUCH_MIN - 2 * gutter}px, 100% - ${2 * MACHINES_MIN + 2 * gutter - 2 * side}px, ${COLUMN - 2 * gutter}px);`);
+    // (equal specificity: the touch rules must come after the laptop's)
+    expect(css.indexOf('\nhtml.rvl-list-city.rvl-list-touch .film-list {')).toBeGreaterThan(css.indexOf('\nhtml.rvl-list-city.rvl-list-tight .film-list {'));
+    expect(css.indexOf('\nhtml.rvl-list-touch .fl-group {')).toBeGreaterThan(css.indexOf('\nhtml.rvl-list-tight .fl-group {'));
+  });
+
   it('stands a row\'s name over its details, the thumbnail and OPEN beside them both', () => {
     const row = rule('html.rvl-list-tight .fl-row');
     expect(row).toContain("grid-template-areas: 'thumb title open' 'thumb meta open';");
@@ -186,10 +256,17 @@ describe('the narrowed column, in its three places', () => {
     expect(lock).toBeGreaterThan(-1);
     expect(set).toBeGreaterThan(lock);
     expect(set, 'before the first await: the list never draws wide first').toBeLessThan(page.indexOf('await loadProjects()'));
-    expect(page).toContain('listTight(window.innerWidth / posterZoom(), !reelOn && finePointer())');
+    expect(page).toContain('const pointer = listPointer(finePointer(), reelOn);');
+    expect(page).toContain('const on = listTight(window.innerWidth / posterZoom(), pointer);');
+    expect(page).toContain(".toggle('rvl-list-touch', on && pointer === 'touch');");
     expect(deco).toContain('const plateW = window.innerWidth / Z'); // (the same plate the deco lays its margins on)
     expect(deco, 'the deco never sets the layout: one device, one layout, whatever the tier').not.toContain('rvl-list-tight');
-    expect(deco).toContain('columnFor(plateW)');
+    expect(deco).not.toContain('rvl-list-touch');
+    // the deco reads the pointer as the page does, and lays its margins on the same column
+    expect(deco).toContain('const pointer = listPointer(finePointer(), window.matchMedia(REEL_QUERY).matches), touch = pointer === \'touch\';');
+    expect(deco).toContain('columnFor(plateW, touch)');
+    expect(deco).toContain("sideLayout(plateW, plateH, 'left', touch)");
+    expect(deco).toContain("sideLayout(plateW, plateH, 'right', touch)");
   });
 });
 
@@ -212,6 +289,6 @@ describe('the list\'s machines at every tier (pins)', () => {
     expect(deco).toContain('if (!machines) { machinesOff = true; gl.hidden = true; return; }');
     expect(deco).toContain("gl.addEventListener('webglcontextlost', () => { machines = null; machinesOff = true; gl.hidden = true; });");
     expect(deco).toContain('.catch(() => { loading = false; machinesOff = true; gl.hidden = true; });');
-    expect(deco).toContain("const built = !!l && !!r && !!cctx && !(isMobile() && !window.matchMedia('(pointer: fine)').matches);");
+    expect(deco).toContain("const built = !!l && !!r && !!cctx && pointer !== 'none';"); // (a phone's reel builds none)
   });
 });

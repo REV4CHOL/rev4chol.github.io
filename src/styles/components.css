@@ -834,6 +834,14 @@ html.rvl-list-tight .fl-thumb { grid-area: thumb; }
 html.rvl-list-tight .fl-title { grid-area: title; align-self: end; }
 html.rvl-list-tight .fl-meta { grid-area: meta; align-self: start; }
 html.rvl-list-tight .fl-open { grid-area: open; }
+/* A TABLET'S LIST (owner, of THE LIST on an iPad: "The film list does not have the animations appear"). A touch screen
+   held on its side is its own plate (no poster lock): the same rule, margins 300 for the machines, the column narrowing
+   down to 560 (works/list-art.ts COLUMN_TOUCH_MIN; tests/list-art.test.ts ties them). After the laptop's rules: equal
+   specificity. The type stays at its full size. */
+html.rvl-list-city.rvl-list-touch .film-list {
+  background: linear-gradient(90deg, transparent calc(50% - clamp(280px, 50% - 300px, 596px)), var(--void) calc(50% - clamp(280px, 50% - 300px, 596px)) calc(50% + clamp(280px, 50% - 300px, 596px)), transparent calc(50% + clamp(280px, 50% - 300px, 596px)));
+}
+html.rvl-list-touch .fl-group { max-width: clamp(488px, 100% - 616px, 1120px); }
 #list-deco { position: fixed; inset: 0; z-index: 905; pointer-events: none; overflow: hidden; }
 #list-deco[hidden], .works-main:not(.is-list) #list-deco { display: none; }
 .ld-layer { position: absolute; left: 0; top: 0; image-rendering: pixelated; }
