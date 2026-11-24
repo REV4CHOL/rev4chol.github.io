@@ -472,7 +472,8 @@ describe('shipped content files', () => {
     expect(p.position).toEqual({ col: -1, row: 1 }); // (the slot under JAECOO J5)
     expect([p.client, p.artist, p.director, p.productionHouse]).toEqual(['', '', '', '']);
     expect(p.accent).toBe('#DCD3BE');
-    expect(p.synopsis).toBe('Wind on the cliffs, water in the empty rooms, and a cloaked figure with a skull for a face. An AI short film.');
+    // (owner, 2026-11-24, their own words in place of a draft)
+    expect(p.synopsis).toBe("The most we want is what we most can't have. And what we most can't have is what we already had, and lost.");
     const dir = `${root}projects/deathman/`;
     expect(existsSync(`${dir}poster.jpg`)).toBe(true);
     const loop = mp4Facts(`${dir}preview.mp4`);
