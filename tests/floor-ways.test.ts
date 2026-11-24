@@ -279,7 +279,7 @@ describe('the floor is wired (pins)', () => {
     expect(page).toContain('listGroups(projects)');
     expect(page).toContain('toggleText(v, projects.length, reelOn)');
     expect(page).toContain('chapterTabLabel(');
-    expect(page).toContain('viewFromSearch(location.search, remembered)');
+    expect(page).toContain('viewOnLoad(location.search, entryOf(history.state), remembered)'); // (works/back-state.ts)
     expect(readFileSync('src/works/tile.ts', 'utf8')).toContain('text: stripName(project),');
   });
 

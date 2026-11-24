@@ -9,7 +9,8 @@ import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { startPage } from '../shell/page';
 import { CHANNELS, ChannelKey, channelFromSearch, channelProjects } from '../works/channels';
-import { chapterTabLabel, listGroups, searchForView, toggleText, viewFromSearch, type WorkView } from '../works/index-list';
+import { entryOf, viewOnLoad, wallByBack } from '../works/back-state';
+import { chapterTabLabel, listGroups, searchForView, toggleText, type WorkView } from '../works/index-list';
 import { floorOpened, legendText } from '../works/legend';
 import { listPointer, listTight } from '../works/list-art';
 import { mountWorksOverlay } from '../works/overlay';
@@ -85,11 +86,18 @@ startPage(
     let active: ChannelKey = channelFromSearch(location.search);
     let flipping = false;
 
-    // THE TWO VIEWS: the floor, or the list. The address decides first, then what this visit chose.
+    // THE TWO VIEWS: the floor, or the list. The address decides first, then what this history entry showed, then what
+    // this visit chose (works/back-state.ts: the list has an entry of its own, so the browser's Back returns to the wall)
     const VIEW_KEY = 'rvl-work-view';
     let remembered: string | null = null;
     try { remembered = sessionStorage.getItem(VIEW_KEY); } catch { /* no storage: the address alone decides */ }
-    let view: WorkView = viewFromSearch(location.search, remembered);
+    /** this entry's state, the patch merged in; its address kept unless given */
+    const stamp = (patch: Record<string, unknown>, url: string = location.href) => {
+      const s = history.state && typeof history.state === 'object' ? history.state as Record<string, unknown> : {};
+      try { history.replaceState({ ...s, ...patch }, '', url); } catch { /* (a browser that refuses: the address alone) */ }
+    };
+    let view: WorkView = viewOnLoad(location.search, entryOf(history.state), remembered);
+    stamp({ view });
     const main = document.getElementById('app')!;
     main.classList.toggle('is-reel', reelOn);
     document.documentElement.classList.toggle('rvl-reel', reelOn);
@@ -126,14 +134,37 @@ startPage(
       hud.setCount(v === 'list' ? projects.length : channelProjects(projects, active).length);
       try { sessionStorage.setItem(VIEW_KEY, v); } catch { /* no storage */ }
       if (!byHand) return;
-      history.replaceState(null, '', searchForView(location.search, v) || location.pathname);
+      const url = searchForView(location.search, v) || location.pathname;
+      if (v === 'list') {
+        // the list by hand: an entry of its own, the wall's entry left behind it as the wall
+        stamp({ view: 'floor' });
+        try { history.pushState({ view: 'list', pushed: true }, '', url); } catch { stamp({ view: v }, url); }
+      } else stamp({ view: v, pushed: false }, url);
       sound.click();
       if (v === 'list') {
         listEl.scrollTop = 0;
         listEl.focus({ preventScroll: true }); // (the arrow keys and the space bar scroll the list from here)
       }
     };
-    toggle.addEventListener('click', () => setView(view === 'list' ? 'floor' : 'list', true));
+    // "back to the wall" from a list the toggle opened goes back in history (one Back later must not show the list
+    // again); the browser's own Back and Forward come here as popstate, the entry saying which view it shows
+    let goingBack = false;
+    toggle.addEventListener('click', () => {
+      if (view === 'list' && wallByBack(entryOf(history.state))) {
+        if (goingBack) return; // (a second press before the first lands would leave WORK)
+        goingBack = true;
+        window.setTimeout(() => { goingBack = false; }, 1500);
+        sound.click();
+        history.back();
+        return;
+      }
+      setView(view === 'list' ? 'floor' : 'list', true);
+    });
+    window.addEventListener('popstate', () => {
+      goingBack = false;
+      const v = viewOnLoad(location.search, entryOf(history.state), null);
+      if (v !== view) setView(v); // (and the visit's memory follows: setView writes it)
+    });
     (window as unknown as { rvlGsap: typeof gsap }).rvlGsap = gsap; // debug handle for verification
 
     const mount = async (key: ChannelKey) => {
@@ -176,7 +207,7 @@ startPage(
       flipping = true;
       active = key;
       paint();
-      history.replaceState(null, '', `?ch=${key}`);
+      history.replaceState(history.state, '', `?ch=${key}`); // (the entry keeps what it shows: works/back-state.ts)
       // the channel ident stamps over the static while the floor swaps —
       // the words scramble in while the plate copies (data-text) show the
       // tuned-in name underneath; scrambleEl self-gates on calm mode
