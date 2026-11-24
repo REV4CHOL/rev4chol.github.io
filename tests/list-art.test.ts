@@ -192,3 +192,26 @@ describe('the narrowed column, in its three places', () => {
     expect(deco).toContain('columnFor(plateW)');
   });
 });
+
+// THE MACHINES AT EVERY TIER (owner, 2026-11-24, from a questionnaire: "Animate them anyway"): the lightest tier no
+// longer hides or stills them; CALM still stills them, and a failed load or a lost context still hides them. The city
+// keeps LITE's still.
+describe('the list\'s machines at every tier (pins)', () => {
+  const deco = readFileSync('src/works/list-deco.ts', 'utf8').replace(/\r\n/g, '\n');
+
+  it('loads, shows and moves the machines whatever the tier', () => {
+    expect(deco).toContain('gl.hidden = !slots.length || machinesOff;');
+    expect(deco).toContain('if (slots.length && !machinesOff) ensureMachines();');
+    expect(deco).toContain('const still = () => reducedMotion();');
+    expect(deco).not.toMatch(/gl\.hidden = [^;]*lite\(\)/);
+  });
+
+  it('keeps CALM still, the city still at LITE, and a failed or lost machine hidden', () => {
+    expect(deco).toContain('const f = still() ? 60 : frameAt(');
+    expect(deco).toContain('const cityStill = () => still() || lite();');
+    expect(deco).toContain('if (!machines) { machinesOff = true; gl.hidden = true; return; }');
+    expect(deco).toContain("gl.addEventListener('webglcontextlost', () => { machines = null; machinesOff = true; gl.hidden = true; });");
+    expect(deco).toContain('.catch(() => { loading = false; machinesOff = true; gl.hidden = true; });');
+    expect(deco).toContain("const built = !!l && !!r && !!cctx && !(isMobile() && !window.matchMedia('(pointer: fine)').matches);");
+  });
+});

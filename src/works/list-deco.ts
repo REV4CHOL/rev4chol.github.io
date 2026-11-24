@@ -14,7 +14,8 @@
  *  Everything steps twelve times a second. A margin under 80 plate px (a phone, a tablet) builds nothing; under 300 it
  *  keeps the city and the hardware but no machines. A laptop's plate (under 1,792) narrows the column to leave its
  *  margins 300 (works/list-art.ts columnFor; 2026-11-24): the page sets that layout, never this. CALM draws one still
- *  frame; the LITE tier draws the city's still and no machines; the list's closing, or a hidden tab, stops it all. */
+ *  frame; the LITE tier draws the city's still, the machines moving over it (owner, 2026-11-24: "Animate them
+ *  anyway"); the list's closing, or a hidden tab, stops it all. */
 import { isMobile, reducedMotion } from '../lib/env';
 import { posterZoom } from '../lib/poster-lock';
 import { quality } from '../lib/quality';
@@ -60,7 +61,11 @@ export function mountListDeco(listEl: HTMLElement, films: MachineFilm[]): ListDe
   let pointed: number | null = null, lookAt: [number, number] | null = null;
 
   const lite = () => quality.tier() === 0;
-  const still = () => reducedMotion() || lite();
+  // the machines move at every tier (owner, 2026-11-24: "Animate them anyway"): CALM alone stills them. The city keeps
+  // LITE's still, drawn once a build and held (`cityF`), so the lightest tier pays only for the machines
+  const still = () => reducedMotion();
+  const cityStill = () => still() || lite();
+  let cityF = -1;
 
   /* ------------------------------------------------------------ the build -- */
 
@@ -95,10 +100,10 @@ export function mountListDeco(listEl: HTMLElement, films: MachineFilm[]): ListDe
       sheep: bed ? { x0: px(bed.x + bed.w * 0.1), x1: px(bed.x + bed.w * 0.9), y: px(bed.y + bed.h * 0.04) } : null,
       moon: plan.moon,
     };
-    gl.hidden = !slots.length || lite() || machinesOff;
-    if (slots.length && !lite() && !machinesOff) ensureMachines();
+    gl.hidden = !slots.length || machinesOff;
+    if (slots.length && !machinesOff) ensureMachines();
     machines?.layout(stage);
-    lastF = -1;
+    lastF = -1; cityF = -1;
   };
 
   const ensureMachines = () => {
@@ -301,7 +306,8 @@ export function mountListDeco(listEl: HTMLElement, films: MachineFilm[]): ListDe
   const draw = (f: number) => {
     if (!plan || !cctx) return;
     const s = still();
-    drawCity(f, f / STEPS);
+    const cf = cityStill() ? 60 : f;
+    if (cf !== cityF || !cityStill()) { cityF = cf; drawCity(cf, cf / STEPS); }
     const cue = cueNow(f);
     const film = films[cue];
     const line = film ? `CUE ▸ ${film.slug.toUpperCase()}` : 'CUE ▸ STANDING BY';
