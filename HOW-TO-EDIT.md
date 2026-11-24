@@ -46,7 +46,7 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | tags | list of words | `["short film","sci-fi"]` |
 | accent | this film's color, hex | `"#C8FF00"` |
 | tileSize | `"normal"` or `"large"` (large = FEATURED: the centre cluster and the featured dress — every landscape pane is the same size; a vertical film's stands two rows tall) | `"large"` |
-| aspect | `"16:9"` (default), `"4:3"`, `"2.39:1"` or `"9:16"` (vertical footage) — the floor pane AND the whole dossier (hero + stills) present in this ratio; the carpet packs neighbors tight around any width. A `"9:16"` film gets the tall vertical pane (two pane rows high, its name up a spine on the left edge; featured, it stands in the right-hand column of the centre cluster), a vertical hero and a wall of portrait stills | `"4:3"` |
+| aspect | `"16:9"` (default), `"4:3"`, `"3:2"`, `"2.39:1"` or `"9:16"` (vertical footage) — the floor pane AND the whole dossier (hero + stills) present in this ratio; the carpet packs neighbors tight around any width. A `"4:3"` or `"3:2"` film's hero stands between two rack panels. A `"9:16"` film gets the tall vertical pane (two pane rows high, its name up a spine on the left edge; featured, it stands in the right-hand column of the centre cluster), a vertical hero and a wall of portrait stills | `"4:3"` |
 | focus | where the picture's subject sits, `"X% Y%"` — how far across, then how far down (`"0% 0%"` top-left, `"50% 50%"` the middle, the default). A phone shows each film in a pane half its screen high and crops the picture around this point; set it when the subject sits off the middle | `"60% 50%"` |
 | category | which works channel: `"human"` or `"machine"` (leave out = human) | `"machine"` |
 | synopsis | one short paragraph | |
@@ -104,7 +104,8 @@ from the fields above — nothing extra to maintain:
   shorter wall, the layout adapts automatically. Number them without gaps —
   discovery stops at the first missing number. Delete files to shorten.
   The rhythm: two half-width side-by-side, two side-by-side, one
-  full-width, repeat — edge to edge, no gaps, every frame 16:9. A lone
+  full-width, repeat — edge to edge, no gaps, every frame in the film's own
+  ratio (`aspect`: 16:9, 4:3, 3:2 or 2.39:1). A lone
   leftover goes full-width. (A `stills` list in projects.json still works
   as a manual override.)
 - **A vertical film (`"aspect": "9:16"`) gets a portrait wall**: 4 stills
