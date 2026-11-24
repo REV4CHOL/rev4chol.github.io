@@ -231,7 +231,7 @@ describe('never lost in empty floor', () => {
 describe('the floor is wired (pins)', () => {
   const world = readFileSync('src/works/world.ts', 'utf8');
   const page = readFileSync('src/pages/works.ts', 'utf8');
-  const css = readFileSync('src/styles/components.css', 'utf8');
+  const css = readFileSync('src/styles/components.css', 'utf8').replace(/\r\n/g, '\n'); // line ends normalised: the pins hold on any checkout
 
   it("a touch screen's first tap brings the pane to the middle of its box, fitted", () => {
     expect(world).toContain('hoverFitIn(tile.cw, tile.ch, tile.sizeMul, zs, box.w, box.h)');

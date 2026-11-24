@@ -49,7 +49,7 @@ describe('the sections', () => {
     expect(story).toContain('mountCity3D');
     expect(story).not.toContain("'tour'"); // AUTO opens the section on every platform
     expect(story).toContain("['auto', 'free']");
-    const about = readFileSync('src/pages/about.ts', 'utf8');
+    const about = readFileSync('src/pages/about.ts', 'utf8').replace(/\r\n/g, '\n'); // line ends normalised: the pin holds on any checkout
     expect(about).toContain("startPage(\n  'about',");
     expect(about).toContain("import '../styles/about.css'");
     expect(about).not.toContain('mountCity3D');
