@@ -53,7 +53,8 @@ screen's.
 - **Endless.** A pane stands from its own height above the screen's top to the lap's end, once in a lap. The screen is
   always covered when the lap is at least the screen plus the tallest pane. A short chapter is laid again until its
   units reach the screen's units plus the tallest pane's, and never to fewer than three panes (today's rule): upright,
-  3 units for unit panes and 4 with a vertical film. The two real chapters hold 12 and 6 units and are laid once.
+  3 units for unit panes and 4 with a vertical film. The two real chapters held 12 and 6 units when this was written
+  and hold 14 and 6 since THE LOVERS and XIÊU LÒNG joined chapter one the same day; both are laid once.
 - **A pane's lap on the compositor** runs, in its own height, from the lap less its own units below the screen's top to
   one of itself above it. A tall pane's keyframes differ from a unit pane's only by that ratio.
 - **The pace.** The strip moves one screen's height every `ROLL_SECONDS` (18), as today: the same pixels a second. A
@@ -99,7 +100,8 @@ screen's.
 - **The strip arrives with film 1's bottom edge at the screen's bottom** (the owner, 2026-11-24: "Film 1 in the lower
   half"). Upright, film 1 stands in the lower half and the chapter's last film above it: the strip starts one pane
   early in its lap. With film 1 on top its name went under the header at once: whole for 0 seconds on screens up to
-  700 px tall and for 0.4 to 1.8 seconds on taller ones, then not again until the lap came round, 108 seconds later.
+  700 px tall and for 0.4 to 1.8 seconds on taller ones, then not again until the lap came round, 108 seconds later
+  (126 seconds with chapter one's 14 films).
   In the lower half it is whole for 8 to 10 seconds, as on the strip of 2026-10-20 (measured at 390 × 664, 390 × 844
   and 360 × 640). The rule in units: the strip starts the screen's units less film 1's units before the lap's start.
   So a chapter whose first film is vertical arrives with that film filling the screen, and a phone on its side
