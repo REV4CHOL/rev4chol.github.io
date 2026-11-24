@@ -15,8 +15,8 @@ const film = (over: Partial<{ film: { type: 'youtube'; src: string } | null; fil
   ...over,
 });
 
-describe('what stands where WATCH would', () => {
-  it('a film with a link gets WATCH', () => {
+describe('what stands under the synopsis', () => {
+  it('a film with a link gets its player', () => {
     expect(watchKind(film())).toBe('watch');
   });
 
@@ -72,8 +72,10 @@ describe('the film opens large', () => {
     expect(css).not.toMatch(/\.p-player \{\s*grid-column: 2;/);
   });
 
-  it("the open player stands clear of the header's veil: it centres in the screen under the header", () => {
-    expect(css).toMatch(/\n\.p-player \{[^}]*scroll-margin-top: 66px;/);
+  // (2026-11-24: 66 px cleared the header's row but not its scrolled veil, 150 px deep: centred on the Android tablet,
+  // 1280 x 672, the veil darkened the picture's top. Measured with the player lane's flat-colour proof.)
+  it("the player a hero press brings into view stands clear of the header's scrolled veil", () => {
+    expect(css).toMatch(/\n\.p-player \{[^}]*scroll-margin-top: 150px;/);
   });
 
   it('the page travels to the open player', () => {
@@ -84,19 +86,23 @@ describe('the film opens large', () => {
 });
 
 describe("the film plays from the page's first screen", () => {
-  it('the hero carries no WATCH button (owner, of the hero: "remove the WATCH on this")', () => {
+  // (the synopsis's WATCH went too, 2026-11-24: the owner, "I want to abolish the WATCH button. Instead, I want the
+  // video to be already there ready to play, with its thumbnail displaying". tests/player-ready.test.ts holds the
+  // player that stands there now.)
+  it('the hero carries no WATCH button (owner, of the hero: "remove the WATCH on this"), and nor does the page', () => {
     const html = readFileSync('project.html', 'utf8');
     expect(html).not.toContain('p-hero-watch');
     expect(html).not.toContain('p-hero-run');
-    expect(html.match(/WATCH ▸/g)).toHaveLength(1); // the synopsis's, where it always stood
+    expect(html).not.toContain('WATCH ▸');
     expect(readFileSync('src/pages/project.ts', 'utf8')).not.toContain('p-hero-watch');
     expect(readFileSync('src/styles/project.css', 'utf8')).not.toContain('.p-hero-run');
   });
 
-  it("the synopsis's WATCH opens the player", () => {
+  it('the player stands from the start: nothing opens it', () => {
     const src = readFileSync('src/pages/project.ts', 'utf8');
-    expect(src).toContain("watch.addEventListener('click', open);");
+    expect(src).not.toContain("watch.addEventListener('click', open);");
     expect(src).not.toContain('heroWatch');
+    expect(src).toContain('player.hidden = false;');
   });
 
   it('the picture itself plays the film: both walkthroughs took it for the player and pressed it', () => {

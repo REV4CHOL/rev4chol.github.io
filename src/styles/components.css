@@ -580,7 +580,7 @@
 }
 
 /* THE WAY TO THE LIST (works/index-list.ts): under the legend's words, a button in the site's button shape (the pill:
-   COPY EMAIL, WATCH) that says what it gives. In the list it stands alone and says where it leads back to. */
+   COPY EMAIL) that says what it gives. In the list it stands alone and says where it leads back to. */
 .view-toggle {
   display: block; margin: calc(10px * var(--uiz)) auto 0; padding: 9px 20px 8px; min-height: 36px;
   pointer-events: auto; cursor: pointer; white-space: nowrap; letter-spacing: 0.2em; line-height: 1.4;

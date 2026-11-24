@@ -10,7 +10,7 @@ import { baselineOf, fillTitle, heroLockupSize, lockupHtml, runningTitle, settle
 import { music } from '../lib/music';
 import { sound } from '../lib/sound';
 import { hashSlug, stillSlotUrls, wallRhythm } from '../project/dossier';
-import { linkParts } from '../project/parts';
+import { linkParts, startedByFocus } from '../project/parts';
 import { stillParts } from '../project/pillars';
 import { meets, playerRatio, watchKind } from '../project/watch';
 import { armStamps } from '../lib/stamps';
@@ -281,74 +281,69 @@ function mountSynopsis(p: Project): void {
     body.append(s);
   }
 
-  const watch = document.getElementById('p-watch-btn') as HTMLButtonElement;
   const player = document.getElementById('p-player') as HTMLDivElement;
   const kind = watchKind(p);
   if (kind !== 'watch') {
+    const note = document.createElement('p');
     if (kind === 'private') {
-      // PRIVATE (owner 2026-09-28, MIEN VIEN: the link "will never arrive"): no WATCH, and where it would stand, what
+      // PRIVATE (owner 2026-09-28, MIEN VIEN: the link "will never arrive"): no player, and where it would stand, what
       // a visitor can and cannot do in one line, in the placeholder line's quiet style (the reason stays off the site)
-      const note = document.createElement('p');
       note.className = 'p-private micro';
       note.textContent = 'PRIVATE FILM ▪ NOT AVAILABLE TO WATCH ONLINE';
-      watch.after(note);
     } else if (kind === 'pending') {
-      // the film exists but isn't linkable yet — the button stands, greyed
-      watch.hidden = false;
-      watch.disabled = true;
-      watch.title = 'FILM LINK COMING SOON';
+      // the film exists but isn't linkable yet: one quiet line where the player will stand (it was a greyed WATCH
+      // button until the owner abolished the button, 2026-11-24)
+      note.className = 'p-pending micro';
+      note.textContent = 'FILM LINK COMING SOON';
     } else {
       // PLACEHOLDER (owner's testers, 2026-09-27: a full dossier for a film that does not exist read as a broken
-      // site): where WATCH would stand, the truth in one line
-      const note = document.createElement('p');
+      // site): where the player would stand, the truth in one line
       note.className = 'p-placeholder micro';
       note.textContent = 'PLACEHOLDER ▪ NO FILM HERE YET';
-      watch.after(note);
     }
+    player.after(note);
     return;
   }
-  // THE FILM OPENS LARGE (owner's testers, 2026-09-30: "they dont know how to navigate the website or click or do
-  // actions"): WATCH opens the film as wide as the page allows, in the player's own shape (vertical footage stands
-  // vertical), and the page travels to it. (For a day the hero carried a WATCH button of its own; the owner, of the
-  // hero, 2026-09-30: "remove the WATCH on this". The picture itself still plays the film: below.)
+  // THE FILM STANDS READY (owner 2026-11-24: "I want to abolish the WATCH button. Instead, I want the video to be
+  // already there ready to play, with its thumbnail displaying"): the real player stands under the synopsis from the
+  // start, not started, showing the platform's own thumbnail and play control, so ONE press plays it everywhere (a
+  // frame made by a press cannot start with sound on an iPhone or an iPad: a second tap). It is as wide as the page
+  // allows, in its own shape (vertical footage stands vertical: the review's walkthroughs, 2026-09-30, had it open
+  // 245 x 138 px), its place kept from the first paint by that shape; the frame itself loads lazily, after the hero.
   player.style.setProperty('--player-ratio', String(playerRatio(aspectRatio(p.aspect))));
-  const mount = () => {
-    watch.hidden = true;
-    player.hidden = false;
-    music.hold(); // WATCH (owner): the music stops, and stays stopped until the next section or page
-    sound.zap();
-    if (p.films.length > 1) {
-      armEffectHole('player', mountParts(p, player));
-      return;
-    }
-    armEffectHole('player', player);
-    if (p.film!.type === 'local') {
-      const v = document.createElement('video');
-      v.controls = true;
-      v.src = projectAssetUrl(p.slug, p.film!.src);
-      player.append(v);
-      void v.play().catch(() => {});
-    } else {
-      const src = embedSrc(p.film!);
-      if (src) {
-        const f = document.createElement('iframe');
-        f.src = src;
-        f.title = p.title;
-        f.allow = 'autoplay; fullscreen; picture-in-picture';
-        f.allowFullscreen = true;
-        player.append(f);
-      }
-    }
+  player.hidden = false;
+  const multi = p.films.length > 1;
+  const { frames, talking, videos } = multi ? mountParts(p, player) : mountFilm(p, player);
+  armEffectHole('player', multi ? player.querySelector<HTMLElement>('.p-parts') ?? player : player);
+
+  // THE MUSIC GIVES WAY when the film starts, and stays stopped until the next section or page, as WATCH had it. The
+  // press lands inside the frame, where the page hears nothing: the player says when it plays (YouTube's messages), a
+  // file says so itself, and a frame that never talks is known pressed when the window hands it the focus.
+  let started = false;
+  const start = () => {
+    if (started) return;
+    started = true;
+    music.hold();
   };
-  const open = () => {
-    if (player.hidden) mount();
-    player.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
-  };
-  watch.hidden = false;
-  watch.dataset.cursor = 'PLAY ▸';
-  watch.addEventListener('click', open);
+  const programme = linkParts(talking, { onPlay: start });
+  for (const v of videos) v.addEventListener('play', start);
+  window.addEventListener('blur', () => {
+    setTimeout(() => {
+      if (startedByFocus(document.activeElement as HTMLIFrameElement | null, frames, programme.talks)) start();
+    }, 0);
+  });
+
   // THE PICTURE PLAYS THE FILM: a framed moving picture with a ruler under it reads as a player, and both walkthroughs
-  // pressed it first and got nothing. A click or a tap on it is WATCH (its links and buttons keep their own jobs).
+  // pressed it first and got nothing. A click or a tap on it brings the player into view and asks it to play (its links
+  // keep their own jobs; never a button over the picture: owner, 2026-09-30, "remove the WATCH on this"). Where the
+  // platform refuses a start the page asks for, the visitor's press on the player itself plays it.
+  const open = () => {
+    sound.zap();
+    for (const f of frames) f.loading = 'eager'; // (a lazy frame not yet near the screen starts loading now)
+    player.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
+    if (videos[0]) void videos[0].play().catch(() => {});
+    else programme.play();
+  };
   const hero = document.getElementById('p-hero')!;
   hero.classList.add('p-hero--plays');
   hero.dataset.cursor = 'PLAY ▸';
@@ -357,11 +352,57 @@ function mountSynopsis(p: Project): void {
   });
 }
 
+/** What a film's player is made of: every frame, the frames whose player talks (YouTube), and the owner's own files. */
+interface Mounted {
+  frames: HTMLIFrameElement[];
+  talking: HTMLIFrameElement[];
+  videos: HTMLVideoElement[];
+}
+
+/** A platform's player, not started, loading lazily. `loading` goes before `src`: a frame given its src first starts
+ *  loading at once. */
+function frameFor(src: string, title: string): HTMLIFrameElement {
+  const f = document.createElement('iframe');
+  f.loading = 'lazy';
+  f.title = title;
+  f.allow = 'autoplay; fullscreen; picture-in-picture';
+  f.allowFullscreen = true;
+  f.src = src;
+  return f;
+}
+
+/** The owner's own file: its poster showing, its controls ready, not started. */
+function videoFor(p: Project, src: string, label: string): HTMLVideoElement {
+  const v = document.createElement('video');
+  v.controls = true;
+  v.playsInline = true;
+  v.preload = 'metadata';
+  v.poster = projectAssetUrl(p.slug, 'poster.jpg');
+  v.src = projectAssetUrl(p.slug, src);
+  v.setAttribute('aria-label', label);
+  return v;
+}
+
+/** A film in one part: its player, in the row. */
+function mountFilm(p: Project, player: HTMLElement): Mounted {
+  const film = p.film!;
+  if (film.type === 'local') {
+    const v = videoFor(p, film.src, p.title);
+    player.append(v);
+    return { frames: [], talking: [], videos: [v] };
+  }
+  const src = embedSrc(film, { autoplay: false, origin: location.origin });
+  if (!src) return { frames: [], talking: [], videos: [] };
+  const f = frameFor(src, p.title);
+  player.append(f);
+  return { frames: [f], talking: film.type === 'youtube' ? [f] : [], videos: [] };
+}
+
 /** A film in parts (owner 2026-09-28, GALAXY Z FOLD 8 ULTRA: "one watch will spawn two embed YouTube videos at once,
  *  on the same row together. So make special design for this"): one stage, every part at once, left to right in the
- *  project's own shape, a hinge between two, each numbered and labeled underneath. The first plays (the click is the
- *  gesture), the rest wait their turn: one plays at a time, and the next starts when one ends. Returns the stage. */
-function mountParts(p: Project, player: HTMLElement): HTMLElement {
+ *  project's own shape, a hinge between two, each numbered and labeled underneath. None starts by itself; one plays at
+ *  a time, and the next starts when one ends (project/parts.ts). */
+function mountParts(p: Project, player: HTMLElement): Mounted {
   player.classList.add('p-player--multi');
   const parts = p.films.filter((f) => f.type === 'local' || embedSrc(f) !== null);
   const stage = document.createElement('div');
@@ -371,7 +412,7 @@ function mountParts(p: Project, player: HTMLElement): HTMLElement {
   // vertical footage stands vertical; any other film's parts stand 16:9, like its single player
   const ratio = aspectRatio(p.aspect);
   stage.style.setProperty('--part-ratio', String(ratio < 1 ? ratio : 16 / 9));
-  const frames: HTMLIFrameElement[] = [];
+  const out: Mounted = { frames: [], talking: [], videos: [] };
   parts.forEach((film, i) => {
     if (i > 0) {
       const hinge = document.createElement('span');
@@ -383,20 +424,14 @@ function mountParts(p: Project, player: HTMLElement): HTMLElement {
     const fig = document.createElement('figure');
     fig.className = 'p-part';
     if (film.type === 'local') {
-      const v = document.createElement('video');
-      v.controls = true;
-      v.src = projectAssetUrl(p.slug, film.src);
-      v.setAttribute('aria-label', `${p.title}: ${label}`);
+      const v = videoFor(p, film.src, `${p.title}: ${label}`);
       fig.append(v);
-      if (i === 0) void v.play().catch(() => {});
+      out.videos.push(v);
     } else {
-      const f = document.createElement('iframe');
-      f.src = embedSrc(film, { autoplay: i === 0, origin: location.origin })!;
-      f.title = `${p.title}: ${label}`;
-      f.allow = 'autoplay; fullscreen; picture-in-picture';
-      f.allowFullscreen = true;
+      const f = frameFor(embedSrc(film, { autoplay: false, origin: location.origin })!, `${p.title}: ${label}`);
       fig.append(f);
-      if (film.type === 'youtube') frames.push(f);
+      out.frames.push(f);
+      if (film.type === 'youtube') out.talking.push(f);
     }
     const cap = document.createElement('figcaption');
     cap.innerHTML = `<span class="p-part-num" aria-hidden="true">${pad2(i + 1)}</span><span class="p-part-label micro">${escapeHtml(label)}</span>`;
@@ -404,8 +439,7 @@ function mountParts(p: Project, player: HTMLElement): HTMLElement {
     stage.append(fig);
   });
   player.append(stage);
-  if (frames.length > 1) linkParts(frames);
-  return stage;
+  return out;
 }
 
 /** The site's film layers (grain + scanlines) must never land on an open

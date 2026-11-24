@@ -53,9 +53,9 @@ export interface Project {
   /** every part, in order: one for a film, two or more for a film in parts (owner 2026-09-28, GALAXY Z FOLD 8
    *  ULTRA: "one watch will spawn two embed YouTube videos at once"); none without a film */
   films: FilmRef[];
-  /** film not linkable yet — the dossier shows a greyed-out WATCH button */
+  /** film not linkable yet — the dossier says FILM LINK COMING SOON where the player will stand */
   filmPending: boolean;
-  /** a real film that will never be online (owner 2026-09-28, MIEN VIEN) — no WATCH; the dossier says so instead */
+  /** a real film that will never be online (owner 2026-09-28, MIEN VIEN) — no player; the dossier says so instead */
   filmPrivate: boolean;
   stills: string[];
   position: GridPos | null;
@@ -220,7 +220,7 @@ export function parseProject(raw: unknown, i: number): Project {
   if (filmPending && filmPrivate)
     fail(file, `${where} filmPending and filmPrivate cannot both be true (a link on its way, or private for good)`);
 
-  // one film object, or a list of parts played from one WATCH
+  // one film object, or a list of parts standing in one row
   const films: FilmRef[] = [];
   if (r.film !== undefined && r.film !== null) {
     if (Array.isArray(r.film)) {

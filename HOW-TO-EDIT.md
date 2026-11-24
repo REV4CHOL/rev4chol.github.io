@@ -59,7 +59,9 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | stills | gallery file names, in order | `["01.jpg","02.jpg"]` |
 | position | leave out (auto layout) or pin a pane slot on the band: `{ "col": 4, "row": 0 }` = the 5th pane of the top row | |
 
-**film** is what the WATCH button plays. It is one of:
+**film** is the player that stands under the film's synopsis, ready to play
+(the platform's own thumbnail and play button; a press on it, or on the
+picture at the top of the page, plays it). It is one of:
 - `{ "type": "vimeo", "src": "https://vimeo.com/123456789" }`
 - `{ "type": "youtube", "src": "https://youtu.be/XXXXXXXXXXX" }`
 - `{ "type": "embed", "src": "<iframe …></iframe>" }` — Facebook, TikTok or
@@ -73,9 +75,9 @@ You never need to rebuild the site for content changes — edit, save, refresh.
   one of the two flags below.
 - a **list** of films, for a film in parts (two ads of one campaign, say):
   `[ { "type": "youtube", "src": "…", "label": "Digital Ad #1" },
-  { "type": "youtube", "src": "…", "label": "Digital Ad #2" } ]` — one
-  WATCH opens every part at once, side by side on one row, numbered and
-  labeled; the first plays, and when it ends the next one starts. Each part
+  { "type": "youtube", "src": "…", "label": "Digital Ad #2" } ]` —
+  every part stands at once, side by side on one row, numbered and
+  labeled; one plays at a time, and when it ends the next one starts. Each part
   is written like a single film; `label` is optional.
 
 For vimeo/youtube, `src` accepts any link form — a watch URL, a share
@@ -83,12 +85,12 @@ link, or the **full embed code** pasted straight from the platform's
 Share ▸ Embed box (the video id is extracted from it either way).
 
 No link yet but the film is coming? Set `"film": null` plus
-`"filmPending": true` — the dossier shows the WATCH button greyed out
-until you swap in the real link.
+`"filmPending": true` — where the player would stand, the dossier says
+FILM LINK COMING SOON until you swap in the real link.
 
 A film that will never be online (kept private)? Set `"film": null` plus
-`"filmPrivate": true` — the dossier shows no WATCH button, and where it
-would stand it says PRIVATE FILM ▪ NOT AVAILABLE TO WATCH ONLINE. The pane
+`"filmPrivate": true` — the dossier shows no player, and where it would
+stand it says PRIVATE FILM ▪ NOT AVAILABLE TO WATCH ONLINE. The pane
 stays a film on the floor. Never set both flags on one film.
 
 ## The project page (the dossier)

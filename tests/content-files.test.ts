@@ -116,7 +116,7 @@ describe('shipped content files', () => {
     expect(p.category).toBe('human');
     expect(p.tileSize).toBe('normal'); // out of the featured cluster, onto the ring (owner 2026-09-27)
     expect(p.aspect).toBe('2.39:1');
-    // (the link came with the second batch: WATCH is live, no longer greyed)
+    // (the link came with the second batch: the player is live, no longer pending)
     expect(p.film).toEqual({ type: 'youtube', src: 'https://www.youtube.com/embed/mrR8hRc4XF4' });
     expect(p.filmPending).toBe(false);
     const dir = `${root}projects/soda-coast/`;
@@ -466,7 +466,7 @@ describe('shipped content files', () => {
     expect(p.credits).toEqual([{ role: f.role, name: 'Revachol' }]);
     expect([p.artist, p.productionHouse, p.director]).toEqual([f.artist, f.productionHouse, f.director]);
     expect([p.aspect, p.tags, p.synopsis, p.accent, p.focus]).toEqual([f.aspect, [...f.tags], f.synopsis, f.accent, f.focus]);
-    // (a film with its link plays; one without keeps WATCH greyed until the link comes)
+    // (a film with its link plays; one without says FILM LINK COMING SOON until the link comes)
     expect([p.film, p.filmPending, p.filmPrivate]).toEqual(f.film ? [{ type: 'youtube', src: f.film }, false, false] : [null, true, false]);
     const dir = `${root}projects/${f.slug}/`;
     expect(existsSync(`${dir}poster.jpg`)).toBe(true);

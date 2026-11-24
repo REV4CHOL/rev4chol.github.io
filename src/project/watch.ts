@@ -1,7 +1,7 @@
 import type { Project } from '../lib/content';
 
-/** What stands where WATCH would: the button; the button greyed (a film whose link is on its way); or one plain line
- *  saying why there is nothing to press (a film kept off the public web; a placeholder). */
+/** What stands under the synopsis: the film's player, ready to play ('watch'); or one plain line saying why there is
+ *  nothing to play (a film whose link is on its way; a film kept off the public web; a placeholder). */
 export type WatchKind = 'watch' | 'pending' | 'private' | 'placeholder';
 
 export function watchKind(p: Pick<Project, 'film' | 'filmPending' | 'filmPrivate'>): WatchKind {
