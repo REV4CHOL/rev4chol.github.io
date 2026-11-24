@@ -2320,3 +2320,37 @@ passing after. The whole suite, run in that copy at the starting state and at th
 and after (none of them the strip's), and nine more pass. A scratch build of the last state passed all 60 checks of the
 script, headless. The patches that start from untouched files also pass `git apply --check --ignore-whitespace` in the
 real checkout.
+
+## Amendment, 2026-11-24: the strip arrives with film 1 in the lower half
+
+After this plan was written, the owner was shown measurements of the flip's arrival and chose: "Film 1 in the lower
+half". With film 1 on top (the strip arriving at offset 0) its name slid under the header at once: whole for 0 seconds
+on screens up to 700 px tall and for 0.4 to 1.8 seconds on taller ones, then not again for a 108-second lap. The design
+was corrected the same day ("Arrival and the rest", design calls 8 and 9). Built in one commit after the flip's:
+
+- `src/works/reel.ts`: `arrivalOffset(units, unit, view)`, film 1's height less the screen's, never above 0. Upright,
+  with a unit-high film 1, the strip starts one unit before the lap's start: film 1 stands in the lower half and the
+  strip's last pane above it. A vertical film 1, or a phone on its side: 0, film 1 fills the screen.
+- `src/works/reel-view.ts`: `show()` starts every strip there, the first show and a channel change alike. The panes on
+  the screen as the strip arrives wear `is-gate`, set by the loops' own rule (`panePlay` is `'play'`): upright, the
+  last film and film 1. The eager posters are film 1's, the next to come in and the strip's last pane (it stands on
+  the screen at arrival; lazy, its poster came late). `remeasure()` keeps the place as before, except that a strip
+  still standing where it arrived (CALM, or under the LIST) arrives again: turned on its side at arrival, film 1 fills
+  the screen, and turned back it stands in the lower half again.
+- `src/styles/components.css`: the arrival wipe runs on `.rl-frame.is-gate`, no longer on the first two panes in the
+  page.
+- At arrival the screen's middle lies on the seam between the last film and film 1. The rules give film 1 (the film in
+  view) and the rail's playhead at the rail's top, moving down from there: no jump from the rail's end.
+- Tests: `tests/reel.test.ts` (upright, on its side, a vertical film 1, a short chapter laid again, film 1's bottom
+  edge at the screen's bottom, the loops at arrival, the seam); the reel's pins in `tests/floor-ways.test.ts`.
+- `HOW-TO-EDIT.md`: one sentence, what stands on the screen when the page opens.
+
+Measured on a scratch build, headless, from the strip's first frame in 100 ms samples: film 1's name whole for 10.7 s
+at 390 × 844, 8.7 s at 390 × 664 and 8.3 s at 360 × 640 (from the gate wipe's end: 10.3, 8.3 and 7.9 s).
+
+Design calls that change with it: 3 (at arrival the playhead stands at the rail's top, above film 1's tick); 5 (the
+wipe covers the panes on the screen at arrival: upright the last film and film 1); 12 (at arrival the upper pane holds
+the chapter's last film, whose name lies partly under the header on a short screen); 14 (the three eager posters are
+film 1's, film 2's and the last film's). New: chapter two arrives with the lower half of its tall last film above film
+1; a turn of the phone while the strip rolls keeps the point under the screen's middle, so right after arrival a
+sideways screen shows the last film's foot above film 1.

@@ -125,6 +125,14 @@ export function offsetForPane(place: number, u: number, unit: number, view: numb
   const target = place * unit - (view - u * unit) / 2;
   return lap > 0 ? target + Math.round((current - target) / lap) * lap : target;
 }
+/** Where the strip arrives, px: film 1's bottom edge at the screen's bottom (owner, 2026-11-24: "Film 1 in the lower
+ *  half"; with film 1 on top its name went under the header the moment the strip arrived). Upright, film 1 stands in the
+ *  lower half and the strip's last pane above it: the strip starts the screen's units less film 1's units before the
+ *  lap's start. A vertical film 1, or a phone on its side: 0, film 1 fills the screen. A channel change arrives the same
+ *  way. `units` are the strip's panes', in order. */
+export function arrivalOffset(units: readonly number[], unit: number, view: number): number {
+  return units.length ? Math.min(0, units[0] * unit - view) : 0;
+}
 
 /** The film behind each pane of the strip: the chapter in order, laid again while it is too short for an endless
  *  strip. A pane leaves the top whole before it comes in again below the screen, so a lap must hold the screen and the

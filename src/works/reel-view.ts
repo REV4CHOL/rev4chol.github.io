@@ -2,8 +2,9 @@
  *
  *  - A strip per chapter: its films' panes, endless (no scrolling: the strip never ends and never jumps). A pane is half
  *    the screen, so two show at once (owner, 2026-11-24: "we should be able to see two panes on the phone screen at the
- *    same time"); a vertical film's is the whole screen; on a phone held on its side every pane is the screen. From the
- *    first frame it rolls on, one screen's height every ROLL_SECONDS.
+ *    same time"); a vertical film's is the whole screen; on a phone held on its side every pane is the screen. It arrives
+ *    with film 1 at the screen's bottom (owner, 2026-11-24: "Film 1 in the lower half"), and from the first frame it
+ *    rolls on, one screen's height every ROLL_SECONDS.
  *  - The roll runs on the compositor: each pane, its words and the rail's playhead run one linear animation a lap,
  *    phased by where they stand, so the screen's own clock moves them and a busy page (a film's video starting) never
  *    stutters the strip (owner, 2026-10-20: "I want the auto scrolling to happen instantly, but slower and smoother").
@@ -26,7 +27,7 @@ import { reducedMotion } from '../lib/env';
 import { softBreaks } from '../lib/escape';
 import { CHANNELS, type ChannelKey, channelProjects } from './channels';
 import {
-  capKeyframes, coast, lapProgress, lapSeconds, lapUnits, loopsAllowed, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
+  arrivalOffset, capKeyframes, coast, lapProgress, lapSeconds, lapUnits, loopsAllowed, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
   oneLineSize, paneInView, paneKeyframes, panePlay, paneTop, paneUnits, places, railProgress, railTicks, REEL_WORDS, releaseSpeed,
   roleLine, rollPace, screenUnits, SIDE_QUERY, stripOrder, stripPlace, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
   type PanePlay,
@@ -86,7 +87,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   // a pane: the picture over half the screen, and on it the film's name and its roles — nothing else (owner,
   // 2026-10-20: "only the Project name, and the Role names are enough. Do not clog this section up with texts"). A
   // vertical film's pane is tall, two panes high: the whole screen (the styles size both; works/reel.ts counts them)
-  const frameOf = (p: Project, i: number): HTMLLIElement => {
+  const frameOf = (p: Project, eager: boolean): HTMLLIElement => {
     const li = el('li', `rl-frame${aspectRatio(p.aspect) < 1 ? ' is-tall' : ''}`);
     li.dataset.slug = p.slug;
     li.style.setProperty('--acc', p.accent);
@@ -101,7 +102,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     img.alt = '';
     img.decoding = 'async';
     img.draggable = false;
-    img.loading = i < 3 ? 'eager' : 'lazy'; // (the two on the screen, and the next to come in)
+    img.loading = eager ? 'eager' : 'lazy'; // (the panes on the screen at arrival, and the next to come in)
     img.src = projectAssetUrl(p.slug, 'poster.jpg');
     pane.append(img, el('i', 'rl-scan'));
     const cap = el('span', 'rl-cap');
@@ -122,7 +123,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     // laid for the upright screen, the longer need of the two: a turn of the phone never rebuilds a strip
     const order = stripOrder(tall.map((t) => paneUnits(t, false)), screenUnits(false));
     const panes = order.map((f, i) => {
-      const li = frameOf(films[f], i);
+      const li = frameOf(films[f], i < 2 || i === order.length - 1); // (film 1, the next to come in, and the last film above film 1)
       if (i >= films.length) { // (a short chapter laid again: the repeats are for the eye only)
         li.setAttribute('aria-hidden', 'true');
         li.querySelector('a')!.tabIndex = -1;
@@ -219,12 +220,15 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     strip.total = lapUnits(strip.units);
     strip.chapter = lapUnits(strip.units.slice(0, strip.films));
   };
-  /** the heights measured anew, the strip keeping its place: the same film under the screen's middle */
+  /** the heights measured anew, the strip keeping its place: the same film under the screen's middle. A strip still
+   *  standing where it arrived (CALM, or under the LIST) arrives again: turned on its side, film 1 fills the screen */
   const remeasure = () => {
+    const arrived = offset === arrivalOffset(strip.units, unit, view);
     const [pane, part] = stripPlace(offset, unit, view, strip.units);
     measureTop();
     measure();
     offset = offsetForPlace(pane, part, unit, view, strip.units);
+    if (arrived) offset = arrivalOffset(strip.units, unit, view);
   };
 
   /* ---------------------------------------------- the roll, on the compositor -- */
@@ -537,8 +541,10 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     measure();
     paintRail();
     fit(strip);
-    offset = 0;
+    offset = arrivalOffset(strip.units, unit, view); // (film 1's bottom edge at the screen's bottom: upright, the chapter's last film above it)
     v = 0;
+    // the panes on the screen as it arrives come up through the gate (the styles' arrival wipe): upright, the last film and film 1
+    strip.panes.forEach((li, i) => li.classList.toggle('is-gate', panePlay(paneTop(strip.at[i], strip.units[i], offset, unit, strip.total), strip.units[i] * unit, view, unit) === 'play'));
     build();
     replan();
     roll(); // (from the first frame, at its pace)

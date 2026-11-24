@@ -6,6 +6,7 @@ import {
   capKeyframes, capOpacity, coast, COAST_TAU, lapProgress, loopsAllowed, MAX_THROW, offsetFromLap, paneKeyframes, offsetForRail, ONE_LINE_MIN, oneLineSize, paneInView, panePlay, paneTop, railProgress,
   REEL_QUERY, REEL_WORDS, reelMode, releaseSpeed, roleLine, ROLL_SECONDS, stripOrder, TITLE_MAX, TITLE_MIN, wrapStart,
   lapSeconds, lapUnits, offsetForPane, offsetForPlace, paneUnits, places, railTicks, rollPace, screenUnits, SIDE_QUERY, stripPlace,
+  arrivalOffset,
 } from '../src/works/reel';
 
 // WORK ON A PHONE (owner, 2026-10-20: "on Phone, its completely overwhelming and disorienting … a complete redesign of
@@ -360,7 +361,7 @@ describe('the strip, measured in units: two panes on an upright screen', () => {
 
   it("the strip's place is the pane under the screen's middle; it holds through a turn of the phone", () => {
     const up = [1, 1, 1, 1, 2], side = [1, 1, 1, 1, 1];
-    expect(stripPlace(0, 422, 844, up)).toEqual([1, 0]); // (at rest two panes fill the screen: its middle is the second one's top)
+    expect(stripPlace(0, 422, 844, up)).toEqual([1, 0]); // (at offset 0 two panes fill the screen: its middle is the second one's top)
     expect(stripPlace(-211, 422, 844, up)).toEqual([0, 0.5]);
     expect(stripPlace(4 * 422, 422, 844, up)).toEqual([4, 0.5]); // (the tall pane square in the screen)
     expect(stripPlace(100, 0, 844, up)).toEqual([0, 0]);
@@ -388,6 +389,48 @@ describe('the strip, measured in units: two panes on an upright screen', () => {
     const far = 40 * 12 * 422;
     expect(Math.abs(offsetForPane(3, 1, 422, 844, 12, far) - far)).toBeLessThanOrEqual(6 * 422);
     expect(offsetForPane(3, 1, 0, 844, 12, 50)).toBeCloseTo(-422, 9); // (no height yet: no lap to choose)
+  });
+
+  // (owner, 2026-11-24, shown film 1's name going under the header the moment the strip arrived: "Film 1 in the lower
+  // half") the strip arrives with film 1's bottom edge at the screen's bottom: the screen's units less film 1's units
+  // before the lap's start
+  it("the strip arrives with film 1 in the lower half and the chapter's last film above it; on its side film 1 fills the screen", () => {
+    const twelve = Array.from({ length: 12 }, () => 1);
+    expect(arrivalOffset(twelve, 422, 844)).toBe(-422); // (upright: one pane early in its lap)
+    expect(arrivalOffset([1, 1, 1, 1, 1], 390, 390)).toBe(0); // (on its side: film 1 fills the screen, as before)
+    expect(arrivalOffset([2, 1, 1], 422, 844)).toBe(0); // (a vertical first film fills the upright screen)
+    expect(arrivalOffset([1, 1, 1], 422, 844)).toBe(-422); // (a chapter of one film, laid again three times)
+    expect(arrivalOffset([], 422, 844)).toBe(0);
+    const cases: [number[], number, number][] = [
+      [twelve, 422, 844], [twelve, 332, 664], [twelve, 320, 640], [[1, 1, 1, 1, 2], 422, 844], [[1, 1, 1, 1, 1], 390, 390],
+      [[2, 1, 1], 422, 844], [[1, 1, 1], 422, 844], [[2, 2, 2], 422, 844], [[1, 1, 1], 390, 390],
+    ];
+    for (const [units, unit, view] of cases) {
+      const off = arrivalOffset(units, unit, view), total = lapUnits(units), at = places(units), n = units.length;
+      expect(off).toBeLessThanOrEqual(0);
+      expect(paneTop(0, units[0], off, unit, total) + units[0] * unit, `${units} ${view}`).toBeCloseTo(view, 9); // (film 1's bottom edge at the screen's bottom)
+      // above film 1, the strip's last pane: its bottom edge on film 1's top (a vertical film 1, or a sideways screen: above the screen)
+      expect(paneTop(at[n - 1], units[n - 1], off, unit, total) + units[n - 1] * unit).toBeCloseTo(view - units[0] * unit, 9);
+      // on the screen, film 1 and (upright, film 1 a half pane) the last pane play; the next to come in rests at the screen's foot
+      const play = units.map((u, i) => panePlay(paneTop(at[i], u, off, unit, total), u * unit, view, unit));
+      expect(play.flatMap((p, i) => (p === 'play' ? [i] : []))).toEqual(off < 0 ? [0, n - 1] : [0]);
+      const next = paneTop(at[1], units[1], off, unit, total); // (at the screen's foot; in a strip of three that same place a lap round, where it comes in)
+      expect([view, view - total * unit].some((y) => Math.abs(next - y) < 1e-9), `${units} ${view}: ${next}`).toBe(true);
+      expect(play[1]).toBe('rest');
+    }
+  });
+
+  it("at arrival the screen's middle is the seam between the last film and film 1: the film in view is film 1, the playhead at the rail's top, moving down", () => {
+    const twelve = Array.from({ length: 12 }, () => 1), off = arrivalOffset(twelve, 422, 844);
+    expect(stripPlace(off, 422, 844, twelve)).toEqual([0, 0]);
+    expect(paneInView(off, 422, 844, twelve)).toBe(0);
+    expect(railProgress(off, 422, 844, 12)).toBe(0);
+    expect(railProgress(off + 1, 422, 844, 12)).toBeCloseTo(1 / (12 * 422), 9); // (a pixel on, a pixel down the rail: no wrap from its end)
+    expect(railProgress(off + 1, 422, 844, 12)).toBeLessThan(railTicks(twelve)[0]); // (above film 1's tick, coming to it)
+    const galaxy = [1, 1, 1, 1, 2], o2 = arrivalOffset(galaxy, 422, 844); // (chapter two: the tall last film's lower half above film 1)
+    expect(paneTop(4, 2, o2, 422, 6)).toBeCloseTo(-422, 9);
+    expect(stripPlace(o2, 422, 844, galaxy)).toEqual([0, 0]);
+    expect(railProgress(o2, 422, 844, 6)).toBe(0);
   });
 });
 

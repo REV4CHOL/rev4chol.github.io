@@ -209,8 +209,10 @@ build step, no terminal.
 - **On a phone, WORK is a rolling strip** instead of the floor: two films to a
   screen, in `projects.json` order, rolling up on its own from the moment the
   page opens (one screen's height every 18 seconds, so a film passes in 9) and
-  round again, endlessly. A finger drags it up and down and throws it, and it
-  eases straight back into its roll. A tap opens the film. Each film's pane is
+  round again, endlessly. The page opens with the chapter's first film in the
+  lower half of the screen and its last film above it. A finger drags it up
+  and down and throws it, and it eases straight back into its roll. A tap
+  opens the film. Each film's pane is
   half the screen, filled with its loop (its poster until the loop plays), and
   on it stand only its **title and its `role`** — nothing else. The picture is
   cropped to the pane **around the film's `focus`** (the middle unless you set

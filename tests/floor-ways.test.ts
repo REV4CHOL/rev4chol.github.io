@@ -352,9 +352,19 @@ describe('a phone gets the reel, never the floor (pins)', () => {
     expect(css).toMatch(/\n\.rl-pane::after \{[^}]*height: max\(48%, calc\(var\(--reel-foot\) \+ env\(safe-area-inset-bottom\) \+ 226px\)\);/);
   });
 
-  it('at arrival the gate wipe covers both panes on the screen, and their posters load at once', () => {
-    expect(css).toContain('.works-main.is-arriving .rl-strip:not([hidden]) .rl-frame:nth-child(-n+2) .rl-pane { animation: rl-gate 0.42s steps(7) both; }');
-    expect(view).toContain("img.loading = i < 3 ? 'eager' : 'lazy';");
+  // (owner, 2026-11-24: "Film 1 in the lower half") the strip arrives with film 1's bottom edge at the screen's bottom and,
+  // upright, the strip's last pane above it (works/reel.ts: arrivalOffset); the gate wipe and the eager posters follow it
+  it('at arrival film 1 stands in the lower half; the gate wipe covers every pane on the screen, and their posters load at once', () => {
+    expect(view).toMatch(/fit\(strip\);\s+offset = arrivalOffset\(strip\.units, unit, view\);/); // (the first show, and a channel change)
+    expect(view).not.toContain('offset = 0;');
+    // a strip still standing where it arrived (CALM, or under the LIST) arrives again when the screen is measured anew
+    expect(view).toContain('const arrived = offset === arrivalOffset(strip.units, unit, view);');
+    expect(view).toContain('if (arrived) offset = arrivalOffset(strip.units, unit, view);');
+    expect(css).toContain('.works-main.is-arriving .rl-strip:not([hidden]) .rl-frame.is-gate .rl-pane { animation: rl-gate 0.42s steps(7) both; }');
+    expect(css).not.toContain(':nth-child(-n+2) .rl-pane');
+    expect(view).toContain("li.classList.toggle('is-gate', panePlay(paneTop(strip.at[i], strip.units[i], offset, unit, strip.total), strip.units[i] * unit, view, unit) === 'play'));");
+    expect(view).toContain("img.loading = eager ? 'eager' : 'lazy';");
+    expect(view).toContain('const li = frameOf(films[f], i < 2 || i === order.length - 1);'); // (film 1, the next to come in, and the last film above film 1)
   });
 
   // (owner, 2026-11-24: "the panes are too long in length and should be shorten. we should be able to see two panes on

@@ -777,11 +777,12 @@
 .rl-chap.is-on { color: var(--signal); }
 .rl-chap.is-on .rl-chap-name { text-decoration: none; }
 .rl-allbtn { margin-left: auto; padding: 9px 14px 8px; background: color-mix(in srgb, var(--void) 45%, transparent); }
-/* arrival: the pictures on the screen (the first two panes) come up through the gate, the foot rises; under CALM it all
-   simply stands (and the strip never rolls by itself: works/reel-view.ts) */
+/* arrival: the pictures on the screen come up through the gate, the foot rises; under CALM it all simply stands (and the
+   strip never rolls by itself: works/reel-view.ts). The view marks the panes on the screen as the strip arrives with
+   .is-gate: upright, the chapter's last film and film 1 below it (owner, 2026-11-24: "Film 1 in the lower half") */
 @keyframes rl-gate { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes rl-rise { from { transform: translateY(100%); } to { transform: none; } }
-.works-main.is-arriving .rl-strip:not([hidden]) .rl-frame:nth-child(-n+2) .rl-pane { animation: rl-gate 0.42s steps(7) both; }
+.works-main.is-arriving .rl-strip:not([hidden]) .rl-frame.is-gate .rl-pane { animation: rl-gate 0.42s steps(7) both; }
 .works-main.is-arriving .rl-foot { animation: rl-rise 0.36s var(--ease-out) both; }
 .rvl-calm .works-main.is-arriving .rl-pane, .rvl-calm .works-main.is-arriving .rl-foot { animation: none; }
 .rvl-calm .rl-loop { transition: none; }
