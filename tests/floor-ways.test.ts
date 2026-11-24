@@ -432,7 +432,7 @@ describe('a phone gets the reel, never the floor (pins)', () => {
   });
 
   it('a pane carries the film\'s name and its roles, nothing else (owner: "Do not clog this section up with texts")', () => {
-    expect(view).toContain("fillTitle(el('span', 'rl-title'), p.title, softBreaks), el('span', 'rl-role micro', roleLine(p.role))");
+    expect(view).toContain("fillTitle(el('span', 'rl-title'), p.title, softBreaks), fillCrossed(el('span', 'rl-role micro'), roleLine(p.role))");
     for (const gone of ['rl-syn', 'rl-tags', 'rl-meta', 'rl-door', 'rl-stills', 'rl-num', 'rl-cue', 'teaser(', 'rowMeta(']) {
       expect(view, gone).not.toContain(gone);
     }

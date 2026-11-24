@@ -158,9 +158,9 @@ describe("the spec sheet's rows", () => {
     const order = ['CLIENT', 'ARTIST', 'DIRECTOR', 'PRODUCTION HOUSE', 'GENRE', 'ROLE', 'YEAR'].map(rowAt);
     expect(order.every((at) => at > 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
-    expect(page).toContain("if (p.artist) rows.push(['ARTIST', `<span>${escapeHtml(p.artist.toUpperCase())}</span>`]);");
-    expect(page).toContain("if (p.productionHouse) rows.push(['PRODUCTION HOUSE', `<span>${escapeHtml(p.productionHouse.toUpperCase())}</span>`]);");
-    expect(page).toContain("if (p.director) rows.push(['DIRECTOR', `<span>${escapeHtml(p.director.toUpperCase())}</span>`]);");
+    expect(page).toContain("if (p.artist) rows.push(['ARTIST', `<span>${crossedHtml(p.artist.toUpperCase())}</span>`]);");
+    expect(page).toContain("if (p.productionHouse) rows.push(['PRODUCTION HOUSE', `<span>${crossedHtml(p.productionHouse.toUpperCase())}</span>`]);");
+    expect(page).toContain("if (p.director) rows.push(['DIRECTOR', `<span>${crossedHtml(p.director.toUpperCase())}</span>`]);");
   });
 
   it('no running time on the film page: no RUNTIME row on the sheet, no RT callout in the hero', () => {
