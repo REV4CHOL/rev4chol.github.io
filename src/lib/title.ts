@@ -1,3 +1,5 @@
+import { stopScramble } from './scramble';
+
 /** TWO-LANGUAGE TITLES (owner, 2026-11-24, of "Temptation / Xiêu Lòng": 'can we design something special to replace
  *  the "/" … Right now it looks rough'; chose A, "But I want the two texts to be organise neatly in the same column, and
  *  it need to sit a bit closer to each other via their line spacing"). A title written `English / Vietnamese` stands,
@@ -77,6 +79,7 @@ const span = (cls: string, text: string): HTMLSpanElement => {
  *  `shape` dresses each part (upper case, soft breaks). */
 export function fillTitle<T extends HTMLElement>(el: T, title: string, shape: (s: string) => string = (s) => s): T {
   const { main, alt } = splitTitle(title);
+  stopScramble(el); // (a scramble still running on it would write the name before over these words)
   if (alt === null) {
     el.classList.remove('tt-two');
     el.textContent = shape(title);
@@ -148,9 +151,9 @@ export function settleLockup(el: HTMLElement): void {
   if (!a || !b || !el.isConnected) return;
   a.dataset.text ??= a.textContent ?? '';
   b.dataset.text ??= b.textContent ?? '';
+  if (b.getClientRects().length === 0) return; // (not laid out: hidden; what it had stands)
   el.style.setProperty('--tt-pull', '0em');
   el.style.setProperty('--tt-shift', '0em');
-  if (b.getClientRects().length === 0) return; // (not laid out: hidden)
   const was = { size: el.style.fontSize, space: el.style.whiteSpace };
   el.style.fontSize = `${MEASURE_PX}px`;
   el.style.whiteSpace = 'nowrap';

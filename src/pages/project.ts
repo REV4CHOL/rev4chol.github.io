@@ -231,7 +231,7 @@ function mountHero(p: Project, stamp: string): void {
   };
   const fit = two ? fitLockup : fitTitle;
   if (two) stack.style.setProperty('--tt-acc', p.accent);
-  fillTitle(titleEl, p.title, shout); // (its words in place for the measure; the scramble then runs over them)
+  if (two) fillTitle(titleEl, p.title, shout); // (its words in place for the measure; the scramble then runs over them)
   fit();
   // a fallback-font measurement lies — refit once the display face is in
   void document.fonts?.ready?.then(fit);

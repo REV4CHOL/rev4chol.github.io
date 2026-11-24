@@ -14,17 +14,31 @@ export function scrambleFrame(target: string, progress: number, rand: () => numb
   return out;
 }
 
+/** The run each element's scramble is on: a newer run, or stopScramble, ends the one before it (a caption written
+ *  anew mid-scramble kept the old name: the old run wrote over it to its last frame). */
+const runs = new WeakMap<HTMLElement, number>();
+let lastRun = 0;
+
+/** End any scramble running on `el`: it writes nothing more. */
+export function stopScramble(el: HTMLElement): void {
+  runs.delete(el);
+}
+
 export function scrambleEl(el: HTMLElement, text?: string, durationMs = 700): Promise<void> {
   const target = text ?? el.textContent ?? '';
   if (reducedMotion() || durationMs <= 0) {
+    runs.delete(el);
     el.textContent = target;
     return Promise.resolve();
   }
+  const run = ++lastRun;
+  runs.set(el, run);
   return new Promise((resolve) => {
     const t0 = performance.now();
     const step = (now: number) => {
+      if (runs.get(el) !== run) { resolve(); return; } // (given way)
       const p = (now - t0) / durationMs;
-      if (p >= 1) { el.textContent = target; resolve(); return; }
+      if (p >= 1) { el.textContent = target; runs.delete(el); resolve(); return; }
       el.textContent = scrambleFrame(target, p, Math.random);
       requestAnimationFrame(step);
     };
