@@ -403,7 +403,11 @@ describe('a phone gets the reel, never the floor (pins)', () => {
   it('every pane in view plays, on every tier; a refusal turns the loops to images; a touch re-offers a video', () => {
     expect(view).toContain("if (!allowed) return null; // (Save-Data or a 2g line: the posters)");
     expect(view).not.toContain('quality.tier()'); // (a remembered LITE once left a phone on posters all visit)
-    expect(view).toContain("else if (want[i] === 'rest') { const l = loops.get(li); if (l instanceof HTMLVideoElement) l.pause(); }");
+    // (owner, 2026-11-24, on the design: the next pane starts as it enters) a resting pane's video is loaded, paused
+    expect(view).toContain("else if (want[i] === 'rest') { const l = ahead ? ensureLoop(li) : loops.get(li); if (l instanceof HTMLVideoElement) l.pause(); }");
+    expect(view).toContain('const ahead = !still && !loopsAsImages();'); // (an image cannot wait paused; nothing loads under the LIST)
+    expect(view).toContain('strip.units[i] * unit, view, unit);'); // (the loops' rule gets the pane's height, the screen's and the unit's)
+    expect(view).toContain('replan(); // (it plays if its pane is on the screen; a resting pane\'s waits, paused)');
     expect(view).toContain('l = loopsAsImages() ? imageLoop(li, chain) : videoLoop(chain);');
     expect(view).toContain('if (isRefusal(e)) noteRefusal();');
     expect(view).toContain("window.addEventListener('touchend', kick, { passive: true });");

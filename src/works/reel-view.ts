@@ -14,9 +14,10 @@
  *    side stands whole in the middle.
  *  - Down the right, the scrub rail: a tick per film, the lime playhead travelling with the strip; a touch along it moves
  *    the strip there. At the foot, the chapters and LIST.
- *  - Every pane on the screen plays its loop, and so does the next to come in; panes further off rest, then give their
- *    video back. A refused play() (iOS Low Power Mode) turns the loops into MP4 images (lib/autoplay.ts). Save-Data or
- *    a 2g line shows posters. The page (pages/works.ts) runs the channel change and the list. */
+ *  - Every pane on the screen plays its loop. The panes within one unit of the screen rest, loaded and paused, so the
+ *    next to come in starts the moment it enters (owner, 2026-11-24: three loops decode at most); further off they give
+ *    their video back. A refused play() (iOS Low Power Mode) turns the loops into MP4 images (lib/autoplay.ts).
+ *    Save-Data or a 2g line shows posters. The page (pages/works.ts) runs the channel change and the list. */
 import { aspectRatio, loopSrcChain, projectAssetUrl, type Project } from '../lib/content';
 import { autoplayRefused, imageLoopsWork, isRefusal, loopsAsImages, noteImageLoops, noteRefusal, onRefusal } from '../lib/autoplay';
 import { reducedMotion } from '../lib/env';
@@ -314,7 +315,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
       if (++k >= chain.length) return;
       vid.src = chain[k];
       vid.load();
-      tryPlay(vid);
+      replan(); // (it plays if its pane is on the screen; a resting pane's waits, paused)
     });
     vid.addEventListener('playing', () => vid.classList.add('is-live')); // (the poster until the loop has a picture)
     vid.src = chain[0];
@@ -349,11 +350,13 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     loops.set(li, l);
     return l;
   };
-  /** every pane's loop as the strip stands: on the screen or next in, playing; near, resting; far, let go */
+  /** every pane's loop as the strip stands: on the screen, playing; within one unit of it, loaded and resting (the next
+   *  to come in starts the moment it enters); further off, let go */
   const plan = () => {
-    const at = offsetNow(), dir = rolling || v >= -1 ? 1 : -1, still = parked || document.hidden;
+    const at = offsetNow(), still = parked || document.hidden;
+    const ahead = !still && !loopsAsImages(); // (a video waits paused; an image cannot, and nothing loads under the LIST)
     const want: PanePlay[] = strip.panes.map((_, i) => {
-      const p = panePlay(paneTop(strip.at[i], strip.units[i], at, unit, strip.total), strip.units[i] * unit, view, dir);
+      const p = panePlay(paneTop(strip.at[i], strip.units[i], at, unit, strip.total), strip.units[i] * unit, view, unit);
       return still && p === 'play' ? 'rest' : p;
     });
     const key = want.join(',');
@@ -361,7 +364,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     planned = key;
     strip.panes.forEach((li, i) => {
       if (want[i] === 'free') release(li);
-      else if (want[i] === 'rest') { const l = loops.get(li); if (l instanceof HTMLVideoElement) l.pause(); }
+      else if (want[i] === 'rest') { const l = ahead ? ensureLoop(li) : loops.get(li); if (l instanceof HTMLVideoElement) l.pause(); }
       else { const l = ensureLoop(li); if (l instanceof HTMLVideoElement && l.paused) tryPlay(l); }
     });
   };
@@ -378,7 +381,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     const at = offsetNow();
     strip.panes.forEach((li, i) => {
       const l = loops.get(li);
-      if (l instanceof HTMLVideoElement && l.paused && panePlay(paneTop(strip.at[i], strip.units[i], at, unit, strip.total), strip.units[i] * unit, view, 1) === 'play') tryPlay(l);
+      if (l instanceof HTMLVideoElement && l.paused && panePlay(paneTop(strip.at[i], strip.units[i], at, unit, strip.total), strip.units[i] * unit, view, unit) === 'play') tryPlay(l);
     });
   };
   window.addEventListener('pointerdown', kick, { passive: true });

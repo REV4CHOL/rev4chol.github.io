@@ -279,17 +279,35 @@ describe('the rolling strip', () => {
     expect(capOpacity(600, 700, 500, 400)).toBe(1); // (no band to measure: whole)
   });
 
-  it('plays every pane on the screen and the next to come in; rests the near; lets the far go', () => {
-    expect(panePlay(0, VIEW, VIEW, 1)).toBe('play');
-    expect(panePlay(-VIEW / 2, VIEW, VIEW, 1)).toBe('play'); // (half out at the top)
-    expect(panePlay(VIEW / 2, VIEW, VIEW, 1)).toBe('play'); // (half in from below)
-    expect(panePlay(VIEW, VIEW, VIEW, 1)).toBe('play'); // (the next to come in, rolling on)
-    expect(panePlay(VIEW, VIEW, VIEW, -1)).toBe('rest'); // (… but not while the strip goes back)
-    expect(panePlay(-VIEW, VIEW, VIEW, -1)).toBe('play'); // (going back, the one above comes in)
-    expect(panePlay(-VIEW, VIEW, VIEW, 1)).toBe('rest');
-    expect(panePlay(2 * VIEW, VIEW, VIEW, 1)).toBe('rest');
-    expect(panePlay(3 * VIEW, VIEW, VIEW, 1)).toBe('free');
-    expect(panePlay(-3 * VIEW, VIEW, VIEW, 1)).toBe('free');
+  // (owner, 2026-11-24, on the design: the next pane starts as it enters, so three loops decode at most)
+  it('plays every pane on the screen; rests the panes within one unit of it, loaded; lets the far go', () => {
+    expect(panePlay(0, UNIT, VIEW, UNIT)).toBe('play');
+    expect(panePlay(UNIT, UNIT, VIEW, UNIT)).toBe('play'); // (the lower of the two)
+    expect(panePlay(1 - UNIT, UNIT, VIEW, UNIT)).toBe('play'); // (a pixel of it left at the top)
+    expect(panePlay(VIEW - 1, UNIT, VIEW, UNIT)).toBe('play'); // (a pixel in from below: it starts as it enters)
+    expect(panePlay(VIEW, UNIT, VIEW, UNIT)).toBe('rest'); // (the next to come in: loaded, paused)
+    expect(panePlay(-UNIT, UNIT, VIEW, UNIT)).toBe('rest'); // (the one that has just left)
+    expect(panePlay(VIEW + UNIT - 1, UNIT, VIEW, UNIT)).toBe('rest');
+    expect(panePlay(VIEW + UNIT, UNIT, VIEW, UNIT)).toBe('free');
+    expect(panePlay(-2 * UNIT, UNIT, VIEW, UNIT)).toBe('free');
+    expect(panePlay(0, VIEW, VIEW, UNIT)).toBe('play'); // (the tall pane, square in the screen)
+    expect(panePlay(VIEW, VIEW, VIEW, UNIT)).toBe('rest');
+    expect(panePlay(-VIEW - UNIT, VIEW, VIEW, UNIT)).toBe('free');
+    expect(panePlay(390, 390, 390, 390)).toBe('rest'); // (on its side a unit is the screen)
+    expect(panePlay(780, 390, 390, 390)).toBe('free');
+  });
+
+  it('never plays more than three loops, nor loads more than five, wherever the strip stands', () => {
+    for (const tall of CHAPTERS) for (const side of [false, true]) {
+      const { units, at, total, unit, view } = lay(tall, side);
+      for (let off = -total * unit; off <= 2 * total * unit; off += 13) {
+        const want = units.map((u, i) => panePlay(paneTop(at[i], u, off, unit, total), u * unit, view, unit));
+        const playing = want.filter((w) => w === 'play').length;
+        expect(playing, `${units} at ${off}`).toBeGreaterThanOrEqual(1);
+        expect(playing, `${units} at ${off}`).toBeLessThanOrEqual(3);
+        expect(want.filter((w) => w !== 'free').length, `${units} at ${off}`).toBeLessThanOrEqual(5);
+      }
+    }
   });
 });
 

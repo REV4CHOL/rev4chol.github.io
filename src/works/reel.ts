@@ -233,14 +233,14 @@ export function capKeyframes(u: number, unit: number, total: number, span: reado
 }
 
 export type PanePlay = 'play' | 'rest' | 'free';
-/** What a pane at `top` (px, `h` tall, on a screen `view` tall) does with its loop while the strip moves `dir`: on the
- *  screen, or the next to come in, it plays; within two screens it rests, loaded; further off it gives the video back. */
-export function panePlay(top: number, h: number, view: number, dir: number): PanePlay {
-  const bottom = top + h;
+/** What a pane does with its loop: `top` px down the screen and `height` px tall, on a screen `view` px tall, in a strip
+ *  whose unit is `unit` px. On the screen it plays. Within one unit of the screen it rests, loaded and paused, so the
+ *  next pane to come in starts the moment it enters (owner, 2026-11-24, on the design: three loops decode at most).
+ *  Further off it gives its video back. */
+export function panePlay(top: number, height: number, view: number, unit: number): PanePlay {
+  const bottom = top + height;
   if (bottom > 0 && top < view) return 'play';
-  if (dir >= 0 && top >= view && top < view + h) return 'play';
-  if (dir < 0 && bottom <= 0 && bottom > -h) return 'play';
-  if (top < view + 2 * h && bottom > -2 * h) return 'rest';
+  if (top < view + unit && bottom > -unit) return 'rest';
   return 'free';
 }
 
