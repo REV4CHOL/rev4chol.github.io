@@ -127,5 +127,18 @@ body.a3-touch-free .a3-lift { display: flex; }
   .a3-tod button::after { width: max(100%, min(44px, calc(100% + 12px))); }
 }
 
+/* THE HINT ON TOUCH (owner, 2026-11-24: "Make the hint line easier to read on touch screens"): at 70% bone it was
+   faint over the sky, and DAY is the brightest. Full bone ink on a veil of the page's own black with no edge to it (the
+   header's grammar: a fade, never a plate; the decree above holds): 84% dark behind the words, then a 16 px spread under
+   a 20 px blur, so it has faded out by 26 px beyond them and has no edge to read as a box. Over a pure white sky that leaves the words at 6:1 or
+   better. The line does not move: a shadow takes no room. A PC keeps its 70% ink and no veil. */
+@media (pointer: coarse) {
+  .a3-hint {
+    color: var(--bone);
+    background: rgba(6, 6, 6, 0.84); /* the line's own box: an outer shadow is never drawn under it */
+    box-shadow: 0 0 20px 16px rgba(6, 6, 6, 0.84);
+  }
+}
+
 /* the tour left the section: nothing scrolls here — the page is the windshield */
 body.page-about { overflow: hidden; touch-action: none; user-select: none; }

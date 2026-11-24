@@ -16,6 +16,16 @@ const block = (src: string, head: string) => {
   }
   throw new Error('unclosed ' + head);
 };
+/** WCAG relative luminance of an sRGB colour, and the contrast of two. */
+const lum = ([r, g, b]: number[]) => {
+  const f = (c: number) => ((c /= 255) <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+};
+const contrast = (a: number[], b: number[]) => {
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
 describe('ABOUT on a short screen: the name stands on the first screen beside the portrait (owner, 2026-11-24)', () => {
   const about = css('about');
   const HEAD = '@media (min-width: 761px) and (max-height: 899px) {';
@@ -57,5 +67,27 @@ describe("STORY's switches: a 44 px touch area, the look unchanged (owner, 2026-
     expect(story).toContain('.a3-fly button, .a3-tod button { min-height: 44px; display: inline-flex; align-items: center; }');
     expect(story).toContain('cursor: pointer; padding: 3px 2px;');
     expect(story.indexOf('@media (pointer: coarse) {\n  .a3-fly button')).toBeGreaterThan(story.indexOf('@media (max-width: 720px) {'));
+  });
+});
+
+describe("STORY's hint line on touch: readable over every sky (owner, 2026-11-24)", () => {
+  const story = css('story');
+  const rule = block(story, '@media (pointer: coarse) {\n  .a3-hint {');
+  it('full bone ink on a feathered veil of the page’s own black, on touch only, and the line does not move', () => {
+    expect(rule).toContain('color: var(--bone);');
+    expect(rule).toContain('background: rgba(6, 6, 6, 0.84);');
+    expect(rule).toMatch(/box-shadow: 0 0 20px 16px rgba\(6, 6, 6, 0\.84\);/);
+    expect(rule).not.toMatch(/top|left|translate|font-size|padding|margin/);
+  });
+  it('a fine pointer keeps today’s 70% ink, no veil', () => {
+    expect(story).toContain('color: color-mix(in srgb, var(--bone) 70%, transparent); letter-spacing: 0.16em; font-size: var(--t-xs);');
+    expect(story.indexOf('@media (pointer: coarse) {\n  .a3-hint {')).toBeGreaterThan(story.indexOf('.a3-hint { /*'));
+  });
+  it('holds 4.5:1 by construction: bone over even a pure white sky under a veil that is only 70% dark where the words stand (it is 84%)', () => {
+    const bone = [237, 237, 230];
+    const white = [255, 255, 255];
+    const a = 0.7; // the veil at its thinnest under the words (the feather's 20 px blur never drops below this inside the 16 px spread)
+    const behind = white.map((c, i) => c * (1 - a) + [6, 6, 6][i] * a);
+    expect(contrast(bone, behind)).toBeGreaterThan(4.5);
   });
 });
