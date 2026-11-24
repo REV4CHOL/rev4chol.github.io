@@ -9,7 +9,7 @@ import { scrambleEl } from '../lib/scramble';
 import { baselineOf, fillTitle, heroLockupSize, lockupHtml, runningTitle, settleLockup, splitTitle, zoomOf } from '../lib/title';
 import { music } from '../lib/music';
 import { sound } from '../lib/sound';
-import { hashSlug, stillSlotUrls, wallRhythm } from '../project/dossier';
+import { hashSlug, stillSlotUrls, wallRows } from '../project/dossier';
 import { fullscreenApi, plainReason } from '../project/frame-size';
 import { linkParts, startedByFocus } from '../project/parts';
 import { armBar, BigFilm, mountBig } from '../project/player-bar';
@@ -760,7 +760,7 @@ async function mountWall(p: Project): Promise<void> {
     return;
   }
 
-  for (const kind of wallRhythm(urls.length)) {
+  for (const kind of wallRows(urls.length, p.bigStills)) {
     const row = document.createElement('div');
     row.className = `p-row p-row-${kind}`;
     const take = kind === 'pair' ? 2 : 1;

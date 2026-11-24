@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { aspectRatio, isBlank, isPlaceholder, parseFloor, parseJson, parseProjects, parseSite } from '../src/lib/content';
@@ -6,7 +6,7 @@ import { loopCandidates } from '../src/home/loops';
 import { pickLoopFiles } from '../src/lib/loop-files';
 import { layoutProjects } from '../src/works/layout';
 import { stripName } from '../src/works/legend';
-import { wallRhythm } from '../src/project/dossier';
+import { wallRows } from '../src/project/dossier';
 
 const root = fileURLToPath(new URL('../public/content/', import.meta.url));
 const read = (f: string) => readFileSync(root + f, 'utf8');
@@ -485,13 +485,18 @@ describe('shipped content files', () => {
     const stills = readdirSync(`${dir}stills`).sort();
     expect(stills).toEqual(Array.from({ length: 18 }, (_, i) => `${String(i + 1).padStart(2, '0')}.jpg`));
     expect(1600 / 1200).toBeCloseTo(aspectRatio(p.aspect), 6);
-    // the owner's main pictures stand big: the wall's full rows of 18 stills are 05, 10, 15 and 18 (four), which carry
-    // Main0 to Main3; Main4 leads the wall at 01 (a pair). The others in the order of their numbers.
-    const rows = wallRhythm(18);
+    // the owner's five main pictures stand big, each in a full row: Main0 opens the wall at 01, then 06, 12, 15, and
+    // Main4 closes it at 18 (the film names its big stills; the 2-2-1 rhythm would give 18 stills only four full
+    // rows). The thirteen others pair up between them in the order of their numbers; one of thirteen is left alone,
+    // and stands in a full row of its own at 09.
+    expect(p.bigStills).toEqual([1, 6, 9, 12, 15, 18]);
+    const rows = wallRows(18, p.bigStills);
     const big: number[] = [];
     let at = 0;
     for (const kind of rows) { at += kind === 'pair' ? 2 : 1; if (kind === 'full') big.push(at); }
-    expect(big).toEqual([5, 10, 15, 18]);
+    expect(big).toEqual([1, 6, 9, 12, 15, 18]);
+    const size = (n: number) => statSync(`${dir}stills/${String(n).padStart(2, '0')}.jpg`).size;
+    expect([1, 6, 12, 15, 18].map(size)).toEqual([81346, 107526, 76908, 88365, 113988]); // Main0 … Main4
   });
 
   // the owner, 2026-11-24: "after all tasks done, upload these two to the COLORIST section"; asked with pictures the

@@ -515,6 +515,7 @@
     },
     "category": "machine",
     "tileSize": "normal",
+    "bigStills": [1, 6, 9, 12, 15, 18],
     "position": {
       "col": -1,
       "row": 1

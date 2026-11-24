@@ -58,6 +58,9 @@ export interface Project {
   /** a real film that will never be online (owner 2026-09-28, MIEN VIEN) — no player; the dossier says so instead */
   filmPrivate: boolean;
   stills: string[];
+  /** the stills that take a full row each on the film's wall, by their number in it, from 1 (owner, 2026-11-24, on
+   *  DEATHMAN's main pictures: "they are meant to be place in big pictures"); none: the 2-2-1 rhythm */
+  bigStills: number[];
   position: GridPos | null;
   /** where the picture's subject sits, "X% Y%" across then down (default "50% 50%", the middle): a phone's
    *  whole-screen pane crops the film around it (owner, 2026-10-20, on a focus point per film: "yes please") */
@@ -201,6 +204,10 @@ export function parseProject(raw: unknown, i: number): Project {
   if (!Array.isArray(stills) || stills.some((s) => typeof s !== 'string'))
     fail(file, `${where} stills must be an array of file names`);
 
+  const bigStills = r.bigStills ?? [];
+  if (!Array.isArray(bigStills) || bigStills.some((b) => typeof b !== 'number' || !Number.isInteger(b) || b < 1))
+    fail(file, `${where} bigStills must be an array of still numbers (1 is the first still)`);
+
   const creditsRaw = r.credits ?? [];
   if (!Array.isArray(creditsRaw)) fail(file, `${where} credits must be an array`);
   const credits = creditsRaw.map((c, ci) => {
@@ -260,6 +267,7 @@ export function parseProject(raw: unknown, i: number): Project {
     filmPending,
     filmPrivate,
     stills: stills as string[],
+    bigStills: bigStills as number[],
     position,
     focus,
   };

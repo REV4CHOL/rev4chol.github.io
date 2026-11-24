@@ -37,3 +37,25 @@ export function wallRhythm(n: number): ('pair' | 'full')[] {
   }
   return rows;
 }
+
+/** A film's own big stills (owner, 2026-11-24, DEATHMAN: "Notice the main.jpg, they are meant to be place in big
+ *  pictures for the stills"; the 2-2-1 rhythm gives 18 stills four full rows, and the film has five main pictures).
+ *  `big` names the stills (their numbers in the wall, from 1) that take a full row each; the others pair up in order
+ *  between them, and one left alone before a named still, or at the wall's end, takes a full row too. A film that
+ *  names none keeps the 2-2-1 rhythm. */
+export function wallRows(n: number, big: readonly number[] = []): ('pair' | 'full')[] {
+  const named = new Set(big.filter((b) => Number.isInteger(b) && b >= 1 && b <= n));
+  if (!named.size) return wallRhythm(n);
+  const rows: ('pair' | 'full')[] = [];
+  let i = 1;
+  while (i <= n) {
+    if (named.has(i) || i === n || named.has(i + 1)) {
+      rows.push('full');
+      i += 1;
+    } else {
+      rows.push('pair');
+      i += 2;
+    }
+  }
+  return rows;
+}

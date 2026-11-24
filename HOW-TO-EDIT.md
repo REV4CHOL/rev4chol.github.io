@@ -57,6 +57,7 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | credits | list of `{ "role": …, "name": … }` | |
 | film | where the full film lives — see below | |
 | stills | gallery file names, in order | `["01.jpg","02.jpg"]` |
+| bigStills | the stills that each take a full-width row on the film's wall, by their number in it (1 is `01.jpg`); the others pair up between them. Leave it out for the usual two, two, one rhythm | `[1, 6, 12]` |
 | position | leave out (auto layout) or pin a pane slot on the band: `{ "col": 4, "row": 0 }` = the 5th pane of the top row | |
 
 **film** is the player that stands under the film's synopsis, ready to play
