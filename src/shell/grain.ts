@@ -1,3 +1,4 @@
+import { dataUrlBytes } from '../lib/data-url';
 import { reducedMotion } from '../lib/env';
 import { grainIntervalFor, quality } from '../lib/quality';
 
@@ -33,8 +34,24 @@ export function mountAtmosphere(): void {
   grain.id = 'grain';
 
   // Pre-bake a short loop instead of regenerating ImageData every tick: the
-  // texture never scales, so a frame costs one background swap.
+  // texture never scales, so a frame costs one background swap. Each frame is
+  // named by a short blob: URL, the same PNG behind it (owner, 2026-11-25: "I am
+  // using phone. The performance when scrolling the Work section is super
+  // laggy"): as data: URLs, about 100 KB of text were parsed at every re-deal,
+  // some 3 ms a time on a slowed phone profile (measured).
+  // A frame keeps its data: URL until its blob: URL has loaded, so no re-deal
+  // ever waits on a load (and the first frame stands at once, as before).
   const frames = Array.from({ length: FRAMES }, () => noiseTile(60));
+  frames.forEach((data, i) => {
+    const { type, bytes } = dataUrlBytes(data);
+    if (!bytes.length) return;
+    try {
+      const url = URL.createObjectURL(new Blob([bytes], { type }));
+      const im = new Image();
+      im.onload = () => { frames[i] = url; };
+      im.src = url;
+    } catch { /* the data: URL stays */ }
+  });
   let f = 0;
   const apply = () => {
     grain.style.backgroundImage = `url(${frames[f]})`;
