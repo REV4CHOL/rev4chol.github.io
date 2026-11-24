@@ -181,10 +181,17 @@ const TIERS: Tier[] = [2, 1, 0];
 
 describe('the knobs by tier', () => {
   // (owner 2026-11-08: "I want almost all panes to load at once. Only panes at the far end not loaded until I drag the
-  //  view over them": a desktop's FULL and BALANCED play a whole chapter's 12, the window rule leaves the far ones)
-  it('live loops: 12 · 12 · 3 on a desktop, 4 · 3 · 2 on a tablet or a narrow window', () => {
-    expect(TIERS.map((t) => videoCapFor(t, false))).toEqual([12, 12, 3]);
+  //  view over them": a desktop's FULL and BALANCED play a whole chapter, the window rule leaves the far ones; 12 while
+  //  CH·01 held 12, 14 since THE LOVERS and XIÊU LÒNG joined it, 2026-11-24)
+  it('live loops: 14 · 14 · 3 on a desktop (a whole chapter), 4 · 3 · 2 on a tablet or a narrow window', () => {
+    expect(TIERS.map((t) => videoCapFor(t, false))).toEqual([14, 14, 3]);
     expect(TIERS.map((t) => videoCapFor(t, true))).toEqual([4, 3, 2]);
+  });
+
+  it("a desktop's FULL and BALANCED cap holds the largest chapter whole: it grows when a chapter does", () => {
+    const films = JSON.parse(readFileSync('public/content/projects.json', 'utf8')) as { category?: string }[];
+    const largest = Math.max(...['human', 'machine'].map((c) => films.filter((f) => (f.category ?? 'human') === c).length));
+    for (const t of [2, 1] as const) expect(videoCapFor(t, false)).toBeGreaterThanOrEqual(largest);
   });
 
   it('the canvas resolution: FULL as today (DPR ≤ 2, a phone ≤ 1.5), BALANCED ≤ 1.5 (a phone 1), LITE 1', () => {

@@ -162,7 +162,8 @@ describe('PlaybackManager', () => {
   });
 
   it('adopts an externally-woken tile into the lru and evicts once tracked elements overflow (I2 regression)', () => {
-    const fakes = Array.from({ length: 30 }, (_, i) => makeFakeTile(`ext${i}`, FAR + i, FAR + i));
+    // (enough tiles for maxElements + 5 rounds: 30 held while the cap was 12, 64 since it is 14, 2026-11-24)
+    const fakes = Array.from({ length: 64 }, (_, i) => makeFakeTile(`ext${i}`, FAR + i, FAR + i));
     const manager = new PlaybackManager(makeTiles(fakes));
     const rounds = manager.maxElements + 5;
 
