@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PlaybackManager } from '../src/works/playback';
+import { POINTED_RELEASE_MS, PlaybackManager, SLEEP_RELEASE_MS, releaseAfterMs, type PlaybackPolicy } from '../src/works/playback';
 import type { ViewRect } from '../src/works/priority';
 import type { ProjectTile, TileMode } from '../src/works/tile';
 
@@ -229,5 +229,128 @@ describe('PlaybackManager', () => {
 
     const totalReleases = fakes.reduce((n, f) => n + f.releaseCalls, 0);
     expect(totalReleases).toBeGreaterThan(0); // sanity: eviction was actually exercised
+  });
+});
+
+// THE FLOOR'S MODES (spec 2026-11-24-work-wall-video-design, §4.1, §4.7): the world hands the manager a policy. It
+// says how many panes may decode their own loop, which panes may at all, whether the floor is paused, and how long a
+// sleeping pane keeps its video.
+describe('PlaybackManager under a policy', () => {
+  /** a cap larger than any floor in these tests: every pane may play (the real number is lib/quality.ts's) */
+  const WHOLE = 99;
+  const policy = (over: Partial<PlaybackPolicy> = {}): PlaybackPolicy => ({
+    cap: () => WHOLE, mayPlay: () => true, paused: () => false, releaseAfter: () => SLEEP_RELEASE_MS, ...over,
+  });
+  const AWAY: ViewRect = { x: VIEW.x + FAR, y: VIEW.y + FAR, w: VIEW.w, h: VIEW.h };
+
+  it('a pane asleep 20 s gives its video back; one asleep 19 s keeps it', () => {
+    const a = makeFakeTile('a', 0, 0);
+    const manager = new PlaybackManager(makeTiles([a]), policy());
+    manager.update(VIEW, null, 0);
+    expect(a.hasVideo()).toBe(true);
+    manager.update(AWAY, null, 1000); // the view leaves: the pane sleeps, its video paused
+    expect(a.mode).toBe('sleep');
+    manager.update(AWAY, null, 20000); // 19 s asleep
+    expect(a.hasVideo()).toBe(true);
+    expect(a.releaseCalls).toBe(0);
+    manager.update(AWAY, null, 21000); // 20 s asleep
+    expect(a.hasVideo()).toBe(false);
+    expect(a.releaseCalls).toBe(1);
+    expect(getLru(manager)).not.toContain('a');
+  });
+
+  it('a pane that wakes again before its 20 s starts the count afresh', () => {
+    const a = makeFakeTile('a', 0, 0);
+    const manager = new PlaybackManager(makeTiles([a]), policy());
+    manager.update(VIEW, null, 0);
+    manager.update(AWAY, null, 1000);
+    manager.update(VIEW, null, 15000); // back in view
+    manager.update(AWAY, null, 16000);
+    manager.update(AWAY, null, 30000); // 14 s asleep this time
+    expect(a.releaseCalls).toBe(0);
+    manager.update(AWAY, null, 36000);
+    expect(a.releaseCalls).toBe(1);
+  });
+
+  it('the wait is the mode\'s: 20 s on a floor of own loops, 5 s for a loop beside the wall', () => {
+    expect(releaseAfterMs('own')).toBe(SLEEP_RELEASE_MS);
+    expect(releaseAfterMs('posters')).toBe(SLEEP_RELEASE_MS);
+    expect(releaseAfterMs('wall')).toBe(POINTED_RELEASE_MS);
+    expect(releaseAfterMs('wall-small')).toBe(POINTED_RELEASE_MS);
+    expect(releaseAfterMs('starved')).toBe(POINTED_RELEASE_MS);
+    expect([SLEEP_RELEASE_MS, POINTED_RELEASE_MS]).toEqual([20000, 5000]);
+    const a = makeFakeTile('a', 0, 0);
+    const manager = new PlaybackManager(makeTiles([a]), policy({ releaseAfter: () => POINTED_RELEASE_MS }));
+    manager.update(VIEW, 'a', 0); // pointed
+    manager.update(VIEW, null, 1000); // (in view still, and playing: nothing to release)
+    manager.update(AWAY, null, 2000);
+    manager.update(AWAY, null, 6900);
+    expect(a.releaseCalls).toBe(0);
+    manager.update(AWAY, null, 7000);
+    expect(a.releaseCalls).toBe(1);
+  });
+
+  it('no pane wakes while the floor is paused, however often it is asked', () => {
+    let paused = true;
+    const fakes = Array.from({ length: 6 }, (_, i) => makeFakeTile(`p${i}`, i * 10, 0));
+    const manager = new PlaybackManager(makeTiles(fakes), policy({ paused: () => paused }));
+    for (let i = 0; i < 5; i++) manager.update(HUGE_VIEW, 'p0', i * 1000); // a tier change, a pointer, a tick
+    expect(fakes.reduce((n, f) => n + f.wakeCalls, 0)).toBe(0);
+    paused = false;
+    manager.update(HUGE_VIEW, null, 6000);
+    expect(fakes.every((f) => f.mode === 'live')).toBe(true);
+  });
+
+  it('beside a wall only the pointed pane and the panes with no tile play their own loop, and they share the cap', () => {
+    const fakes = Array.from({ length: 8 }, (_, i) => makeFakeTile(`w${i}`, i * 10, 0));
+    const noTile = new Set(['w1', 'w2', 'w3', 'w4']);
+    const manager = new PlaybackManager(makeTiles(fakes), policy({ cap: () => 3, mayPlay: (slug) => noTile.has(slug) }));
+    manager.update(HUGE_VIEW, null, 0);
+    expect(fakes.filter((f) => f.mode === 'live').map((f) => f.project.slug)).toEqual(['w1', 'w2', 'w3']);
+    manager.update(HUGE_VIEW, 'w7', 1000); // the pointer comes over a pane that has a tile: its own loop plays too
+    expect(fakes.filter((f) => f.mode === 'live').map((f) => f.project.slug)).toEqual(['w1', 'w2', 'w7']);
+    expect(getLastSet(manager).size).toBe(3);
+  });
+
+  it('starved: only the pointed pane plays', () => {
+    const fakes = Array.from({ length: 5 }, (_, i) => makeFakeTile(`s${i}`, i * 10, 0));
+    const manager = new PlaybackManager(makeTiles(fakes), policy({ cap: () => 1, mayPlay: () => false }));
+    manager.update(HUGE_VIEW, null, 0);
+    expect(fakes.filter((f) => f.mode === 'live')).toHaveLength(0);
+    manager.update(HUGE_VIEW, 's3', 1000);
+    expect(fakes.filter((f) => f.mode === 'live').map((f) => f.project.slug)).toEqual(['s3']);
+  });
+
+  it('giving everything back: every video released, the pointed pane kept when asked', () => {
+    const fakes = Array.from({ length: 4 }, (_, i) => makeFakeTile(`r${i}`, i * 10, 0));
+    const manager = new PlaybackManager(makeTiles(fakes), policy());
+    manager.update(HUGE_VIEW, 'r2', 0);
+    manager.releaseAll('r2');
+    expect(fakes.map((f) => f.hasVideo())).toEqual([false, false, true, false]);
+    expect(getLru(manager)).toEqual(['r2']);
+    manager.releaseAll();
+    expect(fakes.some((f) => f.hasVideo())).toBe(false);
+    expect(getLru(manager)).toEqual([]);
+    expect(getLastSet(manager).size).toBe(0);
+  });
+
+  it('a change of mode gives back at once every video that is not playing', () => {
+    let cap = WHOLE;
+    const fakes = Array.from({ length: 6 }, (_, i) => makeFakeTile(`m${i}`, i * 10, 0));
+    const manager = new PlaybackManager(makeTiles(fakes), policy({ cap: () => cap, mayPlay: (slug) => cap === WHOLE || slug === 'none' }));
+    manager.update(HUGE_VIEW, 'm4', 0); // own loops: all six play
+    expect(fakes.every((f) => f.hasVideo())).toBe(true);
+    cap = 3; // the wall takes over: no pane but the pointed one may play
+    manager.update(HUGE_VIEW, 'm4', 1000);
+    manager.releaseIdle();
+    expect(fakes.map((f) => f.hasVideo())).toEqual([false, false, false, false, true, false]);
+    expect(fakes[4].mode, 'the pointed pane keeps its loop').toBe('live');
+  });
+
+  it('without a policy the manager is as it was: the tier\'s cap, every pane, never paused', () => {
+    const fakes = Array.from({ length: 3 }, (_, i) => makeFakeTile(`d${i}`, i * 10, 0));
+    const manager = new PlaybackManager(makeTiles(fakes));
+    manager.update(HUGE_VIEW, null);
+    expect(fakes.every((f) => f.mode === 'live')).toBe(true);
   });
 });
