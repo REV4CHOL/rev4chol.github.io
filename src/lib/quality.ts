@@ -29,8 +29,9 @@ export const SOFTWARE_GPU = /swiftshader|llvmpipe|software|microsoft basic rende
 /** An integrated part: Intel HD/UHD/Iris, an AMD APU. Strong enough for BALANCED; the governor may still climb. */
 const INTEGRATED_GPU = /\bintel\b.*\b(hd|uhd|iris)\b.*\bgraphics\b|radeon\(tm\) graphics|vega \d+ graphics/i;
 
-/** FULL by default on a desktop. BALANCED at most on a coarse pointer, on fewer than four cores or less than 4 GB, or
- *  on an integrated GPU. LITE on saveData or a 2g line (a visitor's own ask, or a line where nothing streams), or on
+/** FULL by default on a desktop. BALANCED at most on a coarse pointer, on four threads or fewer or 4 GB or less
+ *  (hardwareCeiling: `<= 4` since 2026-11-24, `< 4` let a 4 GB, four-thread laptop open at FULL), or on an
+ *  integrated GPU. LITE on saveData or a 2g line (a visitor's own ask, or a line where nothing streams), or on
  *  a software renderer. A line's speed otherwise says nothing about the GPU and never moves the tier: Chrome's
  *  `effectiveType` estimate read "3g" on this very PC against the live site (2026-09-28) while dev read "4g" — a
  *  rule on it opened the owner's own machine BALANCED. The loops are already rationed by the play set. */
@@ -38,9 +39,8 @@ export function startTier(dev: Device): Tier {
   let t: Tier = 2;
   const cap = (m: Tier) => { if (m < t) t = m; };
   if (dev.coarse) cap(1);
-  if ((dev.hardwareConcurrency ?? 8) < 4 || (dev.deviceMemory ?? 8) < 4) cap(1);
-  const c = dev.connection;
-  if (c && (c.saveData || c.effectiveType === '2g' || c.effectiveType === 'slow-2g')) cap(0);
+  if (hardwareCeiling(dev) < 2) cap(1);
+  if (dataSaver(dev)) cap(0);
   if (dev.gpu) {
     if (SOFTWARE_GPU.test(dev.gpu)) cap(0);
     else if (INTEGRATED_GPU.test(dev.gpu)) cap(1);
@@ -55,6 +55,39 @@ export function pinnedTier(search: string): Tier | null {
   const i = TIER_LABELS.indexOf(v.toLowerCase() as TierLabel);
   if (i >= 0) return i as Tier;
   return v === '0' || v === '1' || v === '2' ? (Number(v) as Tier) : null;
+}
+
+/* ------------------------------------------------------------------ the machine's class -- */
+
+/** The highest tier a device may ever reach: BALANCED for a machine that reports 4 GB of memory or less, or 4 threads
+ *  or fewer (owner 2026-11-24, of the old 4 GB laptop: "never pushed up to the heavy level"); FULL for any other. A
+ *  value the browser does not report says nothing. Worked out from the device at every start, never from storage. */
+export function hardwareCeiling(dev: Device): Tier {
+  const small =
+    (dev.deviceMemory !== undefined && dev.deviceMemory <= 4) ||
+    (dev.hardwareConcurrency !== undefined && dev.hardwareConcurrency <= 4);
+  return small ? 1 : 2;
+}
+
+/** THE WEAK CLASS (owner 2026-11-24: the combined video "for weak machines only", "8 GB or less"). A machine is weak
+ *  when it reports 8 GB of memory or less, or 4 threads or fewer, or its main pointer is coarse (a tablet; a phone
+ *  has its reel). The answer names the line that gave it. The class chooses the WORK floor's video (floorMode) and
+ *  caps no tier. Memory is read only where it is reported: Firefox and Safari report none, and a default of 8 would
+ *  make every one of their visitors weak. An old Chrome reports no value above 8, so a larger machine reads as weak
+ *  there. Worked out from the device at every start, never from storage. */
+export type WeakBy = 'memory' | 'threads' | 'pointer';
+export function weakBy(dev: Device): WeakBy | null {
+  if (dev.deviceMemory !== undefined && dev.deviceMemory <= 8) return 'memory';
+  if (dev.hardwareConcurrency !== undefined && dev.hardwareConcurrency <= 4) return 'threads';
+  if (dev.coarse) return 'pointer';
+  return null;
+}
+
+/** Save-Data, or a 2g line: the visitor asked for less data, or nothing streams. Opens LITE (startTier) and never
+ *  starts a wall video (floorMode). */
+export function dataSaver(dev: Device): boolean {
+  const c = dev.connection;
+  return !!c && (c.saveData === true || c.effectiveType === '2g' || c.effectiveType === 'slow-2g');
 }
 
 /* ---------------------------------------------------------------- the window's verdict -- */
@@ -187,6 +220,15 @@ export function saveState(session: KeyStore | null, local: KeyStore | null, g: G
   try { local?.setItem(DAY_KEY, JSON.stringify({ tier: g.tier, at: now })); } catch { /* private mode */ }
 }
 
+/** Where a page opens: the remembered tier and ceiling, both lowered to the device's hardware ceiling (`max`), so
+ *  what an earlier visit remembered cannot lift a small machine. A pin (`?gfx=`) wins over both. The governor never
+ *  raises a ceiling past the one it opened with (a closed ceiling reopens one step, back to where it was), so
+ *  lowering it here holds for the page's life. */
+export function openAt(st: State, max: Tier, pinned: Tier | null): { tier: Tier; ceiling: Tier } {
+  if (pinned !== null) return { tier: pinned, ceiling: pinned };
+  return { tier: Math.min(st.tier, max) as Tier, ceiling: Math.min(st.ceiling, max) as Tier };
+}
+
 /* ------------------------------------------------------------------------- the knobs -- */
 
 /** Live loops on the floor: 14 · 14 · 3 on a desktop, 4 · 3 · 2 on a tablet or a window under 820 px (a phone has its
@@ -216,6 +258,73 @@ export function maxFpsFor(tier: Tier): number {
 /** The grain's re-deal interval in ms; 0 = the layer is hidden. */
 export function grainIntervalFor(tier: Tier): number {
   return [0, 180, 90][tier];
+}
+
+/* -------------------------------------------------------------------- the floor's video -- */
+
+/** What the WORK floor plays (spec 2026-11-24-work-wall-video-design, §4.1):
+ *  - `own`: each pane its own loop, as since 2026-11-08;
+ *  - `wall`: every pane a tile of the chapter's one wall video (works/wall.ts);
+ *  - `wall-small`: the same from the half-size copy;
+ *  - `posters`: a wall is due and cannot play; the panes nearest the middle play their own loops;
+ *  - `starved`: the half-size copy cannot keep up either; only the pointed pane plays. */
+export type FloorMode = 'own' | 'wall' | 'wall-small' | 'posters' | 'starved';
+
+/** What the wall's own watch has found this session (works/wall-watch.ts): the full-size video keeps up (`ok`), only
+ *  the half-size copy may be tried (`small`), or neither does (`starved`). */
+export type WallVerdict = 'ok' | 'small' | 'starved';
+
+export interface FloorFacts {
+  tier: Tier;
+  /** the weak class (weakBy), before the pin is read */
+  weak: boolean;
+  pinned: Tier | null;
+  /** Save-Data or a 2g line (dataSaver) */
+  dataSaver: boolean;
+  /** the chapter has a wall video that may be tried: listed in the manifest, and not failed this session */
+  wall: boolean;
+  /** …and a half-size copy of it */
+  small: boolean;
+  /** the panes' own loops failed their health watch, in this visit or within a day. Ship B sets it; until then false */
+  loopsFailed: boolean;
+  /** the floor lost its WebGL context in this visit. Ship B sets it; until then false */
+  contextLost: boolean;
+  verdict: WallVerdict;
+}
+
+/** The floor's mode, in the spec's four steps. A pinned page takes step 1 from the pinned tier, where a pin of FULL
+ *  also sets the class aside (the owner's switch for the floor as it was: every pane's own loop on any machine); it keeps
+ *  step 3 and skips steps 2 and 4, so it obeys neither watch and ignores what an earlier visit remembered. */
+export function floorMode(f: FloorFacts): FloorMode {
+  const pinned = f.pinned !== null;
+  const tier = f.pinned ?? f.tier;
+  // 1. the class and the tier: a weak machine plays the wall at every tier, any other at LITE
+  let due = (f.weak && f.pinned !== 2) || tier === 0;
+  // 2. own loops that starved, or a lost context, make the wall due
+  if (!pinned && (f.loopsFailed || f.contextLost)) due = true;
+  if (!due) return 'own';
+  // 3. a wall that is due and cannot play
+  if (f.dataSaver || !f.wall) return 'posters';
+  // 4. a wall that plays follows its own watch
+  const verdict = pinned ? 'ok' : f.verdict;
+  if (verdict === 'starved') return 'starved';
+  if (verdict === 'small') return f.small ? 'wall-small' : 'posters';
+  return 'wall';
+}
+
+/** The mode after the tier moved under a standing floor. A step up changes no video until the floor is next built,
+ *  so no machine downloads the wall and then a chapter of loops in one view; a step down switches at once. `f` holds
+ *  the new tier. */
+export function modeAfterTierChange(current: FloorMode, before: Tier, after: Tier, f: FloorFacts): FloorMode {
+  return after > before ? current : floorMode(f);
+}
+
+/** How many panes may decode their own loop: `own` takes videoCapFor as it is; beside a wall, and in `posters`, the
+ *  smaller of it and 3; `starved` leaves the pointed pane alone. */
+export function ownLoopCap(mode: FloorMode, tier: Tier, narrow: boolean): number {
+  if (mode === 'starved') return 1;
+  const cap = videoCapFor(tier, narrow);
+  return mode === 'own' ? cap : Math.min(cap, 3);
 }
 
 /* ------------------------------------------------------------------- the live governor -- */
@@ -258,9 +367,23 @@ class Quality {
   private governed = false;
   private session: KeyStore | null = null;
   private local: KeyStore | null = null;
+  /** the device as read at start(); before it, a machine that reports nothing */
+  private dev: Device = { coarse: false };
+  private pin: Tier | null = null;
 
   tier(): Tier { return this.t; }
   label(): TierLabel { return TIER_LABELS[this.t]; }
+  /** the address's pin (`?gfx=`), or null: a pinned page is measured and obeys no watch */
+  pinned(): Tier | null { return this.pin; }
+
+  /** The ladder's half of the floor's facts; the floor adds the wall's (works/world.ts). The health flag and a lost
+   *  context arrive with ship B: until then neither is ever set. */
+  floorFacts(wall: Pick<FloorFacts, 'wall' | 'small' | 'verdict'>): FloorFacts {
+    return {
+      tier: this.t, weak: weakBy(this.dev) !== null, pinned: this.pin, dataSaver: dataSaver(this.dev),
+      loopsFailed: false, contextLost: false, ...wall,
+    };
+  }
 
   /** Hear every change; returns the unsubscribe. */
   on(cb: Listener): () => void {
@@ -289,8 +412,12 @@ class Quality {
     this.local = storeOr(() => localStorage);
     const now = performance.now();
     const pinned = pinnedTier(location.search);
-    const st = restoreState(this.session, this.local, Date.now(), startTier(readDevice()));
-    this.g = newGovernor(pinned ?? st.tier, pinned ?? st.ceiling, now, st.downs);
+    this.pin = pinned;
+    this.dev = readDevice();
+    const st = restoreState(this.session, this.local, Date.now(), startTier(this.dev));
+    // (the hardware ceiling and the class are read from the device here, at every start, and never from storage)
+    const open = openAt(st, hardwareCeiling(this.dev), pinned);
+    this.g = newGovernor(open.tier, open.ceiling, now, st.downs);
     this.apply(this.g.tier);
     saveState(this.session, this.local, this.g, Date.now());
     const g = this.g;
