@@ -10,6 +10,16 @@ export const COLUMN = 1192;
 export const MARGIN_MIN = 80;
 /** Under this many, a margin carries its hardware alone: the machines need the room. */
 export const MACHINES_MIN = 300;
+/** A LAPTOP'S COLUMN (owner, 2026-11-24: on "the Macbook laptops, windows laptops" the machines were not showing; the
+ *  owner's choice, B): on a plate under 1,792 the column narrows just enough to leave each margin MACHINES_MIN, down
+ *  to 840 at the poster lock's 1,440 (the rows 768, each its name over its details: components.css). 1,792 and wider
+ *  keep the 1,192 as they were; so does a plate under a laptop's (1,439 lets a zoomed 1,440 read 1,439.99). */
+export const COLUMN_MIN = 840;
+export const columnFor = (plateW: number): number =>
+  plateW < COLUMN_MIN + 2 * MACHINES_MIN - 1 ? COLUMN : Math.max(COLUMN_MIN, Math.min(COLUMN, plateW - 2 * MACHINES_MIN));
+/** The list's rows stand narrowed (`html.rvl-list-tight`) on a fine pointer whose plate narrows the column: decided by
+ *  the plate alone, never the tier, so one device always reads one layout. A touch screen builds no city: never. */
+export const listTight = (plateW: number, fine: boolean): boolean => fine && columnFor(plateW) < COLUMN;
 /** The header's rows and the HUD's, plate px: the margins' contents stand between. */
 export const TOP = 168, BOTTOM = 72;
 
@@ -42,7 +52,9 @@ const TAG_H = 26, CUE_H = 34, LABELS_MIN = 176, MACHINE_MAX = 460;
 
 /** Where a margin's hardware and machines stand on a plate `plateW` × `plateH`, or null when the margin is too narrow. */
 export function sideLayout(plateW: number, plateH: number, side: 'left' | 'right'): Side | null {
-  const margin = Math.floor((plateW - COLUMN) / 2);
+  // (a narrowed column leaves MACHINES_MIN a side by construction: rounded, so a zoomed 1,439.99 keeps its machines)
+  const column = columnFor(plateW);
+  const margin = column < COLUMN ? Math.round((plateW - column) / 2) : Math.floor((plateW - COLUMN) / 2);
   if (margin < MARGIN_MIN) return null;
   const left = side === 'left';
   const span: [number, number] = left ? [0, margin] : [plateW - margin, plateW];

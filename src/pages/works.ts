@@ -9,6 +9,7 @@ import { startPage } from '../shell/page';
 import { CHANNELS, ChannelKey, channelFromSearch, channelProjects } from '../works/channels';
 import { chapterTabLabel, listGroups, searchForView, toggleText, viewFromSearch, type WorkView } from '../works/index-list';
 import { floorOpened, legendText } from '../works/legend';
+import { listTight } from '../works/list-art';
 import { mountWorksOverlay } from '../works/overlay';
 import { REEL_QUERY } from '../works/reel';
 import { mountReel, type Reel } from '../works/reel-view';
@@ -28,6 +29,13 @@ startPage(
     // is when pressing any text or buttons in the work section. No SFX when scrolling pls its too much", then "that
     // quiet only go with PHONE" — the floor on a tablet or a desktop keeps its blips)
     if (reelOn) document.body.dataset.sfx = 'press';
+    // A LAPTOP'S LIST (owner, 2026-11-24; works/list-art.ts columnFor): under a 1,792 plate THE LIST's column narrows,
+    // each row its name over its details, so the side machines fit. Set here, the plate and the pointer known and the
+    // list not yet drawn, from the plate alone (never the tier: one device, one layout); a monitor hop sets it again
+    const tight = () => document.documentElement.classList
+      .toggle('rvl-list-tight', listTight(window.innerWidth / posterZoom(), !reelOn && finePointer()));
+    tight();
+    window.addEventListener('resize', tight);
     const projects = await loadProjects();
     const floor = reelOn ? [] : await loadFloor(); // the films AND the held places, in json order
     await loadLoopManifest(); // tiles build their loop chains synchronously

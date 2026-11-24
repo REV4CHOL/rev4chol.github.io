@@ -809,6 +809,23 @@
 html.rvl-list-city .film-list {
   background: linear-gradient(90deg, transparent calc(50% - 596px), var(--void) calc(50% - 596px) calc(50% + 596px), transparent calc(50% + 596px));
 }
+/* A LAPTOP'S LIST (owner, 2026-11-24: on "the Macbook laptops, windows laptops" the side animation "is not showing up";
+   the owner's choice, B). Under a 1,792 plate the column narrows to leave each margin 300 plate px for its machines,
+   down to 840 at 1,440 (works/list-art.ts columnFor holds the same numbers; tests/list-art.test.ts ties them), and a
+   row stands its name over its details so the name keeps its width. The page sets the class from the plate alone,
+   before the list is first drawn (pages/works.ts); the band follows it only with a city built. */
+html.rvl-list-city.rvl-list-tight .film-list {
+  background: linear-gradient(90deg, transparent calc(50% - clamp(420px, 50% - 300px, 596px)), var(--void) calc(50% - clamp(420px, 50% - 300px, 596px)) calc(50% + clamp(420px, 50% - 300px, 596px)), transparent calc(50% + clamp(420px, 50% - 300px, 596px)));
+}
+html.rvl-list-tight .fl-group { max-width: clamp(768px, 100% - 616px, 1120px); }
+html.rvl-list-tight .fl-row {
+  grid-template-columns: 128px minmax(0, 1fr) auto; grid-template-areas: 'thumb title open' 'thumb meta open';
+  gap: 6px 22px; padding-top: 12px; padding-bottom: 12px;
+}
+html.rvl-list-tight .fl-thumb { grid-area: thumb; }
+html.rvl-list-tight .fl-title { grid-area: title; align-self: end; }
+html.rvl-list-tight .fl-meta { grid-area: meta; align-self: start; }
+html.rvl-list-tight .fl-open { grid-area: open; }
 #list-deco { position: fixed; inset: 0; z-index: 905; pointer-events: none; overflow: hidden; }
 #list-deco[hidden], .works-main:not(.is-list) #list-deco { display: none; }
 .ld-layer { position: absolute; left: 0; top: 0; image-rendering: pixelated; }

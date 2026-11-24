@@ -12,13 +12,14 @@
  *  black is the list's own CSS band: nothing here is ever under a title.
  *
  *  Everything steps twelve times a second. A margin under 80 plate px (a phone, a tablet) builds nothing; under 300 it
- *  keeps the city and the hardware but no machines. CALM draws one still frame; the LITE tier draws the city's still
- *  and no machines; the list's closing, or a hidden tab, stops it all. */
+ *  keeps the city and the hardware but no machines. A laptop's plate (under 1,792) narrows the column to leave its
+ *  margins 300 (works/list-art.ts columnFor; 2026-11-24): the page sets that layout, never this. CALM draws one still
+ *  frame; the LITE tier draws the city's still and no machines; the list's closing, or a hidden tab, stops it all. */
 import { isMobile, reducedMotion } from '../lib/env';
 import { posterZoom } from '../lib/poster-lock';
 import { quality } from '../lib/quality';
 import { sessionTag } from '../shell/session-tag';
-import { COLUMN, conduitRun, Side, sideLayout, SPINES, TAGS } from './list-art';
+import { columnFor, conduitRun, Side, sideLayout, SPINES, TAGS } from './list-art';
 import type { Anchor, MachineFilm, Machines, Stage } from './list-machines';
 import { cueAt } from './machines';
 import {
@@ -79,7 +80,7 @@ export function mountListDeco(listEl: HTMLElement, films: MachineFilm[]): ListDe
     const W = Math.ceil(dw / D), H = Math.ceil(dh / D);
     for (const c of [city, gl, inkC]) { c.style.width = `${(W * D) / (Z * DPR)}px`; c.style.height = `${(H * D) / (Z * DPR)}px`; }
     city.width = inkC.width = W; city.height = inkC.height = H;
-    const cx = W / 2, hw = ((COLUMN / 2) * Z * DPR) / D;
+    const cx = W / 2, hw = ((columnFor(plateW) / 2) * Z * DPR) / D;
     plan = planCity(SEED, W, H, [Math.round(cx - hw), Math.round(cx + hw)]);
     paintLayers(plan);
     for (const s of sides) buildHardware(s);
