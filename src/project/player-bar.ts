@@ -11,6 +11,9 @@
  *  - Once the player says it has started, a clear catcher covers the picture: a press plays or pauses, a double press
  *    goes fullscreen. Paused, nothing of the site's is drawn over the picture.
  *  - The bar stands under the picture in the page; in fullscreen it lies over the picture's foot and hides when idle.
+ *  - At a film's first start, in Chrome's engine, the film is held (project/hold.ts): silenced and covered while the
+ *    player moves up to its level, then loaded again and uncovered, sharp from its first frame. The one time the page
+ *    paints over the player (owner, 2026-11-25: "Wait, then start sharp").
  *  - The bar is trusted only once the player has answered the page; a player silent HANDSHAKE_MS after its load,
  *    counted only while the page is seen, is swapped for the plain frame with YouTube's own controls (Safari and
  *    every browser that could not be tested). That swap is the ONLY way a film that got this player loses it, and it
@@ -18,6 +21,7 @@
 
 import type { PartInfo, Programme } from './parts';
 import { bigFrame } from './frame-size';
+import { Hold, holdAsked, holdCommands, holdNext, holdSaid, holdSee, holdStart, holdWanted, silenceLeft, silenceNote } from './hold';
 import type { PlayerRecord } from '../lib/player-record';
 import { posterZoom } from '../lib/poster-lock';
 
@@ -43,13 +47,15 @@ export function timeText(s: number): string {
 
 /* ------------------------------------------------------------------------------------------------- the states -- */
 
-export type Phase = 'waiting' | 'resting' | 'playing' | 'paused' | 'ended';
+export type Phase = 'waiting' | 'resting' | 'holding' | 'playing' | 'paused' | 'ended';
 
 /** waiting: the player has not answered (nothing of the bar is trusted yet); resting: answered, never started;
+ *  holding: started, and held under the cover until it starts over at its level (project/hold.ts);
  *  then playing (or buffering), paused, ended. */
-export function phaseOf(talks: boolean, info: PartInfo): Phase {
+export function phaseOf(talks: boolean, info: PartInfo, holding = false): Phase {
   if (!talks) return 'waiting';
   if (!info.started) return 'resting';
+  if (holding) return 'holding';
   if (info.state === 0) return 'ended';
   if (info.state === 1 || info.state === 3) return 'playing';
   return 'paused';
@@ -76,6 +82,8 @@ export interface BarView {
   mark: boolean;
   /** the clear catcher over the picture */
   catcher: boolean;
+  /** the hold's cover over the picture (project/hold.ts) */
+  hold: boolean;
 }
 
 /** Where the film stands in seconds: the last time said, run on while it plays (`now`: performance.now). */
@@ -87,8 +95,8 @@ export function elapsed(info: PartInfo, now?: number): number {
 
 /** `captions.track`: the language of a track this film's player has offered (as the page knows it, see knownTrack);
  *  `captions.cc`: the visitor turned captions on (the player echoes no captions change: the page's own word). */
-export function barView(talks: boolean, info: PartInfo, now?: number, captions: { track?: string | null; cc?: boolean } = {}): BarView {
-  const phase = phaseOf(talks, info);
+export function barView(talks: boolean, info: PartInfo, now?: number, captions: { track?: string | null; cc?: boolean } = {}, holding = false): BarView {
+  const phase = phaseOf(talks, info, holding);
   const live = phase === 'playing' || phase === 'paused' || phase === 'ended';
   const dur = info.duration > 0 ? info.duration : 0;
   const t = elapsed(info, now);
@@ -98,10 +106,11 @@ export function barView(talks: boolean, info: PartInfo, now?: number, captions: 
     phase,
     play:
       phase === 'playing' ? { label: 'PAUSE', aria: 'Pause' }
+      : phase === 'holding' ? { label: 'LOADING', aria: 'Loading the film' }
       : phase === 'ended' ? { label: 'AGAIN', aria: 'Play again' }
       : { label: 'PLAY', aria: 'Play' },
     time: live && dur ? { elapsed: timeText(t), total: timeText(dur) } : null,
-    progress: dur ? Math.min(1, Math.max(0, t / dur)) : 0,
+    progress: dur && phase !== 'holding' ? Math.min(1, Math.max(0, t / dur)) : 0,
     loaded: live && dur && info.loaded !== null ? Math.min(1, Math.max(0, info.loaded)) : null,
     seekable: live && dur > 0,
     sound: info.muted ? { label: 'SOUND OFF', aria: 'Unmute', pressed: false } : { label: 'SOUND ON', aria: 'Mute', pressed: true },
@@ -112,6 +121,7 @@ export function barView(talks: boolean, info: PartInfo, now?: number, captions: 
     level: live ? levelLabel(info.level) : null,
     mark: phase === 'resting',
     catcher: live,
+    hold: phase === 'holding',
   };
 }
 
@@ -274,6 +284,8 @@ export interface BigFilm {
   frame: HTMLIFrameElement;
   mark: HTMLElement;
   catcher: HTMLElement;
+  /** the hold's cover (project/hold.ts) */
+  hold: HTMLElement;
   bar: HTMLElement;
   /** the address of the plain player, with YouTube's own controls (the handshake's fallback) */
   plainSrc: string;
@@ -309,7 +321,7 @@ const NO_SIZE = 'ITS BOX HAS NO SIZE YET';
  *  stands: a box without a size yet, or one that needs no larger frame, keeps the site's player all the same (until
  *  2026-11-24 it gave the film YouTube's own player for the whole visit: measured, a page loaded in a tab that was
  *  not laid out yet). */
-export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { plainSrc: string; accent: string; ratio: number; record?: PlayerRecord | null }): BigFilm {
+export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { plainSrc: string; accent: string; ratio: number; record?: PlayerRecord | null; poster?: string }): BigFilm {
   const root = document.createElement('div');
   root.className = 'p-film';
   root.dataset.phase = 'waiting';
@@ -325,7 +337,14 @@ export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { pl
   catcher.className = 'p-film-catch';
   catcher.tabIndex = -1;
   catcher.hidden = true;
-  pic.append(frame, mark, catcher);
+  // THE HOLD'S COVER: the film's own poster, dimmed, and a mark that says the film is loading (hidden until a hold)
+  const hold = document.createElement('div');
+  hold.className = 'p-film-hold';
+  hold.hidden = true;
+  hold.setAttribute('role', 'status');
+  if (opts.poster) hold.style.setProperty('--hold-pic', `url("${opts.poster}")`);
+  hold.innerHTML = '<span class="p-film-hold-mark"><span>LOADING</span><span class="p-film-hold-dots" aria-hidden="true"><i></i><i></i><i></i></span></span>';
+  pic.append(frame, mark, catcher, hold);
   const bar = document.createElement('div');
   bar.className = 'p-bar';
   bar.setAttribute('role', 'group');
@@ -345,12 +364,12 @@ export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { pl
   const record = opts.record ?? null;
   const said = fitFrame(pic, frame, opts.ratio);
   if (record) record.frame = said ?? NO_SIZE;
-  return { root, pic, frame, mark, catcher, bar, plainSrc: opts.plainSrc, ratio: opts.ratio, record };
+  return { root, pic, frame, mark, catcher, hold, bar, plainSrc: opts.plainSrc, ratio: opts.ratio, record };
 }
 
 /** Wire a big film's bar to the programme: the frame's fit, the handshake, the presses, the keys, fullscreen. */
 export function armBar(film: BigFilm, programme: Programme): void {
-  const { root, pic, frame, mark, catcher, bar, record } = film;
+  const { root, pic, frame, mark, catcher, hold: cover, bar, record } = film;
   const q = <T extends HTMLElement>(s: string) => bar.querySelector<T>(s)!;
   const playBtn = q<HTMLButtonElement>('.p-bar-play'), soundBtn = q<HTMLButtonElement>('.p-bar-sound'), fullBtn = q<HTMLButtonElement>('.p-bar-full');
   const timeEl = q('.p-bar-time'), elEl = q('.p-bar-el'), totEl = q('.p-bar-tot'), seek = q('.p-bar-seek'), levelEl = q('.p-bar-level');
@@ -386,6 +405,18 @@ export function armBar(film: BigFilm, programme: Programme): void {
   const send = (func: string, args: unknown[] = []) => programme.send(frame, func, args);
   const fs = () => fsElement() === root;
 
+  // THE HOLD (project/hold.ts): `held` while the film waits under the cover; `holds`: this browser holds at all
+  const holds = holdWanted(navigator.userAgent, location.search);
+  let held: Hold | null = null;
+  let heldAt = 0;
+  let holdTimer = 0;
+  let soundDue = 0; // the page has given the sound back: the bar says so until the player does, or this time passes
+  let notes: Storage | null = null;
+  try { notes = window.localStorage; } catch { /* no note */ }
+  // a hold of an earlier visit that ended without giving the sound back: given back as this player answers
+  let soundOwed = holds && silenceLeft(notes);
+  if (record && record.kind === 'site') record.hold = holds ? 'HOLDS ITS FIRST START' : 'NO HOLD IN THIS BROWSER';
+
   // a button is written only when what it says changes: rewritten under a press (the time runs four times a second),
   // the press's target left the page between its down and its up, and the click was lost (measured)
   const put = (btn: HTMLButtonElement, aria: string, icon: string, word: string) => {
@@ -397,19 +428,23 @@ export function armBar(film: BigFilm, programme: Programme): void {
   };
   const paint = () => {
     if (plain) return;
-    const i = info();
-    view = barView(programme.talks(frame), i, now(), { track, cc: ccOn });
+    // (while the film is held, and for a moment after its sound is given back, the bar shows the sound as the visitor
+    // left it, not the page's own silence)
+    const i = (held && held.silenced) || now() < soundDue ? { ...info(), muted: false } : info();
+    view = barView(programme.talks(frame), i, now(), { track, cc: ccOn }, held !== null);
     root.dataset.phase = view.phase;
     mark.hidden = !view.mark;
     catcher.hidden = !view.catcher;
-    // the site's own cursor stands over the catcher (shell/cursor.ts steps aside only from a frame nothing covers)
-    frame.toggleAttribute('data-covered', view.catcher);
+    cover.hidden = !view.hold;
+    // the site's own cursor stands over the catcher and the cover (shell/cursor.ts steps aside only from a frame
+    // nothing covers)
+    frame.toggleAttribute('data-covered', view.catcher || view.hold);
     put(playBtn, view.play.aria, view.phase === 'playing' ? 'pause' : view.phase === 'ended' ? 'again' : 'play', view.play.label);
     const dur = i.duration > 0 ? i.duration : 0;
     let t = elapsed(i, now());
     if (shown && now() < shown.until && Math.abs(t - shown.t) > 1.5) t = shown.t;
     else shown = null;
-    const p = drag ?? (dur ? Math.min(1, t / dur) : 0);
+    const p = view.hold ? 0 : drag ?? (dur ? Math.min(1, t / dur) : 0); // (held: the rail stands at the start)
     timeEl.hidden = !view.time;
     if (view.time) {
       elEl.textContent = timeText(drag !== null ? drag * dur : t);
@@ -458,8 +493,16 @@ export function armBar(film: BigFilm, programme: Programme): void {
     // the record: how long after its frame's load the player first answered the page
     if (talks && !answered && record) record.why = `ANSWERED ${Math.round(now() - loadedAt)} MS AFTER ITS LOAD`;
     answered = talks;
-    if (i.started && !wasStarted && document.activeElement === frame) catcher.focus({ preventScroll: true });
+    // the sound a hold of an earlier visit left taken (the visitor left in the middle of the wait)
+    if (soundOwed && talks && !i.started && i.muted) {
+      soundOwed = false;
+      send('unMute');
+      silenceNote(notes, false);
+    }
+    if (i.started && !wasStarted) beginHold(i);
+    if (i.started && !wasStarted && !held && document.activeElement === frame) catcher.focus({ preventScroll: true });
     wasStarted = i.started;
+    if (held) stepHold();
     // each load of the player's captions module (the start, a replay, a new document) is answered with the visitor's
     // choice: off unless they turned them on (owner, 2026-11-24: "Turn YouTube's captions off on every film, so no
     // caption box ever appears over the picture")
@@ -476,6 +519,61 @@ export function armBar(film: BigFilm, programme: Programme): void {
     if (view.phase !== before) wake();
   });
 
+  // THE HOLD, step by step: the wait begins at the film's first start (silenced, covered), the player's every word
+  // and a clock move it on, and it ends with the film uncovered as it starts over
+  const filmId = () => /\/embed\/([^?/#]+)/.exec(frame.src)?.[1] ?? '';
+  let pressedOn = false; // the visitor pressed the cover: the keys are theirs once it lifts
+  const endHold = () => {
+    held = null;
+    clearInterval(holdTimer);
+    holdTimer = 0;
+    silenceNote(notes, false);
+    paint(); // (the catcher stands again)
+    // the keys come to the catcher from here on (the press that started the film was inside the frame)
+    if (pressedOn || document.activeElement === frame) catcher.focus({ preventScroll: true });
+    pressedOn = false;
+  };
+  const askAgain = (ask: 'reload' | 'restart', how: 'reload' | 'restart' | 'skip') => {
+    if (!held) return;
+    if (record && record.kind === 'site') record.hold = holdSaid(how, now() - heldAt, held.level);
+    for (const [func, args] of holdCommands(ask, filmId(), held.silenced)) send(func, args);
+    silenceNote(notes, false);
+    if (held.silenced) soundDue = now() + 1500;
+    held = holdAsked(held, now());
+  };
+  function stepHold(): void {
+    if (!held) return;
+    held = holdSee(held, info(), now());
+    const ask = holdNext(held, info(), now());
+    if (ask === 'reload' || ask === 'restart') askAgain(ask, ask);
+    else if (ask === 'release') endHold();
+    paint();
+  }
+  function beginHold(i: PartInfo): void {
+    if (plain || !holds) return;
+    held = holdStart(i, now());
+    heldAt = now();
+    // (a player still muted by a hold the visitor left: that silence is the page's too)
+    if (soundOwed && i.muted) held = { ...held, silenced: true };
+    soundOwed = false;
+    if (held.silenced) {
+      silenceNote(notes, true);
+      send('mute');
+    }
+    holdTimer = window.setInterval(stepHold, 150);
+  }
+  // a press on the cover, or on the bar's button, does not wait: the film starts over now, from what is loaded
+  const skipHold = () => {
+    if (!held) return;
+    if (held.step === 'waiting') askAgain('restart', 'skip');
+    else endHold();
+    paint();
+  };
+  cover.addEventListener('click', () => {
+    pressedOn = true;
+    skipHold();
+  });
+
   // a seek back makes the loaded fraction the player last said stale (loadedBand); one forward leaves an earlier one
   const markSeek = (t: number) => {
     const i = info();
@@ -486,11 +584,13 @@ export function armBar(film: BigFilm, programme: Programme): void {
   };
   const toggle = () => {
     const ph = view.phase;
-    if (ph === 'playing') send('pauseVideo');
+    if (ph === 'holding') skipHold();
+    else if (ph === 'playing') send('pauseVideo');
     else if (ph === 'ended') { markSeek(0); send('seekTo', [0, true]); send('playVideo'); }
     else if (ph !== 'waiting') send('playVideo');
   };
-  const toggleSound = () => send(info().muted ? 'unMute' : 'mute');
+  // (while the film is held its sound is the page's: the switch and the slider wait)
+  const toggleSound = () => { if (!held) send(info().muted ? 'unMute' : 'mute'); };
   const toggleCc = () => {
     if (!track) return;
     ccOn = !ccOn;
@@ -498,6 +598,7 @@ export function armBar(film: BigFilm, programme: Programme): void {
     paint();
   };
   const setVolume = (v: number) => {
+    if (held) return;
     for (const [func, args] of volumeCommands(v, info().muted)) send(func, args);
     volShown = { v: Math.round(v), until: now() + 1500 };
     paint();
@@ -668,6 +769,10 @@ export function armBar(film: BigFilm, programme: Programme): void {
       record.frame = null;
     }
     unwatch();
+    clearInterval(holdTimer);
+    held = null;
+    cover.hidden = true;
+    if (record) record.hold = null;
     ro?.disconnect();
     window.removeEventListener('resize', fit);
     document.removeEventListener('fullscreenchange', onFs);

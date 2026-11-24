@@ -407,7 +407,11 @@ function youTubeIn(host: HTMLElement, film: FilmRef, title: string, p: Project, 
   const why = plainWhy(film);
   if (why === null) {
     const record = recordPlayer(name, 'site', 'WAITING FOR ITS FRAME');
-    const big = mountBig(host, frameFor(embedSrc(film, { autoplay: false, origin: location.origin, controls: false })!, title), { plainSrc, accent: p.accent, ratio: aspectRatio(p.aspect), record });
+    const big = mountBig(host, frameFor(embedSrc(film, { autoplay: false, origin: location.origin, controls: false })!, title), {
+      plainSrc, accent: p.accent, ratio: aspectRatio(p.aspect), record,
+      // the hold's cover (project/hold.ts): the film's own poster; a film in parts has one poster for all, so none
+      poster: name === 'FILM' ? projectAssetUrl(p.slug, 'poster.jpg') : undefined,
+    });
     out.bigs.push(big);
     return big.frame;
   }

@@ -14,13 +14,15 @@ export interface PlayerRecord {
   why: string;
   /** the big frame's layout as it stands; null for a platform's own player */
   frame: string | null;
+  /** the hold at the film's first start (project/hold.ts): where it runs, then how it went; null where there is none */
+  hold: string | null;
 }
 
 const records: PlayerRecord[] = [];
 
 /** A player mounts: its record, which its owner keeps writing (`why`, `frame`, `kind` when the platform's takes over). */
 export function recordPlayer(name: string, kind: PlayerRecord['kind'], why: string): PlayerRecord {
-  const r: PlayerRecord = { name, kind, why, frame: null };
+  const r: PlayerRecord = { name, kind, why, frame: null, hold: null };
   records.push(r);
   return r;
 }
@@ -37,6 +39,6 @@ export function clearPlayerRecords(): void {
 export function playerLine(list: readonly PlayerRecord[]): string {
   if (!list.length) return 'PLAYER     NO FILM PLAYER ON THIS PAGE';
   const one = (r: PlayerRecord) =>
-    `${list.length > 1 ? `${r.name}: ` : ''}${r.kind === 'site' ? "THE SITE'S" : "THE PLATFORM'S OWN"} · ${r.why}${r.frame ? ` · ${r.frame}` : ''}`;
+    `${list.length > 1 ? `${r.name}: ` : ''}${r.kind === 'site' ? "THE SITE'S" : "THE PLATFORM'S OWN"} · ${r.why}${r.frame ? ` · ${r.frame}` : ''}${r.hold ? ` · ${r.hold}` : ''}`;
   return `PLAYER     ${list.map(one).join(' | ')}`;
 }

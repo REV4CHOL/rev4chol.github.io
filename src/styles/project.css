@@ -469,6 +469,28 @@
    it draws nothing: a colorist's paused frame stays clean */
 .p-film-catch { position: absolute; inset: 0; z-index: 1; background: transparent; }
 .p-film-catch:focus { outline: 0; }
+/* THE HOLD'S COVER (owner, 2026-11-25: "force the Player to always play at 2160p no matter what"; of the ways shown,
+   "Wait, then start sharp"; project/hold.ts): at a film's first start the film waits under it, silenced, until its
+   player has moved up to its level and starts it over. The film's own poster, dimmed, in the film's own shape, and
+   a mark in the play mark's place and voice. The one thing the page paints over the player; a press on it does not
+   wait. */
+.p-film-hold {
+  position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center;
+  background: #000 var(--hold-pic, none) center / contain no-repeat; cursor: progress;
+}
+.p-film-hold[hidden] { display: none; }
+.p-film-hold::before { content: ""; position: absolute; inset: 0; background: rgba(0, 0, 0, 0.62); }
+.p-film-hold-mark {
+  position: relative; display: flex; align-items: center; gap: 12px; padding: 13px 18px 13px 20px;
+  background: rgba(6, 6, 6, 0.95); border: 1px solid var(--film-acc); color: var(--film-acc);
+  font-family: var(--f-micro); font-size: 12px; letter-spacing: 0.24em; line-height: 1;
+}
+.p-film-hold-dots { display: inline-flex; gap: 4px; }
+.p-film-hold-dots i { width: 5px; height: 5px; background: currentColor; animation: p-hold-dot 1.2s steps(1) infinite; }
+.p-film-hold-dots i:nth-child(2) { animation-delay: 0.2s; }
+.p-film-hold-dots i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes p-hold-dot { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.25; } }
+.rvl-calm .p-film-hold-dots i { animation: none; }
 .p-bar {
   container-type: inline-size; display: flex; align-items: center; height: 40px; padding: 0 4px; margin: 0;
   background: rgba(10, 10, 18, 0.92); border: 1px solid rgba(200, 255, 0, 0.4); border-top-color: rgba(200, 255, 0, 0.18);
