@@ -23,18 +23,23 @@ describe('The music boot in the page heads', () => {
       const win: Record<string, unknown> = {};
       const timeouts: (() => void)[] = [];
       const fn = new Function('window', 'document', 'localStorage', 'sessionStorage', 'performance', 'setTimeout', 'Date', code);
-      fn(win, { createElement: () => a }, { getItem: () => choice }, { getItem: () => pos }, { now: () => 123 }, (f: () => void) => { timeouts.push(f); }, { now: () => 61000 });
+      fn(win, { createElement: () => a }, { getItem: (k: string) => (k === 'rvl-music-v2' ? choice : null) }, { getItem: () => pos }, { now: () => 123 }, (f: () => void) => { timeouts.push(f); }, { now: () => 61000 });
       return { a, win, timeouts };
     };
-    const r = run(JSON.stringify({ t: 100, at: 1000, held: false }), null);
+    const r = run(JSON.stringify({ t: 100, at: 1000, held: false }), 'on');
     expect(r.a.src).toBe('/content/music/night-road.mp3'); expect(r.a.loop).toBe(true); expect(r.a.preload).toBe('auto'); expect(r.a.plays).toBe(1);
     r.a.fire('loadedmetadata'); expect(r.a.currentTime).toBe(160); // 100 + 60 s of clock
     r.a.fire('playing'); while (r.timeouts.length) r.timeouts.shift()!();
     expect(r.a.volume).toBeCloseTo(0.3, 5); expect(r.win.rvlMusicBoot).toBe(r.a); expect(r.win.rvlMusicAt).toBe(123);
-    const h = run(JSON.stringify({ t: 100, at: 1000, held: true }), null); h.a.fire('loadedmetadata'); expect(h.a.currentTime).toBe(100);
-    const w = run(JSON.stringify({ t: 210, at: 1000, held: false }), null); w.a.fire('loadedmetadata'); expect(w.a.currentTime).toBe(50); // wrapped by 220
+    const h = run(JSON.stringify({ t: 100, at: 1000, held: true }), 'on'); h.a.fire('loadedmetadata'); expect(h.a.currentTime).toBe(100);
+    const w = run(JSON.stringify({ t: 210, at: 1000, held: false }), 'on'); w.a.fire('loadedmetadata'); expect(w.a.currentTime).toBe(50); // wrapped by 220
     const off = run(null, 'off'); expect(off.a.plays).toBe(0); expect(off.win.rvlMusicBoot).toBeUndefined();
-    const fresh = run(null, null); fresh.a.fire('loadedmetadata'); expect(fresh.a.currentTime).toBe(0); expect(fresh.a.plays).toBe(1);
+    const fresh = run(null, 'on'); fresh.a.fire('loadedmetadata'); expect(fresh.a.currentTime).toBe(0); expect(fresh.a.plays).toBe(1);
+    // OFF BY DEFAULT (owner, 2026-11-24: "I also want MUSIC off by default for the website"): no stored choice, a
+    // place saved by an earlier page or not, the boot makes no element and plays nothing
+    const first = run(null, null); expect(first.a.plays).toBe(0); expect(first.a.src).toBe(''); expect(first.win.rvlMusicBoot).toBeUndefined();
+    const firstLater = run(JSON.stringify({ t: 100, at: 1000, held: false }), null); expect(firstLater.a.plays).toBe(0); expect(firstLater.win.rvlMusicBoot).toBeUndefined();
+    for (const page of PAGES) expect(readFileSync(page, 'utf8'), page).toContain("if(localStorage.getItem('rvl-music-v2')!=='on')return;");
   });
 });
 
@@ -47,7 +52,7 @@ describe('The music boot on a phone (owner: the music stopped at every section a
     const doc = { createElement: () => a, addEventListener(t: string, cb: () => void, opts: unknown) { docLs.set(t, [...(docLs.get(t) ?? []), { cb, opts }]); } };
     const win: Record<string, unknown> = {};
     const fn = new Function('window', 'document', 'localStorage', 'sessionStorage', 'performance', 'setTimeout', 'Date', code);
-    fn(win, doc, { getItem: () => null }, { getItem: () => null }, { now: () => 1 }, () => undefined, { now: () => 1 });
+    fn(win, doc, { getItem: () => 'on' }, { getItem: () => null }, { now: () => 1 }, () => undefined, { now: () => 1 });
     expect(a.plays).toBe(1);
     await Promise.resolve(); await Promise.resolve();
     expect([...docLs.keys()].sort()).toEqual(['click', 'keydown', 'pointerup', 'touchend']);
@@ -62,7 +67,7 @@ describe('The music boot on a phone (owner: the music stopped at every section a
     let armed = 0;
     const a = { preload: '', loop: false, volume: 0, src: '', currentTime: 0, duration: 220, plays: 0, addEventListener() { /* none needed */ }, play() { this.plays += 1; return Promise.resolve(); } };
     const fn = new Function('window', 'document', 'localStorage', 'sessionStorage', 'performance', 'setTimeout', 'Date', code);
-    fn({}, { createElement: () => a, addEventListener() { armed += 1; } }, { getItem: () => null }, { getItem: () => null }, { now: () => 1 }, () => undefined, { now: () => 1 });
+    fn({}, { createElement: () => a, addEventListener() { armed += 1; } }, { getItem: () => 'on' }, { getItem: () => null }, { now: () => 1 }, () => undefined, { now: () => 1 });
     await Promise.resolve(); await Promise.resolve();
     expect(a.plays).toBe(1); expect(armed).toBe(0);
   });

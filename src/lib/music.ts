@@ -3,13 +3,15 @@
  *  The site's pages are separate documents, so the track's place is carried across each navigation in
  *  sessionStorage — the time it was at and the clock then — and the next page seeks to where the track would be
  *  now, wrapped by its length, and plays on; a page reached by a click may play at once (Chrome carries the activation
- *  over), a cold load waits for the first gesture. The choice (on / off) lives in localStorage, on by default. Pure
- *  except for the element and the stores handed in: tested with stand-ins. */
+ *  over), a cold load waits for the first gesture. The choice (on / off) lives in localStorage. OFF BY DEFAULT (owner,
+ *  2026-11-24: "I also want MUSIC off by default for the website"): it plays only for a visitor who pressed the switch
+ *  on, and until then the track is not even fetched. The key is -v2: under -v1 no stored choice meant on. Pure except
+ *  for the element and the stores handed in: tested with stand-ins. */
 export const TRACK = '/content/music/night-road.mp3';
 /** The track's volume. 0.3 since the owner's "Music too loud too" (2026-11-24); it stood at 0.55. The music boot in
  *  every page's head ramps to the same number: change both together (tests/sound-levels.test.ts holds them). */
 export const VOLUME = 0.3;
-const CHOICE = 'rvl-music-v1', POS = 'rvl-music-pos';
+const CHOICE = 'rvl-music-v2', POS = 'rvl-music-pos';
 
 export interface Saved { t: number; at: number; held: boolean }
 export interface Store { getItem(k: string): string | null; setItem(k: string, v: string): void }
@@ -38,7 +40,7 @@ export function readSaved(store: Store): Saved | null {
 }
 
 export class Music {
-  enabled = true;
+  enabled = false;
   /** WATCH's hold: stopped, and staying stopped, until the next section or page (or MUS pressed on). */
   held = false;
   private fader: ReturnType<typeof setInterval> | null = null;
@@ -51,7 +53,7 @@ export class Music {
     private now: () => number = () => Date.now(),
     private timers: { set: (fn: () => void, ms: number) => ReturnType<typeof setInterval>; clear: (h: ReturnType<typeof setInterval>) => void } = { set: (fn, ms) => setInterval(fn, ms), clear: (h) => clearInterval(h) }, // (wrapped: a bare window function called as a method is an "illegal invocation")
   ) {
-    try { this.enabled = local.getItem(CHOICE) !== 'off'; } catch { /* private mode */ }
+    try { this.enabled = local.getItem(CHOICE) === 'on'; } catch { /* private mode: off, the default */ }
   }
 
   /** A page starts: the track set up, seeked to where it would be now and played if it may be. A hold from the last
@@ -61,7 +63,7 @@ export class Music {
     const adopted = !!d.src; // the page head's MUSIC BOOT made it: seeked to the last page's place and playing (or refused) before any chunk loaded
     if (!adopted) {
       const saved = readSaved(this.session);
-      d.loop = true; d.preload = 'auto'; d.volume = 0;
+      d.loop = true; d.preload = this.enabled ? 'auto' : 'none'; d.volume = 0; // (off: nothing fetched until the switch asks)
       d.addEventListener('loadedmetadata', () => { d.currentTime = resumeAt(saved, this.now(), d.duration); });
     }
     d.addEventListener('timeupdate', () => this.save());
@@ -77,6 +79,7 @@ export class Music {
 
   /** The track's place, for the next page: its time and the clock now (held: exactly there, no clock). */
   save(): void {
+    if (!this.enabled) return; // (off: no clock to carry; switched on later it starts at the top, or runs on from its last place)
     try { this.session.setItem(POS, JSON.stringify({ t: this.deck.currentTime, at: this.now(), held: this.held })); } catch { /* ok */ }
   }
 
