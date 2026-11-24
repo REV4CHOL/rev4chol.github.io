@@ -432,6 +432,22 @@
   }
 }
 
+/* A TABLET'S POSTER (owner, 2026-11-24, of the homepage on an iPad: "All the text titles and subtitles are too damn
+   big. it need to be much smaller"; shown the poster on that screen at 75%, 60% and 50%, chose "B: 60%"). A touch
+   screen wider than the phone block's: the statement, its plate and its & at --tab-k of their fluid size, the roles
+   line 12 px. Never under a phone's own (the headline 4rem, the plate 1.1rem): a small tablet does not read smaller
+   than a phone. A fine pointer (a PC) and the phone block above are untouched. tests/home-tablet.test.ts holds it. */
+@media (min-width: 641px) and (pointer: coarse) {
+  .home-statement { --tab-k: 0.6; }
+  .st-clash { font-size: max(4rem, calc(clamp(4rem, calc(12.5 * var(--zw)), 10.5rem) * var(--tab-k))); }
+  .st-outline { -webkit-text-stroke-width: 1.5px; }
+  .st-row-2 { margin-left: calc(clamp(56px, calc(11 * var(--zw)), 210px) * var(--tab-k)); }
+  .st-row-3 { margin-top: calc(clamp(14px, calc(2.2 * var(--zw)), 26px) * 0.7); }
+  .st-plate { font-size: max(1.1rem, calc(clamp(1.1rem, calc(2.6 * var(--zw)), 2rem) * var(--tab-k))); padding: 7px 14px 8px 11px; }
+  .amp-bg { font-size: calc(clamp(16rem, calc(38 * var(--zw)), 30rem) * var(--tab-k)); }
+  .home-data { font-size: 12px; }
+}
+
 /* calm mode (html.rvl-calm, set by the MTN toggle / pre-paint snippet):
    the whole scene stands still */
 .rvl-calm .scan-sweep { display: none; }
