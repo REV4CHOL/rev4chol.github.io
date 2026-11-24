@@ -228,7 +228,7 @@ until Task 10.
 The spec asks the plan to list the existing test fixtures that the `<= 4` line moves (§6). There are none: no fixture
 in `tests/quality.test.ts` reports exactly 4 GB or exactly 4 threads, so every existing case keeps its expectation.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/quality.test.ts`, find:
 
@@ -402,7 +402,7 @@ describe("the floor's mode: the class and the tier choose the video", () => {
 
 ```
 
-- [ ] **Step 2: Run them and see them fail**
+- [x] **Step 2: Run them and see them fail**
 
 Run: `npx vitest run tests/quality.test.ts`
 
@@ -411,7 +411,7 @@ first failure reads `TypeError: weakBy is not a function`; the case "4 GB or les
 BALANCED and may never reach FULL" fails with `expected 2 to be 1`, which is today's `< 4` letting a 4 GB machine
 open at FULL.
 
-- [ ] **Step 3: Write the code**
+- [x] **Step 3: Write the code**
 
 In `src/lib/quality.ts`, find:
 
@@ -642,7 +642,7 @@ Replace it with:
     this.g = newGovernor(open.tier, open.ceiling, now, st.downs);
 ```
 
-- [ ] **Step 4: Run the tests and the type check**
+- [x] **Step 4: Run the tests and the type check**
 
 Run: `npx vitest run tests/quality.test.ts`
 
@@ -652,7 +652,7 @@ Run: `npx tsc --noEmit`
 
 Expected: no output.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -- src/lib/quality.ts tests/quality.test.ts
@@ -682,7 +682,7 @@ Ship A changes no steering. A frame over 250 ms is counted and still never reach
 page is measured and not steered. The last test of this task pins both in the source, because the live sampler
 cannot run in a unit test.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/quality.test.ts`, find:
 
@@ -766,14 +766,14 @@ describe('what the ladder also reads: counted and shown, deciding nothing yet', 
 
 ```
 
-- [ ] **Step 2: Run them and see them fail**
+- [x] **Step 2: Run them and see them fail**
 
 Run: `npx vitest run tests/quality.test.ts`
 
 Expected: FAIL in the new `describe` only ("what the ladder also reads: counted and shown, deciding nothing yet":
 5 failed when this plan was written), beginning with `TypeError: StallCounter is not a constructor`.
 
-- [ ] **Step 3: Write the code**
+- [x] **Step 3: Write the code**
 
 In `src/lib/quality.ts`, find:
 
@@ -1027,7 +1027,7 @@ Replace all of it, both ends included, with:
   }
 ```
 
-- [ ] **Step 4: Run the tests and the type check**
+- [x] **Step 4: Run the tests and the type check**
 
 Run: `npx vitest run tests/quality.test.ts`
 
@@ -1037,7 +1037,7 @@ Run: `npx tsc --noEmit`
 
 Expected: no output.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -- src/lib/quality.ts tests/quality.test.ts
@@ -1079,7 +1079,7 @@ keeps no list of ratios; one test checks that it agrees with `aspectRatio` of `s
 `projects.json`, so the wall's tiles and the floor's panes cannot part. The fixtures in the test file are fixtures: two
 chapters as they stood on 2026-11-24, and the first of them again with two more films, one of them 3:2.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/wall-files.test.ts`:
 
@@ -1324,13 +1324,13 @@ describe('a wall that has gone stale: the manifest lists only the tiles that are
 });
 ```
 
-- [ ] **Step 2: Run them and see them fail**
+- [x] **Step 2: Run them and see them fail**
 
 Run: `npx vitest run tests/wall-files.test.ts`
 
 Expected: FAIL, no test runs: `Error: Cannot find module '../src/lib/wall-files'`.
 
-- [ ] **Step 3: Write the module**
+- [x] **Step 3: Write the module**
 
 Create `src/lib/wall-files.ts`:
 
@@ -1511,7 +1511,7 @@ export function readWalls(raw: unknown): Record<string, WallEntry> {
 }
 ```
 
-- [ ] **Step 4: Run the tests and the type check**
+- [x] **Step 4: Run the tests and the type check**
 
 Run: `npx vitest run tests/wall-files.test.ts`
 
@@ -1523,7 +1523,7 @@ Run: `npx tsc --noEmit`
 
 Expected: no output.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -- src/lib/wall-files.ts tests/wall-files.test.ts
@@ -1556,7 +1556,7 @@ This task has no unit test of its own: the script only reads files and runs ffmp
 tested there; what it writes is tested by Task 5's content tests and by `tests/loop-frames.test.ts`, and looked at in
 Step 4 below.
 
-- [ ] **Step 1: Write the script**
+- [x] **Step 1: Write the script**
 
 Create `scripts/make-walls.mjs`:
 
@@ -1689,7 +1689,7 @@ rmSync(tmp, { recursive: true, force: true });
 console.log(`written to ${outDir}`);
 ```
 
-- [ ] **Step 2: Add the command, and say in `HOW-TO-EDIT.md` when to run it**
+- [x] **Step 2: Add the command, and say in `HOW-TO-EDIT.md` when to run it**
 
 In `package.json`, find:
 
@@ -1739,7 +1739,7 @@ Directly after it, add:
   film that is waiting for a rebuild.
 ```
 
-- [ ] **Step 3: Check that the two new films are in the tree, then build the walls**
+- [x] **Step 3: Check that the two new films are in the tree, then build the walls**
 
 Run:
 
@@ -1765,7 +1765,7 @@ machine: 5 tiles in 2 rows of 404 px, frame 1920x824; 405 frames, 16.875 s; shor
 (On the 12-film chapter the first line read `12 tiles … human.mp4 13.7 MB, human-s.mp4 4.8 MB`, with the same frame
 and length.) The loops may have changed since; your reading is the one that counts.
 
-- [ ] **Step 4: Check what was built, before anything is committed**
+- [x] **Step 4: Check what was built, before anything is committed**
 
 Every one of these must hold. If one does not, do not commit: delete `public/content/walls/` (it is this task's own
 output), and report the reading to the coordinator. Do not change the CRF, the frame size or a test's limit on your
@@ -1829,7 +1829,7 @@ own: they are the spec's numbers.
    one picture lies inside another; a part of the frame that no tile covers is black. Then one more frame of
    `human.mp4` from its last second (`-sseof -0.5` in place of `-ss 1`): every tile still holds a picture.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -- scripts/make-walls.mjs package.json HOW-TO-EDIT.md public/content/walls/human.mp4 public/content/walls/human-s.mp4 public/content/walls/human.json public/content/walls/machine.mp4 public/content/walls/machine-s.mp4 public/content/walls/machine.json
@@ -1866,7 +1866,7 @@ Then `git status --short`: nothing of this task is left, and nothing but this ta
 `tests/content-files.test.ts` has the same two MP4 readers of its own. They are copied into `tests/mp4-facts.ts`
 rather than moved, so this plan does not edit a file that the films' commits edit.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/mp4-facts.ts`:
 
@@ -2074,7 +2074,7 @@ Replace it with:
   return [...films.flatMap((d) => videos(`projects/${d.name}`)), ...videos('home'), ...videos('walls')];
 ```
 
-- [ ] **Step 2: Run them and see them fail**
+- [x] **Step 2: Run them and see them fail**
 
 Run: `npx vitest run tests/walls.test.ts tests/loop-frames.test.ts`
 
@@ -2084,7 +2084,7 @@ first frame and the last quarter second of the four wall videos, and none is bla
 under `walls/` is real: the wall begins or ends on a black frame, and Task 4's output must not ship. Tell the
 coordinator.
 
-- [ ] **Step 3: Write the scan, and wire it into the manifest and the page's reader**
+- [x] **Step 3: Write the scan, and wire it into the manifest and the page's reader**
 
 Create `src/lib/wall-scan.ts`:
 
@@ -2344,7 +2344,7 @@ export function hasHoverClip(slug: string): boolean {
 
 ```
 
-- [ ] **Step 4: Run the tests and the type check**
+- [x] **Step 4: Run the tests and the type check**
 
 Run: `npx vitest run tests/walls.test.ts tests/wall-files.test.ts`
 
@@ -2356,7 +2356,7 @@ Run: `npx tsc --noEmit`
 
 Expected: no output.
 
-- [ ] **Step 5: Build into a scratch folder and read the manifest**
+- [x] **Step 5: Build into a scratch folder and read the manifest**
 
 Run (the folder is outside the repository; never `dist`):
 
@@ -2369,7 +2369,7 @@ Expected: `projects home stills walls hover`; then `human human.mp4 human-s.mp4 
 `machine machine.mp4 machine-s.mp4 <its film count> tiles`; then `hover []` (no film has a hover clip today; a film
 that gets one is listed here by its slug).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -- src/lib/wall-scan.ts vite.config.ts src/lib/content.ts tests/mp4-facts.ts tests/walls.test.ts tests/loop-frames.test.ts
@@ -2416,7 +2416,7 @@ it can be rebuilt from this page if it is ever lost:
 - It flips the chapter by clicking `button[data-ch][aria-pressed="false"]`, and waits 7 s for the new floor.
 - It records every request path the static server sees.
 
-- [ ] **Step 1: Build the starting commit in a throwaway worktree**
+- [x] **Step 1: Build the starting commit in a throwaway worktree**
 
 ```bash
 git worktree add --detach "<scratch folder>/before" <the commit noted before Task 1>
@@ -2427,14 +2427,14 @@ Expected: `✓ built in …`. Serve `<scratch folder>/before/dist`. (This `dist`
 `EPERM` quirk of the main checkout's `dist` does not arise; and at the starting commit only a build into `dist` gets
 its media manifest, which Task 5 changes.)
 
-- [ ] **Step 2: How the three profiles open today**
+- [x] **Step 2: How the three profiles open today**
 
 For each of the three profiles, a fresh browser, `/works.html`: read `rvlQuality.state().label` 2 s, 15 s and 60 s
 after `rvlBooted`.
 
 Known from the spec (§7.1): the 4 GB profile reads `balanced`, `full`, `full`. Write down all three profiles.
 
-- [ ] **Step 3: Six chapter flips**
+- [x] **Step 3: Six chapter flips**
 
 The 4 GB profile, `/works.html`. After 8 s, count the live canvases and the live textures. Then flip six times; after
 each flip count again.
@@ -2444,7 +2444,7 @@ the six flips. Every poster canvas of every floor that had been built was still 
 12 of 640×480, 3 of 413×734), about 58 MB of pixels against 14 MB at the start. Your counts will differ with the
 film count; what matters is whether they grow from flip to flip.
 
-- [ ] **Step 4: The hover clip's request**
+- [x] **Step 4: The hover clip's request**
 
 The development PC as it is, 1920×1080, `/works.html`. After 9 s move the pointer, 1.8 s apart, to five places:
 (30%, 40%), (50%, 50%), (70%, 45%), (45%, 70%), (62%, 62%) of the window. Count the requests whose path ends in
@@ -2453,7 +2453,7 @@ The development PC as it is, 1920×1080, `/works.html`. After 9 s move the point
 What the plan's author measured: 3 requests for `hover.mp4` (the pointer crossed three panes), each answered 404, and
 14 video requests in all where 11 loops were playing: each failed hover clip made its pane load its loop again.
 
-- [ ] **Step 5: The glow's cost today**
+- [x] **Step 5: The glow's cost today**
 
 The development PC as it is, 1366×768, `/works.html?gfx=full`. After 9 s move the pointer to the middle of the
 window, wait 2.5 s, and list the sizes of the live textures
@@ -2462,7 +2462,7 @@ window, wait 2.5 s, and list the sizes of the live textures
 What the plan's author measured: four textures of 2048×1024, three of 1024×1024 and three of 1024×512 among them.
 They are the render targets of the blur filters, about 50 MB. Task 12 is measured against this.
 
-- [ ] **Step 6: Write the readings into this plan, remove the worktree, commit the plan**
+- [x] **Step 6: Write the readings into this plan, remove the worktree, commit the plan**
 
 The readings, taken on 2026-11-24 on a build of the starting commit (the 14-film chapter), two runs each with the
 same answer:
@@ -2516,7 +2516,7 @@ git commit -m "docs(plan): ship A, the floor measured before the waste is remove
   - `readWallMemory(store: KeyStore | null): WallMemory`, `writeWallMemory(store: KeyStore | null, m: WallMemory): void`,
     `sessionStore(): KeyStore | null`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/wall-watch.test.ts`:
 
@@ -2609,13 +2609,13 @@ describe("the wall's memory lasts the session", () => {
 });
 ```
 
-- [ ] **Step 2: Run them and see them fail**
+- [x] **Step 2: Run them and see them fail**
 
 Run: `npx vitest run tests/wall-watch.test.ts`
 
 Expected: FAIL, no test runs: `Error: Cannot find module '../src/works/wall-watch'`.
 
-- [ ] **Step 3: Write the module**
+- [x] **Step 3: Write the module**
 
 Create `src/works/wall-watch.ts`:
 
@@ -2698,7 +2698,7 @@ export function sessionStore(): KeyStore | null {
 }
 ```
 
-- [ ] **Step 4: Run the tests and the type check**
+- [x] **Step 4: Run the tests and the type check**
 
 Run: `npx vitest run tests/wall-watch.test.ts`
 
@@ -2708,7 +2708,7 @@ Run: `npx tsc --noEmit`
 
 Expected: no output.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -- src/works/wall-watch.ts tests/wall-watch.test.ts
@@ -2741,7 +2741,7 @@ source destroyed before that promise resumes throws inside Pixi, as an unhandled
 harmless (the unit is gone). In a test it fails the run, so the tests wait a few turns (`settle()`) after a frame is
 presented and before a unit is destroyed.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/wall.test.ts`:
 
@@ -3027,7 +3027,7 @@ describe("a pane's tile of the wall video (pins)", () => {
 });
 ```
 
-- [ ] **Step 2: Run them and see them fail**
+- [x] **Step 2: Run them and see them fail**
 
 Run: `npx vitest run tests/wall.test.ts tests/video-texture.test.ts tests/floor-video.test.ts`
 
@@ -3035,7 +3035,7 @@ Expected: FAIL in all three files. `tests/wall.test.ts` cannot find `src/works/w
 `tests/floor-video.test.ts` fail (`expected … to contain 'setWall(tex: Texture | null): void {'`); in
 `tests/video-texture.test.ts` one test fails with `ENOENT … src/works/wall.ts` and its others pass.
 
-- [ ] **Step 3: Write the unit, and give the pane its second sprite**
+- [x] **Step 3: Write the unit, and give the pane its second sprite**
 
 Create `src/works/wall.ts`:
 
@@ -3246,7 +3246,7 @@ Replace it with:
     this.card.addChildAt(s, this.card.getChildIndex(this.wallSprite ?? this.posterSprite) + 1);
 ```
 
-- [ ] **Step 4: Run the tests and the type check**
+- [x] **Step 4: Run the tests and the type check**
 
 Run: `npx vitest run tests/wall.test.ts tests/video-texture.test.ts tests/floor-video.test.ts`
 
@@ -3256,7 +3256,7 @@ Run: `npx tsc --noEmit`
 
 Expected: no output.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -- src/works/wall.ts src/works/tile.ts tests/wall.test.ts tests/floor-video.test.ts tests/video-texture.test.ts
@@ -3287,7 +3287,7 @@ git commit -m "feat(works): the wall unit - one video, one shared source, a tile
 The cap is never written here as a number. The default policy reads `liveVideoCap()`, as the manager always did, and
 the tests hand the manager a made-up cap of their own.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/playback.test.ts`, find:
 
@@ -3429,14 +3429,14 @@ describe('PlaybackManager under a policy', () => {
 });
 ```
 
-- [ ] **Step 2: Run them and see them fail**
+- [x] **Step 2: Run them and see them fail**
 
 Run: `npx vitest run tests/playback.test.ts`
 
 Expected: FAIL in the new `describe` only, "PlaybackManager under a policy": 8 failed, the older cases pass. Among
 the failures: `TypeError: releaseAfterMs is not a function` and `TypeError: manager.releaseAll is not a function`.
 
-- [ ] **Step 3: Write the code**
+- [x] **Step 3: Write the code**
 
 This step replaces the whole file. First make sure the file is still the one this plan knew: run
 `git log --oneline -- src/works/playback.ts | head -3`. The newest commit this plan knows is `7362044`
@@ -3575,7 +3575,7 @@ export class PlaybackManager {
 }
 ```
 
-- [ ] **Step 4: Run the tests and the type check**
+- [x] **Step 4: Run the tests and the type check**
 
 Run: `npx vitest run tests/playback.test.ts`
 
@@ -3585,7 +3585,7 @@ Run: `npx tsc --noEmit`
 
 Expected: no output.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -- src/works/playback.ts tests/playback.test.ts
@@ -3619,7 +3619,7 @@ sees the floor as before. A weak machine, and any machine at LITE, sees every pa
 The world cannot run in a unit test (it needs a GPU), so its rules are tested where they are pure (Tasks 1, 7, 8, 9)
 and its wiring is pinned in the source here. Step 5 then runs it for real, headless.
 
-- [ ] **Step 1: Write the failing pins**
+- [x] **Step 1: Write the failing pins**
 
 At the end of `tests/floor-video.test.ts`, add:
 
@@ -3662,13 +3662,13 @@ describe("the floor's video follows the mode (pins)", () => {
 });
 ```
 
-- [ ] **Step 2: Run them and see them fail**
+- [x] **Step 2: Run them and see them fail**
 
 Run: `npx vitest run tests/floor-video.test.ts`
 
 Expected: FAIL. The six new pins fail and Task 8's two pass.
 
-- [ ] **Step 3: Wire the world, and tell it its chapter**
+- [x] **Step 3: Wire the world, and tell it its chapter**
 
 In `src/works/world.ts`, find:
 
@@ -3992,7 +3992,7 @@ Replace it with:
       }, key);
 ```
 
-- [ ] **Step 4: Run the tests, the type check and the floor's other pins**
+- [x] **Step 4: Run the tests, the type check and the floor's other pins**
 
 Run: `npx vitest run tests/floor-video.test.ts tests/floor-ways.test.ts tests/playback.test.ts tests/quality.test.ts`
 
@@ -4003,7 +4003,7 @@ Run: `npx tsc --noEmit`
 
 Expected: no output.
 
-- [ ] **Step 5: See it run, headless**
+- [x] **Step 5: See it run, headless**
 
 Build into a scratch folder (`npx vite build --outDir "<scratch folder>/build" --emptyOutDir`) and open these with the
 harness of Task 6, each in a fresh browser, reading the page 12 s after `rvlBooted`. `rvlWorld.mode` is the mode;
@@ -4034,7 +4034,7 @@ they are not this task's.
 
 Take one screenshot of the first two pages and look at them: every pane holds a moving picture in its own ratio.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -- src/works/world.ts src/pages/works.ts tests/floor-video.test.ts
@@ -4059,7 +4059,7 @@ Both fixes rest on facts the spec read from code (§11). Task 6 measured them on
 holds the two Pixi facts the poster fix stands on, so an upgrade of Pixi that changes either is seen: it passes
 before the fix is written, and that is its job.
 
-- [ ] **Step 1: Write the tests**
+- [x] **Step 1: Write the tests**
 
 Create `tests/poster-texture.test.ts`:
 
@@ -4127,7 +4127,7 @@ describe('waste removed on every tier (pins)', () => {
 });
 ```
 
-- [ ] **Step 2: Run them**
+- [x] **Step 2: Run them**
 
 Run: `npx vitest run tests/poster-texture.test.ts tests/floor-video.test.ts`
 
@@ -4135,7 +4135,7 @@ Expected: `tests/poster-texture.test.ts` PASSES (2 tests: Pixi behaves as the sp
 `tests/floor-video.test.ts` the two new pins FAIL
 (`expected … to contain 'if (!hasHoverClip(this.project.slug) || this.hoverMissing) return;'`).
 
-- [ ] **Step 3: Write the two fixes**
+- [x] **Step 3: Write the two fixes**
 
 In `src/works/tile.ts`, find:
 
@@ -4200,7 +4200,7 @@ Replace it with:
       tile.destroyPoster(); // (the app's teardown below leaves textures: works/tile.ts)
 ```
 
-- [ ] **Step 4: Run the tests and the type check**
+- [x] **Step 4: Run the tests and the type check**
 
 Run: `npx vitest run tests/poster-texture.test.ts tests/floor-video.test.ts`
 
@@ -4210,7 +4210,7 @@ Run: `npx tsc --noEmit`
 
 Expected: no output.
 
-- [ ] **Step 5: Measure after, with Task 6's two runs**
+- [x] **Step 5: Measure after, with Task 6's two runs**
 
 Build into a scratch folder and repeat Task 6's Step 3 (six flips, the 4 GB profile) and Step 4 (five places pointed
 at, the development PC as it is).
@@ -4223,7 +4223,7 @@ group after each count (Task 6).
 
 Add the two readings to the plan, under Task 6's list.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -- src/works/tile.ts src/works/world.ts tests/poster-texture.test.ts tests/floor-video.test.ts docs/superpowers/plans/2026-11-24-work-wall-video-ship-a.md
@@ -4251,7 +4251,7 @@ strength 18 in four passes a side spreads about as far as a sigma of 12 px), and
 scratch pictures; the owner's eye decides. So the task ends with a before and after picture, and its commit stays on
 its lane's branch until the coordinator says go.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/glow.test.ts`, find:
 
@@ -4380,14 +4380,14 @@ describe('the glow is one soft rectangle, drawn once per pane size on a 2D canva
 });
 ```
 
-- [ ] **Step 2: Run them and see them fail**
+- [x] **Step 2: Run them and see them fail**
 
 Run: `npx vitest run tests/glow.test.ts`
 
 Expected: FAIL, 3 failed and 5 passed. "keeps its accent and the size it is given, and runs no filter" fails because
 the sprite still carries one `BlurFilter`; the two tests of the new `describe` fail because no canvas is made.
 
-- [ ] **Step 3: Write the code**
+- [x] **Step 3: Write the code**
 
 This step replaces the whole file (74 lines today; its last change was `d14eda9`).
 
@@ -4470,7 +4470,7 @@ export class PaneGlow {
 }
 ```
 
-- [ ] **Step 4: Run the tests and the type check**
+- [x] **Step 4: Run the tests and the type check**
 
 Run: `npx vitest run tests/glow.test.ts`
 
@@ -4480,14 +4480,14 @@ Run: `npx tsc --noEmit`
 
 Expected: no output.
 
-- [ ] **Step 5: Commit on the lane's branch**
+- [x] **Step 5: Commit on the lane's branch**
 
 ```bash
 git add -- src/works/glow.ts tests/glow.test.ts
 git commit -m "perf(works): the pane glow is drawn once on a canvas - no blur filter runs" -m "Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 6: The before and after pictures, and the cost**
+- [x] **Step 6: The before and after pictures, and the cost**
 
 Two builds into scratch folders: this lane's parent commit ("before") and this lane's head ("after"). With the
 harness, for each build: the development PC as it is, 1366×768, `/works.html?gfx=full`.
@@ -4505,7 +4505,7 @@ Expected for the textures: the blur's render targets are gone. Measured by the p
 at: four textures of 2048×1024, three of 1024×1024 and three of 1024×512 before (about 50 MB); one of 2048×1024
 after (the hover's desaturation pass), and two or three small pictures of the glow itself (272×183 and the like).
 
-- [ ] **Step 7: Hand over, and wait for the go**
+- [x] **Step 7: Hand over, and wait for the go**
 
 Give the coordinator the four pictures' full paths and the two texture lists, and say plainly: this changes the look
 of the glow on every machine, the pictures are for the owner, and the commit is not on `master`.
@@ -4549,7 +4549,7 @@ Two facts about Pixi 8.20 that the meter leans on, both found by running it: the
 is marked deprecated (since 8.15) and still served, and an unloaded texture leaves a `null` in it. The meter skips the
 holes, and one test checks that the list is still there.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/loop-health.test.ts`:
 
@@ -4748,14 +4748,14 @@ describe("a pane reports its own loop to the health reading (pins)", () => {
 });
 ```
 
-- [ ] **Step 2: Run them and see them fail**
+- [x] **Step 2: Run them and see them fail**
 
 Run: `npx vitest run tests/loop-health.test.ts tests/meter.test.ts tests/floor-video.test.ts`
 
 Expected: FAIL in all three files: `Cannot find module '../src/works/loop-health'`,
 `Cannot find module '../src/lib/meter'`, and the two new pins of `tests/floor-video.test.ts`.
 
-- [ ] **Step 3: Write the three modules and the pane's sample**
+- [x] **Step 3: Write the three modules and the pane's sample**
 
 Create `src/works/loop-health.ts`:
 
@@ -4997,7 +4997,7 @@ Directly after it, add:
   }
 ```
 
-- [ ] **Step 4: Run the tests and the type check**
+- [x] **Step 4: Run the tests and the type check**
 
 Run: `npx vitest run tests/loop-health.test.ts tests/meter.test.ts tests/floor-video.test.ts`
 
@@ -5007,7 +5007,7 @@ Run: `npx tsc --noEmit`
 
 Expected: no output.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -- src/works/loop-health.ts src/lib/meter.ts src/lib/pressure.ts src/works/tile.ts tests/loop-health.test.ts tests/meter.test.ts tests/floor-video.test.ts
@@ -5047,7 +5047,7 @@ The seven lines are what the owner reads back from the old laptop, so their word
 - The panel lets presses and hovers through to the page under it (only COPY takes a press), so a pane or THE LIST's
   button under it still works while someone measures.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/readout.test.ts`:
 
@@ -5201,14 +5201,14 @@ describe('the readout reads the floor and changes nothing (pins)', () => {
 });
 ```
 
-- [ ] **Step 2: Run them and see them fail**
+- [x] **Step 2: Run them and see them fail**
 
 Run: `npx vitest run tests/readout.test.ts tests/floor-video.test.ts`
 
 Expected: FAIL. `tests/readout.test.ts` cannot find `../src/lib/readout`; the four new pins of
 `tests/floor-video.test.ts` fail, the last of them with `ENOENT … src/styles/stats.css`.
 
-- [ ] **Step 3: Write the lines, the panel and its sheet; let the floor offer its readings; let the shell load the panel**
+- [x] **Step 3: Write the lines, the panel and its sheet; let the floor offer its readings; let the shell load the panel**
 
 Create `src/lib/readout.ts`:
 
@@ -5613,7 +5613,7 @@ Replace it with:
   return { hud };
 ```
 
-- [ ] **Step 4: Run the tests and the type check**
+- [x] **Step 4: Run the tests and the type check**
 
 Run: `npx vitest run tests/readout.test.ts tests/floor-video.test.ts`
 
@@ -5623,7 +5623,7 @@ Run: `npx tsc --noEmit`
 
 Expected: no output.
 
-- [ ] **Step 5: See it, headless**
+- [x] **Step 5: See it, headless**
 
 Build into a scratch folder and open, with the harness: `/works.html?gfx=lite&stats=1`, `/works.html?stats=1`,
 `/index.html?stats=1`, and `/works.html` with no parameter. 12 s after `rvlBooted` read
@@ -5654,7 +5654,7 @@ Take a screenshot of the first page and look: the panel stands at the left edge 
 type, with COPY under it. At 1366×768 it leaves THE LIST's button free and lies over the start of the page's hint
 line; it is a measuring panel and shows only to whoever asked for it.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -- src/lib/readout.ts src/shell/stats.ts src/styles/stats.css src/works/world.ts src/shell/shell.ts tests/readout.test.ts tests/floor-video.test.ts
@@ -5673,7 +5673,7 @@ git commit -m "feat(shell): the readout behind ?stats=1 - seven lines and COPY" 
 - Produces: the measured column of the spec's §7.1 for ship A's rows; the text for the local rules file; the list of
   live checks for after the coordinator's push.
 
-- [ ] **Step 1: The gates**
+- [x] **Step 1: The gates**
 
 Run: `npm run check`
 
@@ -5691,7 +5691,7 @@ Run: `npx vite build --outDir "<scratch folder>/build" --emptyOutDir`
 Expected: `✓ built in …`, and `<scratch folder>/build/content/media-manifest.json` lists `walls` and `hover`
 (Task 5's Step 5 command).
 
-- [ ] **Step 2: The harness's table**
+- [x] **Step 2: The harness's table**
 
 Serve the scratch build and measure each row with the harness of Task 6 (a fresh browser per page, the profiles as
 described there). The first three columns are the spec's §7.1, ship A's rows only; the fourth is what the plan's
@@ -5707,23 +5707,23 @@ browser's processes as `SystemInfo.getProcessInfo` gives them, read at rest (15 
 pointing at five places and dragging the floor away and back three times, as the spec's runs did); Pixi's textures
 are `rvlWorld.readings().textures` in MB.
 
-| Row | Today (the spec's measurement) | Expected | The author's scratch reading |
-|---|---|---|---|
-| The 4 GB profile: the tier 2 s, 15 s and 60 s after boot | balanced, full, full | balanced at all three; the wall | balanced at 20 s; mode `wall` |
-| The 8 GB profile: the same | Task 6's reading | balanced, then full, as today; the wall at every tier | opened balanced, full by 20 s; mode `wall` |
-| The 16 GB profile: the same | Task 6's reading | balanced, then full, as today; own loops at both | not read |
-| WORK, the 4 GB profile, `?gfx=balanced`: videos decoding at rest | 11 | 1 | 1 (the wall, 1904×1080) |
-| The same: picture decoded each second | about 200 million px | about 50 million | 49 million by arithmetic (1904 × 1080 × 24) |
-| The same: all, used | 1,266 MB | lower by about 280, from the video alone | not read |
-| The same: GPU memory, used | 724 MB | lower by about 320, from the video alone | not read |
-| WORK, the 4 GB profile: Pixi textures, rest → used | 81 → 122 MB | lower | 18 MB at rest by the meter |
-| WORK at LITE, any profile: panes moving | 3 | all | all (every pane on its tile, both chapters) |
-| WORK, `?gfx=balanced` on the development PC as it is | a chapter of own loops by the code | the same: a chapter of own loops (`videoCapFor`) | mode `own`; 11 playing in a 1920×1080 view at FULL |
-| THE LIST after a tier change: videos | 11 playing | 0 | 0 under THE LIST (no tier change was forced) |
-| THE LIST: all / GPU memory | 995 / 472 MB | at or under 696 / 182 | not read |
-| Six chapter flips: canvases and textures alive | Task 6's reading | no growth from flip to flip | canvases 19, 13, 21, 13, 21, 13, 21 |
-| A pane's first hover: requests for `hover.mp4` | Task 6's reading | none | none |
-| WORK at FULL on the development PC as it is | a chapter of sharp loops | the same picture; fewer decoders once far panes have slept 20 s | not read past 20 s |
+| Row | Today (the spec's measurement) | Expected | The author's scratch reading | After the build |
+|---|---|---|---|---|
+| The 4 GB profile: the tier 2 s, 15 s and 60 s after boot | balanced, full, full | balanced at all three; the wall | balanced at 20 s; mode `wall` | balanced, lite, lite, and balanced again at 64 s; the wall throughout. **Not the expected row:** one slow window 3.7 s after boot steps it down, as before the build; the floor never leaves `wall` |
+| The 8 GB profile: the same | Task 6's reading | balanced, then full, as today; the wall at every tier | opened balanced, full by 20 s; mode `wall` | run 1: balanced, lite, lite, balanced at 64 s; run 2: balanced, full, full; the wall at every tier in both |
+| The 16 GB profile: the same | Task 6's reading | balanced, then full, as today; own loops at both | not read | balanced with own loops for 4 s, then lite and the wall; balanced again at 64 s with the wall kept (a step up changes no video until the floor is next built). **Not the expected row** |
+| WORK, the 4 GB profile, `?gfx=balanced`: videos decoding at rest | 11 | 1 | 1 (the wall, 1904×1080) | 1 (the wall, 1904×1080) |
+| The same: picture decoded each second | about 200 million px | about 50 million | 49 million by arithmetic (1904 × 1080 × 24) | 49.4 million px |
+| The same: all, used | 1,266 MB | lower by about 280, from the video alone | not read | 882 and 892 MB (two runs): 374 to 384 under the spec's figure |
+| The same: GPU memory, used | 724 MB | lower by about 320, from the video alone | not read | 302 and 305 MB: 419 to 422 under |
+| WORK, the 4 GB profile: Pixi textures, rest → used | 81 → 122 MB | lower | 18 MB at rest by the meter | 20.7 → 28.7 MB |
+| WORK at LITE, any profile: panes moving | 3 | all | all (every pane on its tile, both chapters) | all: 14 of 14 and 5 of 5 on their tiles, about 24 frames a second presented, no own loop decoding |
+| WORK, `?gfx=balanced` on the development PC as it is | a chapter of own loops by the code | the same: a chapter of own loops (`videoCapFor`) | mode `own`; 11 playing in a 1920×1080 view at FULL | mode `own`; 14 own loops playing in a 1920×1080 view |
+| THE LIST after a tier change: videos | 11 playing | 0 | 0 under THE LIST (no tier change was forced) | 0 |
+| THE LIST: all / GPU memory | 995 / 472 MB | at or under 696 / 182 | not read | 706 / 201 MB 8 s after the change (819 / 201 at 3 s). **Over the expected** by 10 and 19 MB |
+| Six chapter flips: canvases and textures alive | Task 6's reading | no growth from flip to flip | canvases 19, 13, 21, 13, 21, 13, 21 | canvases 21, then 11, 21, 11, 21, 11, 21; textures 53, then 23, 51, 23, 51, 23, 51: no growth |
+| A pane's first hover: requests for `hover.mp4` | Task 6's reading | none | none | none; 14 `.mp4` requests in all, the 14 loops |
+| WORK at FULL on the development PC as it is | a chapter of sharp loops | the same picture; fewer decoders once far panes have slept 20 s | not read past 20 s | 14 decoding; 9 after 25 s with five panes dragged far out of view |
 
 For "THE LIST after a tier change": open `/works.html` on the 4 GB profile, press THE LIST's button, then call
 `rvlQuality.set(0)` and, 3 s later, `rvlQuality.set(1)`; read the videos. For the last row: on the development PC as
@@ -5734,7 +5734,14 @@ never given back, WORK hidden for 40 s, the health watch's verdict forced, and t
 harness's count. One free reading for ship B, to note under the table: the meter's `TEXTURES` figure beside the
 harness's own count of GL texture bytes on the same page.
 
-- [ ] **Step 3: The checks the table does not hold (spec §7.1, "Also checked")**
+Read on 2026-11-24 on a scratch build of the branch with every task in, two runs of each tier row and one of the
+rest. The development PC as it is held 60 frames a second and stayed at FULL with own loops in every reading, so the
+slowed profiles' readings are the profiles' own. On every profile the floor changed its video at most once (the 16 GB
+profile, from own loops to the wall, 4.3 s after boot) and never back and forth. The free reading: the readout's
+`TEXTURES` line said 50 MB beside 49.5 MB of GL texture bytes counted by the harness on the development PC, and 21 MB
+beside 20.7 MB on the 4 GB profile.
+
+- [x] **Step 3: The checks the table does not hold (spec §7.1, "Also checked")**
 
 All headless, on the scratch build.
 
@@ -5777,14 +5784,33 @@ All headless, on the scratch build.
 
 The discarded tab's rule is ship B's; ship A only shows the flag.
 
-- [ ] **Step 4: Write the table's fifth column into this plan and commit it**
+Read on 2026-11-24 on the same build: all eight as written, with no console error and no failed request on any page
+but the 404 that check 5 asks for.
+
+- 1: 14 of 14 and 5 of 5 panes on a tile; the wall presented 24.00 frames a second with none dropped; the ratios read
+  1.000 to 1.003 (0.999 to 1.004 on the half-size copy).
+- 2: full-size walls, 4.6 at most (a line 9 px out, in the neighbour, reads 24 to 216, so the test would see one).
+  Half-size copy: ELECTRIC FISH 29.5 and LIEN QUAN 17.6 on their top sides, every other tile 7.1 at most. Both
+  edges were cropped at eight times their size and looked at: each holds its own picture (LIEN QUAN's is a white
+  bar of its game's interface) and no line of another. A `?gfx=` pin sets the remembered verdict aside, so the
+  half-size copy was read on the unpinned 4 GB profile.
+- 3: the pane's own loop shows 150 ms after the pointer arrives and its tile is back 109 ms after it leaves; the
+  share of near-black pixels in the pane at the two switches is 0 to 0.4%.
+- 4: the replaced film lost its tile and played its own new loop; the other 13 kept theirs; `tests/walls.test.ts`
+  failed, naming the film and `npm run walls`.
+- 5: mode `posters`, 3 loops playing, no tile.
+- 6: coarse pointer, weak by its pointer, mode `wall`, 14 of 14 on a tile.
+- 7: no floor; the three lines say `NO FLOOR ON THIS PAGE`.
+- 8: seven lines on each profile; `PRESSURE` reads `NO READING`.
+
+- [x] **Step 4: Write the table's fifth column into this plan and commit it**
 
 ```bash
 git add -- docs/superpowers/plans/2026-11-24-work-wall-video-ship-a.md
 git commit -m "docs(plan): ship A verified - the harness's table and the gates" -m "Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 5: Hand over to the coordinator**
+- [x] **Step 5: Hand over to the coordinator**
 
 Report: every task's commit, the table, anything that did not read as expected, the two known local failures if they
 showed, and whether Task 12 is in. Then the coordinator does these; no task does them.
