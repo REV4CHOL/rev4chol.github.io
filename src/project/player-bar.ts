@@ -139,8 +139,9 @@ export function captionCommand(on: boolean, track: string | null): [string, unkn
 }
 
 /** THE CAPTIONS MEMORY: the track a film's player once offered in this browser. Measured: the player may remember the
- *  page's off across loads and then offers no track at all (a reload offered `track: {}` on GALAXY part 1, in one run of
- *  two), so without this the switch would vanish for a returning visitor. A store that throws is no memory. */
+ *  page's off across loads and then offers no track at all (after `setOption('captions', 'track', {})`, a reload offered
+ *  `track: {}` on GALAXY part 1 in the one run measured), so without this the switch would vanish for a returning
+ *  visitor. A store that throws is no memory. */
 const CC_KEY = 'rvl-cc-v1';
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
 export function knownTrack(store: Store | null, id: string, offered: string | null): string | null {

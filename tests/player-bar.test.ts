@@ -214,8 +214,8 @@ describe('the CC switch, as commands', () => {
     expect(captionCommand(true, null)).toEqual(['setOption', ['captions', 'track', {}]]);
   });
 
-  // measured: the player may remember the page's off across loads (a reload then offered `track: {}` on GALAXY part 1
-  // in one run of two), so the page remembers, per film, the track its player once offered in this browser
+  // measured: the player may remember the page's off across loads (after the off, a reload offered `track: {}` on
+  // GALAXY part 1 in the one run measured), so the page remembers, per film, the track its player once offered
   it('a track once offered is remembered for that film; a film never offering one has none', () => {
     const m = new Map<string, string>();
     const store = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) };
