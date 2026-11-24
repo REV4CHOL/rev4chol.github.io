@@ -275,7 +275,7 @@
 }
 .p-sec-body { position: relative; min-width: 0; }
 .p-rail-tag {
-  position: sticky; top: 136px; display: inline-block; /* under the header's scrolled veil, not inside it */
+  display: inline-block; /* stands still at its section's head: SYN: and REC: alike, see below */
   font-family: var(--f-display); font-weight: 700; font-size: var(--t-xl);
   line-height: 0.8; color: transparent; -webkit-text-stroke: 1.5px var(--signal);
   opacity: 0.85;
@@ -283,10 +283,13 @@
 @supports not (-webkit-text-stroke: 1px #000) {
   .p-rail-tag { color: var(--signal); opacity: 0.4; }
 }
-/* REC: stays at the wall's head. The wall is full-bleed over its own rail: a landscape wall's stills cover the tag
-   wherever it travels, but a pillar's empty foot is see-through, and there the travelling tag rode over the pillar's
-   end mark (the owner, of "REC:" sliding over "EOF ▪ DIGITAL AD #1": "Fix this"). */
-.p-rec-sec .p-rail-tag { position: static; }
+/* The rail tags stand still at their section's head and scroll away with the page like any other mark.
+   REC: first (it was a sticky tag made static): the wall is full-bleed over its own rail, a landscape wall's stills
+   cover the tag wherever it travels, but a pillar's empty foot is see-through, and there the travelling tag rode over
+   the pillar's end mark (the owner, of "REC:" sliding over "EOF ▪ DIGITAL AD #1": "Fix this").
+   Then SYN: (owner, 2026-11-25: "the "SYN" should stay in its place, and not move with the user's scrolling action"):
+   its section is tall now, the film's player stands under the synopsis, and the tag sliding down the rail followed
+   the visitor. So the base rule is no longer sticky, for both. */
 
 /* ------------------------------------------------------------- spec -- */
 

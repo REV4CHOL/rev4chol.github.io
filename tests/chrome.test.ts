@@ -39,9 +39,16 @@ describe("the header's veil, on every page", () => {
     expect(z('.hud-tr')).toBeGreaterThan(z('.nav'));
   });
 
-  it('a rail tag that travels with its section stops under the veil, not inside it', () => {
-    expect(rule(css('project'), '.p-rail-tag')).toContain('top: 136px');
+  it("ABOUT's rail tag that travels with its section stops under the veil, not inside it", () => {
     expect(rule(css('about'), '.a-rail-tag')).toContain('top: 136px');
+  });
+
+  // (owner 2026-11-25, of SYN: sliding down its rail: "the "SYN" should stay in its place, and not move with the user's
+  // scrolling action") A film page's tags stand still at their section's head, so there is no veil to stop under.
+  it("a film page's rail tags do not travel: SYN: and REC: both stand at their section's head", () => {
+    const tag = rule(css('project'), '.p-rail-tag');
+    expect(tag).not.toContain('sticky');
+    expect(tag).not.toContain('top:');
   });
 });
 

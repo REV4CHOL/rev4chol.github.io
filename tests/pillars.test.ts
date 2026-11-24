@@ -52,13 +52,14 @@ describe('the pillars are equal: one column count, one still size', () => {
 // (owner 2026-09-30, of the travelling rail tag riding over ad #1's end mark as the page scrolls: "Fix this") The wall
 // is full-bleed over its own rail. A landscape wall's stills cover the tag wherever it travels, so it was never seen
 // there; a pillar's empty foot is see-through, and there it crossed "EOF ▪ DIGITAL AD #1". REC: stays at the wall's head.
-describe("the REC: tag stays at the wall's head", () => {
+// (owner 2026-11-25, of SYN: "the "SYN" should stay in its place, and not move with the user's scrolling action") SYN: now
+// stands still too, so no film-page rail tag travels: the base rule is not sticky and no rule makes one sticky again.
+describe("the REC: tag stays at the wall's head, and SYN: at the synopsis's", () => {
   const css = readFileSync('src/styles/project.css', 'utf8');
-  it('the rail tag still travels beside a text section (SYN:); over the wall it does not', () => {
+  it('no rail tag of a film page travels: the base rule is not sticky, and nothing turns it sticky', () => {
     const base = css.indexOf('.p-rail-tag {');
-    expect(css.slice(base, css.indexOf('}', base))).toContain('position: sticky');
-    const rec = css.indexOf('.p-rec-sec .p-rail-tag { position: static; }');
-    expect(rec).toBeGreaterThan(base);
+    expect(css.slice(base, css.indexOf('}', base))).not.toContain('sticky');
+    expect(css).not.toMatch(/\.p-[a-z-]*rail-tag[^{]*\{[^}]*sticky/);
   });
 });
 
