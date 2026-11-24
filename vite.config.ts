@@ -1,9 +1,10 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { basename } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import { UNTOUCHED_PAGES, withCsp } from './src/lib/csp';
 import { pickLoopFiles } from './src/lib/loop-files';
+import { scanHover, scanWalls } from './src/lib/wall-scan';
 
 const p = (f: string) => fileURLToPath(new URL(f, import.meta.url));
 
@@ -74,20 +75,33 @@ function scanLoops(): { projects: Record<string, string[]>; home: string[]; stil
   return { projects: out, home: scanHomeLoops(), stills: scanStills() };
 }
 
+/** The whole manifest: the loops, the reel and the stills (scanLoops), then each chapter's wall video with only the
+ *  tiles that are still good, and the films that have a hover clip (src/lib/wall-scan.ts):
+ *  { projects, home, stills, walls, hover }. The pages read walls and hover clips from here and never probe. */
+function scanMedia() {
+  const root = p('public/content/');
+  return { ...scanLoops(), walls: scanWalls(root), hover: scanHover(root) };
+}
+
 function mediaManifest(): Plugin {
+  // the build's real output folder: `vite build --outDir <elsewhere>` gets its manifest too
+  let outDir = p('dist/');
   return {
     name: 'revachol-media-manifest',
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         if (!req.url?.startsWith('/content/media-manifest.json')) return next();
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Cache-Control', 'no-store');
-        res.end(JSON.stringify(scanLoops()));
+        res.end(JSON.stringify(scanMedia()));
       });
     },
     closeBundle() {
-      const dist = p('dist/content/');
-      if (existsSync(dist)) writeFileSync(`${dist}media-manifest.json`, JSON.stringify(scanLoops()));
+      const dir = join(outDir, 'content');
+      if (existsSync(dir)) writeFileSync(join(dir, 'media-manifest.json'), JSON.stringify(scanMedia()));
     },
   };
 }

@@ -1,3 +1,5 @@
+import { readWalls, type WallEntry } from './wall-files';
+
 export interface NavItem { label: string; href: string }
 export interface Social { label: string; href: string }
 export interface SiteContent {
@@ -352,6 +354,9 @@ let loopManifest: Record<string, string[]> | null | undefined; // undefined = no
  *  canonical name chain below still works without it. */
 let homeManifest: string[] | null | undefined;
 let stillsManifest: Record<string, string[]> | null | undefined;
+/** each chapter's wall video, and the films that have a hover clip: empty until a manifest lists them */
+let wallsManifest: Record<string, WallEntry> = {};
+let hoverManifest: string[] = [];
 
 /** The homepage reel's files as the manifest lists them (slot order), or
  *  null when no manifest is available — callers fall back to probing. */
@@ -385,15 +390,36 @@ export async function loadLoopManifest(): Promise<void> {
       projects?: Record<string, string[]>;
       home?: string[];
       stills?: Record<string, string[]>;
+      walls?: unknown;
+      hover?: unknown;
     };
     loopManifest = data.projects ?? null;
     homeManifest = Array.isArray(data.home) ? data.home : null;
     stillsManifest = data.stills ?? null;
+    wallsManifest = readWalls(data.walls);
+    hoverManifest = Array.isArray(data.hover) ? data.hover.filter((s): s is string => typeof s === 'string') : [];
   } catch {
     loopManifest = null;
     homeManifest = null;
     stillsManifest = null;
   }
+}
+
+/** A chapter's wall video as the manifest lists it (one video that plays every pane's loop as a tile: lib/wall-files.ts,
+ *  works/wall.ts), with only the tiles that are still good. Null without a manifest, without a built wall, or with no
+ *  good tile left. The floor reads walls only from here and never probes for a file. */
+export function wallFor(chapter: string): WallEntry | null {
+  return wallsManifest[chapter] ?? null;
+}
+
+export function wallAssetUrl(file: string): string {
+  return `${CONTENT_BASE}/walls/${encodeURIComponent(file)}`;
+}
+
+/** Whether a film has a hover clip (`hover.mp4`), as the manifest lists it. Without a manifest none is listed, and a
+ *  pane asks for none: an unlisted clip used to cost every pane's first hover a failed request and a reloaded loop. */
+export function hasHoverClip(slug: string): boolean {
+  return hoverManifest.includes(slug);
 }
 
 /** Candidate urls for a project's loop clip, in probe order: every video the

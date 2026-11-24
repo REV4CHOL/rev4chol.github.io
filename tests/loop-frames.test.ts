@@ -17,14 +17,15 @@ const ffmpeg = spawnSync('ffmpeg', ['-version']).status === 0;
  *  loop, HALIDE's room between two flashes, peaks at 119). */
 const BLACK = 32;
 
-/** Every loop the site plays: each film's videos and the homepage reel's, as paths under public/content. */
+/** Every loop the site plays: each film's videos, the homepage reel's and the chapters' wall videos (a black frame at
+ *  a wall's wrap would flash on every pane at once), as paths under public/content. */
 function loops(): string[] {
   const videos = (dir: string) =>
     existsSync(root + dir)
       ? readdirSync(root + dir).filter((f) => /\.(mp4|webm|mov|m4v)$/i.test(f)).map((f) => `${dir}/${f}`)
       : [];
   const films = readdirSync(`${root}projects`, { withFileTypes: true }).filter((d) => d.isDirectory());
-  return [...films.flatMap((d) => videos(`projects/${d.name}`)), ...videos('home')];
+  return [...films.flatMap((d) => videos(`projects/${d.name}`)), ...videos('home'), ...videos('walls')];
 }
 
 /** The brightest pixel (luma) of each frame ffmpeg decodes, given options before and after the input. */
