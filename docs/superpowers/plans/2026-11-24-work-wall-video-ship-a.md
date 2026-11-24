@@ -2464,14 +2464,32 @@ They are the render targets of the blur filters, about 50 MB. Task 12 is measure
 
 - [ ] **Step 6: Write the readings into this plan, remove the worktree, commit the plan**
 
-Put your readings under this step, one line each, in place of the list below:
+The readings, taken on 2026-11-24 on a build of the starting commit (the 14-film chapter), two runs each with the
+same answer:
 
-- The 4 GB profile's tier at 2 s, 15 s, 60 s:
-- The 8 GB profile's tier at 2 s, 15 s, 60 s:
-- The 16 GB profile's tier at 2 s, 15 s, 60 s:
-- Six flips, live canvases after each (and textures):
-- First hovers, requests for `hover.mp4` of panes pointed at:
-- Filter targets with one pane pointed at, at FULL:
+- The 4 GB profile's tier at 2 s, 15 s, 60 s: balanced, lite, lite (it steps down 4.4 to 5.1 s after boot, while the
+  14 loops start; the step down shuts the ceiling at LITE for 60 s, so it was still shut at the last reading)
+- The 8 GB profile's tier at 2 s, 15 s, 60 s: balanced, lite, lite (down at 4.2 to 4.3 s)
+- The 16 GB profile's tier at 2 s, 15 s, 60 s: balanced, lite, lite (down at 4.3 to 4.9 s)
+- Six flips, live canvases after each (and textures): canvases 19, then 23, 38, 42, 57, 61, 76 (they grow: every
+  poster canvas of every floor that was built stays alive, 12.3 MB of poster pixels at the start and 63.1 MB after
+  six flips); Pixi's live textures 71, then 25, 56, 25, 56, 26, 56 (they do not grow)
+- First hovers, requests for `hover.mp4` of panes pointed at: 3, each answered 404; 17 `.mp4` requests in all with 14
+  loops playing; each failed hover clip loaded its pane's loop into its element again (from the media cache, with no
+  new request), so that pane's loop restarts
+- Filter targets with one pane pointed at, at FULL: 15 pooled render targets, 60 MB: three each of 2048×1024,
+  2048×512, 1024×1024, 512×1024 and 1024×512; the 12 that are not 2048×1024 (36 MB) are the blur passes' own
+
+This is not what the spec's §7.1 has for the 4 GB profile (balanced, full, full). With 14 loops starting under the
+slowing, every profile meets one slow window in its first five seconds and drops to LITE, where 3 panes play. The
+tier after 60 s was not read. The development PC as it is stayed at FULL in every reading.
+
+After Task 11, the same two runs on a build with its fix:
+
+- Six flips, live canvases after each (and textures): canvases 21, then 13, 22, 12, 22, 12, 22 (no growth); textures
+  53, then 28, 51, 23, 51, 23, 51
+- First hovers, requests for `hover.mp4` of panes pointed at: none; 14 `.mp4` requests in all, the 14 loops, all 14
+  playing
 
 ```bash
 git worktree remove --force "<scratch folder>/before"
