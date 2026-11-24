@@ -156,3 +156,15 @@ describe('running text and the unseen keep the plain string with its slash', () 
     expect(src('src/pages/works.ts')).toContain("a.textContent = `${p.title} (${p.year})${isPlaceholder(p) ? ' — placeholder' : ''}`;");
   });
 });
+
+// components.css ends on the reveal (`body { visibility: visible; }`): every page hides its body inline until the whole
+// stylesheet is parsed, and that rule's comment says it must stay the last one. The lockup's block was first appended
+// after it, and nothing failed. This holds the law for whatever is added next.
+describe("the stylesheet's reveal stays its last rule", () => {
+  it('components.css ends on body { visibility: visible; }, the lockup block standing before it', () => {
+    const css = src('src/styles/components.css').replace(/\r\n/g, '\n');
+    expect(css.trimEnd().endsWith('body { visibility: visible; }')).toBe(true);
+    expect(css.indexOf('--tt-ratio: 0.58;')).toBeGreaterThan(-1);
+    expect(css.indexOf('--tt-ratio: 0.58;')).toBeLessThan(css.lastIndexOf('body { visibility: visible; }'));
+  });
+});

@@ -1047,12 +1047,6 @@ html.rvl-list-tight .fl-open { grid-area: open; }
   .home-data { font-size: 11px; }
 }
 
-/* ---- the reveal ----
-   Every page inlines body{visibility:hidden} in <head>; this final rule fires
-   only once the full stylesheet chain is parsed, so no frame of unstyled
-   content (the white-flash) can ever paint. Must stay the last rule. */
-body { visibility: visible; }
-
 /* TWO-LANGUAGE TITLES (lib/title.ts; owner, 2026-11-24: "go for A. But I want the two texts to be organise neatly in
    the same column, and it need to sit a bit closer to each other via their line spacing"). A title written
    `English / Vietnamese` stands as two lines wherever a film's name is a headline: the English name as a one-part
@@ -1070,3 +1064,9 @@ body { visibility: visible; }
   /* (the clearance never under one pixel: at a list's 13 px, 0.07 em is less than one, and the mark met the baseline) */
   margin-top: calc(var(--tt-pull, 0em) + max(0px, 1px - var(--tt-clear) * 1em)); margin-left: var(--tt-shift, 0em);
 }
+
+/* ---- the reveal ----
+   Every page inlines body{visibility:hidden} in <head>; this final rule fires
+   only once the full stylesheet chain is parsed, so no frame of unstyled
+   content (the white-flash) can ever paint. Must stay the last rule. */
+body { visibility: visible; }
