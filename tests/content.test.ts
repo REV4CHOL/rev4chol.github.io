@@ -201,14 +201,17 @@ describe('helpers', () => {
     expect(parseProjects([{ ...validProject(), client: 'Garena' }])[0].client).toBe('Garena');
   });
 
-  // the owner, 2026-11-24, of XIÊU LÒNG: "I need the following info: Artist: … Production House: …"
-  it('artist and productionHouse: default empty, accept a name, reject junk', () => {
+  // the owner, 2026-11-24, of XIÊU LÒNG: "I need the following info: Artist: … Production House: …", then "Underneath
+  // PRODUCTION HOUSE, write Director: Khadarec [XPOKIT]"
+  it('artist, productionHouse and director: default empty, accept a name, reject junk', () => {
     const [bare] = parseProjects([validProject()]);
-    expect([bare.artist, bare.productionHouse]).toEqual(['', '']);
-    const [p] = parseProjects([{ ...validProject(), artist: 'Dung Hoang Pham / PHUCNAM', productionHouse: 'Explosion Kitchen' }]);
-    expect([p.artist, p.productionHouse]).toEqual(['Dung Hoang Pham / PHUCNAM', 'Explosion Kitchen']);
+    expect([bare.artist, bare.productionHouse, bare.director]).toEqual(['', '', '']);
+    const named = { artist: 'Dung Hoang Pham / PHUCNAM', productionHouse: 'XPOKIT', director: 'Khadarec [XPOKIT]' };
+    const [p] = parseProjects([{ ...validProject(), ...named }]);
+    expect([p.artist, p.productionHouse, p.director]).toEqual(['Dung Hoang Pham / PHUCNAM', 'XPOKIT', 'Khadarec [XPOKIT]']);
     expect(() => parseProjects([{ ...validProject(), artist: 7 }])).toThrow(ContentError);
-    expect(() => parseProjects([{ ...validProject(), productionHouse: ['Explosion Kitchen'] }])).toThrow(ContentError);
+    expect(() => parseProjects([{ ...validProject(), productionHouse: ['XPOKIT'] }])).toThrow(ContentError);
+    expect(() => parseProjects([{ ...validProject(), director: { name: 'Khadarec' } }])).toThrow(ContentError);
   });
 
   it('film.type embed: accepted, carrying any platform iframe verbatim', () => {

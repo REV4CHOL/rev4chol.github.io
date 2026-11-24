@@ -422,16 +422,18 @@ describe('shipped content files', () => {
   // COLORIST, at the chapter's end". THE LOVERS is a 4:3 wedding film, XIÊU LÒNG a 3:2 music video.
   // Later that day, the owner: "The Lovers should be role: director / Editor / colorist", with its YouTube embed code
   // and "Runtime is 3:17". Then XIÊU LÒNG's embed code, and: "Also in Xiêu Lòng, I need the following info: Artist:
-  // Dung Hoang Pham / PHUCNAM. Production House: Explosion Kitchen. Runtime: 4:20. Genre: Music Video".
+  // Dung Hoang Pham / PHUCNAM. Production House: Explosion Kitchen. Runtime: 4:20. Genre: Music Video". Shown the
+  // page, they dropped its CLIENT row ("Go with the Remove it option") and added: "Underneath PRODUCTION HOUSE, write
+  // Director: Khadarec [XPOKIT]. Also Production house is XPOKIT, not explosion kitchen".
   const BATCH5 = [
     { slug: 'the-lovers', slot: 17, title: 'THE LOVERS', aspect: '4:3', client: '', tags: ['wedding film'],
       role: 'Director / Editor / Colorist', runtime: '3:17', film: 'https://www.youtube.com/embed/4nkgqyVtfsg',
-      artist: '', productionHouse: '',
+      artist: '', productionHouse: '', director: '',
       synopsis: 'A vow in a green garden, held close.', accent: '#6FE0B4', focus: '70% 50%',
       loop: { size: [960, 720], seconds: 8 }, stills: 50, still: [1600, 1200] },
-    { slug: 'xieu-long', slot: 18, title: 'XIÊU LÒNG', aspect: '3:2', client: 'DHP & Khadarec', tags: ['music video'],
+    { slug: 'xieu-long', slot: 18, title: 'XIÊU LÒNG', aspect: '3:2', client: '', tags: ['music video'],
       role: 'Colorist', runtime: '4:20', film: 'https://www.youtube.com/embed/wZNPHtoPZzk',
-      artist: 'Dung Hoang Pham / PHUCNAM', productionHouse: 'Explosion Kitchen',
+      artist: 'Dung Hoang Pham / PHUCNAM', productionHouse: 'XPOKIT', director: 'Khadarec [XPOKIT]',
       synopsis: 'Silk, a red curtain and a paper fan: the moment a heart gives way.', accent: '#FF3D5A', focus: '50% 50%',
       loop: { size: [1080, 720], seconds: 5.4 }, stills: 27, still: [1600, 1067] },
   ] as const;
@@ -443,7 +445,7 @@ describe('shipped content files', () => {
     expect(p.title).toBe(p.title.normalize('NFC')); // (Ê and Ò as single letters, the way the display face carries them)
     expect([p.year, p.role, p.runtime, p.client, p.category, p.tileSize]).toEqual([2026, f.role, f.runtime, f.client, 'human', 'normal']);
     expect(p.credits).toEqual([{ role: f.role, name: 'Revachol' }]);
-    expect([p.artist, p.productionHouse]).toEqual([f.artist, f.productionHouse]);
+    expect([p.artist, p.productionHouse, p.director]).toEqual([f.artist, f.productionHouse, f.director]);
     expect([p.aspect, p.tags, p.synopsis, p.accent, p.focus]).toEqual([f.aspect, [...f.tags], f.synopsis, f.accent, f.focus]);
     // (a film with its link plays; one without keeps WATCH greyed until the link comes)
     expect([p.film, p.filmPending, p.filmPrivate]).toEqual(f.film ? [{ type: 'youtube', src: f.film }, false, false] : [null, true, false]);

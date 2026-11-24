@@ -12,6 +12,7 @@ const proj = (slug: string, category: 'human' | 'machine'): Project => ({
   client: '',
   artist: '',
   productionHouse: '',
+  director: '',
   short: '',
   tags: [],
   accent: '#C8FF00',
