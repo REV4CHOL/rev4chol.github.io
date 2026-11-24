@@ -434,5 +434,53 @@
     },
     "category": "human",
     "tileSize": "normal"
+  },
+  {
+    "slug": "the-lovers",
+    "title": "THE LOVERS",
+    "year": 2026,
+    "role": "Colorist",
+    "runtime": "",
+    "tags": [
+      "wedding film"
+    ],
+    "accent": "#6FE0B4",
+    "focus": "70% 50%",
+    "aspect": "4:3",
+    "synopsis": "A vow in a green garden, held close.",
+    "credits": [
+      {
+        "role": "Colorist",
+        "name": "Revachol"
+      }
+    ],
+    "film": null,
+    "filmPending": true,
+    "category": "human",
+    "tileSize": "normal"
+  },
+  {
+    "slug": "xieu-long",
+    "title": "XIÊU LÒNG",
+    "year": 2026,
+    "role": "Colorist",
+    "runtime": "",
+    "client": "DHP & Khadarec",
+    "tags": [
+      "music video"
+    ],
+    "accent": "#FF3D5A",
+    "aspect": "3:2",
+    "synopsis": "Silk, a red curtain and a paper fan: the moment a heart gives way.",
+    "credits": [
+      {
+        "role": "Colorist",
+        "name": "Revachol"
+      }
+    ],
+    "film": null,
+    "filmPending": true,
+    "category": "human",
+    "tileSize": "normal"
   }
 ]

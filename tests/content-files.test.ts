@@ -297,7 +297,7 @@ describe('shipped content files', () => {
   //  when SALINE THRONE left it)
   it('the CH·01 moves: FAR EAST and SODA COAST in their new places; both held places filled, none left', () => {
     const floor = parseFloor(rawProjects());
-    expect(floor).toHaveLength(17);
+    expect(floor).toHaveLength(19); // (17 until THE LOVERS and XIÊU LÒNG joined at the chapter's end, 2026-11-24)
     expect(floor.some(isBlank)).toBe(false);
     const slot = (i: number) => [floor[i].slug, floor[i].tileSize];
     expect(slot(6)).toEqual(['an-hoi', 'large']); // the upper held place
@@ -320,9 +320,11 @@ describe('shipped content files', () => {
   //  stood" — MISTCHILD took NEON LITURGY's place, last in CH·01's order, and the corner it left stayed open floor.
   //  On 2026-09-28 the placeholders left and the floor re-flowed; the open gap, kept only so no neighbour would
   //  slide into that corner, went with them)
-  it("MISTCHILD stays last in CH·01's order; NEON LITURGY and the open gap are gone", () => {
+  // (2026-11-24, the owner: "Film coming soon, role COLORIST, at the chapter's end": THE LOVERS and XIÊU LÒNG
+  //  follow MISTCHILD, the last two of CH·01's order)
+  it("MISTCHILD stands last of CH·01's films before the two newest; NEON LITURGY and the open gap are gone", () => {
     const floor = parseFloor(rawProjects());
-    expect(floor.filter((it) => it.category === 'human').at(-1)!.slug).toBe('mistchild');
+    expect(floor.filter((it) => it.category === 'human').slice(-3).map((it) => it.slug)).toEqual(['mistchild', 'the-lovers', 'xieu-long']);
     expect(floor.some(isBlank)).toBe(false);
     expect(floor.some((it) => it.slug === 'neon-liturgy')).toBe(false);
     expect(existsSync(`${root}projects/neon-liturgy`)).toBe(false);
@@ -370,15 +372,21 @@ describe('shipped content files', () => {
     return Object.fromEntries(placed.map((p) => [p.slug, [(p.col - c0) / 2, (p.row - r0) / 2]]));
   };
 
-  // (2026-09-28: the placeholders gone, then SALINE THRONE: CH·01's twelve fill a 4 × 3 block, no slot empty — the
-  //  six featured 3 × 2 at its top left, the regular films after them in json order, MISTCHILD last, in the corner;
-  //  2026-11-08, the owner: PHILIA and REMNANTS OF A DREAM switch places)
-  it('CH·01 lies cell by cell: a full 4 × 3 block, every pane a real film', () => {
+  // (2026-09-28: the placeholders gone, then SALINE THRONE: CH·01's twelve filled a 4 × 3 block, no slot empty;
+  //  2026-11-08, the owner: PHILIA and REMNANTS OF A DREAM switch places; 2026-11-24, THE LOVERS and XIÊU LÒNG join
+  //  at the chapter's end: fourteen, and the layout's own choice is a 5 × 3 band — the six featured 3 × 2 in its
+  //  middle, the regular films round them in json order, the two new ones last on the bottom row — with ONE slot
+  //  open, the bottom-right corner. That slot is a design call left to the owner: they asked for no gap in a block)
+  it('CH·01 lies cell by cell: 14 films on a 5 × 3 band, every pane a real film, one corner slot open', () => {
     expect(cells('human')).toEqual({
-      'remnants-of-a-dream': [0, 0], 'mien-vien': [1, 0], 'an-hoi': [2, 0], 'far-east': [3, 0],
-      'lien-quan': [0, 1], 'electric-fish': [1, 1], philia: [2, 1], 'soda-coast': [3, 1],
-      'soft-hours-lonely-lands': [0, 2], 'mission-impassible': [1, 2], halide: [2, 2], mistchild: [3, 2],
+      'far-east': [0, 0], 'remnants-of-a-dream': [1, 0], 'mien-vien': [2, 0], 'an-hoi': [3, 0], 'soda-coast': [4, 0],
+      'soft-hours-lonely-lands': [0, 1], 'lien-quan': [1, 1], 'electric-fish': [2, 1], philia: [3, 1], 'mission-impassible': [4, 1],
+      halide: [0, 2], mistchild: [1, 2], 'the-lovers': [2, 2], 'xieu-long': [3, 2],
     });
+    const taken = new Set(Object.values(cells('human')).map(([c, r]) => `${c},${r}`));
+    const open: number[][] = [];
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 5; c++) if (!taken.has(`${c},${r}`)) open.push([c, r]);
+    expect(open).toEqual([[4, 2]]);
   });
 
   // (owner 2026-09-28: "The verticle pane must be bigger and larger, as they are allowed to run irregular sizing")
@@ -390,15 +398,50 @@ describe('shipped content files', () => {
     expect(placedOf('machine').filter((p) => p.tall).map((p) => p.slug)).toEqual(['galaxy-z-fold-8-ultra']);
   });
 
-  it('projects.json is valid: CH·01 holds 12 films (6 featured), CH·02 5 (all featured): 17 in all', () => {
+  it('projects.json is valid: CH·01 holds 14 films (6 featured), CH·02 5 (all featured): 19 in all', () => {
     const films = parseProjects(rawProjects());
     const human = films.filter((p) => p.category === 'human');
     const machine = films.filter((p) => p.category === 'machine');
     expect(machine).toHaveLength(5);
     expect(machine.filter((p) => p.tileSize === 'large')).toHaveLength(5);
-    expect(human).toHaveLength(12);
+    expect(human).toHaveLength(14); // (12 until THE LOVERS and XIÊU LÒNG, 2026-11-24)
     expect(human.filter((p) => p.tileSize === 'large')).toHaveLength(6);
-    expect(films).toHaveLength(17);
+    expect(films).toHaveLength(19);
+  });
+
+  // the owner, 2026-11-24: "after all tasks done, upload these two to the COLORIST section"; asked with pictures the
+  // same day, they chose "Keep 3:2, add that pane", the titles "THE LOVERS and XIÊU LÒNG", and "Film coming soon, role
+  // COLORIST, at the chapter's end". THE LOVERS is a 4:3 wedding film, XIÊU LÒNG a 3:2 music video.
+  const BATCH5 = [
+    { slug: 'the-lovers', slot: 17, title: 'THE LOVERS', aspect: '4:3', client: '', tags: ['wedding film'],
+      synopsis: 'A vow in a green garden, held close.', accent: '#6FE0B4', focus: '70% 50%',
+      loop: { size: [960, 720], seconds: 8 }, stills: 50, still: [1600, 1200] },
+    { slug: 'xieu-long', slot: 18, title: 'XIÊU LÒNG', aspect: '3:2', client: 'DHP & Khadarec', tags: ['music video'],
+      synopsis: 'Silk, a red curtain and a paper fan: the moment a heart gives way.', accent: '#FF3D5A', focus: '50% 50%',
+      loop: { size: [1080, 720], seconds: 5.4 }, stills: 27, still: [1600, 1067] },
+  ] as const;
+
+  for (const f of BATCH5) it(`${f.title} joins the end of CH·01: ${f.aspect}, its film coming soon, with its media (owner 2026-11-24)`, () => {
+    expect(parseFloor(rawProjects()).findIndex((it) => it.slug === f.slug)).toBe(f.slot);
+    const p = parseProjects(rawProjects()).find((q) => q.slug === f.slug)!;
+    expect(p.title).toBe(f.title);
+    expect(p.title).toBe(p.title.normalize('NFC')); // (Ê and Ò as single letters, the way the display face carries them)
+    expect([p.year, p.role, p.runtime, p.client, p.category, p.tileSize]).toEqual([2026, 'Colorist', '', f.client, 'human', 'normal']);
+    expect(p.credits).toEqual([{ role: 'Colorist', name: 'Revachol' }]);
+    expect([p.aspect, p.tags, p.synopsis, p.accent, p.focus]).toEqual([f.aspect, [...f.tags], f.synopsis, f.accent, f.focus]);
+    expect([p.film, p.filmPending, p.filmPrivate]).toEqual([null, true, false]); // WATCH greyed until the link comes
+    const dir = `${root}projects/${f.slug}/`;
+    expect(existsSync(`${dir}poster.jpg`)).toBe(true);
+    const loop = mp4Facts(`${dir}preview.mp4`);
+    expect(loop.seconds).toBeCloseTo(f.loop.seconds, 2);
+    expect(loop.boxes.indexOf('moov')).toBeGreaterThanOrEqual(0);
+    expect(loop.boxes.indexOf('moov')).toBeLessThan(loop.boxes.indexOf('mdat')); // faststart
+    expect(loop.bytes).toBeLessThan(3 * 1024 * 1024);
+    expect(mp4Size(`${dir}preview.mp4`)).toEqual([...f.loop.size]); // in its own ratio, never cropped to 16:9
+    expect(f.loop.size[0] / f.loop.size[1]).toBeCloseTo(aspectRatio(f.aspect), 6);
+    const stills = readdirSync(`${dir}stills`).sort();
+    expect(stills).toEqual(Array.from({ length: f.stills }, (_, i) => `${String(i + 1).padStart(2, '0')}.jpg`));
+    expect(f.still[0] / f.still[1]).toBeCloseTo(aspectRatio(f.aspect), 2);
   });
 
   it('the homepage has a first frame: a hero image or at least one loop', () => {
