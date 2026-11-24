@@ -454,7 +454,7 @@ describe('shipped content files', () => {
       role: 'Colorist', runtime: '4:20', film: 'https://www.youtube.com/embed/wZNPHtoPZzk',
       artist: 'Dung Hoang Pham / PHUCNAM', productionHouse: 'XPOKIT', director: 'Khadarec [XPOKIT]',
       synopsis: 'Silk, a red curtain and a paper fan: the moment a heart gives way.', accent: '#FF3D5A', focus: '50% 50%',
-      loop: { size: [1080, 720], seconds: 5.4 }, stills: 27, still: [1600, 1067] },
+      loop: { size: [1080, 720], seconds: 5.4 }, stills: 24, still: [1600, 1067] }, // (27 until the owner took three out: tests/xieu-long-stills.test.ts)
   ] as const;
 
   for (const f of BATCH5) it(`${f.title} joins the end of CH·01: ${f.aspect}, with its media (owner 2026-11-24)`, () => {
