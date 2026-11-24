@@ -155,7 +155,8 @@ A second encode of the same video at CRF 27 came to about 8.2 MB.
   on `cpu` was accepted. It delivered no reading in 14 s, with the page focused and a core kept busy, so its states
   (`nominal`, `fair`, `serious`, `critical`, by the API's definition) were not seen here.
 - `performance.memory` exists and counts the page's JavaScript heap only. It read 7 to 9 MB on WORK and 235 to 268 MB
-  on STORY, against a limit of 4,192 MB. It moved within a second of a 150 MB allocation, so it is a live figure.
+  on STORY, against a limit of 4,192 MB. In this headless Chrome it moved within a second of a 150 MB allocation;
+  the old laptop's `MEMORY` line shows whether it moves there.
 - `performance.measureUserAgentSpecificMemory` is undefined. It needs cross-origin isolation, which the site does
   not have.
 - `document.wasDiscarded` exists, and is false on a fresh load.
@@ -214,7 +215,7 @@ The floor is in one of five modes:
 | Mode | When | What the panes show | Videos decoding |
 |---|---|---|---|
 | `own` | The table above gives own loops | Each pane its own loop, as today | Up to 12 |
-| `wall` | The table gives the wall, or the own loops failed their health watch (§4.5) | Every pane its tile of the wall video | 1, plus the pointed pane's loop |
+| `wall` | The table gives the wall; or the own loops failed their health watch (§4.5); or the floor lost its context in this visit (§4.9) | Every pane its tile of the wall video | 1, plus the pointed pane's loop |
 | `wall-small` | The wall video cannot hold its frame rate (the wall's watch, §4.5) | Every pane its tile of the half-size copy | 1, plus the pointed pane's loop |
 | `posters` | A wall is due and cannot play: the file is missing or failed, or the visitor has Save-Data or a 2g line | Posters; the panes nearest the middle play their own loops | Up to 3 |
 | `starved` | The half-size copy cannot hold 12 frames a second | Posters; only the pointed pane plays | 1 |
@@ -223,7 +224,7 @@ The mode is worked out in four steps:
 
 1. The first table gives own loops or the wall, from the class and the tier.
 2. Own loops become the wall where this machine's own loops failed their health watch (§4.5), in this visit or
-   within the last day.
+   within the last day; and for the rest of a visit in which the floor lost its WebGL context (§4.9).
 3. A wall that is due and cannot play gives `posters`: no usable file, Save-Data, or a 2g line.
 4. A wall that plays follows its own watch (§4.5): `wall`, then `wall-small`, then `starved`. With no half-size
    file, `posters` stands in for `wall-small`.
@@ -371,8 +372,9 @@ One new unit, `src/works/wall.ts`, owns the wall video. The world creates it; a 
     judged: a hidden page, the first 4 s after the page shows again, a paused floor, and fewer than two counted
     loops.
   - A failed watch switches the floor to the wall at once (§4.1, step 2) and is told to the ladder (§4.9). It is
-    remembered for the visit and for a day, beside the tier. The tier itself does not move: the page's own frames
-    may be smooth.
+    remembered for the visit, and for a day from the moment it failed: the flag carries its own time, which later
+    saves do not refresh, so after a day the machine tries its own loops again. The tier itself does not move: the
+    page's own frames may be smooth.
   - Where the browser gives no such totals, the watch does nothing.
 - **Every switch happens under the posters.** The videos that are leaving are released, each pane shows its poster,
   the new video starts, and the panes take it up once its frame gate opens. §4.9 lists what the visitor sees.
@@ -416,7 +418,9 @@ One new unit, `src/works/wall.ts`, owns the wall video. The world creates it; a 
 - **Live signals.** After a machine arrives the ladder also takes: a lost WebGL context, a discarded tab, processor
   pressure, the floor's memory budget and the loops' health watch (§4.9). Each is recorded with its time.
 - **The pin still wins.** `?gfx=` sets the tier and the ceiling whatever the hardware and the signals say. It is the
-  owner's and the testers' switch. A pinned page records the signals, shows them on the readout, and moves nothing.
+  owner's and the testers' switch. A pinned page records the signals and shows them on the readout, and moves
+  neither the tier nor the mode; its meter sheds nothing. The floor still stops and is built again after a lost
+  context, and still gives its videos back when hidden.
 - `window.rvlQuality.state()` also reports the hardware ceiling, the weak class and the line that gave it, the tier
   the page opened at, and the signal that last changed the level.
 - Unchanged: `videoCapFor`'s table and the tiers' other knobs, the 12 s before a step up, the reopening rule, the
@@ -475,7 +479,7 @@ down is: in the session, and for a day. Stalls and pressure go through the gover
 | Slow frames | The window of 60 frames, as today | A step down, by today's rules |
 | Stalls | Three frames over 250 ms within 10 s (§4.6) | The window is SLOW: a step down |
 | Starving decoders | The loops' health watch (§4.5) | The floor takes the wall; the tier stays |
-| A lost WebGL context | `webglcontextlost` on the floor's canvas | One step down; the tier that was left is closed for the session; the floor is built again (below) |
+| A lost WebGL context | `webglcontextlost` on the floor's canvas | One step down; the tier that was left is closed for the session; the wall is due for the rest of the visit; the floor is built again (below) |
 | A discarded tab | `document.wasDiscarded` is true at load | The page opens one tier lower than the device rule and the remembered tier give, and that tier is the visit's ceiling |
 | Processor pressure | `PressureObserver` on `cpu`, where the browser has one | `serious` or `critical` for 10 s running counts as a SLOW window; no step up while it lasts |
 | The site's own growth | The meter, still over its budget after shedding (below) | One step down |
@@ -487,9 +491,10 @@ short of memory, so the floor reads it as a memory signal.
    video and tells the ladder. Pixi has already called `preventDefault()`, so the browser may give the context
    back. The page's chrome stays; the ground behind it is empty.
 2. On `webglcontextrestored` the floor is not patched in place. The world is destroyed and built again by the
-   chapter flip's path: the same chapter, the same place, no opening animation, in the mode the lower tier gives.
-   Building anew arms every frame gate again and leaves one path to test. Pixi's own restore uploads each texture
-   again and knows nothing of the videos.
+   chapter flip's path: the same chapter, the same place, no opening animation, one tier lower, and on the wall for
+   the rest of the visit (§4.1, step 2). Without that, a machine that is not weak would be handed its twelve loops
+   again. Building anew arms every frame gate again and leaves one path to test. Pixi's own restore uploads each
+   texture again and knows nothing of the videos.
 3. If the context is not back within 4 s, or is lost a second time in the visit, the page switches to THE LIST,
    which is plain HTML. The floor stays one press away, and choosing it builds a new one. There is never a dead
    floor.
@@ -572,7 +577,7 @@ has. A step down switches at once. A step up changes no video until the floor is
 | The wall to its half-size copy | The same moment on posters, then softer tiles |
 | The half-size copy to `starved` | The panes rest on their posters; the pointed pane plays |
 | A step up | No change in the videos until the next chapter flip, page, or return from THE LIST. The tier's other knobs change at once, as today |
-| A lost context | The ground empties, then the floor stands again without its opening animation, on the lighter level; or THE LIST after 4 s |
+| A lost context | The ground empties, then the floor stands again without its opening animation, one tier lower and on the wall; or THE LIST after 4 s |
 | The page shown again after 30 s hidden | Posters, then motion |
 | A discarded tab reopened | An ordinary load, one tier lower |
 
@@ -593,7 +598,7 @@ own parts (§10).
 | The half-size copy is missing while the full-size is there | `wall` runs; a verdict of the wall's watch against it gives `posters` |
 | The own loops fail their health watch and no wall can play | `posters`: 3 own loops in place of 12 starving ones |
 | The pointed pane's own loop fails | Its tile stays; the pane's existing retry and cooldown apply |
-| The floor's WebGL context is lost | The floor stops, and is built again on the lighter level when the context returns; THE LIST if it is not back in 4 s or is lost twice (§4.9) |
+| The floor's WebGL context is lost | The floor stops, and is built again one tier lower and on the wall when the context returns; THE LIST if it is not back in 4 s or is lost twice (§4.9) |
 | Chrome discarded the tab in the background | The reload opens one tier lower, for that visit |
 | The browser reports no memory, has no pressure observer, or gives no video frame totals | That line decides nothing and the others carry on; the readout says `NOT REPORTED` or `NOT OFFERED` |
 | The meter is over its budget at LITE | Nothing more is shed; the readout says `OVER` |
@@ -613,10 +618,11 @@ New, on the pure parts:
   - a changed byte length or hash drops that tile from the manifest entry, and only that tile;
   - a film that left the chapter loses its tile; a missing video file drops the chapter.
 - The floor's mode: one pure function from the tier, the weak class, the pin, Save-Data or 2g, the wall's and the
-  half-size file's presence, the health watch's flag and the wall watch's verdict, to one of the five modes. Tested
-  through both tables of §4.1 and its four steps:
+  half-size file's presence, the health watch's flag, a lost context in the visit and the wall watch's verdict, to
+  one of the five modes. Tested through both tables of §4.1 and its four steps:
   - BALANCED gives `wall` on a weak machine and `own` on any other; LITE gives `wall` on both; FULL gives `own`;
-  - the health flag turns `own` into `wall`, and into `posters` where no wall can play;
+  - the health flag turns `own` into `wall`, and into `posters` where no wall can play; so does a lost context in
+    the visit;
   - Save-Data and 2g give `posters` wherever a wall is due;
   - a pinned page ignores the flag and both watches;
   - a step up changes nothing until the next build; a step down from BALANCED to LITE moves `own` to `wall` on a
@@ -641,10 +647,10 @@ New, on the pure parts:
     starts the count again; no reading at all changes nothing;
   - the budget: each class's number, and its growth with the canvas;
   - the shedding order: over twice releases, over twice more steps down, a reading within the budget starts again;
-  - the health flag is saved in the session's and the day's records, and records written before this part still
-    restore;
+  - the health flag is saved in the session's and the day's records with its own time, lapses a day after the
+    failure whatever was saved since, and records written before this part still restore;
   - `state()` names the signal that last changed the level;
-  - a pinned page records every signal and moves nothing;
+  - a pinned page records every signal and moves neither the tier nor the mode;
   - the knob table still reads 12 · 12 · 3 and 4 · 3 · 2.
 - Playback: a pane asleep 20 s is released and one asleep 19 s is not; no pane wakes while the floor is paused, also
   when the tier changes.
@@ -696,7 +702,7 @@ differ in what they report: 4 GB and 4 threads (§2.1's laptop profile), 8 GB an
 | Six chapter flips: canvases and textures alive | not measured | no growth from flip to flip | measured in the plan's last task |
 | A pane's first hover: requests for `hover.mp4` | one per pane, by the code | none | measured in the plan's last task |
 | WORK at FULL on the development PC as it is | 12 sharp loops | the same picture; fewer decoders once far panes have slept 20 s | measured in the plan's last task |
-| The floor's context lost and given back (forced through `WEBGL_lose_context`) | no handler in the code | the floor stands again, one tier lower | measured in the plan's last task |
+| The floor's context lost and given back (forced through `WEBGL_lose_context`) | no handler in the code | the floor stands again, one tier lower and on the wall | measured in the plan's last task |
 | The same, never given back | no handler in the code | THE LIST after 4 s | measured in the plan's last task |
 | WORK hidden for 40 s: videos held, and frames decoded while hidden | not measured | none held after 30 s; all back when the page shows | measured in the plan's last task |
 | The health watch, its verdict forced | no such watch | own loops give way to the wall at once; the next page opens on the wall | measured in the plan's last task |
@@ -766,8 +772,8 @@ HOMEPAGE, STORY and the film pages are designed after this reading.
    them, repeat every fourth frame instead.
 10. **Save-Data and 2g get no wall**: 3 loops and posters, as today.
 11. **Where a wall is due and cannot play, 3 own loops play**, also on a machine whose twelve loops starved.
-12. **A lost context**: the floor waits 4 s for it, is built anew and not patched, and gives way to THE LIST at a
-    second loss. The tier that was left stays closed for the session.
+12. **A lost context**: the floor waits 4 s for it, is built anew and not patched, plays the wall for the rest of
+    the visit, and gives way to THE LIST at a second loss. The tier that was left stays closed for the session.
 13. **A discarded tab opens one tier lower**, though Chrome's Memory Saver also discards idle tabs on a machine with
     memory to spare. The alternative ignores the flag.
 14. **Processor pressure lowers the level** after 10 s of `serious` or `critical`. It is the whole machine's load: a
