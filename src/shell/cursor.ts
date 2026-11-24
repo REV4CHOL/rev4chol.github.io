@@ -33,11 +33,14 @@ export function cursorLabelFor(
   return t ? t.dataset?.cursor || null : null;
 }
 
-/** The pointer has gone into a frame (a film's player): from there on the page hears no pointer move until it comes
- *  back out, so the cross steps aside rather than stand parked on the picture. */
-export function overFrame(target: { tagName?: string } | null | undefined): boolean {
-  return target?.tagName === 'IFRAME';
+/** Whether any of the cursor's parts (the cross, its label, its readout: viewport boxes) meets any of a film's frames.
+ *  Inside a frame the page hears no pointer at all (Chrome sends it neither a move nor a pointerover nor a pointerout:
+ *  measured), so the cross would stand parked on the picture's edge, its readout over the film: it steps aside as soon
+ *  as any part of it would touch a frame, while the page can still see it coming. */
+export function meetsAny(parts: readonly Rect[], frames: readonly Rect[]): boolean {
+  return parts.some((a) => frames.some((b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom));
 }
+interface Rect { left: number; top: number; right: number; bottom: number }
 
 /** The readout beside the crosshair: whole pixels, four digits each. Pointer coordinates come fractional under
  *  display scaling and on precision touchpads, and printed raw they read "258.3125 434.5597755859375". */
@@ -65,12 +68,17 @@ export function initCursor(): void {
       const z = posterZoom();
       c.style.transform = `translate3d(${clientX / z}px, ${clientY / z}px, 0)`;
       coordsEl.textContent = cursorCoords(clientX, clientY);
+      // the cross, its label and its readout step aside wherever they would stand on a film's frame
+      const frames = document.getElementsByTagName('iframe');
+      c.classList.toggle('in-frame', frames.length > 0 && meetsAny(
+        [...c.children].map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0),
+        [...frames].map((f) => f.getBoundingClientRect()),
+      ));
     });
   });
   document.addEventListener('pointerover', (e) => {
     // the cross boxes itself over everything that can be pressed, labelled or not (the native hand is hidden)
     c.classList.toggle('on-link', !!(e.target as Element).closest?.('a, button'));
-    c.classList.toggle('in-frame', overFrame(e.target as Element));
     const label = cursorLabelFor(e.target as Element, chromeWrote);
     if (label === undefined) return;
     paint(label);

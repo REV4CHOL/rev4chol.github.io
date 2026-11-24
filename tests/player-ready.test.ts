@@ -33,8 +33,13 @@ describe('the film stands ready to play from the start', () => {
     expect(page).not.toContain('autoplay: i === 0');
   });
 
-  it("it loads lazily (the hero's first paint comes first), its place kept from the start by the player's shape", () => {
-    expect(page).toContain("f.loading = 'lazy';");
+  // measured: the browser's lazy loading alone asked for the frames 150-250 ms before the hero's first frame, on every
+  // screen; the address is now held until the hero shows (or fails), the player nears the screen, a hero press, or 4 s
+  it("it loads after the hero, lazily, its place kept from the start by the player's shape", () => {
+    expect(page).toContain('f.dataset.src = src;');
+    expect(page).toMatch(/for \(const ev of \['playing', 'error'\]\) heroVideo\.addEventListener\(ev, wake, \{ once: true \}\);/);
+    expect(page).toContain('setTimeout(wake, 4000);');
+    expect(page).toContain("if (f.loading !== 'eager') f.loading = 'lazy';");
     expect(page.indexOf("f.loading = 'lazy';")).toBeLessThan(page.indexOf('f.src = src;')); // (a frame given its src first starts loading at once)
     expect(css).toMatch(/\.p-player iframe, \.p-player video \{[^}]*aspect-ratio: var\(--player-ratio, 16 \/ 9\);/);
     expect(page).toContain('player.hidden = false;');

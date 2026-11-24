@@ -326,6 +326,19 @@ function mountSynopsis(p: Project): void {
     music.hold();
   };
   const programme = linkParts(talking, { onPlay: start });
+  // THE HERO FIRST: the frames' place stands from the start, but a platform's player (a megabyte of its own script) is
+  // sent for only once the hero's loop shows its first frame (or fails), the player nears the screen, the hero is
+  // pressed, or four seconds have passed. Measured: with the browser's own lazy loading alone, the frames were asked
+  // for 150-250 ms BEFORE the hero's first frame on every screen (the row stands within the browser's lazy distance).
+  const wake = () => wakeFrames(frames);
+  const heroVideo = document.getElementById('p-hero-video') as HTMLVideoElement | null;
+  if (!heroVideo || heroVideo.readyState >= 3) wake();
+  else for (const ev of ['playing', 'error']) heroVideo.addEventListener(ev, wake, { once: true });
+  setTimeout(wake, 4000);
+  if (typeof IntersectionObserver !== 'undefined') {
+    const near = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { wake(); near.disconnect(); } }, { rootMargin: '25% 0px' });
+    near.observe(player);
+  }
   for (const v of videos) v.addEventListener('play', start);
   window.addEventListener('blur', () => {
     setTimeout(() => {
@@ -340,6 +353,7 @@ function mountSynopsis(p: Project): void {
   const open = () => {
     sound.zap();
     for (const f of frames) f.loading = 'eager'; // (a lazy frame not yet near the screen starts loading now)
+    wake();
     player.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
     if (videos[0]) void videos[0].play().catch(() => {});
     else programme.play();
@@ -359,16 +373,26 @@ interface Mounted {
   videos: HTMLVideoElement[];
 }
 
-/** A platform's player, not started, loading lazily. `loading` goes before `src`: a frame given its src first starts
- *  loading at once. */
+/** A platform's player, not started: its place in the row at once, its address held until wakeFrames. */
 function frameFor(src: string, title: string): HTMLIFrameElement {
   const f = document.createElement('iframe');
-  f.loading = 'lazy';
   f.title = title;
   f.allow = 'autoplay; fullscreen; picture-in-picture';
   f.allowFullscreen = true;
-  f.src = src;
+  f.dataset.src = src;
   return f;
+}
+
+/** The frames are sent for, lazily: `loading` goes before `src` (a frame given its src first starts loading at once),
+ *  so one still far below the screen waits for it. */
+function wakeFrames(frames: HTMLIFrameElement[]): void {
+  for (const f of frames) {
+    const src = f.dataset.src;
+    if (!src) continue;
+    delete f.dataset.src;
+    if (f.loading !== 'eager') f.loading = 'lazy';
+    f.src = src;
+  }
 }
 
 /** The owner's own file: its poster showing, its controls ready, not started. */

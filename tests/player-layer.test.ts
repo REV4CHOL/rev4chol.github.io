@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { overFrame } from '../src/shell/cursor';
+import { meetsAny } from '../src/shell/cursor';
 import { meets } from '../src/project/watch';
 
 // The owner, 2026-11-24: "across PC and tablet: The artworks inside the work projects of our website got slapped on top
@@ -38,11 +38,16 @@ describe('nothing decorative is painted over the player', () => {
     expect(src).toContain("window.addEventListener('load', syncHoles);");
   });
 
-  it("the site's cursor steps aside over a film's frame: inside it the page hears no pointer, and the cross would stand parked on the picture", () => {
-    expect(overFrame({ tagName: 'IFRAME' })).toBe(true);
-    expect(overFrame({ tagName: 'DIV' })).toBe(false);
-    expect(overFrame(null)).toBe(false);
+  // (inside a cross-origin frame the page hears no pointer at all, measured headless: no move, no over, no out; the cross
+  // stood parked at the frame's edge with its readout over the picture, caught by the flat-colour proof)
+  it("the site's cursor steps aside before any part of it would touch a film's frame", () => {
+    const frame = { left: 100, top: 100, right: 500, bottom: 400 };
+    expect(meetsAny([{ left: 90, top: 200, right: 112, bottom: 222 }], [frame])).toBe(true); // the cross at the edge
+    expect(meetsAny([{ left: 60, top: 200, right: 82, bottom: 222 }, { left: 89, top: 206, right: 150, bottom: 216 }], [frame])).toBe(true); // its readout
+    expect(meetsAny([{ left: 10, top: 200, right: 32, bottom: 222 }], [frame])).toBe(false);
+    expect(meetsAny([{ left: 10, top: 200, right: 32, bottom: 222 }], [])).toBe(false);
     expect(readFileSync('src/styles/base.css', 'utf8')).toContain('#cursor.in-frame { visibility: hidden; }');
+    expect(readFileSync('src/shell/cursor.ts', 'utf8')).toContain("c.classList.toggle('in-frame', frames.length > 0 && meetsAny(");
   });
 });
 

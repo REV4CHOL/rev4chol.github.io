@@ -85,13 +85,17 @@ export function linkParts(frames: HTMLIFrameElement[], opts: { onPlay?: () => vo
   const timers: number[] = [];
   frames.forEach((f, i) => {
     // a player speaks once spoken to: say listening until it answers, ten seconds at most
+    // (counted afresh at each load: a frame whose address is held loads an empty page first)
     let tries = 0;
     const hello = () => {
       if (heard[i] || tries++ >= 40) return;
       post(i, JSON.stringify({ event: 'listening', id: i + 1, channel: 'widget' }));
       timers.push(window.setTimeout(hello, 250));
     };
-    f.addEventListener('load', hello);
+    f.addEventListener('load', () => {
+      tries = 0;
+      hello();
+    });
   });
   return {
     play: () => {
