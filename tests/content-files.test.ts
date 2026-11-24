@@ -412,24 +412,29 @@ describe('shipped content files', () => {
   // the owner, 2026-11-24: "after all tasks done, upload these two to the COLORIST section"; asked with pictures the
   // same day, they chose "Keep 3:2, add that pane", the titles "THE LOVERS and XIÊU LÒNG", and "Film coming soon, role
   // COLORIST, at the chapter's end". THE LOVERS is a 4:3 wedding film, XIÊU LÒNG a 3:2 music video.
+  // Later that day, the owner: "The Lovers should be role: director / Editor / colorist", with its YouTube embed code
+  // and "Runtime is 3:17". XIÊU LÒNG's film is still to come.
   const BATCH5 = [
     { slug: 'the-lovers', slot: 17, title: 'THE LOVERS', aspect: '4:3', client: '', tags: ['wedding film'],
+      role: 'Director / Editor / Colorist', runtime: '3:17', film: 'https://www.youtube.com/embed/4nkgqyVtfsg',
       synopsis: 'A vow in a green garden, held close.', accent: '#6FE0B4', focus: '70% 50%',
       loop: { size: [960, 720], seconds: 8 }, stills: 50, still: [1600, 1200] },
     { slug: 'xieu-long', slot: 18, title: 'XIÊU LÒNG', aspect: '3:2', client: 'DHP & Khadarec', tags: ['music video'],
+      role: 'Colorist', runtime: '', film: null,
       synopsis: 'Silk, a red curtain and a paper fan: the moment a heart gives way.', accent: '#FF3D5A', focus: '50% 50%',
       loop: { size: [1080, 720], seconds: 5.4 }, stills: 27, still: [1600, 1067] },
   ] as const;
 
-  for (const f of BATCH5) it(`${f.title} joins the end of CH·01: ${f.aspect}, its film coming soon, with its media (owner 2026-11-24)`, () => {
+  for (const f of BATCH5) it(`${f.title} joins the end of CH·01: ${f.aspect}, with its media (owner 2026-11-24)`, () => {
     expect(parseFloor(rawProjects()).findIndex((it) => it.slug === f.slug)).toBe(f.slot);
     const p = parseProjects(rawProjects()).find((q) => q.slug === f.slug)!;
     expect(p.title).toBe(f.title);
     expect(p.title).toBe(p.title.normalize('NFC')); // (Ê and Ò as single letters, the way the display face carries them)
-    expect([p.year, p.role, p.runtime, p.client, p.category, p.tileSize]).toEqual([2026, 'Colorist', '', f.client, 'human', 'normal']);
-    expect(p.credits).toEqual([{ role: 'Colorist', name: 'Revachol' }]);
+    expect([p.year, p.role, p.runtime, p.client, p.category, p.tileSize]).toEqual([2026, f.role, f.runtime, f.client, 'human', 'normal']);
+    expect(p.credits).toEqual([{ role: f.role, name: 'Revachol' }]);
     expect([p.aspect, p.tags, p.synopsis, p.accent, p.focus]).toEqual([f.aspect, [...f.tags], f.synopsis, f.accent, f.focus]);
-    expect([p.film, p.filmPending, p.filmPrivate]).toEqual([null, true, false]); // WATCH greyed until the link comes
+    // (a film with its link plays; one without keeps WATCH greyed until the link comes)
+    expect([p.film, p.filmPending, p.filmPrivate]).toEqual(f.film ? [{ type: 'youtube', src: f.film }, false, false] : [null, true, false]);
     const dir = `${root}projects/${f.slug}/`;
     expect(existsSync(`${dir}poster.jpg`)).toBe(true);
     const loop = mp4Facts(`${dir}preview.mp4`);

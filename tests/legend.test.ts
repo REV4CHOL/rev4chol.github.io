@@ -55,7 +55,7 @@ describe("the floor's legend (owner's testers, 2026-09-27: 'not knowing what to 
   });
 });
 
-describe('placeholders: no film, none pending, none private (none left: 16 linked films, 2 coming soon + MIEN VIEN, private)', () => {
+describe('placeholders: no film, none pending, none private (none left: 17 linked films, 1 coming soon + MIEN VIEN, private)', () => {
   it('isPlaceholder', () => {
     expect(isPlaceholder(film())).toBe(false);
     expect(isPlaceholder(film({ film: null, filmPending: true }))).toBe(false);
@@ -63,13 +63,15 @@ describe('placeholders: no film, none pending, none private (none left: 16 linke
     expect(isPlaceholder(film({ film: null }))).toBe(true);
   });
 
-  it('MIEN VIEN is private for good (owner 2026-09-28: "it will never arrive"); only the two newest films wait on a link', () => {
+  it('MIEN VIEN is private for good (owner 2026-09-28: "it will never arrive"); only XIÊU LÒNG waits on a link', () => {
     const root = fileURLToPath(new URL('../public/content/', import.meta.url));
     const projects = parseProjects(parseJson(readFileSync(root + 'projects.json', 'utf8'), 'projects.json'));
     const mien = projects.find((p) => p.slug === 'mien-vien')!;
     expect([mien.film, mien.filmPending, mien.filmPrivate]).toEqual([null, false, true]);
-    // (until 2026-11-24 none did; then the owner, of THE LOVERS and XIÊU LÒNG: "Film coming soon")
-    expect(projects.filter((p) => p.filmPending).map((p) => p.slug)).toEqual(['the-lovers', 'xieu-long']);
+    // (until 2026-11-24 none did; then the owner, of THE LOVERS and XIÊU LÒNG: "Film coming soon"; THE LOVERS' link
+    // came the same day)
+    expect(projects.filter((p) => p.filmPending).map((p) => p.slug)).toEqual(['xieu-long']);
+    expect(projects.filter((p) => p.film).length).toBe(17);
   });
 
   it('projects.json today: no placeholder at all, 19 films; mien-vien is not one', () => {

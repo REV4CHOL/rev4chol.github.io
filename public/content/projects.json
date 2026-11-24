@@ -439,8 +439,8 @@
     "slug": "the-lovers",
     "title": "THE LOVERS",
     "year": 2026,
-    "role": "Colorist",
-    "runtime": "",
+    "role": "Director / Editor / Colorist",
+    "runtime": "3:17",
     "tags": [
       "wedding film"
     ],
@@ -450,12 +450,14 @@
     "synopsis": "A vow in a green garden, held close.",
     "credits": [
       {
-        "role": "Colorist",
+        "role": "Director / Editor / Colorist",
         "name": "Revachol"
       }
     ],
-    "film": null,
-    "filmPending": true,
+    "film": {
+      "type": "youtube",
+      "src": "https://www.youtube.com/embed/4nkgqyVtfsg"
+    },
     "category": "human",
     "tileSize": "normal"
   },
