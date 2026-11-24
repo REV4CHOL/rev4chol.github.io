@@ -35,3 +35,27 @@ describe('ABOUT on a short screen: the name stands on the first screen beside th
     expect(HEAD).not.toContain('pointer');
   });
 });
+
+describe("STORY's switches: a 44 px touch area, the look unchanged (owner, 2026-11-24)", () => {
+  const story = css('story');
+  const touch = block(story, '@media (pointer: coarse) {\n  .a3-fly button, .a3-tod button { position: relative; }');
+  it('every switch carries an invisible box 44 px tall and at least 44 px wide, centred on it: no padding, no margin, no new size', () => {
+    expect(touch).toContain(".a3-fly button::after, .a3-tod button::after {\n    content: ''; position: absolute; left: 50%; top: 50%; translate: -50% -50%;\n    width: max(100%, 44px); height: 44px;");
+    expect(touch).not.toMatch(/padding|margin|font|color|background/);
+  });
+  it('on the two stacked rows (wider than the phone block) the boxes split the 4.8 px gap (2 px each, 0.8 px of air) and never meet', () => {
+    const b = block(story, '@media (pointer: coarse) and (min-width: 721px) {');
+    expect(b).toContain('.a3-fly button::after { top: -2px; translate: -50% 0; }');
+    expect(b).toContain('.a3-tod button::after { top: calc(100% - 42px); translate: -50% 0; }');
+  });
+  it('on the phone the clock row stands 12 px apart, so a box reaches at most 6 px past its word on each side: neighbours never overlap', () => {
+    const b = block(story, '@media (pointer: coarse) and (max-width: 720px) {');
+    expect(b).toContain('.a3-tod button::after { width: max(100%, min(44px, calc(100% + 12px))); }');
+    expect(story).toContain('.a3-tod { right: 50%; translate: 50% 0; bottom: 60px; gap: 12px; }'); // the gap the half of 12 is taken from
+  });
+  it('the phone block (its buttons are already 44 px tall) is not edited, and a fine pointer sees none of it', () => {
+    expect(story).toContain('.a3-fly button, .a3-tod button { min-height: 44px; display: inline-flex; align-items: center; }');
+    expect(story).toContain('cursor: pointer; padding: 3px 2px;');
+    expect(story.indexOf('@media (pointer: coarse) {\n  .a3-fly button')).toBeGreaterThan(story.indexOf('@media (max-width: 720px) {'));
+  });
+});

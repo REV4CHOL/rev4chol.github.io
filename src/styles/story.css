@@ -102,5 +102,30 @@ body.a3-touch-free .a3-lift { display: flex; }
   body.a3-touch-free .a3-tod { display: none; } /* the stick takes its room */
 }
 
+/* STORY'S SWITCHES ON TOUCH (owner, 2026-11-24: "Give STORY's switches a 44 px touch area on touch screens. Their look
+   stays the same."). AUTO, FREE and the five hours stand 25 px tall and 37 to 83 wide. An invisible ::after gives each a
+   box 44 px tall and 44 px wide at least, centred on the word, the way the menu's and the HUD's switches got theirs
+   (components.css): no padding, no margin, so nothing moves by a pixel. The phone's buttons are already 44 px tall (the
+   block above); there the box is the button's own height. Between the two rows of a wider screen the gap is only
+   4.8 px: each row's box stops 2 px into it, which leaves 0.8 px of air between them (the dial's box ends 0.8 px past
+   the screen's bottom edge, which nothing can touch); and sideways the gaps (12 to 26 px) are wider
+   than the 3.5 px a 37 px word gains on each side. */
+@media (pointer: coarse) {
+  .a3-fly button, .a3-tod button { position: relative; }
+  .a3-fly button::after, .a3-tod button::after {
+    content: ''; position: absolute; left: 50%; top: 50%; translate: -50% -50%;
+    width: max(100%, 44px); height: 44px;
+  }
+}
+@media (pointer: coarse) and (min-width: 721px) {
+  .a3-fly button::after { top: -2px; translate: -50% 0; }
+  .a3-tod button::after { top: calc(100% - 42px); translate: -50% 0; }
+}
+/* the phone's clock row stands 12 px apart and its words are 25 to 51 px wide: a box never reaches further than half
+   that gap (6 px) past its word, so two neighbours' boxes meet and never overlap (a 25 px DAY gets 37 px, not 44) */
+@media (pointer: coarse) and (max-width: 720px) {
+  .a3-tod button::after { width: max(100%, min(44px, calc(100% + 12px))); }
+}
+
 /* the tour left the section: nothing scrolls here — the page is the windshield */
 body.page-about { overflow: hidden; touch-action: none; user-select: none; }
