@@ -31,7 +31,7 @@ describe('resumeAt', () => {
   });
 });
 
-describe('Music (owner: continuous across pages and sections, a MUS button, WATCH holds it)', () => {
+describe('Music (owner: continuous across pages and sections, a MUS button, a film starting holds it)', () => {
   beforeEach(() => { vi.useFakeTimers(); });
   afterEach(() => { vi.useRealTimers(); });
   const timers = { set: (fn: () => void, ms: number) => setInterval(fn, ms), clear: (h: ReturnType<typeof setInterval>) => clearInterval(h) };
@@ -60,7 +60,7 @@ describe('Music (owner: continuous across pages and sections, a MUS button, WATC
     expect(d.plays).toBe(2); // (the stand-in refuses always: the retry was asked for)
   });
 
-  it('WATCH holds it: a fade, a stop, a place saved as held; the next page resumes exactly there and the hold ends', async () => {
+  it('a film starting holds it: a fade, a stop, a place saved as held; the next page resumes exactly there and the hold ends', async () => {
     const d = deck(), session = mem(), m = new Music(d, on(), session, () => 9000, timers);
     m.init(); d.fire('loadedmetadata'); await flush(); vi.advanceTimersByTime(600);
     d.currentTime = 42; m.hold();
@@ -139,7 +139,7 @@ describe('MUSIC is off by default (owner)', () => {
     expect(new Music(deck(), local, mem(), () => 0, timers).enabled).toBe(true);
   });
 
-  it('WATCH on a film page with the music off: nothing thrown, nothing played, still off', async () => {
+  it('a film starting with the music off: nothing thrown, nothing played, still off', async () => {
     const d = deck(), m = new Music(d, mem(), mem(), () => 0, timers);
     m.init(); m.hold(); vi.advanceTimersByTime(600); await flush();
     expect(d.plays).toBe(0); expect(m.enabled).toBe(false); expect(m.playing()).toBe(false);

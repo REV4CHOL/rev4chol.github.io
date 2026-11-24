@@ -1,5 +1,6 @@
 /** MUSIC (owner: one track on every page and every section, continuous, never restarting; its own MUS button between
- *  SFX and MTN; WATCH on a film page stops it until the next section or page; a loading screen never interrupts it).
+ *  SFX and MTN; a film starting on a film page stops it until the next section or page (it was the WATCH button
+ *  until the owner abolished the button, 2026-11-24); a loading screen never interrupts it).
  *  The site's pages are separate documents, so the track's place is carried across each navigation in
  *  sessionStorage — the time it was at and the clock then — and the next page seeks to where the track would be
  *  now, wrapped by its length, and plays on; a page reached by a click may play at once (Chrome carries the activation
@@ -21,7 +22,7 @@ export interface Deck {
   play(): Promise<void> | undefined; pause(): void; addEventListener(type: string, cb: () => void): void;
 }
 
-/** Where the track should be now: on from where it was by the clock — or, held (WATCH), exactly where it stopped —
+/** Where the track should be now: on from where it was by the clock — or, held (a film playing), exactly where it stopped —
  *  wrapped by the track's length. Nothing saved, or no length yet: the start. */
 export function resumeAt(saved: Saved | null, now: number, duration: number): number {
   if (!saved || !(duration > 0)) return 0;
@@ -41,7 +42,7 @@ export function readSaved(store: Store): Saved | null {
 
 export class Music {
   enabled = false;
-  /** WATCH's hold: stopped, and staying stopped, until the next section or page (or MUS pressed on). */
+  /** A film's hold: stopped, and staying stopped, until the next section or page (or MUS pressed on). */
   held = false;
   private fader: ReturnType<typeof setInterval> | null = null;
   private blocked = false; // refused by the browser (no activation yet): waiting for a gesture
@@ -112,7 +113,7 @@ export class Music {
     }, 40);
   }
 
-  /** WATCH (owner): the music stops and stays stopped until the next section or page. */
+  /** A FILM STARTS (owner): the music stops and stays stopped until the next section or page. */
   hold(): void {
     if (this.held) return;
     this.held = true;
