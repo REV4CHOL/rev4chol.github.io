@@ -29,7 +29,8 @@ You never need to rebuild the site for content changes — edit, save, refresh.
    `projects/midnight-run/stills/` as `01.jpg`, `02.jpg`, …
 3. Open `projects.json` and copy an existing entry. Change every field.
    List your stills by file name: `"stills": ["01.jpg", "02.jpg"]`.
-4. Save. Refresh the site. The new tile is on the floor.
+4. Save. Refresh the site. The new tile is on the floor. Before you publish,
+   run `npm run walls` once (see "Change / reorder / remove" below).
 5. If the site boots into **CONTENT ERROR**, read the message — it names the
    file, the project and the field that's wrong. Fix, save, refresh.
 
@@ -183,6 +184,16 @@ build step, no terminal.
   so one file drives both. Any time; refresh. If several videos are in the
   folder, `preview.mp4` / `loop.mp4` win first, then A→Z decides.
   `hover.mp4` and a self-hosted film file are never picked.
+- **After any loop changes, rebuild the wall videos:** run `npm run walls`
+  and publish what it writes into `public/content/walls/` (three files per
+  chapter). Weaker computers and tablets play ONE combined video per chapter
+  on the floor instead of every pane's own loop; this command builds it from
+  the loops. Run it after you add or replace any pane's loop, and after a
+  film joins or leaves a chapter. Reordering panes needs nothing. It needs
+  ffmpeg (as the preview script does) and takes under a minute. If you
+  forget, nothing breaks: the pane with the new loop plays its own file, the
+  others keep their place in the combined video, and `npm test` names the
+  film that is waiting for a rebuild.
 - **Reorder the floor:** reorder the entries in `projects.json`.
 - **Feature a film:** set its `tileSize` to `"large"`. Featured films gather
   as one cluster at the centre of the floor (where the page opens) and wear

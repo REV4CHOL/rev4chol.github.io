@@ -1,0 +1,71 @@
+{
+  "width": 1920,
+  "height": 824,
+  "fps": 24,
+  "frames": 405,
+  "seconds": 16.875,
+  "file": "machine.mp4",
+  "small": "machine-s.mp4",
+  "tiles": {
+    "katara": {
+      "x": 472,
+      "y": 4,
+      "w": 718,
+      "h": 404,
+      "fps": 24,
+      "loop": {
+        "file": "preview.mp4",
+        "bytes": 1762416,
+        "sha256": "a33d8187c0c9c48a908736d9efa3c224fe1316f3e72f2546b8e9cc95dcf50ca2"
+      }
+    },
+    "the-father": {
+      "x": 1198,
+      "y": 4,
+      "w": 718,
+      "h": 404,
+      "fps": 24,
+      "loop": {
+        "file": "preview.mp4",
+        "bytes": 2103370,
+        "sha256": "fa074bb8b13aa727a90177a4d49375e54b34dea788ae9291855ccbaf7b14fc98"
+      }
+    },
+    "forest-onsen": {
+      "x": 472,
+      "y": 416,
+      "w": 718,
+      "h": 404,
+      "fps": 24,
+      "loop": {
+        "file": "preview.mp4",
+        "bytes": 2478424,
+        "sha256": "5c7be505837c2320024deb5dcd4e3dd35ae740081f9de88e5338d5fd958b9058"
+      }
+    },
+    "jaecoo-j5": {
+      "x": 1198,
+      "y": 416,
+      "w": 718,
+      "h": 404,
+      "fps": 23.976,
+      "loop": {
+        "file": "preview.mp4",
+        "bytes": 1021900,
+        "sha256": "5918c594871262207f034dfb8deb9d82eb973fa8d679aef4a0dccba0827b162d"
+      }
+    },
+    "galaxy-z-fold-8-ultra": {
+      "x": 4,
+      "y": 4,
+      "w": 460,
+      "h": 816,
+      "fps": 29.97,
+      "loop": {
+        "file": "preview.mp4",
+        "bytes": 1654976,
+        "sha256": "58e3aa705dfb03f72483757dec324430734f35e274faa41381db86f3ccdbc569"
+      }
+    }
+  }
+}
