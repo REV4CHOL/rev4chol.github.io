@@ -48,6 +48,16 @@ export function cursorCoords(x: number, y: number): string {
   return `${String(Math.round(x)).padStart(4, '0')} ${String(Math.round(y)).padStart(4, '0')}`;
 }
 
+/** What of the cursor shows (the review's walkthroughs, 2026-11-25: a keyboard user's Tab to a pane on WORK wrote OPEN ▸
+ *  and its box on a cursor that had never moved, in the screen's top-left corner):
+ *  - nothing until the pointer has moved once: the cursor stands only where the pointer has been;
+ *  - while the keyboard drives (a key pressed since the pointer last moved), the cross stays where the mouse rests, but
+ *    without a tag: a tag names what is under the pointer, and a pane the keyboard brought forward is not; its box
+ *    stays only over a link really under it. The next move of the mouse gives it all back. */
+export function cursorParts(s: { moved: boolean; keyed: boolean; onLink: boolean }): { shown: boolean; tag: boolean; box: boolean } {
+  return { shown: s.moved, tag: !s.keyed, box: s.onLink || !s.keyed };
+}
+
 export function initCursor(): void {
   if (!finePointer() || reducedMotion()) return;
   const c = document.createElement('div');
@@ -57,9 +67,20 @@ export function initCursor(): void {
   document.body.classList.add('cursor-live');
   labelEl = c.querySelector('.cursor-label');
   const coordsEl = c.querySelector('.cursor-coords') as HTMLSpanElement;
+  let moved = false, keyed = false, onLink = false;
+  const shape = () => {
+    const p = cursorParts({ moved, keyed, onLink });
+    c.classList.toggle('is-unmoved', !p.shown);
+    c.classList.toggle('no-tag', !p.tag);
+    c.classList.toggle('no-box', !p.box);
+  };
+  shape();
+  window.addEventListener('keydown', () => { if (!keyed) { keyed = true; shape(); } }, true);
   let raf = 0;
   window.addEventListener('pointermove', (e) => {
     const { clientX, clientY } = e;
+    const mouse = e.pointerType === 'mouse' || e.pointerType === 'pen';
+    if (mouse && keyed && moved) { keyed = false; shape(); } // (the mouse takes over again: its tag back)
     if (raf) return;
     raf = requestAnimationFrame(() => {
       raf = 0;
@@ -68,6 +89,7 @@ export function initCursor(): void {
       const z = posterZoom();
       c.style.transform = `translate3d(${clientX / z}px, ${clientY / z}px, 0)`;
       coordsEl.textContent = cursorCoords(clientX, clientY);
+      if (mouse && !moved) { moved = true; keyed = false; shape(); } // (shown once it stands where the pointer is)
       // the cross, its label and its readout step aside wherever they would stand on a film's frame; a frame the site's
       // own player covers (its catcher, project/player-bar.ts: `data-covered`) is the page's again, and the cross stays
       const frames = [...document.getElementsByTagName('iframe')].filter((f) => !f.hasAttribute('data-covered'));
@@ -80,6 +102,8 @@ export function initCursor(): void {
   document.addEventListener('pointerover', (e) => {
     // the cross boxes itself over everything that can be pressed, labelled or not (the native hand is hidden)
     c.classList.toggle('on-link', !!(e.target as Element).closest?.('a, button'));
+    onLink = c.classList.contains('on-link');
+    if (keyed) shape();
     const label = cursorLabelFor(e.target as Element, chromeWrote);
     if (label === undefined) return;
     paint(label);

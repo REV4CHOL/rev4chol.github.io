@@ -141,6 +141,11 @@ dd .rvl-x { filter: drop-shadow(0 0 0.4em rgba(255, 46, 99, 0.5)); }
 /* the crosshair boxes itself over everything that can be pressed, labelled or not (the review's walkthroughs, 2026-09-30:
    "what to click on": the native hand is hidden, and over an unlabelled link the cross did not change) */
 #cursor.has-label .x, #cursor.on-link .x { outline: 1px solid var(--accent); outline-offset: 4px; }
+/* only where the pointer has been, and never a tag the keyboard wrote (shell/cursor.ts cursorParts; the review's
+   walkthroughs, 2026-11-25: a keyboard's Tab to a pane drew OPEN ▸ in the screen's top-left corner) */
+#cursor.is-unmoved { visibility: hidden; }
+#cursor.no-tag .cursor-label { visibility: hidden; }
+#cursor.no-box .x { outline: none; }
 
 /* ---- boot ---- */
 #boot {
