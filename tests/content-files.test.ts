@@ -297,6 +297,12 @@ describe('shipped content files', () => {
     expect(stills[f.stills - 1]).toBe(`${String(f.stills).padStart(2, '0')}.jpg`);
   }
 
+  // (owner 2026-11-24: "the year for mrPurple_Dreams_in_electric_fish should be 2025 (Colorist section)")
+  it('mr_PURPLE_dreams_in_electric_fish is a film of 2025', () => {
+    const p = parseProjects(rawProjects()).find((q) => q.slug === 'electric-fish')!;
+    expect(p.year).toBe(2025);
+  });
+
   // (owner 2026-09-27: "Change all Sound Mixer roles written on every project to Sound Designer")
   it('no project credits a Sound Mixer: the owner\'s sound role is Sound Designer', () => {
     expect(read('projects.json')).not.toMatch(/sound mixer/i);
