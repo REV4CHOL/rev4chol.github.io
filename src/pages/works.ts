@@ -1,6 +1,7 @@
 import gsap from 'gsap';
 import { isPlaceholder, loadFloor, loadLoopManifest, loadProjects, projectAssetUrl, type Project } from '../lib/content';
 import { finePointer, reducedMotion } from '../lib/env';
+import { fillCrossed } from '../lib/cross';
 import { softBreaks } from '../lib/escape';
 import { settleAll, titleSpan } from '../lib/title';
 import { armPosterLock, posterZoom } from '../lib/poster-lock';
@@ -291,7 +292,7 @@ function buildFilmList(host: HTMLElement, projects: Project[]): void {
       img.height = r.thumb.h;
       img.src = projectAssetUrl(r.slug, 'poster.jpg');
       thumb.append(img);
-      a.append(thumb, titleSpan('fl-title', r.title, softBreaks), span('fl-meta micro', r.meta), span('fl-open micro', 'OPEN ▸'));
+      a.append(thumb, titleSpan('fl-title', r.title, softBreaks), fillCrossed(span('fl-meta micro', ''), r.meta), span('fl-open micro', 'OPEN ▸'));
       const li = document.createElement('li');
       li.append(a);
       rows.append(li);

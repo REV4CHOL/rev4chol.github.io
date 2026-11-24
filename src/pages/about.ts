@@ -1,4 +1,5 @@
 import { AboutContent, loadAbout, SiteContent } from '../lib/content';
+import { crossedHtml } from '../lib/cross';
 import { escapeHtml } from '../lib/escape';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
@@ -82,7 +83,7 @@ function render(site: SiteContent, about: AboutContent): void {
   document.getElementById('a-callouts')!.innerHTML = callouts
     .map(
       ([k, v], i) =>
-        `<div class="a-callout" style="--d:${i * 90}ms"><span class="ac-line"></span><span>${k} :: ${escapeHtml(v)}${k === 'STATUS' ? '<span class="a-caret" aria-hidden="true">▮</span>' : ''}</span></div>`,
+        `<div class="a-callout" style="--d:${i * 90}ms"><span class="ac-line"></span><span>${k} :: ${crossedHtml(v)}${k === 'STATUS' ? '<span class="a-caret" aria-hidden="true">▮</span>' : ''}</span></div>`,
     )
     .join('');
 
@@ -106,7 +107,7 @@ function render(site: SiteContent, about: AboutContent): void {
         { k: 'CONTACT', v: site.email || 'SEE TRANSMIT BELOW' },
       ];
   document.getElementById('a-facts')!.innerHTML = facts
-    .map((f) => `<dt>${escapeHtml(f.k.toUpperCase())}</dt><dd><span>${escapeHtml(f.v.toUpperCase())}</span></dd>`)
+    .map((f) => `<dt>${escapeHtml(f.k.toUpperCase())}</dt><dd><span>${crossedHtml(f.v.toUpperCase())}</span></dd>`)
     .join('');
 
   // -- CAP: the skill board ---------------------------------------------

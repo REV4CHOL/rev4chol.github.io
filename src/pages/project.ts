@@ -2,6 +2,7 @@ import { aspectRatio, FilmRef, getSlugFromSearch, isPlaceholder, loadLoopManifes
 import { ditherImageToCanvas } from '../lib/dither';
 import { embedSrc } from '../lib/embeds';
 import { mulberry32 } from '../lib/rng';
+import { crossedHtml } from '../lib/cross';
 import { escapeHtml, softBreaks } from '../lib/escape';
 import { reducedMotion } from '../lib/env';
 import { armPosterLock, posterZoom } from '../lib/poster-lock';
@@ -184,7 +185,7 @@ function mountHero(p: Project, stamp: string): void {
     .filter(([, v]) => v)
     .map(
       ([k, v], i) =>
-        `<div class="p-callout" style="--d:${i * 90}ms"><span class="pc-line"></span><span>${k} :: ${escapeHtml(v.toUpperCase())}</span></div>`,
+        `<div class="p-callout" style="--d:${i * 90}ms"><span class="pc-line"></span><span>${k} :: ${crossedHtml(v.toUpperCase())}</span></div>`, // (a list's slashes stand as the red cross: lib/cross.ts)
     )
     .join('');
 
@@ -252,13 +253,13 @@ function mountHero(p: Project, stamp: string): void {
 // sections on the website").
 function mountSpec(p: Project): void {
   const rows: [string, string][] = [];
-  if (p.client) rows.push(['CLIENT', `<span>${escapeHtml(p.client.toUpperCase())}</span>`]);
-  if (p.artist) rows.push(['ARTIST', `<span>${escapeHtml(p.artist.toUpperCase())}</span>`]);
-  if (p.director) rows.push(['DIRECTOR', `<span>${escapeHtml(p.director.toUpperCase())}</span>`]);
-  if (p.productionHouse) rows.push(['PRODUCTION HOUSE', `<span>${escapeHtml(p.productionHouse.toUpperCase())}</span>`]);
+  if (p.client) rows.push(['CLIENT', `<span>${crossedHtml(p.client.toUpperCase())}</span>`]);
+  if (p.artist) rows.push(['ARTIST', `<span>${crossedHtml(p.artist.toUpperCase())}</span>`]);
+  if (p.director) rows.push(['DIRECTOR', `<span>${crossedHtml(p.director.toUpperCase())}</span>`]);
+  if (p.productionHouse) rows.push(['PRODUCTION HOUSE', `<span>${crossedHtml(p.productionHouse.toUpperCase())}</span>`]);
   if (p.tags.length)
     rows.push(['GENRE', p.tags.map((t) => `<span class="p-pill">${escapeHtml(t.toUpperCase())}</span>`).join('')]);
-  if (p.role) rows.push(['ROLE', `<span>${escapeHtml(p.role.toUpperCase())}</span>`]);
+  if (p.role) rows.push(['ROLE', `<span>${crossedHtml(p.role.toUpperCase())}</span>`]);
   rows.push(['YEAR', `<span>${p.year}</span>`]);
 
   document.getElementById('p-spec')!.innerHTML = rows

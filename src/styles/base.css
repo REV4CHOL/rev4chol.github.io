@@ -35,6 +35,24 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
   clip-path: inset(50%); white-space: nowrap;
 }
 body { font-size: var(--t-md); line-height: 1.6; }
+/* THE CROSS between the things a line lists (lib/cross.ts; owner, 2026-11-25: "I want a bold, fat red cross (same
+   kind of red we have on website). Make it looks aesthetic"). A fat plus, arms 38 % of its box, in the site's red,
+   sized by the line it stands in and centred on its capitals. The slash it stands for is still there, unseen: a
+   screen reader and a copy get it. The word before a cross holds it (.rvl-xp), so no line opens on one. */
+.rvl-xp { white-space: nowrap; }
+.rvl-x {
+  display: inline-block; position: relative; width: 0.86em; height: 0.86em; margin: 0 0.58em;
+  vertical-align: -0.08em; color: transparent; text-shadow: none; letter-spacing: 0; line-height: 1; white-space: pre;
+}
+.rvl-x::before {
+  content: ''; position: absolute; inset: 0; background: var(--alert);
+  clip-path: polygon(31% 0, 69% 0, 69% 31%, 100% 31%, 100% 69%, 69% 69%, 69% 100%, 31% 100%, 31% 69%, 0 69%, 0 31%, 31% 31%);
+}
+/* on a sheet's dark ground the cross carries a little of its own light; over a picture (a hero's readouts) it wears the
+   dark halo the words beside it wear. Only on lines that stand still: the phone strip and THE LIST move, and keep
+   it plain. */
+dd .rvl-x { filter: drop-shadow(0 0 0.4em rgba(255, 46, 99, 0.5)); }
+.p-callouts .rvl-x, .a-callout .rvl-x { filter: drop-shadow(0 0 2px rgba(6, 6, 6, 0.95)) drop-shadow(0 1px 2px rgba(6, 6, 6, 0.9)); }
 .micro {
   font-family: var(--f-micro);
   font-size: var(--t-2xs);

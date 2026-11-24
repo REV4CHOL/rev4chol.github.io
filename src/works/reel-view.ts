@@ -24,6 +24,7 @@
 import { aspectRatio, loopSrcChain, projectAssetUrl, type Project } from '../lib/content';
 import { autoplayRefused, imageLoopsWork, isRefusal, loopsAsImages, noteImageLoops, noteRefusal, onRefusal } from '../lib/autoplay';
 import { reducedMotion } from '../lib/env';
+import { fillCrossed } from '../lib/cross';
 import { softBreaks } from '../lib/escape';
 import { fillTitle, settleLockup } from '../lib/title';
 import { CHANNELS, type ChannelKey, channelProjects } from './channels';
@@ -107,7 +108,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     img.src = projectAssetUrl(p.slug, 'poster.jpg');
     pane.append(img, el('i', 'rl-scan'));
     const cap = el('span', 'rl-cap');
-    cap.append(el('i', 'rl-bar'), fillTitle(el('span', 'rl-title'), p.title, softBreaks), el('span', 'rl-role micro', roleLine(p.role))); // (a long name breaks at its _; a two-language name stands as two lines, lib/title.ts)
+    cap.append(el('i', 'rl-bar'), fillTitle(el('span', 'rl-title'), p.title, softBreaks), fillCrossed(el('span', 'rl-role micro'), roleLine(p.role))); // (a long name breaks at its _; a two-language name stands as two lines, lib/title.ts)
     a.append(pane, el('i', 'rl-marks'), cap);
     li.append(a);
     return li;

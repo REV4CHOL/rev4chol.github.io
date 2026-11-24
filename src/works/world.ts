@@ -13,6 +13,7 @@ import {
 } from '../lib/quality';
 import { offerFloorReadings, type FloorReadings } from '../lib/readout';
 import type { WallEntry } from '../lib/wall-files';
+import { fillCrossed } from '../lib/cross';
 import { softBreaks } from '../lib/escape';
 import { fillTitle, settleLockup } from '../lib/title';
 import { scrambleEl } from '../lib/scramble';
@@ -817,7 +818,7 @@ export class WorksWorld {
     const title = el.querySelector('.tl-title') as HTMLElement;
     const meta = el.querySelector('.tl-meta') as HTMLElement;
     const shout = (s: string) => softBreaks(s.toUpperCase());
-    meta.textContent = captionMeta(p, finePointer()); // …ending with the verb that opens the pane
+    fillCrossed(meta, captionMeta(p, finePointer())); // …ending with the verb that opens the pane
     meta.style.color = p.accent;
     // (placed by its real words; the scramble then runs over them. A two-language name stands as its lockup, each line
     // scrambling in its own span: lib/title.ts)
