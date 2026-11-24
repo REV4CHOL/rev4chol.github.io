@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   DAY_MS, FAST_MEAN, HOLD_MS, LONG_FRAME, LONG_SHARE_FAST, LONG_SHARE_SLOW, REOPEN_MS, SLOW_MEAN, UP_AFTER_MS, WINDOW,
-  dataSaver, floorMode, grainIntervalFor, hardwareCeiling, judge, maxFpsFor, modeAfterTierChange, newGovernor, openAt,
-  ownLoopCap, pinnedTier, resolutionFor, restoreState, saveState, startTier, steer, videoCapFor, weakBy,
-  type FloorFacts, type FloorMode, type Governor, type KeyStore, type Tier,
+  StallCounter, budgetFor, dataSaver, floorMode, grainIntervalFor, hardwareCeiling, judge, maxFpsFor, modeAfterTierChange,
+  newGovernor, openAt, ownLoopCap, pinnedTier, resolutionFor, restoreState, saveState, signalOf, startTier, steer,
+  videoCapFor, weakBy, type FloorFacts, type FloorMode, type Governor, type KeyStore, type Tier,
 } from '../src/lib/quality';
 
 /** A window of frame intervals: `n` frames at `ms`, or a pattern repeated. */
@@ -350,6 +350,59 @@ describe("the floor's mode: the class and the tier choose the video", () => {
     expect(ownLoopCap('wall', 2, false)).toBe(3);
     expect(ownLoopCap('own', 2, false)).toBe(videoCapFor(2, false));
     expect(ownLoopCap('own', 2, false)).toBeGreaterThan(3);
+  });
+});
+
+// SHIP A COUNTS, SHIP B ACTS (spec §3.1): the stalls and the budget are measured and shown on the readout
+// (?stats=1) and decide nothing until the old laptop has been read.
+describe('what the ladder also reads: counted and shown, deciding nothing yet', () => {
+  it('a frame over 250 ms is a stall, but not in the opening hold, the 4 s after a floor is built, after a hidden tab, or across a sleep', () => {
+    const s = new StallCounter(1000); // the page opened at 1000 ms
+    expect(s.note(2000, 400, false), 'inside the 2.5 s hold').toBe(false);
+    expect(s.note(3600, 400, false)).toBe(true);
+    expect(s.note(3700, 250, false), 'exactly 250 ms is no stall').toBe(false);
+    expect(s.note(3800, 16.7, false)).toBe(false);
+    expect(s.note(9000, 400, true), 'the first frame after the tab was hidden').toBe(false);
+    expect(s.note(20000, 6000, false), 'a gap over 5 s: the machine slept').toBe(false);
+    s.quiet(30000); // a floor was built
+    expect(s.note(33900, 400, false), 'inside the 4 s after the build').toBe(false);
+    expect(s.note(34100, 400, false)).toBe(true);
+    expect(s.count).toBe(2);
+  });
+
+  it('a later quiet spell never shortens one that is running', () => {
+    const s = new StallCounter(0);
+    s.quiet(10000, 4000);
+    s.quiet(10500, 1000);
+    expect(s.note(13000, 400, false)).toBe(false);
+    expect(s.note(14100, 400, false)).toBe(true);
+  });
+
+  it("the floor's budget: 96 MB at 4 GB or less, 144 for the rest of the weak class, 256 otherwise; 45% grows with the canvas", () => {
+    const px = 1366 * 768;
+    expect(budgetFor({ coarse: false, deviceMemory: 4, hardwareConcurrency: 4 }, px)).toBeCloseTo(96);
+    expect(budgetFor({ coarse: false, deviceMemory: 8, hardwareConcurrency: 8 }, px)).toBeCloseTo(144);
+    expect(budgetFor({ coarse: true }, px)).toBeCloseTo(144);
+    expect(budgetFor({ coarse: false, deviceMemory: 16, hardwareConcurrency: 4 }, px), 'weak by its threads').toBeCloseTo(144);
+    expect(budgetFor({ coarse: false, deviceMemory: 16, hardwareConcurrency: 16 }, px)).toBeCloseTo(256);
+    expect(budgetFor({ coarse: false }, px)).toBeCloseTo(256);
+    expect(budgetFor({ coarse: false }, 2 * px)).toBeCloseTo(256 * 1.45);
+    expect(budgetFor({ coarse: false, deviceMemory: 4 }, 1920 * 1080)).toBeCloseTo(96 * (0.55 + (0.45 * 1920 * 1080) / px));
+  });
+
+  it('the signal that last changed the level has a name', () => {
+    expect(signalOf('down')).toBe('slow frames');
+    expect(signalOf('up')).toBe('fast frames');
+    expect(signalOf(null)).toBeNull();
+  });
+
+  it('ship A changes no steering: a long frame is counted, and still stays out of the window (pins)', () => {
+    const src = readFileSync('src/lib/quality.ts', 'utf8');
+    expect(src).toContain('stalls.note(now, dt, afterHidden);');
+    expect(src).toMatch(/stalls\.note\(now, dt, afterHidden\);\s+afterHidden = false;\s+if \(document\.hidden \|\| dt > 250\) return;\s+if \(!steering\) return;/);
+    // a pinned page is measured and never moved; the STORY page is not sampled at all
+    expect(src).toContain('if (opts.govern !== false) this.sample(pinned === null);');
+    expect(src).toContain('state: () => this.report(),');
   });
 });
 

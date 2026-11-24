@@ -176,6 +176,82 @@ export function steer(g: Governor, v: Verdict, now: number): Steer {
   return null;
 }
 
+/* ------------------------------------------------------------ what the ladder also reads -- */
+
+/** SHIP A COUNTS, SHIP B ACTS (spec 2026-11-24-work-wall-video-design, §3.1). What follows is measured and shown on
+ *  the readout (`?stats=1`, lib/readout.ts) and decides nothing: each of these can lower a machine for a day, on
+ *  numbers that cannot be proved on the development PC. The old laptop's reading comes first.
+ *
+ *  A STALL is a frame longer than STALL_MS. The sampler has always thrown such frames away, and still does (they
+ *  never reach a window's verdict); now it counts them too. Not counted: frames inside the opening hold (HOLD_MS,
+ *  boot residue), frames in the FLOOR_QUIET_MS after a floor is built (a load, a chapter flip, the return from THE
+ *  LIST: the build's own work), the first frame after the tab was hidden, and gaps over STALL_GAP_MS (the machine
+ *  slept). */
+export const STALL_MS = 250;
+export const STALL_GAP_MS = 5000;
+export const FLOOR_QUIET_MS = 4000;
+
+export class StallCounter {
+  count = 0;
+  private quietUntil: number;
+
+  constructor(openedAt: number) {
+    this.quietUntil = openedAt + HOLD_MS;
+  }
+
+  /** Nothing is counted for `ms` from `now`. A later call never shortens a spell that is running. */
+  quiet(now: number, ms: number = FLOOR_QUIET_MS): void {
+    this.quietUntil = Math.max(this.quietUntil, now + ms);
+  }
+
+  /** One frame of `dt` ms that ended at `now`. True when it was counted. */
+  note(now: number, dt: number, afterHidden: boolean): boolean {
+    if (dt <= STALL_MS || dt > STALL_GAP_MS || afterHidden || now < this.quietUntil) return false;
+    this.count++;
+    return true;
+  }
+}
+
+/** The name of the signal behind a governor's move, as the readout shows it. */
+export function signalOf(moved: Steer): string | null {
+  return moved === 'down' ? 'slow frames' : moved === 'up' ? 'fast frames' : null;
+}
+
+/** THE FLOOR'S MEMORY BUDGET in MB, for what the site itself holds (lib/meter.ts: Pixi's textures and the
+ *  JavaScript heap; never the machine's memory, which no browser tells a page). 96 for a machine that reports 4 GB
+ *  or less, 144 for the rest of the weak class, 256 for any other, on a canvas of 1366×768. A filter's render target
+ *  is sized by the canvas, so 45% of the budget grows with the canvas's pixel count. Shown on the readout, and over
+ *  it nothing is shed until ship B. */
+export const BUDGET_CANVAS_PX = 1366 * 768;
+export function budgetFor(dev: Device, canvasPixels: number): number {
+  const base = dev.deviceMemory !== undefined && dev.deviceMemory <= 4 ? 96 : weakBy(dev) !== null ? 144 : 256;
+  return base * (0.55 + (0.45 * canvasPixels) / BUDGET_CANVAS_PX);
+}
+
+/** What `window.rvlQuality.state()` returns and the readout shows. */
+export interface QualityReport {
+  tier: Tier;
+  label: TierLabel;
+  ceiling: Tier;
+  /** the highest tier this device may reach (hardwareCeiling) */
+  hardwareCeiling: Tier;
+  /** the tier this page opened at */
+  opened: Tier;
+  downs: number[];
+  /** the sampler steers this page: false on a pinned page and on a page that governs itself (STORY) */
+  governed: boolean;
+  pinned: Tier | null;
+  /** the weak class, by the line that gave it */
+  weak: WeakBy | null;
+  /** the signal that last changed the level, with the page clock's time (performance.now) */
+  lastSignal: { name: string; at: number } | null;
+  /** frames over STALL_MS since the page opened; null on a page that is not sampled */
+  stalls: number | null;
+  /** Chrome threw this tab away in the background and loaded it again (document.wasDiscarded) */
+  discarded: boolean;
+  device: { memory: number | null; threads: number | null; coarse: boolean; gpu: string | null; dataSaver: boolean };
+}
+
 /* ---------------------------------------------------------------- the verdict travels -- */
 
 export interface KeyStore {
@@ -370,6 +446,11 @@ class Quality {
   /** the device as read at start(); before it, a machine that reports nothing */
   private dev: Device = { coarse: false };
   private pin: Tier | null = null;
+  private hardMax: Tier = 2;
+  private opened: Tier = 2;
+  private stalls: StallCounter | null = null;
+  private signal: { name: string; at: number } | null = null;
+  private discarded = false;
 
   tier(): Tier { return this.t; }
   label(): TierLabel { return TIER_LABELS[this.t]; }
@@ -382,6 +463,41 @@ class Quality {
     return {
       tier: this.t, weak: weakBy(this.dev) !== null, pinned: this.pin, dataSaver: dataSaver(this.dev),
       loopsFailed: false, contextLost: false, ...wall,
+    };
+  }
+
+  /** A floor is being built, or has just been (a load, a chapter flip, the return from THE LIST): the long frames of
+   *  the next 4 s are the build's own work and are not counted as stalls. */
+  floorBuilt(): void {
+    this.stalls?.quiet(performance.now());
+  }
+
+  /** The floor's memory budget in MB for a canvas of `canvasPixels` (budgetFor). */
+  budget(canvasPixels: number): number {
+    return budgetFor(this.dev, canvasPixels);
+  }
+
+  /** What the readout and `rvlQuality.state()` show. */
+  report(): QualityReport {
+    const g = this.g;
+    const d = this.dev;
+    return {
+      tier: this.t,
+      label: TIER_LABELS[this.t],
+      ceiling: g ? g.ceiling : this.t,
+      hardwareCeiling: this.hardMax,
+      opened: this.opened,
+      downs: g ? [...g.downs] : [0, 0, 0],
+      governed: this.governed,
+      pinned: this.pin,
+      weak: weakBy(d),
+      lastSignal: this.signal,
+      stalls: this.stalls ? this.stalls.count : null,
+      discarded: this.discarded,
+      device: {
+        memory: d.deviceMemory ?? null, threads: d.hardwareConcurrency ?? null, coarse: d.coarse, gpu: d.gpu ?? null,
+        dataSaver: dataSaver(d),
+      },
     };
   }
 
@@ -416,18 +532,22 @@ class Quality {
     this.dev = readDevice();
     const st = restoreState(this.session, this.local, Date.now(), startTier(this.dev));
     // (the hardware ceiling and the class are read from the device here, at every start, and never from storage)
-    const open = openAt(st, hardwareCeiling(this.dev), pinned);
+    this.hardMax = hardwareCeiling(this.dev);
+    const open = openAt(st, this.hardMax, pinned);
+    this.opened = open.tier;
+    this.discarded = (document as Document & { wasDiscarded?: boolean }).wasDiscarded === true;
     this.g = newGovernor(open.tier, open.ceiling, now, st.downs);
     this.apply(this.g.tier);
     saveState(this.session, this.local, this.g, Date.now());
-    const g = this.g;
     (window as unknown as { rvlQuality: unknown }).rvlQuality = {
       tier: () => this.t,
       label: () => this.label(),
       set: (t: Tier) => this.set(t),
-      state: () => ({ tier: g.tier, label: TIER_LABELS[g.tier], ceiling: g.ceiling, downs: [...g.downs], governed: this.governed, pinned }),
+      state: () => this.report(),
     };
-    if (opts.govern !== false && pinned === null) this.sample();
+    // a pinned page is measured (its stalls show on the readout) and never moved; a page that governs itself is not
+    // sampled at all (the STORY city)
+    if (opts.govern !== false) this.sample(pinned === null);
   }
 
   private apply(t: Tier): void {
@@ -439,23 +559,34 @@ class Quality {
   }
 
   /** The sampler: frame intervals, a verdict every WINDOW frames, the governor's move applied live. Hidden tabs and
-   *  frames over 250 ms (a tab switch, the boot screen's work) do not count. */
-  private sample(): void {
-    this.governed = true;
+   *  frames over 250 ms (a tab switch, the boot screen's work) do not count toward a verdict. Such a long frame is
+   *  counted as a stall and shown on the readout (StallCounter); it decides nothing until ship B. With `steering`
+   *  false (a pinned page) the frames are measured and the tier never moves. */
+  private sample(steering: boolean): void {
+    this.governed = steering;
+    const stalls = new StallCounter(performance.now());
+    this.stalls = stalls;
     const iv: number[] = [];
     let last = performance.now();
+    let afterHidden = document.hidden;
+    document.addEventListener('visibilitychange', () => { if (document.hidden) afterHidden = true; });
     const loop = (now: number) => {
       requestAnimationFrame(loop);
       const dt = now - last;
       last = now;
+      stalls.note(now, dt, afterHidden);
+      afterHidden = false;
       if (document.hidden || dt > 250) return;
+      if (!steering) return;
       iv.push(dt);
       if (iv.length < WINDOW) return;
       const v = judge(iv);
       iv.length = 0;
       const g = this.g!;
       const before = g.tier;
-      if (steer(g, v, now) && g.tier !== before) {
+      const moved = steer(g, v, now);
+      if (moved && g.tier !== before) {
+        this.signal = { name: signalOf(moved)!, at: now };
         this.apply(g.tier);
         saveState(this.session, this.local, g, Date.now());
       }
