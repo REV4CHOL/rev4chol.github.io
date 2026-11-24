@@ -45,6 +45,18 @@ describe("a 3:2 film's hero", () => {
     const src = readFileSync('src/pages/project.ts', 'utf8');
     expect(src).toContain("if (p.aspect === '4:3' || p.aspect === '3:2') heroSec.classList.add('p-hero--43');");
   });
+
+  // the ROLE / YR / RT readouts hang from the hero's right edge (right: 44px, from 170px down) and grow leftward with
+  // their text; the right panel's vertical tag stood 26px inside the panel from 148px down, so on a narrow panel (3:2
+  // at 1920, 4:3 at 1440) or under a long role line the two crossed. The tag yields: in this dress it starts below the
+  // readouts' last row (three rows of 16px with 16px between them end at 250px), whatever the panel's width
+  it("the right panel's tag starts below the readouts, so the two never cross", () => {
+    const css = readFileSync('src/styles/project.css', 'utf8');
+    expect(css).toContain('.p-callouts {\n  position: absolute; right: 44px; top: 170px;'.replace(/\n/g, css.includes('\r\n') ? '\r\n' : '\n'));
+    const top = /\.p-hero--43 \.p-pillar-r \.p-pillar-tag \{ top: (\d+)px; \}/.exec(css);
+    expect(top, 'the dress moves the right tag').not.toBeNull();
+    expect(Number(top![1])).toBeGreaterThanOrEqual(170 + 3 * 16 + 2 * 16 + 16);
+  });
 });
 
 describe('the film opens large', () => {
