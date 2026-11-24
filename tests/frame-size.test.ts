@@ -11,46 +11,48 @@ describe('the big frame: 2160 device px on its short side, scaled down into the 
   it('a 1184 x 666 box at dpr 1 lays the frame out 3840 x 2160 and shows it at 0.3083', () => {
     const f = bigFrame({ width: 1184, height: 666 }, 1)!;
     expect(f.width).toBe(3840);
-    expect(f.height).toBe(2160);
+    expect(f.rows).toBe(2160);
+    expect(Math.ceil(f.height)).toBe(2160);
     expect(f.scale).toBeCloseTo(0.3083, 4);
     expect(TARGET_PX).toBe(2160);
   });
 
   it('at dpr 2 half as many CSS px reach 2160 device px', () => {
     const f = bigFrame({ width: 1235, height: 695 }, 2)!;
-    expect(f.height).toBe(1080);
-    expect(f.width).toBe(1919);
-    expect(f.scale).toBeCloseTo(1235 / 1919, 6);
+    expect(f.rows).toBe(2160);
+    expect(Math.ceil(f.height)).toBe(1080);
+    expect(Math.round(f.width)).toBe(1919);
+    expect(f.scale).toBeCloseTo(1235 / 1919, 3);
   });
 
   // measured: a GALAXY part (9:16) laid out 1215 x 2160 stopped at hd1440; 2160 x 3840 reached hd2160 (decoded 2160 x 3840)
   it('a vertical box is sized on its width, the short side', () => {
     const f = bigFrame({ width: 364, height: 648 }, 1, 1, 9 / 16)!;
-    expect(f.width).toBe(2160);
-    expect(f.height).toBe(3845);
-    expect(f.scale).toBeCloseTo(364 / 2160, 6);
+    expect(Math.round(f.width)).toBe(2160);
+    expect(f.rows).toBe(3846); // (3845 by the picture alone: the frame's rows are even, see the thin line below)
+    expect(f.scale).toBeCloseTo(364 / 2160, 3);
   });
 
   // measured: under the poster lock's zoom 0.75 a frame laid out 2160 tall reported devicePixelRatio 0.75 inside (1620
   // device px): the lock's zoom counts like the screen's ratio
   it("the poster lock's zoom counts with the pixel ratio", () => {
     const f = bigFrame({ width: 888, height: 500 }, 1, 0.75)!;
-    expect(f.height).toBe(2880);
-    expect(f.height * 0.75).toBe(2160);
+    expect(Math.ceil(f.height)).toBe(2880);
+    expect(f.rows).toBe(2160);
   });
 
   // a 9:16 part in a landscape box (fullscreen on a landscape screen) stands 1215 px wide in a 2160-tall frame: 1440p
   // (measured); its frame is laid out until the picture itself is 2160 wide
   it('the picture decides, not the box: a vertical film fullscreen on a landscape screen', () => {
     const f = bigFrame({ width: 1440, height: 900 }, 1, 1, 9 / 16)!;
-    expect(f.height).toBe(3840);
-    expect(Math.round(f.height * 9 / 16)).toBe(2160);
+    expect(f.rows).toBe(3840);
+    expect(Math.round(f.rows * 9 / 16)).toBe(2160);
     expect(f.width).toBe(6144);
   });
 
   it('a scope or 3:2 film in the 16:9 player: a 3840 x 2160 frame (measured: 2160p for both)', () => {
-    expect(bigFrame({ width: 1184, height: 666 }, 1, 1, 2.39)).toMatchObject({ width: 3840, height: 2160 });
-    expect(bigFrame({ width: 1184, height: 666 }, 1, 1, 3 / 2)).toMatchObject({ width: 3840, height: 2160 });
+    expect(bigFrame({ width: 1184, height: 666 }, 1, 1, 2.39)).toMatchObject({ width: 3840, rows: 2160 });
+    expect(bigFrame({ width: 1184, height: 666 }, 1, 1, 3 / 2)).toMatchObject({ width: 3840, rows: 2160 });
   });
 
   it('a box already 2160 device px on its short side stays plain', () => {
@@ -62,6 +64,87 @@ describe('the big frame: 2160 device px on its short side, scaled down into the 
   it('a box with no size yet is not sized', () => {
     expect(bigFrame({ width: 0, height: 0 }, 1)).toBeNull();
     expect(bigFrame({ width: 800, height: 0 }, 1)).toBeNull();
+  });
+});
+
+// THE THIN LINE (owner, 2026-11-25, of a hairline across the exact middle of the playing picture in a film's first
+// seconds). Measured headless on the live site at the owner's screen (window 2560 x 1300 at a true scale 1.5, the
+// poster lock's zoom 1.7625): YouTube's controls overlay lays a dark shade over the TOP HALF of its frame (a gradient
+// tile half the frame high, repeated across), whenever the overlay shows: after a start, after a seek, on pause. Chrome
+// draws the overlay at the scale the page shows the frame at, and when the shade's foot (half the frame's own rows x
+// that scale) is not on a whole row of the screen, that row takes a share of the tile's dark head. Over a white ground
+// with the video hidden: the foot at row 635.95 (the old fit, 855 / 1452) darkened that row by 6.8 levels of 255; at
+// 636.5, by 37; at 636 exactly, by none. So the frame's own rows are even and it is shown on an even count of the
+// screen's rows: the foot is then half of that, a whole row.
+describe("the frame's rows are even, its own and the screen's (the thin line at the picture's middle)", () => {
+  /** the frame the rule before this one laid out (the 2160p measurements were all made with it) */
+  const before = (width: number, height: number, px: number, picture?: number) => {
+    const r = picture ?? width / height;
+    const pw = Math.min(width, height * r), ph = Math.min(height, width / r);
+    const k = Math.min(2160 / px / Math.min(pw, ph), 3840 / px / Math.max(pw, ph));
+    return { width: Math.round(width * k), rows: Math.ceil(Math.round(height * k) * px - 1e-6) };
+  };
+
+  it("the owner's screen: 2160 rows shown on 1272, at 1272 / 2160", () => {
+    const f = bigFrame({ width: 855, height: 481 }, 1.5, 1.7625, 16 / 9)!;
+    expect(f.rows).toBe(2160);
+    expect(f.shown).toBe(1272);
+    expect(f.scale).toBe(1272 / 2160);
+    expect(f.width).toBe(1452);
+    // the shade's foot: row 636, where the fit before this one put it on 635.95
+    expect((f.rows / 2) * f.scale).toBeCloseTo(636, 9);
+    expect(1080 * (855 / 1452)).toBeCloseTo(635.95, 2);
+  });
+
+  // measured: a frame 816.265 px high at 2.64375 device px to the px (2158.0006 rows) was 2159 rows inside: the browser
+  // rounds a frame's height UP. A quarter row under, rounding up and rounding to the nearest agree.
+  it('the frame is laid out a quarter row under its rows', () => {
+    const f = bigFrame({ width: 855, height: 481 }, 1.5, 1.7625, 16 / 9)!;
+    expect(f.height * 1.5 * 1.7625).toBeCloseTo(2159.75, 6);
+  });
+
+  it('on any screen: even rows in the frame and on the screen, the foot on a whole row, never a smaller frame', () => {
+    let seen = 0;
+    for (const width of [320, 414, 768, 855, 1024, 1184, 1235, 1366, 1440, 1507, 1707, 1920, 2560]) {
+      for (const shape of [16 / 9, 3 / 2, 4 / 3, 9 / 16]) {
+        for (const dpr of [1, 1.25, 1.5, 1.75, 2, 2.625, 3]) {
+          for (const zoom of [1, 0.75, 1.1, 1.7625]) {
+            for (const picture of [undefined, 16 / 9, 3 / 2, 2.39, 9 / 16]) {
+              const height = Math.round(width / shape), px = dpr * zoom;
+              const f = bigFrame({ width, height }, dpr, zoom, picture);
+              if (!f) continue;
+              seen++;
+              const was = before(width, height, px, picture);
+              expect(f.rows % 2).toBe(0);
+              expect(f.shown % 2).toBe(0);
+              const foot = (f.rows / 2) * f.scale;
+              expect(Math.abs(foot - Math.round(foot))).toBeLessThan(1e-9);
+              expect(Math.ceil(f.height * px)).toBe(f.rows);
+              expect(Math.round(f.height * px)).toBe(f.rows);
+              // never smaller than the frame the 2160p measurements were made with, and at most one row taller
+              expect(f.rows).toBeGreaterThanOrEqual(was.rows);
+              expect(f.rows - was.rows).toBeLessThanOrEqual(1);
+              expect(f.width).toBeGreaterThanOrEqual(was.width);
+              // shown within a row of the box's own height, across all of its width, and not past it by a few px
+              expect(Math.abs(f.shown - height * px)).toBeLessThanOrEqual(1);
+              expect(f.width * f.scale).toBeGreaterThanOrEqual(width - 1e-9);
+              expect((f.width * f.scale - width) * px).toBeLessThan(6);
+              expect(f.scale).toBeLessThanOrEqual(1);
+              expect(f.scale).toBeGreaterThan(0);
+            }
+          }
+        }
+      }
+    }
+    expect(seen).toBeGreaterThan(3000);
+  });
+
+  it('the bar fits the frame with what the rule gives: its height and its scale, unrounded', () => {
+    const src = readFileSync('src/project/player-bar.ts', 'utf8');
+    expect(src).toMatch(/frame\.style\.height = `\$\{f \? f\.height : h\}px`/);
+    expect(src).toMatch(/frame\.style\.transform = f \? `scale\(\$\{f\.scale\}\)` : ''/);
+    // the readout's words keep whole px (the height is a fraction now)
+    expect(src).toMatch(/FRAME \$\{Math\.round\(f\.width\)\} × \$\{Math\.round\(f\.height\)\} AT/);
   });
 });
 

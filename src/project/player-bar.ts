@@ -288,7 +288,9 @@ type FsEl = HTMLElement & { webkitRequestFullscreen?: () => void };
 const fsElement = (): Element | null => document.fullscreenElement ?? (document as FsDoc).webkitFullscreenElement ?? null;
 
 /** Lay the frame out for the box as it stands now: large and scaled down while the box is under 2160 device px on its
- *  short side, at the box's own size once it is not (a box grown that far: a fullscreen on a 4K screen). A box
+ *  short side (its rows even, its own and the screen's: frame-size.ts, THE THIN LINE; the height is a fraction of a px
+ *  and the scale is the rule's, both written as the rule gives them), at the box's own size once it is not (a box grown that far: a
+ *  fullscreen on a 4K screen). A box
  *  without a size is left alone (a tab not laid out yet, a hidden section): the box is watched, and the frame is
  *  fitted the moment it has one. Returns the layout in the readout's words, null for a box without a size. */
 function fitFrame(pic: HTMLElement, frame: HTMLIFrameElement, ratio: number): string | null {
@@ -299,7 +301,7 @@ function fitFrame(pic: HTMLElement, frame: HTMLIFrameElement, ratio: number): st
   frame.style.width = `${f ? f.width : w}px`;
   frame.style.height = `${f ? f.height : h}px`;
   frame.style.transform = f ? `scale(${f.scale})` : '';
-  return f ? `FRAME ${f.width} × ${f.height} AT ${f.scale.toFixed(2)}` : `FRAME ${w} × ${h} AT ITS OWN SIZE`;
+  return f ? `FRAME ${Math.round(f.width)} × ${Math.round(f.height)} AT ${f.scale.toFixed(2)}` : `FRAME ${w} × ${h} AT ITS OWN SIZE`;
 }
 const NO_SIZE = 'ITS BOX HAS NO SIZE YET';
 
