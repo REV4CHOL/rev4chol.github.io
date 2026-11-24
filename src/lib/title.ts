@@ -5,9 +5,9 @@ import { stopScramble } from './scramble';
  *  it need to sit a bit closer to each other via their line spacing"). A title written `English / Vietnamese` stands,
  *  wherever a film's name is a headline, as a lockup: line 1 the English name as a one-part title is drawn there; line 2
  *  the Vietnamese name at LOCKUP.ratio of it, in the film's accent, same face and weight; both lines' INK starting at
- *  one left edge; line 2's tallest mark (Ễ) clearing line 1's baseline by LOCKUP.clearEm. Running text and what is not
- *  seen (the tab title, aria labels, the screen-reader list) keep the plain string with its slash; the film page's
- *  ticker, one running line, sets a dot between the two names (runningTitle).
+ *  one left edge; line 2's tallest mark (Ễ) clearing line 1's baseline by LOCKUP.clearEm. Where the name runs on one
+ *  line and is seen (the film page's ticker, the browser tab title) a dot stands between the two names (runningTitle);
+ *  what is only heard (aria labels, the screen-reader list) keeps the plain string with its slash.
  *  The numbers live twice, here and as components.css's :root custom properties (--tt-ratio, --tt-mark, --tt-clear);
  *  tests/title-lockup.test.ts ties them. */
 
@@ -32,8 +32,9 @@ export function splitTitle(title: string): TitleParts {
 /** The mark between a two-language title's names where it runs on one line. */
 export const TITLE_DOT = ' · ';
 
-/** A title as one running line (the film page's ticker): a two-part one with a centred dot in the slash's place
- *  (owner, 2026-11-24, asked what the ticker should show: "A dot instead"); a one-part one as it is. */
+/** A title as one running line (the film page's ticker, the browser tab title): a two-part one with a centred dot in
+ *  the slash's place (owner, 2026-11-24, asked what the ticker should show: "A dot instead"; then "Use the dot in the
+ *  browser tab title too"); a one-part one as it is. */
 export function runningTitle(title: string): string {
   const { main, alt } = splitTitle(title);
   return alt === null ? title : `${main}${TITLE_DOT}${alt}`;

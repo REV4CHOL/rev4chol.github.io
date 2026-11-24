@@ -51,7 +51,7 @@ function renderNotFound(): void {
 }
 
 function render(p: Project, all: Project[], idx: number): void {
-  document.title = `${p.title.toUpperCase()} — REVACHOL`;
+  document.title = `${runningTitle(p.title).toUpperCase()} — REVACHOL`; // (a two-language name with its dot: lib/title.ts)
   if (p.aspect !== '16:9') {
     // the whole dossier presents in the film's own ratio: the hero fits the
     // picture as a centered band/column, the stills wall matches. --pratio

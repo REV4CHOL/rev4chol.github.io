@@ -36,8 +36,8 @@ organise nicely and aesthetically".
 | THE LIST row (`.fl-title`) | yes | line 2 in the row's accent; the phone list's ▸ ends line 1 |
 | Phone strip pane (`.rl-title`) | yes | fitted on the English line; ▸ ends line 1 |
 | Floor hover caption (`#tile-label .tl-title`) | yes | each line scrambles in its own span |
-| The film page ticker | no: one running line, a centred dot between the names (`runningTitle`: `TEMPTATION · XIÊU LÒNG`) | the owner, asked: "A dot instead" |
-| Browser tab title, aria-labels, the hidden screen-reader list | no: the plain string with its slash | not seen |
+| The film page ticker, the browser tab title | no: one running line, a centred dot between the names (`runningTitle`: `TEMPTATION · XIÊU LÒNG`) | the owner, asked: "A dot instead"; then "Use the dot in the browser tab title too" |
+| aria-labels, the hidden screen-reader list | no: the plain string with its slash | not seen |
 
 A one-part title takes the old path on every surface (plain text, same element, same size): measured unchanged on
 REMNANTS OF A DREAM, THE BETROTHAL and GALAXY Z FOLD 8 ULTRA | DIGITAL AD.
@@ -78,4 +78,5 @@ Shown the live pages and that picture, the owner chose:
 
 - the column: "Shared left edge" (as built);
 - the line spacing: "Good as is" (`--tt-clear` 0.07 stands);
-- the ticker, which still ran the slash: "A dot instead" (`runningTitle`, a centred dot in the slash's place).
+- the ticker, which still ran the slash: "A dot instead" (`runningTitle`, a centred dot in the slash's place);
+- told the browser tab title still showed the slash: "Use the dot in the browser tab title too" (the same function).

@@ -159,12 +159,16 @@ describe("the film page's ticker sets a dot between a two-language title's names
   it('the ticker is built from it', () => {
     expect(src('src/pages/project.ts')).toContain("const items = [runningTitle(p.title), ...p.tags, 'REVACHOL', stamp];");
   });
+  // The owner, the same day, told the tab still showed the slash: "Use the dot in the browser tab title too".
+  it('the browser tab title is built from it too', () => {
+    const project = src('src/pages/project.ts');
+    expect(project).toContain('document.title = `${runningTitle(p.title).toUpperCase()} — REVACHOL`;');
+    expect(project).not.toContain('document.title = `${p.title.toUpperCase()}');
+  });
 });
 
 describe('the unseen keep the plain string with its slash', () => {
-  it('the tab title, aria labels and the screen-reader list', () => {
-    const project = src('src/pages/project.ts');
-    expect(project).toContain('document.title = `${p.title.toUpperCase()} — REVACHOL`;');
+  it('aria labels and the screen-reader list', () => {
     expect(src('src/works/reel-view.ts')).toContain("a.setAttribute('aria-label', `${p.title}. ${p.role}. Open this film.`);");
     expect(src('src/pages/works.ts')).toContain("a.textContent = `${p.title} (${p.year})${isPlaceholder(p) ? ' — placeholder' : ''}`;");
   });
