@@ -12,7 +12,7 @@ import { sound } from '../lib/sound';
 import { hashSlug, stillSlotUrls, wallRhythm } from '../project/dossier';
 import { linkParts } from '../project/parts';
 import { stillParts } from '../project/pillars';
-import { playerRatio, watchKind } from '../project/watch';
+import { meets, playerRatio, watchKind } from '../project/watch';
 import { armStamps } from '../lib/stamps';
 import { startPage } from '../shell/page';
 import '../styles/project.css';
@@ -438,6 +438,12 @@ function syncHoles(): void {
     put(el, '--hole', holeTargets.player);
     put(el, '--hole2', holeTargets.wall);
   }
+  // the HUD's foot readouts (fixed, above the page) step aside while they meet the player: on a short screen a centred
+  // player reaches the screen's foot, and the timecode stood over the picture's corner (measured, Android 1280 x 672)
+  const pl = holeTargets.player?.isConnected ? holeTargets.player.getBoundingClientRect() : null;
+  for (const h of document.querySelectorAll<HTMLElement>('.hud-bl, .hud-br')) {
+    h.classList.toggle('hud-yield', meets(pl ?? { left: 0, top: 0, right: 0, bottom: 0 }, h.getBoundingClientRect()));
+  }
 }
 
 let holesRO: ResizeObserver | null = null;
@@ -452,6 +458,9 @@ function armEffectHole(slot: 'player' | 'wall', target: HTMLElement): void {
     // scroll/resize can't see a region GROWING — the wall gains height with
     // every still that finishes loading — so the regions watch themselves
     holesRO = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => syncHoles()) : null;
+    // …nor one MOVING without a scroll: the display face landing reflows the sections above the player
+    void document.fonts?.ready?.then(syncHoles);
+    window.addEventListener('load', syncHoles);
   }
   holesRO?.observe(target);
 }

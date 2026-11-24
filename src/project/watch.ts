@@ -15,3 +15,9 @@ export function watchKind(p: Pick<Project, 'film' | 'filmPending' | 'filmPrivate
 export function playerRatio(ratio: number): number {
   return ratio < 1 ? ratio : 16 / 9;
 }
+
+/** Two boxes (viewport px) meet where they overlap; touching edges do not. */
+export function meets(a: Box, b: Box): boolean {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+}
+export interface Box { left: number; top: number; right: number; bottom: number }

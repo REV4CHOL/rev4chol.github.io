@@ -103,6 +103,9 @@ body { font-size: var(--t-md); line-height: 1.6; }
   body.cursor-live, body.cursor-live * { cursor: none !important; }
 }
 #cursor { position: fixed; left: 0; top: 0; z-index: 9999; pointer-events: none; will-change: transform; }
+/* over a film's frame the page hears no pointer: the cross would stand parked on the picture, so it steps aside and
+   the frame's own pointer shows */
+#cursor.in-frame { visibility: hidden; }
 #cursor .x { position: relative; width: 22px; height: 22px; transform: translate(-50%, -50%); }
 #cursor .x::before, #cursor .x::after { content: ''; position: absolute; background: var(--accent); }
 #cursor .x::before { left: 50%; top: 0; width: 1px; height: 100%; }

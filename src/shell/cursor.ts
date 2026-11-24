@@ -33,6 +33,12 @@ export function cursorLabelFor(
   return t ? t.dataset?.cursor || null : null;
 }
 
+/** The pointer has gone into a frame (a film's player): from there on the page hears no pointer move until it comes
+ *  back out, so the cross steps aside rather than stand parked on the picture. */
+export function overFrame(target: { tagName?: string } | null | undefined): boolean {
+  return target?.tagName === 'IFRAME';
+}
+
 /** The readout beside the crosshair: whole pixels, four digits each. Pointer coordinates come fractional under
  *  display scaling and on precision touchpads, and printed raw they read "258.3125 434.5597755859375". */
 export function cursorCoords(x: number, y: number): string {
@@ -64,6 +70,7 @@ export function initCursor(): void {
   document.addEventListener('pointerover', (e) => {
     // the cross boxes itself over everything that can be pressed, labelled or not (the native hand is hidden)
     c.classList.toggle('on-link', !!(e.target as Element).closest?.('a, button'));
+    c.classList.toggle('in-frame', overFrame(e.target as Element));
     const label = cursorLabelFor(e.target as Element, chromeWrote);
     if (label === undefined) return;
     paint(label);
