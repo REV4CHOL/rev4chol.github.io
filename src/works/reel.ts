@@ -27,7 +27,7 @@ export function loopsAllowed(conn?: { saveData?: boolean; effectiveType?: string
 }
 
 /** A name's size, px, in Clash Display 700 (the display voice). It stands on one line when it can at ONE_LINE_MIN px
- *  or more, up to TITLE_MAX: one line reads quieter than two (PHILIA, MIEN VIEN, SODA COAST). A longer name wraps at
+ *  or more, up to TITLE_MAX: one line reads quieter than two (PHILIA, FAR EAST, SODA COAST). A longer name wraps at
  *  its words from wrapStart(its length) down, never under TITLE_MIN, until its longest word fits. The view measures
  *  each name in its own face with its ▸ (works/reel-view.ts): a per-letter guess left KATARA's ▸ on a line alone. */
 export const TITLE_MAX = 52;

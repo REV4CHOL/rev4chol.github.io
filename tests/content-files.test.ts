@@ -5,6 +5,7 @@ import { aspectRatio, isBlank, isPlaceholder, parseFloor, parseJson, parseProjec
 import { loopCandidates } from '../src/home/loops';
 import { pickLoopFiles } from '../src/lib/loop-files';
 import { layoutProjects } from '../src/works/layout';
+import { stripName } from '../src/works/legend';
 
 const root = fileURLToPath(new URL('../public/content/', import.meta.url));
 const read = (f: string) => readFileSync(root + f, 'utf8');
@@ -173,6 +174,23 @@ describe('shipped content files', () => {
 
   for (const f of BATCH3) it(`${f.title.toUpperCase()} ${f.where}, linked, with its media (owner 2026-09-27)`, () => {
     checkFilm(f);
+  });
+
+  // 2026-11-24, the owner: "Go for Ever Faraway / Miên Viễn instead of Mien Vien". Its slug, `mien-vien`, and its
+  // address stay. And THE BETROTHAL's floor pane says its new name too: a pane's strip is built from the slug unless
+  // the film has a `short`, so after the rename it still read 2026 · AN HOI beside a film called THE BETROTHAL.
+  it('two films carry the names the owner gave them, on their floor panes too (owner 2026-11-24)', () => {
+    const all = parseProjects(rawProjects());
+    const far = all.find((p) => p.slug === 'mien-vien')!;
+    expect(far.title).toBe('Ever Faraway / Miên Viễn');
+    expect(far.title).toBe(far.title.normalize('NFC')); // (ê and ễ as single letters, the way the display faces carry them)
+    expect(stripName(far)).toBe('2026 · MIEN VIEN'); // (its Vietnamese name, as its address spells it)
+    const bet = all.find((p) => p.slug === 'an-hoi')!;
+    expect([bet.title, bet.short]).toEqual(['The Betrothal', 'The Betrothal']);
+    expect(stripName(bet)).toBe('THE BETROTHAL');
+    const xl = all.find((p) => p.slug === 'xieu-long')!;
+    expect(xl.title).toBe('Temptation / Xiêu Lòng');
+    expect(stripName(xl)).toBe('2026 · XIEU LONG');
   });
 
   // the owner's fourth batch (2026-09-27): REMNANTS OF A DREAM for "the empty blank space in chapter 1" — the held
@@ -431,7 +449,8 @@ describe('shipped content files', () => {
       artist: '', productionHouse: '', director: '',
       synopsis: 'A vow in a green garden, held close.', accent: '#6FE0B4', focus: '70% 50%',
       loop: { size: [960, 720], seconds: 8 }, stills: 50, still: [1600, 1200] },
-    { slug: 'xieu-long', slot: 18, title: 'XIÊU LÒNG', aspect: '3:2', client: '', tags: ['music video'],
+    // (later that day, the owner: 'Go for "Temptation / Xiêu Lòng instead of the old name'; the slug and address stay)
+    { slug: 'xieu-long', slot: 18, title: 'Temptation / Xiêu Lòng', aspect: '3:2', client: '', tags: ['music video'],
       role: 'Colorist', runtime: '4:20', film: 'https://www.youtube.com/embed/wZNPHtoPZzk',
       artist: 'Dung Hoang Pham / PHUCNAM', productionHouse: 'XPOKIT', director: 'Khadarec [XPOKIT]',
       synopsis: 'Silk, a red curtain and a paper fan: the moment a heart gives way.', accent: '#FF3D5A', focus: '50% 50%',
