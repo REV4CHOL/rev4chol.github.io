@@ -148,7 +148,7 @@ marks' anchors; the arrival wipe; the pace; the sideways block.
 In a headless browser as a touch phone, never a visible window:
 - 390 × 844: chapter one at arrival (film 1 in the lower half with its name whole, the last film above it), mid-roll,
   and its longest names; chapter two with the vertical film standing tall and uncropped;
-- film 1's name from arrival: whole for 8 seconds or more at 390 × 664, 390 × 844 and 360 × 640;
+- film 1's name from arrival: whole for about 8 seconds or more at 390 × 664, 390 × 844 and 360 × 640 (measured from the strip's first frame: 8.7, 10.7 and 8.3 s; from the arrival wipe's end: 8.3, 10.3 and 7.9 s);
 - 360 × 640 and 412 × 915: two panes fill the screen;
 - 844 × 390: one pane a screen, the vertical film whole in the middle;
 - the pace from the first sample; a drag, a throw and its return to the roll; the rail; CALM; a tap opens the film;
