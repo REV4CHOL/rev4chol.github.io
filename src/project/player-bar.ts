@@ -155,6 +155,8 @@ export interface BigFilm {
   bar: HTMLElement;
   /** the address of the plain player, with YouTube's own controls (the handshake's fallback) */
   plainSrc: string;
+  /** the film's own picture ratio (width over height): the frame is sized on the picture inside it */
+  ratio: number;
 }
 
 type FsDoc = Document & { webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => void };
@@ -163,11 +165,11 @@ const fsElement = (): Element | null => document.fullscreenElement ?? (document 
 
 /** Lay the frame out for the box as it stands now: large and scaled down while the box is under 2160 device px on its
  *  short side, at the box's own size once it is not (a box grown that far: a fullscreen on a 4K screen). */
-function fitFrame(pic: HTMLElement, frame: HTMLIFrameElement): void {
+function fitFrame(pic: HTMLElement, frame: HTMLIFrameElement, ratio: number): void {
   // plate px (clientWidth): under the poster lock a box's own px hold still while the window zooms the plate
   const w = pic.clientWidth, h = pic.clientHeight;
   if (!w || !h) return;
-  const f = bigFrame({ width: w, height: h }, window.devicePixelRatio || 1, posterZoom());
+  const f = bigFrame({ width: w, height: h }, window.devicePixelRatio || 1, posterZoom(), ratio);
   frame.style.width = `${f ? f.width : w}px`;
   frame.style.height = `${f ? f.height : h}px`;
   frame.style.transform = f ? `scale(${f.scale})` : '';
@@ -175,7 +177,7 @@ function fitFrame(pic: HTMLElement, frame: HTMLIFrameElement): void {
 
 /** Build the big player around `frame` (made with the big address, `controls=0`) at the end of `host`. Returns null,
  *  and leaves nothing in the page, when the box needs no big frame (its short side already stands 2160 device px). */
-export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { plainSrc: string; accent: string }): BigFilm | null {
+export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { plainSrc: string; accent: string; ratio: number }): BigFilm | null {
   const root = document.createElement('div');
   root.className = 'p-film';
   root.dataset.phase = 'waiting';
@@ -205,13 +207,13 @@ export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { pl
     `<button type="button" class="p-bar-btn p-bar-full" aria-label="Full screen">${svg('full')}<span class="p-bar-word">FULL SCREEN</span></button>`;
   root.append(pic, bar);
   host.append(root);
-  if (!bigFrame({ width: pic.clientWidth, height: pic.clientHeight }, window.devicePixelRatio || 1, posterZoom())) {
+  if (!bigFrame({ width: pic.clientWidth, height: pic.clientHeight }, window.devicePixelRatio || 1, posterZoom(), opts.ratio)) {
     frame.classList.remove('p-frame--big');
     root.remove();
     return null;
   }
-  fitFrame(pic, frame);
-  return { root, pic, frame, mark, catcher, bar, plainSrc: opts.plainSrc };
+  fitFrame(pic, frame, opts.ratio);
+  return { root, pic, frame, mark, catcher, bar, plainSrc: opts.plainSrc, ratio: opts.ratio };
 }
 
 /** Wire a big film's bar to the programme: the frame's fit, the handshake, the presses, the keys, fullscreen. */
@@ -223,7 +225,7 @@ export function armBar(film: BigFilm, programme: Programme): void {
 
   // THE FIT: the box is watched (the page's reflows, fullscreen) and so is the window (the poster lock's zoom, a move
   // to a screen of another pixel ratio, which leave the box's own px as they were)
-  const fit = () => fitFrame(pic, frame);
+  const fit = () => fitFrame(pic, frame, film.ratio);
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null;
   ro?.observe(pic);
   window.addEventListener('resize', fit);
@@ -239,6 +241,15 @@ export function armBar(film: BigFilm, programme: Programme): void {
   const send = (func: string, args: unknown[] = []) => programme.send(frame, func, args);
   const fs = () => fsElement() === root;
 
+  // a button is written only when what it says changes: rewritten under a press (the time runs four times a second),
+  // the press's target left the page between its down and its up, and the click was lost (measured)
+  const put = (btn: HTMLButtonElement, aria: string, icon: string, word: string) => {
+    const key = `${aria}|${icon}|${word}`;
+    if (btn.dataset.said === key) return;
+    btn.dataset.said = key;
+    btn.setAttribute('aria-label', aria);
+    btn.innerHTML = `${svg(icon)}<span class="p-bar-word">${word}</span>`;
+  };
   const paint = () => {
     if (plain) return;
     const i = info();
@@ -248,8 +259,7 @@ export function armBar(film: BigFilm, programme: Programme): void {
     catcher.hidden = !view.catcher;
     // the site's own cursor stands over the catcher (shell/cursor.ts steps aside only from a frame nothing covers)
     frame.toggleAttribute('data-covered', view.catcher);
-    playBtn.setAttribute('aria-label', view.play.aria);
-    playBtn.innerHTML = `${svg(view.phase === 'playing' ? 'pause' : view.phase === 'ended' ? 'again' : 'play')}<span class="p-bar-word">${view.play.label}</span>`;
+    put(playBtn, view.play.aria, view.phase === 'playing' ? 'pause' : view.phase === 'ended' ? 'again' : 'play', view.play.label);
     const dur = i.duration > 0 ? i.duration : 0;
     let t = elapsed(i, now());
     if (shown && now() < shown.until && Math.abs(t - shown.t) > 1.5) t = shown.t;
@@ -267,12 +277,10 @@ export function armBar(film: BigFilm, programme: Programme): void {
     seek.setAttribute('aria-valuetext', view.time ? `${timeText(p * dur)} of ${view.time.total}` : 'not started');
     levelEl.hidden = !view.level;
     levelEl.textContent = view.level ?? '';
-    soundBtn.setAttribute('aria-label', view.sound.aria);
     soundBtn.setAttribute('aria-pressed', String(view.sound.pressed));
-    soundBtn.innerHTML = `${svg(view.sound.pressed ? 'on' : 'off')}<span class="p-bar-word">${view.sound.label}</span>`;
+    put(soundBtn, view.sound.aria, view.sound.pressed ? 'on' : 'off', view.sound.label);
     const on = fs();
-    fullBtn.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
-    fullBtn.innerHTML = `${svg(on ? 'exit' : 'full')}<span class="p-bar-word">${on ? 'EXIT' : 'FULL SCREEN'}</span>`;
+    put(fullBtn, on ? 'Exit full screen' : 'Full screen', on ? 'exit' : 'full', on ? 'EXIT' : 'FULL SCREEN');
     // the time runs on between the player's deliveries while it plays
     if (view.phase === 'playing' && !ticker) ticker = window.setInterval(paint, 250);
     if (view.phase !== 'playing' && ticker) { clearInterval(ticker); ticker = 0; }
@@ -321,7 +329,8 @@ export function armBar(film: BigFilm, programme: Programme): void {
     clearTimeout(idleTimer);
     if (!fs() || view.phase !== 'playing') return;
     idleTimer = window.setTimeout(() => {
-      if (fs() && view.phase === 'playing' && !bar.contains(document.activeElement)) root.classList.add('p-film--idle');
+      // (the keyboard's focus holds it: a button pressed by mouse keeps the focus too, and must not)
+      if (fs() && view.phase === 'playing' && !bar.querySelector(':focus-visible')) root.classList.add('p-film--idle');
     }, IDLE_MS);
   };
   const onFs = () => {
@@ -424,8 +433,11 @@ export function armBar(film: BigFilm, programme: Programme): void {
     frame.classList.remove('p-frame--big');
     frame.removeAttribute('style');
     frame.removeAttribute('data-covered');
-    root.replaceWith(frame);
+    // out of the page first, then the plain address, then back in its place: an iframe put back in the page navigates
+    // to the address it holds (moved first, measured: it asked for the big address again and the plain one never came)
+    frame.remove();
     frame.src = film.plainSrc;
+    root.replaceWith(frame);
   };
 
   paint();

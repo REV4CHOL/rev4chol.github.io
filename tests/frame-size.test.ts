@@ -3,8 +3,8 @@ import { bigFrame, bigFrameWanted, fullscreenApi, isAndroid, TARGET_PX } from '.
 
 // The owner, 2026-11-24: "force all video players on the website to start at 2160p when watch". No address parameter or
 // player command does it (measured headless: vq=, hd=1, setPlaybackQuality, setPlaybackQualityRange, loadVideoById's
-// suggestedQuality, all ignored). A YouTube player picks about the level nearest its own size in DEVICE pixels, so the
-// frame is laid out 2160 device px on its short side and scaled down into the page's box.
+// suggestedQuality, all ignored). A YouTube player picks its level from its own size in DEVICE pixels, so the frame is
+// laid out until the picture in it stands 2160 device px on its short side (or 3840 on its long) and scaled down.
 
 describe('the big frame: 2160 device px on its short side, scaled down into the box', () => {
   it('a 1184 x 666 box at dpr 1 lays the frame out 3840 x 2160 and shows it at 0.3083', () => {
@@ -24,7 +24,7 @@ describe('the big frame: 2160 device px on its short side, scaled down into the 
 
   // measured: a GALAXY part (9:16) laid out 1215 x 2160 stopped at hd1440; 2160 x 3840 reached hd2160 (decoded 2160 x 3840)
   it('a vertical box is sized on its width, the short side', () => {
-    const f = bigFrame({ width: 364, height: 648 }, 1)!;
+    const f = bigFrame({ width: 364, height: 648 }, 1, 1, 9 / 16)!;
     expect(f.width).toBe(2160);
     expect(f.height).toBe(3845);
     expect(f.scale).toBeCloseTo(364 / 2160, 6);
@@ -36,6 +36,20 @@ describe('the big frame: 2160 device px on its short side, scaled down into the 
     const f = bigFrame({ width: 888, height: 500 }, 1, 0.75)!;
     expect(f.height).toBe(2880);
     expect(f.height * 0.75).toBe(2160);
+  });
+
+  // a 9:16 part in a landscape box (fullscreen on a landscape screen) stands 1215 px wide in a 2160-tall frame: 1440p
+  // (measured); its frame is laid out until the picture itself is 2160 wide
+  it('the picture decides, not the box: a vertical film fullscreen on a landscape screen', () => {
+    const f = bigFrame({ width: 1440, height: 900 }, 1, 1, 9 / 16)!;
+    expect(f.height).toBe(3840);
+    expect(Math.round(f.height * 9 / 16)).toBe(2160);
+    expect(f.width).toBe(6144);
+  });
+
+  it('a scope or 3:2 film in the 16:9 player: a 3840 x 2160 frame (measured: 2160p for both)', () => {
+    expect(bigFrame({ width: 1184, height: 666 }, 1, 1, 2.39)).toMatchObject({ width: 3840, height: 2160 });
+    expect(bigFrame({ width: 1184, height: 666 }, 1, 1, 3 / 2)).toMatchObject({ width: 3840, height: 2160 });
   });
 
   it('a box already 2160 device px on its short side stays plain', () => {

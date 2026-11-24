@@ -395,10 +395,10 @@ function wantsBig(film: FilmRef): boolean {
 
 /** A YouTube film's player in `host`: the big frame with the site's bar where it is wanted and the box needs it, else
  *  the plain frame with YouTube's own controls, as before. */
-function youTubeIn(host: HTMLElement, film: FilmRef, title: string, accent: string, out: Mounted): HTMLIFrameElement {
+function youTubeIn(host: HTMLElement, film: FilmRef, title: string, p: Project, out: Mounted): HTMLIFrameElement {
   const plainSrc = embedSrc(film, { autoplay: false, origin: location.origin })!;
   if (wantsBig(film)) {
-    const big = mountBig(host, frameFor(embedSrc(film, { autoplay: false, origin: location.origin, controls: false })!, title), { plainSrc, accent });
+    const big = mountBig(host, frameFor(embedSrc(film, { autoplay: false, origin: location.origin, controls: false })!, title), { plainSrc, accent: p.accent, ratio: aspectRatio(p.aspect) });
     if (big) {
       out.bigs.push(big);
       return big.frame;
@@ -453,7 +453,7 @@ function mountFilm(p: Project, player: HTMLElement): Mounted {
   }
   const out: Mounted = { frames: [], talking: [], videos: [], bigs: [] };
   if (film.type === 'youtube' && embedSrc(film)) {
-    const f = youTubeIn(player, film, p.title, p.accent, out);
+    const f = youTubeIn(player, film, p.title, p, out);
     return { ...out, frames: [f], talking: [f] };
   }
   const src = embedSrc(film, { autoplay: false, origin: location.origin });
@@ -496,7 +496,7 @@ function mountParts(p: Project, player: HTMLElement): Mounted {
       out.videos.push(v);
     } else if (film.type === 'youtube') {
       // each part has its own player and its own bar
-      const f = youTubeIn(fig, film, `${p.title}: ${label}`, p.accent, out);
+      const f = youTubeIn(fig, film, `${p.title}: ${label}`, p, out);
       out.frames.push(f);
       out.talking.push(f);
     } else {

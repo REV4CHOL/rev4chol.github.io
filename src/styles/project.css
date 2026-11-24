@@ -460,7 +460,7 @@
 .p-film-mark {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none;
   display: flex; align-items: center; gap: 12px; padding: 13px 20px 13px 16px;
-  background: rgba(6, 6, 6, 0.8); border: 1px solid var(--film-acc); color: var(--film-acc);
+  background: rgba(6, 6, 6, 0.95); border: 1px solid var(--film-acc); color: var(--film-acc);
   font-family: var(--f-micro); font-size: 12px; letter-spacing: 0.24em; line-height: 1;
 }
 .p-film-mark[hidden] { display: none; }
@@ -516,7 +516,7 @@
 }
 /* a finger: every control at least 44 px */
 @media (pointer: coarse) {
-  .p-bar { height: 44px; }
+  .p-bar { height: 46px; } /* (44 px inside its two 1 px borders) */
   .p-bar-btn { min-width: 44px; }
   .p-bar-seek { min-width: 64px; }
 }
