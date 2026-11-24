@@ -38,14 +38,17 @@ export function iframeSrc(input: string): string | null {
 }
 
 /** The player url for a film. `autoplay` (default true): a part of a film in parts that waits its turn starts
- *  without it. `origin`: a YouTube player that talks back over postMessage (enablejsapi) to this page. */
-export function embedSrc(film: FilmRef, opts: { autoplay?: boolean; origin?: string } = {}): string | null {
+ *  without it. `origin`: a YouTube player that talks back over postMessage (enablejsapi) to this page. `controls:
+ *  false`: a YouTube player draws no controls of its own (the big frame, project/frame-size.ts: the site draws its
+ *  own bar at normal size); other platforms take no such parameter. */
+export function embedSrc(film: FilmRef, opts: { autoplay?: boolean; origin?: string; controls?: boolean } = {}): string | null {
   const auto = opts.autoplay === false ? 0 : 1;
   if (film.type === 'youtube') {
     const id = youtubeId(film.src);
     if (!id) return null;
+    const ctl = opts.controls === false ? '&controls=0' : '';
     const api = opts.origin ? `&enablejsapi=1&origin=${encodeURIComponent(opts.origin)}` : '';
-    return `https://www.youtube-nocookie.com/embed/${id}?autoplay=${auto}&rel=0${api}`;
+    return `https://www.youtube-nocookie.com/embed/${id}?autoplay=${auto}&rel=0${ctl}${api}`;
   }
   if (film.type === 'vimeo') {
     const id = vimeoId(film.src);
