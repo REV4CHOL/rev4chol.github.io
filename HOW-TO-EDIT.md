@@ -42,11 +42,11 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | title | film title as shown | `"Neon Dream"` |
 | year | number, no quotes | `2026` |
 | role | your role line | `"Director / DoP"` |
-| runtime | free text | `"12:40"` |
+| runtime | free text; kept in the file, shown nowhere on the site | `"12:40"` |
 | client | commissioning client — adds a CLIENT row to the spec sheet (leave out to hide) | `"Garena"` |
 | artist | the performing artist — adds an ARTIST row to the spec sheet (leave out to hide) | `"Dung Hoang Pham / PHUCNAM"` |
 | productionHouse | the production house — adds a PRODUCTION HOUSE row to the spec sheet (leave out to hide) | `"XPOKIT"` |
-| director | the film's director, when it is someone else — adds a DIRECTOR row under PRODUCTION HOUSE (leave out to hide) | `"Khadarec [XPOKIT]"` |
+| director | the film's director, when it is someone else — adds a DIRECTOR row between ARTIST and PRODUCTION HOUSE (leave out to hide) | `"Khadarec [XPOKIT]"` |
 | tags | list of words | `["short film","sci-fi"]` |
 | accent | this film's color, hex | `"#C8FF00"` |
 | tileSize | `"normal"` or `"large"` (large = FEATURED: the centre cluster and the featured dress — every landscape pane is the same size; a vertical film's stands two rows tall) | `"large"` |

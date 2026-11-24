@@ -23,11 +23,12 @@ export function stripName(p: Pick<Project, 'short' | 'year' | 'slug'>): string {
   return (p.short || `${p.year} · ${p.slug.replace(/-/g, ' ')}`).toUpperCase();
 }
 
-type CaptionFields = Pick<Project, 'year' | 'role' | 'runtime' | 'film' | 'filmPending' | 'filmPrivate'>;
+type CaptionFields = Pick<Project, 'year' | 'role' | 'film' | 'filmPending' | 'filmPrivate'>;
 
-/** `2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK TO OPEN`; a placeholder's starts `PLACEHOLDER · NO FILM YET ▪`. */
+/** `2025 · DIRECTOR / EDITOR / COLORIST ▪ CLICK TO OPEN`; a placeholder's starts `PLACEHOLDER · NO FILM YET ▪`. No
+ *  running time (owner, 2026-11-24: "Remove runtime from all sections on the website"). */
 export function captionMeta(p: CaptionFields, fine: boolean): string {
-  const facts = [p.year, p.role, p.runtime].filter(Boolean).join(' · ').toUpperCase();
+  const facts = [p.year, p.role].filter(Boolean).join(' · ').toUpperCase();
   return [isPlaceholder(p) ? 'PLACEHOLDER · NO FILM YET' : '', facts, fine ? OPEN_VERB.fine : OPEN_VERB.coarse]
     .filter(Boolean)
     .join(' ▪ ');

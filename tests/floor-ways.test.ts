@@ -44,7 +44,7 @@ describe('a plain list of every film', () => {
   it('a row carries its title, its facts and its link; no number (the films\' own numbers skip inside a chapter)', () => {
     const [human] = listGroups(all);
     expect(human.rows[0]).toEqual({
-      slug: 'philia', title: 'PHILIA', href: '/project.html?p=philia', meta: '2026 · COLORIST · 11:42', accent: '#c8ff00', thumb: { w: 128, h: 72 },
+      slug: 'philia', title: 'PHILIA', href: '/project.html?p=philia', meta: '2026 · COLORIST', accent: '#c8ff00', thumb: { w: 128, h: 72 },
     });
   });
 
@@ -60,9 +60,15 @@ describe('a plain list of every film', () => {
     expect(listGroups([project()]).map((g) => g.key)).toEqual(['human']);
   });
 
-  it('a private film says so where its running time would stand', () => {
+  it('a private film says so at the end of its line', () => {
     expect(rowMeta(project({ runtime: '', filmPrivate: true, role: '1st AD / Colorist' }))).toBe('2026 · 1ST AD / COLORIST · PRIVATE FILM');
     expect(rowMeta(project({ runtime: '' }))).toBe('2026 · COLORIST');
+  });
+
+  // the owner, 2026-11-24: "Remove runtime from all sections on the website"
+  it("a row carries no running time, even for a film whose file has one", () => {
+    expect(rowMeta(project({ runtime: '11:42' }))).toBe('2026 · COLORIST');
+    expect(rowMeta(project({ runtime: '11:42', filmPrivate: true }))).toBe('2026 · COLORIST · PRIVATE FILM');
   });
 
   // (owner 2026-09-28: vertical footage is shown vertical everywhere, never cropped to 16:9)

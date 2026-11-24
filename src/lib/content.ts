@@ -22,12 +22,15 @@ export interface Project {
   title: string;
   year: number;
   role: string;
+  /** the film's running time: read from the file, shown nowhere (owner, 2026-11-24: "Remove runtime from all sections
+   *  on the website") */
   runtime: string;
   /** commissioning client — a CLIENT row on the spec sheet when set */
   client: string;
-  /** the performing artist, the production house that made the film and the film's director: an ARTIST, a PRODUCTION
-   *  HOUSE and a DIRECTOR row on the spec sheet, each when set (owner 2026-11-24, of XIÊU LÒNG: "I need the following
-   *  info: Artist … Production House", then "Underneath PRODUCTION HOUSE, write Director") */
+  /** the performing artist, the production house that made the film and the film's director: an ARTIST, a DIRECTOR
+   *  and a PRODUCTION HOUSE row on the spec sheet, each when set (owner 2026-11-24, of XIÊU LÒNG: "I need the following
+   *  info: Artist … Production House", then "write Director", then the rows' order: "ARTIST - DIRECTOR - PRODUCTION
+   *  HOUSE - GENRE - ROLE") */
   artist: string;
   productionHouse: string;
   director: string;

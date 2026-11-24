@@ -4,11 +4,10 @@ import { describe, expect, it } from 'vitest';
 import { isPlaceholder, parseJson, parseProjects, type Project } from '../src/lib/content';
 import { FLOOR_LEGEND, captionMeta, floorOpened, legendText, markFloorOpened } from '../src/works/legend';
 
-type Meta = Pick<Project, 'year' | 'role' | 'runtime' | 'film' | 'filmPending' | 'filmPrivate'>;
+type Meta = Pick<Project, 'year' | 'role' | 'film' | 'filmPending' | 'filmPrivate'>;
 const film = (over: Partial<Meta> = {}): Meta => ({
   year: 2025,
   role: 'Director / Editor / Colorist',
-  runtime: '1:30',
   film: { type: 'youtube', src: 'abc' },
   filmPending: false,
   filmPrivate: false,
@@ -23,15 +22,22 @@ describe("the floor's legend (owner's testers, 2026-09-27: 'not knowing what to 
   });
 
   it('the caption ends with what opens the pane, said plainly', () => {
-    expect(captionMeta(film(), true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK TO OPEN');
-    expect(captionMeta(film(), false)).toBe('2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ TAP AGAIN TO OPEN');
-    expect(captionMeta(film({ runtime: '' }), true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST ▪ CLICK TO OPEN'); // empty fields drop out, as before
+    expect(captionMeta(film(), true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST ▪ CLICK TO OPEN');
+    expect(captionMeta(film(), false)).toBe('2025 · DIRECTOR / EDITOR / COLORIST ▪ TAP AGAIN TO OPEN');
+    expect(captionMeta(film({ role: '' }), true)).toBe('2025 ▪ CLICK TO OPEN'); // empty fields drop out, as before
+  });
+
+  // the owner, 2026-11-24: "Remove runtime from all sections on the website"
+  it('the caption carries no running time, even for a film whose file has one', () => {
+    const timed = { ...film(), runtime: '1:30' };
+    expect(captionMeta(timed, true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST ▪ CLICK TO OPEN');
+    expect(captionMeta(timed, false)).not.toContain('1:30');
   });
 
   it('a placeholder says so first, and what that means; a film awaiting its link, or kept private, is a film', () => {
-    expect(captionMeta(film({ film: null }), true)).toBe('PLACEHOLDER · NO FILM YET ▪ 2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK TO OPEN');
-    expect(captionMeta(film({ film: null, filmPending: true }), true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK TO OPEN');
-    expect(captionMeta(film({ film: null, filmPrivate: true }), true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST · 1:30 ▪ CLICK TO OPEN');
+    expect(captionMeta(film({ film: null }), true)).toBe('PLACEHOLDER · NO FILM YET ▪ 2025 · DIRECTOR / EDITOR / COLORIST ▪ CLICK TO OPEN');
+    expect(captionMeta(film({ film: null, filmPending: true }), true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST ▪ CLICK TO OPEN');
+    expect(captionMeta(film({ film: null, filmPrivate: true }), true)).toBe('2025 · DIRECTOR / EDITOR / COLORIST ▪ CLICK TO OPEN');
   });
 
   it("no instruction on the floor speaks the house's VERB ▸ NOUN code any more", () => {

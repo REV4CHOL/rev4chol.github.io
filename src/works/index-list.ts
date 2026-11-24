@@ -51,9 +51,10 @@ export function thumbSize(ratio: number): { w: number; h: number } {
     : { w: Math.round(THUMB.h * ratio), h: THUMB.h };
 }
 
-/** `2026 · COLORIST · 11:42`; a film kept off the public web says so where its running time would stand. */
-export function rowMeta(p: Pick<Project, 'year' | 'role' | 'runtime' | 'filmPrivate'>): string {
-  return [p.year, p.role, p.runtime || (p.filmPrivate ? 'PRIVATE FILM' : '')].filter(Boolean).join(' · ').toUpperCase();
+/** `2026 · COLORIST`; a film kept off the public web says so at the end. No running time (owner, 2026-11-24: "Remove
+ *  runtime from all sections on the website"). */
+export function rowMeta(p: Pick<Project, 'year' | 'role' | 'filmPrivate'>): string {
+  return [p.year, p.role, p.filmPrivate ? 'PRIVATE FILM' : ''].filter(Boolean).join(' · ').toUpperCase();
 }
 
 export interface ListRow {

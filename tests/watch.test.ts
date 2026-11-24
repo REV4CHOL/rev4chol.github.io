@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { playerRatio, watchKind } from '../src/project/watch';
 
@@ -141,17 +141,36 @@ describe("the film page's marks keep clear of the menu, and read over a bright p
 
 // The owner, 2026-11-24, of XIÊU LÒNG: "I need the following info: Artist: Dung Hoang Pham / PHUCNAM. Production
 // House: Explosion Kitchen. Runtime: 4:20. Genre: Music Video". The spec sheet had no row for the first two. Then:
-// "Underneath PRODUCTION HOUSE, write Director: Khadarec [XPOKIT]".
+// "Underneath PRODUCTION HOUSE, write Director: Khadarec [XPOKIT]". Shown the sheet live: "the order shouldve been
+// ARTIST - DIRECTOR - PRODUCTION HOUSE - GENRE - ROLE" and "Remove runtime from all sections on the website".
 describe("the spec sheet's rows", () => {
   const page = readFileSync('src/pages/project.ts', 'utf8').replace(/\r\n/g, '\n');
   const rowAt = (label: string) => page.indexOf(`rows.push(['${label}',`);
 
-  it('ARTIST, PRODUCTION HOUSE and DIRECTOR stand after CLIENT and before RUNTIME, each only when its film carries it', () => {
-    const order = ['YEAR', 'ROLE', 'CLIENT', 'ARTIST', 'PRODUCTION HOUSE', 'DIRECTOR', 'RUNTIME', 'GENRE'].map(rowAt);
+  it('the rows stand in the order the owner gave: ARTIST, DIRECTOR, PRODUCTION HOUSE, GENRE, ROLE, under YEAR and CLIENT', () => {
+    const order = ['YEAR', 'CLIENT', 'ARTIST', 'DIRECTOR', 'PRODUCTION HOUSE', 'GENRE', 'ROLE'].map(rowAt);
     expect(order.every((at) => at > 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(page).toContain("if (p.artist) rows.push(['ARTIST', `<span>${escapeHtml(p.artist.toUpperCase())}</span>`]);");
     expect(page).toContain("if (p.productionHouse) rows.push(['PRODUCTION HOUSE', `<span>${escapeHtml(p.productionHouse.toUpperCase())}</span>`]);");
     expect(page).toContain("if (p.director) rows.push(['DIRECTOR', `<span>${escapeHtml(p.director.toUpperCase())}</span>`]);");
+  });
+
+  it('no running time on the film page: no RUNTIME row on the sheet, no RT callout in the hero', () => {
+    expect(rowAt('RUNTIME')).toBe(-1);
+    expect(page).not.toContain("['RT'");
+    expect(page).not.toContain('p.runtime');
+  });
+
+  it('no page reads a running time: only the content parser names the field', () => {
+    const walk = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(`${dir}/${e.name}`) : [`${dir}/${e.name}`]));
+    const readers = walk('src')
+      .filter((f) => f.endsWith('.ts'))
+      .filter((f) => {
+        const text = readFileSync(f, 'utf8');
+        return text.includes('.runtime') || text.includes("'runtime'");
+      });
+    expect(readers).toEqual(['src/lib/content.ts']);
   });
 });
