@@ -62,6 +62,9 @@ export interface BarView {
   time: { elapsed: string; total: string } | null;
   /** 0..1 along the seek track */
   progress: number;
+  /** 0..1 along the seek track: how far the film is loaded, as the player says; null before the film has started or
+   *  while it is not known */
+  loaded: number | null;
   seekable: boolean;
   sound: { label: string; aria: string; pressed: boolean };
   /** the volume slider's place (0 while muted) and its words */
@@ -99,6 +102,7 @@ export function barView(talks: boolean, info: PartInfo, now?: number, captions: 
       : { label: 'PLAY', aria: 'Play' },
     time: live && dur ? { elapsed: timeText(t), total: timeText(dur) } : null,
     progress: dur ? Math.min(1, Math.max(0, t / dur)) : 0,
+    loaded: live && dur && info.loaded !== null ? Math.min(1, Math.max(0, info.loaded)) : null,
     seekable: live && dur > 0,
     sound: info.muted ? { label: 'SOUND OFF', aria: 'Unmute', pressed: false } : { label: 'SOUND ON', aria: 'Mute', pressed: true },
     volume: { value: vol, text: info.muted ? 'muted' : `${vol}%` },
@@ -161,6 +165,32 @@ export function knownTrack(store: Store | null, id: string, offered: string | nu
     return offered;
   }
   return typeof all[id] === 'string' ? all[id] : null;
+}
+
+/** THE LOADED BAND (owner, 2026-11-25: "Player: Should've a preload indicator like YouTube, so user can know and not try
+ *  to skip the playhead past it and ended up lagging themselves"): a lighter band on the seek rail from the start to
+ *  where the player says the film is loaded, under the played part.
+ *  A seek BACK moves the playhead at once, but the fraction the player last said was the end of the run around the OLD
+ *  playhead, and it stands until the player's next word; so, while a seek back is unanswered (`stale`), the band is
+ *  drawn no further than the playhead. (A seek forward inside the run keeps it true: the run is one piece from the old
+ *  playhead to its end. Past it, the band lies under the played part anyway.) */
+export function loadedBand(loaded: number | null, played: number, stale: boolean): number | null {
+  if (loaded === null) return null;
+  return stale ? Math.min(loaded, played) : loaded;
+}
+
+/** How long a seek back may hold the band at the playhead without a new word from the player. */
+export const STALE_MS = 3000;
+export interface Stale { was: number | null; until: number }
+/** A seek from `from` s to `to` s, with the player's last fraction `was`, sent at `now`: stale only backward. */
+export function staleAfterSeek(was: number | null, from: number, to: number, now: number): Stale | null {
+  return to < from ? { was, until: now + STALE_MS } : null;
+}
+/** Still stale: the player has said no new fraction (a null in the middle of a seek is no new word) and STALE_MS have
+ *  not passed. */
+export function stillStale(s: Stale | null, loaded: number | null, now: number): boolean {
+  if (!s || now > s.until) return false;
+  return loaded === null || loaded === s.was;
 }
 
 /** The fullscreen button's words (owner, 2026-11-25: "Player: FULL SCREEN should be FULLSCREEN"): one word, in what it
@@ -299,7 +329,7 @@ export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { pl
   bar.innerHTML =
     `<button type="button" class="p-bar-btn p-bar-play" aria-label="Play">${svg('play')}<span class="p-bar-word">PLAY</span></button>` +
     `<span class="p-bar-time" hidden><span class="p-bar-el">0:00</span><span class="p-bar-sep"> / </span><span class="p-bar-tot">0:00</span></span>` +
-    `<div class="p-bar-seek" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00" aria-disabled="true"><span class="p-bar-rail"><span class="p-bar-fill"></span><span class="p-bar-knob"></span></span></div>` +
+    `<div class="p-bar-seek" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00" aria-disabled="true"><span class="p-bar-rail"><span class="p-bar-load" hidden></span><span class="p-bar-fill"></span><span class="p-bar-knob"></span></span></div>` +
     `<span class="p-bar-level" hidden></span>` +
     `<button type="button" class="p-bar-btn p-bar-cc" aria-label="Turn captions on" aria-pressed="false" hidden>${svg('ccoff')}<span class="p-bar-word">CC OFF</span></button>` +
     `<button type="button" class="p-bar-btn p-bar-sound" aria-label="Mute" aria-pressed="true">${svg('on')}<span class="p-bar-word">SOUND ON</span></button>` +
@@ -319,7 +349,7 @@ export function armBar(film: BigFilm, programme: Programme): void {
   const q = <T extends HTMLElement>(s: string) => bar.querySelector<T>(s)!;
   const playBtn = q<HTMLButtonElement>('.p-bar-play'), soundBtn = q<HTMLButtonElement>('.p-bar-sound'), fullBtn = q<HTMLButtonElement>('.p-bar-full');
   const timeEl = q('.p-bar-time'), elEl = q('.p-bar-el'), totEl = q('.p-bar-tot'), seek = q('.p-bar-seek'), levelEl = q('.p-bar-level');
-  const ccBtn = q<HTMLButtonElement>('.p-bar-cc'), vol = q('.p-bar-vol');
+  const ccBtn = q<HTMLButtonElement>('.p-bar-cc'), vol = q('.p-bar-vol'), loadEl = q('.p-bar-load');
 
   // THE FIT: the box is watched (the page's reflows, fullscreen) and so is the window (the poster lock's zoom, a move
   // to a screen of another pixel ratio, which leave the box's own px as they were)
@@ -335,6 +365,7 @@ export function armBar(film: BigFilm, programme: Programme): void {
   let view: BarView = barView(false, programme.info(frame));
   let drag: number | null = null; // the seek track's place while a finger or the mouse holds it (0..1)
   let shown: { t: number; until: number } | null = null; // a seek just asked for: shown until the player catches up
+  let stale: Stale | null = null; // a seek back the player has not answered with a new loaded fraction (loadedBand)
   let ticker = 0;
   // CAPTIONS: off unless the visitor turns them on (the page's own word: the player echoes no captions change);
   // `track` is what this film's player has offered, as the captions memory knows it
@@ -380,6 +411,11 @@ export function armBar(film: BigFilm, programme: Programme): void {
       totEl.textContent = view.time.total;
     }
     seek.style.setProperty('--p', String(p));
+    // the loaded band: measured against where the film stands (not the place a finger is dragging)
+    if (!stillStale(stale, i.loaded, now())) stale = null;
+    const band = loadedBand(view.loaded, dur ? Math.min(1, t / dur) : 0, stale !== null);
+    loadEl.hidden = band === null;
+    seek.style.setProperty('--l', String(band ?? 0));
     seek.setAttribute('aria-disabled', String(!view.seekable));
     seek.setAttribute('aria-valuemax', String(Math.round(dur)));
     seek.setAttribute('aria-valuenow', String(Math.round(p * dur)));
@@ -434,10 +470,18 @@ export function armBar(film: BigFilm, programme: Programme): void {
     if (view.phase !== before) wake();
   });
 
+  // a seek back makes the loaded fraction the player last said stale (loadedBand); one forward leaves an earlier one
+  const markSeek = (t: number) => {
+    const i = info();
+    const s = staleAfterSeek(i.loaded, elapsed(i, now()), t, now());
+    if (!s) return;
+    stale = s;
+    window.setTimeout(paint, STALE_MS + 50); // (a paused film has no ticker to draw the band back when the wait ends)
+  };
   const toggle = () => {
     const ph = view.phase;
     if (ph === 'playing') send('pauseVideo');
-    else if (ph === 'ended') { send('seekTo', [0, true]); send('playVideo'); }
+    else if (ph === 'ended') { markSeek(0); send('seekTo', [0, true]); send('playVideo'); }
     else if (ph !== 'waiting') send('playVideo');
   };
   const toggleSound = () => send(info().muted ? 'unMute' : 'mute');
@@ -453,6 +497,7 @@ export function armBar(film: BigFilm, programme: Programme): void {
     paint();
   };
   const seekAt = (t: number) => {
+    markSeek(t);
     send('seekTo', [t, true]);
     shown = { t, until: now() + 1500 };
     paint();

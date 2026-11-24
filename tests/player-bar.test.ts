@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { barView, captionCommand, fullWords, handshake, HANDSHAKE_MS, knownTrack, levelLabel, phaseOf, seekTo, timeText, volumeCommands, volumeKey } from '../src/project/player-bar';
+import { barView, captionCommand, fullWords, handshake, HANDSHAKE_MS, knownTrack, levelLabel, loadedBand, phaseOf, seekTo, STALE_MS, staleAfterSeek, stillStale, timeText, volumeCommands, volumeKey } from '../src/project/player-bar';
 import { GREETING_MS, GREETINGS, mergeInfo, NO_INFO, ytInfo } from '../src/project/parts';
 import { embedSrc } from '../src/lib/embeds';
 
@@ -226,6 +226,79 @@ describe('the CC switch, as commands', () => {
     const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
     expect(knownTrack(broken, 'x', 'fr')).toBe('fr');
     expect(knownTrack(broken, 'x', null)).toBeNull();
+  });
+});
+
+// The owner, 2026-11-25: "Player: Should've a preload indicator like YouTube, so user can know and not try to skip the
+// playhead past it and ended up lagging themselves". Measured (XIÊU LÒNG, headless, a real press): every infoDelivery
+// carries `videoLoadedFraction`, the end of what is loaded around the playhead as a fraction of the film (0 at rest;
+// 0.077 then 0.118 over the first 16 s; 0.748 just after a seek to 70 %; 0.158 after a seek back to 10 %); a delivery
+// in the middle of a seek carried it as null, and once it fell while playing (0.077 to 0.066).
+describe('the loaded part of the film', () => {
+  const at = (o: Partial<typeof NO_INFO>) => mergeInfo(NO_INFO, o);
+
+  it('read from the delivery as the player says it, kept inside 0..1', () => {
+    expect(ytInfo({ event: 'infoDelivery', info: { videoLoadedFraction: 0.0769, currentTime: 1.4 } })).toEqual({ loaded: 0.0769, time: 1.4 });
+    expect(ytInfo({ event: 'infoDelivery', info: { videoLoadedFraction: 1.02 } })).toEqual({ loaded: 1 });
+    expect(ytInfo({ event: 'infoDelivery', info: { videoLoadedFraction: -0.1 } })).toEqual({ loaded: 0 });
+  });
+
+  it('a null in the middle of a seek is "not known", not the old value', () => {
+    expect(ytInfo({ event: 'infoDelivery', info: { videoLoadedFraction: null } })).toEqual({ loaded: null });
+    expect(mergeInfo(at({ state: 1, loaded: 0.118 }), { loaded: null }).loaded).toBeNull();
+    expect(ytInfo({ event: 'infoDelivery', info: { videoLoadedFraction: 'x' } })).toBeNull();
+    expect(NO_INFO.loaded).toBeNull();
+  });
+
+  it('follows what is said, down as well as up (a seek back, a level change)', () => {
+    let s = at({ state: 1, duration: 260, loaded: 0.748 });
+    s = mergeInfo(s, { loaded: 0.158 });
+    expect(barView(true, s).loaded).toBeCloseTo(0.158, 6);
+  });
+
+  it('nothing before the film has started, nor while it is not known', () => {
+    expect(barView(false, at({ state: 1, duration: 260, loaded: 0.5 })).loaded).toBeNull();
+    expect(barView(true, at({ state: 5, duration: 260, loaded: 0.2 })).loaded).toBeNull();
+    expect(barView(true, at({ state: 1, duration: 260 })).loaded).toBeNull();
+    expect(barView(true, at({ state: 1, loaded: 0.3 })).loaded).toBeNull(); // (no duration: no track)
+  });
+
+  it('shown while playing, paused and ended', () => {
+    expect(barView(true, at({ state: 1, duration: 260, time: 9, loaded: 0.098 })).loaded).toBeCloseTo(0.098, 6);
+    expect(barView(true, mergeInfo(at({ state: 1, duration: 260, loaded: 0.3 }), { state: 2 })).loaded).toBeCloseTo(0.3, 6);
+    expect(barView(true, mergeInfo(at({ state: 1, duration: 260, loaded: 1 }), { state: 0 })).loaded).toBe(1);
+  });
+
+  // a seek BACK (the track, the keys, AGAIN from the end) moves the playhead at once, but the old fraction stands until
+  // the player's next word: it was the end of the run around the OLD playhead, so until the player says anew the band
+  // is drawn no further than the playhead. A seek forward inside the run keeps it true (the run is one piece from the
+  // old playhead to its end); past it, the band lies under the played part anyway.
+  it('after a seek back, the old fraction is not drawn ahead of the playhead until the player says anew', () => {
+    expect(loadedBand(0.748, 0.1, true)).toBeCloseTo(0.1, 6);
+    expect(loadedBand(0.158, 0.1, false)).toBeCloseTo(0.158, 6);
+    expect(loadedBand(0.3, 0.5, true)).toBeCloseTo(0.3, 6);
+    expect(loadedBand(null, 0.5, false)).toBeNull();
+  });
+
+  it('a seek is stale only backward, until a new fraction is said or STALE_MS pass', () => {
+    const s = staleAfterSeek(0.748, 182, 26, 1000);
+    expect(s).toEqual({ was: 0.748, until: 1000 + STALE_MS });
+    expect(staleAfterSeek(0.118, 15, 182, 1000)).toBeNull();
+    expect(stillStale(s, 0.748, 1500)).toBe(true);
+    expect(stillStale(s, 0.158, 1500)).toBe(false);
+    expect(stillStale(s, null, 1500)).toBe(true);
+    expect(stillStale(s, 0.748, 1000 + STALE_MS + 1)).toBe(false);
+    expect(stillStale(null, 0.748, 1500)).toBe(false);
+  });
+
+  it('drawn on the seek rail under the played part, hidden until known, its own colour (not the film\'s accent)', () => {
+    const bar = readFileSync('src/project/player-bar.ts', 'utf8');
+    expect(bar).toContain('<span class="p-bar-rail"><span class="p-bar-load" hidden></span><span class="p-bar-fill">');
+    const css = readFileSync('src/styles/project.css', 'utf8');
+    const rule = /\.p-bar-load \{([^}]*)\}/.exec(css)?.[1] ?? '';
+    expect(rule).toContain('var(--l');
+    expect(rule).not.toContain('--film-acc');
+    expect(css).toMatch(/\.p-bar-load\[hidden\] \{ display: none; \}/);
   });
 });
 

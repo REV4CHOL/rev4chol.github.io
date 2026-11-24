@@ -64,13 +64,17 @@ export interface PartInfo {
   captions: string | null;
   /** how many times the player's captions module has said it loaded (the page answers each with the visitor's choice) */
   captionLoads: number;
+  /** 0..1: how far the film is loaded (`videoLoadedFraction`: the end of what is loaded around the playhead, as a
+   *  fraction of the film); null while the player has not said, or said null (measured in the middle of a seek) */
+  loaded: number | null;
 }
 
 export const NO_INFO: PartInfo = {
   state: null, time: 0, at: 0, duration: 0, muted: false, volume: 100, level: null, started: false, captions: null, captionLoads: 0,
+  loaded: null,
 };
 
-type InfoNews = Partial<Pick<PartInfo, 'state' | 'time' | 'duration' | 'muted' | 'volume' | 'level' | 'captions'>>;
+type InfoNews = Partial<Pick<PartInfo, 'state' | 'time' | 'duration' | 'muted' | 'volume' | 'level' | 'captions' | 'loaded'>>;
 
 /** The language of the track a captions delivery offers: the one on now, else the first listed; null for none. */
 function offeredTrack(c: Record<string, unknown>): string | null {
@@ -80,7 +84,8 @@ function offeredTrack(c: Record<string, unknown>): string | null {
 }
 
 /** The news in one of the player's messages: a delivery carries only what changed (measured: currentTime about every
- *  270 ms while playing; duration, muted, volume, playerState, playbackQuality as they change), a state change its
+ *  270 ms while playing; duration, muted, volume, playerState, playbackQuality as they change; videoLoadedFraction with
+ *  nearly every one), a state change its
  *  state, a level change its level, the captions module's load the track it offers (`apiInfoDelivery`, measured about
  *  0.65 s after the start: GALAXY part 1 offered its auto-generated English, XIÊU LÒNG nothing). Null for anything else. */
 export function ytInfo(data: unknown): InfoNews | null {
@@ -105,6 +110,9 @@ export function ytInfo(data: unknown): InfoNews | null {
     if (typeof i.muted === 'boolean') out.muted = i.muted;
     if (typeof i.volume === 'number') out.volume = i.volume;
     if (typeof i.playbackQuality === 'string') out.level = i.playbackQuality;
+    // (measured: with nearly every delivery, about every 270 ms; null once in the middle of a seek)
+    if (typeof i.videoLoadedFraction === 'number' && Number.isFinite(i.videoLoadedFraction)) out.loaded = Math.min(1, Math.max(0, i.videoLoadedFraction));
+    else if (i.videoLoadedFraction === null) out.loaded = null;
     return Object.keys(out).length ? out : null;
   }
   if (m.event === 'apiInfoDelivery' && typeof m.info === 'object' && m.info !== null) {
