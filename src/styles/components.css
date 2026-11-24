@@ -564,6 +564,14 @@
 @media (max-width: 640px) and (pointer: coarse) {
   .floor-hint { top: calc(150px * var(--uiz)); white-space: normal; width: max-content; max-width: min(300px, calc(100vw - 32px)); line-height: 1.8; text-wrap: balance; }
 }
+/* a tablet (touch, wider than a phone) too narrow for the legend's one line (about 890 px: at 800 it ran off both edges
+   and began mid-word): the box is as wide as the legend, never wider than the screen less a 16 px margin, and the legend
+   breaks between its pieces (works.ts sets each as an .fh-seg), balanced, centred. The button below follows in the flow. */
+@media (pointer: coarse) and (min-width: 641px) {
+  .floor-hint { width: max-content; max-width: calc(100vw - 32px); }
+  .floor-hint .fh-text { display: block; white-space: normal; text-wrap: balance; }
+  .floor-hint .fh-seg { display: inline-block; white-space: nowrap; }
+}
 /* a touch screen's legend stands down while a pane is awake: the preview and its caption take its place (they shared
    one spot; the review's walkthroughs, 2026-09-30) */
 .floor-hint { transition: opacity 0.2s; }

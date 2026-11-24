@@ -58,7 +58,20 @@ startPage(
     if (hint) {
       const words = document.createElement('span');
       words.className = 'fh-text';
-      words.textContent = legendText(finePointer());
+      // a touch screen's legend is set in pieces (one per ▪, which stays with the piece before it) so a tablet too
+      // narrow for one line breaks between them (components.css); the pieces and the spaces between join back to the
+      // same words. A fine pointer's legend stays one text (its measure is the lock's, to the pixel).
+      const legend = legendText(finePointer());
+      if (finePointer()) words.textContent = legend;
+      else {
+        const pieces = legend.split(' ▪ ');
+        pieces.forEach((s, i) => {
+          const seg = document.createElement('span');
+          seg.className = 'fh-seg';
+          seg.textContent = i < pieces.length - 1 ? s + ' ▪' : s;
+          words.append(seg, i < pieces.length - 1 ? ' ' : '');
+        });
+      }
       hint.replaceChildren(words, toggle);
       let opened = false;
       try { opened = floorOpened(localStorage); } catch { /* no storage: stays lit */ }

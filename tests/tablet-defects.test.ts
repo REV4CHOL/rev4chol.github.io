@@ -42,3 +42,22 @@ describe('the film page on a portrait tablet: the format stamp clears the status
     expect(project.indexOf('@media (pointer: coarse) and (min-width: 761px) and (orientation: portrait)')).toBeGreaterThan(project.indexOf('.p-band-t::after { display: none; }'));
   });
 });
+
+describe('WORK on a tablet: the legend over the floor fits the screen (800 px: it ran off both edges, "G TO MOVE AROUND")', () => {
+  const components = css('components');
+  it('a touch screen wider than a phone sets the legend balanced between its pieces, inside the screen', () => {
+    const b = block(components, '@media (pointer: coarse) and (min-width: 641px) {');
+    expect(b).toContain('.floor-hint { width: max-content; max-width: calc(100vw - 32px); }');
+    expect(b).toContain('.fh-text { display: block; white-space: normal; text-wrap: balance; }');
+    expect(b).toContain('.fh-seg { display: inline-block; white-space: nowrap; }');
+  });
+  it('the block stands above the reveal, which stays the last rule', () => {
+    expect(components.trimEnd().endsWith('body { visibility: visible; }')).toBe(true);
+  });
+  it("works.ts sets the legend in pieces that join back to the same words", () => {
+    const src = readFileSync('src/pages/works.ts', 'utf8');
+    expect(src).toContain("className = 'fh-seg'");
+    expect(src).toContain("legend.split(' ▪ ')");
+    expect(src).toContain('if (finePointer()) words.textContent = legend;'); // a fine pointer keeps its one text
+  });
+});
