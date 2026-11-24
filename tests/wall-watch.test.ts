@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { KeyStore } from '../src/lib/quality';
 import {
-  SMALL_MIN_FPS, WALL_KEY, WALL_MIN_FPS, WATCH_EVERY_MS, WallWatch, readWallMemory, writeWallMemory,
+  SMALL_MIN_FPS, WALL_KEY, WALL_MIN_FPS, WATCH_EVERY_MS, WATCH_GAP_MS, WallWatch, readWallMemory, replayWanted, unjudged,
+  writeWallMemory,
 } from '../src/works/wall-watch';
 
 // THE WALL'S OWN WATCH (spec 2026-11-24-work-wall-video-design, §4.5): under 18 presented frames a second for 6 s,
@@ -52,6 +53,59 @@ describe("the wall's own watch", () => {
     expect(w.fps).toBeCloseTo(14);
     expect(run(new WallWatch(SMALL_MIN_FPS, 0), 4000, [11, 11, 11]).at(-1)).toBe(true);
     expect(new WallWatch(SMALL_MIN_FPS, 0).fps).toBeNull();
+  });
+});
+
+// THE FROZEN WALL (owner, on the iPad: "after a while on tablet, the work section got frozen (no panes playing
+// stuff)"). The watch took a wall that was not playing for a machine too slow to play it: a wall the browser paused
+// (Back from a film page, an app switch) presented no frames, and so did one whose page had its timers stopped. Two
+// such moments took the floor to `starved`, where no pane plays, and the session remembered it through a reload.
+describe("the wall's watch judges a wall that is playing, and nothing else", () => {
+  it('readings far apart start afresh: a page whose timers stopped gets no verdict from the gap', () => {
+    const w = new WallWatch(WALL_MIN_FPS, 0);
+    expect(w.read(4000, 0, false)).toBe(false);
+    expect(w.read(6000, 48, false)).toBe(false);
+    // the timers stop for 10 s (an app switch), and the wall presents nothing meanwhile
+    expect(w.read(16000, 50, false), 'one reading across the gap').toBe(false);
+    expect(w.fps, 'and no rate is made of it').toBe(24);
+    // it plays again: still nothing
+    expect([w.read(18000, 98, false), w.read(20000, 146, false), w.read(22000, 194, false), w.read(24000, 242, false)])
+      .toEqual([false, false, false, false]);
+    expect(WATCH_GAP_MS).toBeGreaterThan(WATCH_EVERY_MS);
+  });
+
+  it('after a gap the watch still judges: a wall that is truly slow gets its verdict 6 s later', () => {
+    const w = new WallWatch(WALL_MIN_FPS, 0);
+    w.read(4000, 0, false);
+    w.read(16000, 0, false); // the gap
+    expect([w.read(18000, 10, false), w.read(20000, 20, false)]).toEqual([false, false]);
+    expect(w.read(22000, 30, false), '6 s of readings after the gap').toBe(true);
+  });
+
+  it('a paused wall is not judged, whatever stopped it; a playing one on a showing page is', () => {
+    expect(unjudged(false, { paused: true })).toBe(true);
+    expect(unjudged(true, { paused: false })).toBe(true);
+    expect(unjudged(false, { paused: false })).toBe(false);
+    const w = new WallWatch(WALL_MIN_FPS, 0);
+    let presented = 0;
+    const out: boolean[] = [];
+    for (let at = 4000; at <= 30000; at += WATCH_EVERY_MS) out.push(w.read(at, presented, unjudged(false, { paused: true })));
+    expect(out.includes(true), 'paused for 26 s: no verdict').toBe(false);
+    presented = 0;
+    expect(w.read(32000, presented, false)).toBe(false);
+  });
+
+  it('the page plays its wall again when the wall stands paused on a showing page, never on a hidden one', () => {
+    expect(replayWanted(false, { paused: true })).toBe(true);
+    expect(replayWanted(true, { paused: true }), 'a hidden page waits until it shows').toBe(false);
+    expect(replayWanted(false, { paused: false })).toBe(false);
+  });
+
+  it("verdicts written by the old watch are forgotten: the memory moved to a new key", () => {
+    expect(WALL_KEY).not.toBe('rvl-wall');
+    const m = new Map([['rvl-wall', JSON.stringify({ verdict: 'starved', failed: [] })]]);
+    expect(readWallMemory({ getItem: (k) => m.get(k) ?? null, setItem: (k, v) => void m.set(k, v) }))
+      .toEqual({ verdict: 'ok', failed: [] });
   });
 });
 

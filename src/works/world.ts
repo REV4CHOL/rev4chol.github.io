@@ -63,6 +63,10 @@ export class WorksWorld {
   private entering = false;
   /** the quality subscription (lib/quality.ts) — dropped in destroy(), or a dead world would keep re-tuning */
   private offQuality: (() => void) | null = null;
+  /** the page's lifecycle listeners (watchPage) — dropped in destroy() */
+  private offPage: (() => void) | null = null;
+  /** the page's last lifecycle event, for the readout (`?stats=1`) */
+  private pageEvent: { name: string; at: number } | null = null;
 
   /** the floor stands still while the page shows its list of films (pause/resume) */
   private paused = false;
@@ -286,8 +290,41 @@ export class WorksWorld {
     // THE FLOOR'S VIDEO, from the machine's class and the tier (lib/quality.ts)
     w.takeMode(w.modeNow());
     quality.floorBuilt();
+    w.watchPage();
     offerFloorReadings(() => w.readings()); // (the readout, ?stats=1: lib/readout.ts)
     return w;
+  }
+
+  /** THE PAGE SHOWS AGAIN (owner, on the iPad: "after a while on tablet, the work section got frozen (no panes playing
+   *  stuff)"). A floor restored from the browser's back cache (Back from a film page) comes back with its wall video
+   *  paused, and a browser may pause a hidden page's video: the wall plays again the moment the page shows
+   *  (works/wall.ts resume; its own watch catches any other pause within 2 s). Each event is kept for the readout. */
+  private watchPage(): void {
+    const seen = (name: string) => { this.pageEvent = { name, at: performance.now() }; };
+    const onVisibility = () => {
+      seen(document.hidden ? 'hidden' : 'shown');
+      if (!document.hidden) this.wall?.resume();
+    };
+    const onShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return;
+      seen('shown from the back cache');
+      this.wall?.resume();
+    };
+    const onHide = (e: PageTransitionEvent) => seen(e.persisted ? 'left into the back cache' : 'left');
+    const onFreeze = () => seen('frozen');
+    const onResume = () => seen('resumed');
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pageshow', onShow);
+    window.addEventListener('pagehide', onHide);
+    document.addEventListener('freeze', onFreeze);
+    document.addEventListener('resume', onResume);
+    this.offPage = () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pageshow', onShow);
+      window.removeEventListener('pagehide', onHide);
+      document.removeEventListener('freeze', onFreeze);
+      document.removeEventListener('resume', onResume);
+    };
   }
 
   private playClock = 0;
@@ -364,6 +401,9 @@ export class WorksWorld {
       textures: textureBytes(this.app.renderer),
       videos,
       budget: quality.budget(canvas.width * canvas.height),
+      page: this.pageEvent,
+      verdict: this.wallMem.verdict,
+      contextLost: (this.app.renderer as { gl?: WebGLRenderingContext }).gl?.isContextLost() ?? false,
     };
   }
 
@@ -747,6 +787,8 @@ export class WorksWorld {
     offerFloorReadings(null);
     this.offQuality?.();
     this.offQuality = null;
+    this.offPage?.();
+    this.offPage = null;
     this.misreg?.dispose();
     for (const b of this.bursts) b.kill();
     this.bursts = [];

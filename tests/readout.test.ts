@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { QualityReport } from '../src/lib/quality';
 import { floorReadings, offerFloorReadings, readoutLines, statsWanted, type FloorReadings } from '../src/lib/readout';
 
-// THE READOUT (spec 2026-11-24-work-wall-video-design, §4.8): `?stats=1` shows seven lines. They are what the owner
+// THE READOUT (spec 2026-11-24-work-wall-video-design, §4.8): `?stats=1` shows eight lines. They are what the owner
 // reads back from the old laptop, so their words are pinned here.
 
 const report = (over: Partial<QualityReport> = {}): QualityReport => ({
@@ -13,17 +13,23 @@ const report = (over: Partial<QualityReport> = {}): QualityReport => ({
 });
 const floor = (over: Partial<FloorReadings> = {}): FloorReadings => ({
   mode: 'wall',
-  wall: { file: 'human.mp4', ready: true, fps: 23.6, dropped: 3, decoded: 1200 },
+  wall: {
+    file: 'human.mp4', ready: true, fps: 23.6, dropped: 3, decoded: 1200,
+    paused: false, readyState: 4, time: 12.34, restarts: 0, lastEvent: null, counts: true, pictures: 4810,
+  },
   playing: 1,
   health: { counted: 0, presented: null, due: null, judged: false, failed: false },
   textures: 40 * 1024 * 1024,
   videos: ['1904×1080'],
   budget: 96,
+  page: null,
+  verdict: 'ok',
+  contextLost: false,
   ...over,
 });
 const MB = 1024 * 1024;
 
-describe('the readout: seven lines, in plain words', () => {
+describe('the readout: eight lines, in plain words', () => {
   it('the old laptop on the wall', () => {
     expect(readoutLines(report(), 58.4, floor(), 9 * MB, 'no reading', 60000)).toEqual([
       'LEVEL      BALANCED · CEILING BALANCED · HARDWARE CEILING BALANCED · OPENED BALANCED · NO SIGNAL YET',
@@ -33,6 +39,7 @@ describe('the readout: seven lines, in plain words', () => {
       'MEMORY     MACHINE 4 GB · TEXTURES 40 MB · HEAP 9 MB · BUDGET 96 MB',
       'PRESSURE   NO READING',
       'DEVICE     4 THREADS · FINE POINTER · WEAK BY ITS MEMORY · ANGLE (Intel, Intel(R) HD Graphics 4000, OpenGL 4.1)',
+      'PLAYBACK   PLAYING · READY 4 · AT 12.3 S · PICTURES 4810 · RESTARTED 0 · NO VIDEO EVENT YET · NO PAGE EVENT YET · VERDICT OK · WEBGL OK',
     ]);
   });
 
@@ -62,7 +69,10 @@ describe('the readout: seven lines, in plain words', () => {
     expect(readoutLines(report(), 30, early, 0, 'serious', 0)[3]).toBe('OWN LOOPS  12 PLAYING · NO READING YET');
     const single = floor({ health: { counted: 1, presented: 110, due: 120, judged: false, failed: false } });
     expect(readoutLines(report(), 30, single, 0, 'serious', 0)[3]).toBe('OWN LOOPS  1 PLAYING · 110 OF 120 FRAMES OVER 5 S · NOT JUDGED');
-    const starting = floor({ wall: { file: 'human-s.mp4', ready: false, fps: null, dropped: 0, decoded: 0 }, mode: 'wall-small' });
+    const starting = floor({
+      wall: { file: 'human-s.mp4', ready: false, fps: null, dropped: 0, decoded: 0, paused: false, readyState: 0, time: 0, restarts: 0, lastEvent: null, counts: true, pictures: 0 },
+      mode: 'wall-small',
+    });
     expect(readoutLines(report(), 30, starting, 0, 'serious', 0)[2]).toBe('WALL       MODE WALL-SMALL · HUMAN-S.MP4 · STARTING');
     expect(readoutLines(report(), 30, floor({ mode: 'posters', wall: null }), 0, 'critical', 0)[2]).toBe('WALL       MODE POSTERS · NO WALL VIDEO');
     const over = floor({ textures: 90 * MB });
@@ -89,6 +99,39 @@ describe('the readout: seven lines, in plain words', () => {
       'OWN LOOPS  NO FLOOR ON THIS PAGE',
       'MEMORY     MACHINE NOT REPORTED · HEAP NOT REPORTED · NO FLOOR ON THIS PAGE',
     ]);
+    expect(lines[7]).toBe('PLAYBACK   NO FLOOR ON THIS PAGE');
+  });
+
+  // THE FROZEN WALL (owner, on the iPad: "after a while on tablet, the work section got frozen (no panes playing
+  // stuff)"): the eighth line says what the wall video is doing and what the page last lived through, so the iPad
+  // itself can tell a wall the browser paused from one the page gave up on.
+  it('the playback line: a paused wall, its last event, the page back from the cache, a remembered verdict, a lost context', () => {
+    const paused = floor({
+      wall: {
+        file: 'human-s.mp4', ready: true, fps: 0, dropped: 0, decoded: 300,
+        paused: true, readyState: 2, time: 3.06, restarts: 2, lastEvent: { name: 'pause', at: 46000 }, counts: true, pictures: null,
+      },
+      page: { name: 'shown from the back cache', at: 30000 },
+      verdict: 'small',
+    });
+    expect(readoutLines(report(), 60, paused, 0, 'not offered', 60000)[7]).toBe(
+      'PLAYBACK   PAUSED · READY 2 · AT 3.1 S · PICTURES NOT COUNTED · RESTARTED 2 · LAST VIDEO EVENT PAUSE 14 S AGO · ' +
+      'LAST PAGE EVENT SHOWN FROM THE BACK CACHE 30 S AGO · VERDICT SMALL · WEBGL OK',
+    );
+    const dead = floor({ mode: 'starved', wall: null, verdict: 'starved', contextLost: true, page: { name: 'hidden', at: 59000 } });
+    expect(readoutLines(report(), 60, dead, 0, 'not offered', 60000)[7]).toBe(
+      'PLAYBACK   NO WALL VIDEO · LAST PAGE EVENT HIDDEN 1 S AGO · VERDICT STARVED · WEBGL LOST',
+    );
+  });
+
+  it('a wall whose browser reports no frame counts says so on the wall line', () => {
+    const silent = floor({
+      wall: {
+        file: 'human.mp4', ready: true, fps: null, dropped: 0, decoded: 0,
+        paused: false, readyState: 4, time: 8, restarts: 0, lastEvent: null, counts: false, pictures: 190,
+      },
+    });
+    expect(readoutLines(report(), 60, silent, 0, 'not offered', 0)[2]).toBe('WALL       MODE WALL · HUMAN.MP4 · FRAME COUNTS NOT REPORTED');
   });
 
   it('only ?stats=1 asks for it', () => {

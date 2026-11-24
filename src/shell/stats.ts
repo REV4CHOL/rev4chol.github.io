@@ -4,7 +4,7 @@ import { watchPressure } from '../lib/pressure';
 import { quality } from '../lib/quality';
 import { floorReadings, readoutLines } from '../lib/readout';
 
-/** THE READOUT'S PANEL (`?stats=1` on any page; the shell loads this file only then). Seven lines in the house's mono
+/** THE READOUT'S PANEL (`?stats=1` on any page; the shell loads this file only then). Eight lines in the house's mono
  *  type at the left edge, refreshed once a second, and a COPY button that puts them on the clipboard as text. It
  *  reads what the page already knows and sends nothing anywhere. The lines themselves are lib/readout.ts. */
 export function mountStats(): void {

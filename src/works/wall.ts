@@ -1,8 +1,12 @@
 import { Rectangle, Texture } from 'pixi.js';
+import { isRefusal } from '../lib/autoplay';
 import { wallAssetUrl } from '../lib/content';
+import { statsWanted } from '../lib/readout';
 import { videoTexture } from '../lib/video-texture';
 import type { WallEntry } from '../lib/wall-files';
-import { NO_FRAME_MS, SMALL_MIN_FPS, WALL_MIN_FPS, WATCH_EVERY_MS, WallWatch } from './wall-watch';
+import {
+  NO_FRAME_MS, SMALL_MIN_FPS, WALL_MIN_FPS, WATCH_EVERY_MS, WallWatch, countsMissing, replayWanted, unjudged,
+} from './wall-watch';
 
 /** What the world hears from its wall. */
 export interface WallHooks {
@@ -15,7 +19,23 @@ export interface WallHooks {
 }
 
 /** What the readout shows of the wall (lib/readout.ts). */
-export interface WallReading { file: string; ready: boolean; fps: number | null; dropped: number; decoded: number }
+export interface WallReading {
+  file: string; ready: boolean; fps: number | null; dropped: number; decoded: number;
+  /** the video element as it stands: paused or not, its readyState (0 to 4), its play position in seconds */
+  paused: boolean; readyState: number; time: number;
+  /** how many times the page has played the wall again after the browser paused it */
+  restarts: number;
+  /** the video's last event of note (`?stats=1` only), or a refused play; `at` on the page's clock */
+  lastEvent: { name: string; at: number } | null;
+  /** the browser reports frame counts for this video (false: its totals stay at zero after a presented frame) */
+  counts: boolean;
+  /** the pictures uploaded to the panes' shared texture so far (`?stats=1` only; null when not counted): when it stops
+   *  climbing while the play position moves on, the pictures have stopped reaching the panes */
+  pictures: number | null;
+}
+
+/** The video's events the readout notes, only when it is open: what the browser did to the wall. */
+const NOTED = ['play', 'playing', 'pause', 'waiting', 'stalled', 'ended', 'error', 'emptied'] as const;
 
 /** THE WALL VIDEO (owner 2026-11-24: one combined video per chapter "for weak machines only"; spec
  *  2026-11-24-work-wall-video-design, §4.5). One muted, looping video plays every pane's loop as a tile; each pane
@@ -42,6 +62,11 @@ export class WallVideo {
   private decoded = 0;
   private dropped = 0;
   private done = false;
+  private restarts = 0;
+  private lastEvent: { name: string; at: number } | null = null;
+  private counts = true;
+  private pictures: number | null = null;
+  private readonly noting: boolean;
 
   constructor(private readonly entry: WallEntry, readonly which: 'full' | 'small', private readonly hooks: WallHooks) {
     this.file = which === 'small' && entry.small ? entry.small : entry.file;
@@ -53,6 +78,11 @@ export class WallVideo {
     v.preload = 'auto';
     this.video = v;
     v.addEventListener('error', () => this.fail());
+    // (the readout's notes: nothing is listened to unless `?stats=1` is open)
+    this.noting = typeof location !== 'undefined' && statsWanted(location.search);
+    if (this.noting) {
+      for (const name of NOTED) v.addEventListener(name, () => this.note(name));
+    }
     this.failTimer = window.setTimeout(() => { if (!this.ready) this.fail(); }, NO_FRAME_MS);
     // THE FRAME GATE: the first presented frame. (A browser without requestVideoFrameCallback opens it when the first
     // frame's data is in, as a pane does for its own loop.)
@@ -79,6 +109,12 @@ export class WallVideo {
       shared.source.resize(v.videoWidth, v.videoHeight);
     }
     this.shared = shared;
+    if (this.noting) {
+      // (Pixi uploads the texture when its source updates: on each frame the video presents, through
+      // requestVideoFrameCallback)
+      this.pictures = 0;
+      shared.source.on('update', () => { this.pictures = (this.pictures ?? 0) + 1; });
+    }
     // one map serves both files: the half-size copy's rectangles are the map's, scaled by the file's own width
     const k = v.videoWidth / this.entry.width;
     for (const [slug, t] of Object.entries(this.entry.tiles)) {
@@ -94,14 +130,46 @@ export class WallVideo {
   }
 
   /** The watch's reading: the frames presented so far are the element's own totals, decoded less dropped. Where the
-   *  browser gives no such totals, the watch does nothing. */
+   *  browser gives no such totals, the watch does nothing. A wall the browser paused is played again first, and is
+   *  never judged (works/wall-watch.ts: a paused wall is not a slow machine). */
   private read(): void {
     const v = this.video;
-    if (this.done || !v || typeof v.getVideoPlaybackQuality !== 'function') return;
+    if (this.done || !v) return;
+    if (replayWanted(document.hidden, v)) {
+      this.replay(v);
+      return;
+    }
+    if (typeof v.getVideoPlaybackQuality !== 'function') return;
     const q = v.getVideoPlaybackQuality();
     this.decoded = q.totalVideoFrames;
     this.dropped = q.droppedVideoFrames;
-    if (this.watch.read(performance.now(), q.totalVideoFrames - q.droppedVideoFrames, document.hidden)) this.hooks.onVerdict();
+    // A FRAME GATE THAT OPENED MEANS A FRAME WAS PRESENTED: totals still at zero are a browser that reports none (the
+    // owner, just watching the wall on the iPad: the panes stopped). The watch stands aside, as where the method is
+    // missing; it never judges a count that does not move because nobody counts.
+    this.counts = !countsMissing(q.totalVideoFrames);
+    if (!this.counts) return;
+    if (this.watch.read(performance.now(), q.totalVideoFrames - q.droppedVideoFrames, unjudged(document.hidden, v))) {
+      this.hooks.onVerdict();
+    }
+  }
+
+  /** The page shows again (works/world.ts: `visibilitychange`, and a `pageshow` from the back cache): a wall the
+   *  browser paused meanwhile plays again at once, not at the watch's next reading. */
+  resume(): void {
+    const v = this.video;
+    if (!this.done && v && this.ready && replayWanted(document.hidden, v)) this.replay(v);
+  }
+
+  /** The page owns the wall's play: a standing wall that is paused was paused by the browser, and plays again. Its
+   *  watch starts afresh (the grace runs again: the decoder starts again). */
+  private replay(v: HTMLVideoElement): void {
+    this.restarts++;
+    this.watch = this.newWatch();
+    void v.play().catch((e: unknown) => this.note(isRefusal(e) ? 'play refused' : 'play failed'));
+  }
+
+  private note(name: string): void {
+    this.lastEvent = { name, at: performance.now() };
   }
 
   private fail(): void {
@@ -116,7 +184,12 @@ export class WallVideo {
   }
 
   reading(): WallReading {
-    return { file: this.file, ready: this.ready, fps: this.watch.fps, dropped: this.dropped, decoded: this.decoded };
+    const v = this.video;
+    return {
+      file: this.file, ready: this.ready, fps: this.watch.fps, dropped: this.dropped, decoded: this.decoded,
+      paused: v ? v.paused : true, readyState: v ? v.readyState : 0, time: v ? Number(v.currentTime) || 0 : 0,
+      restarts: this.restarts, lastEvent: this.lastEvent, counts: this.counts, pictures: this.pictures,
+    };
   }
 
   /** Stop for good: THE LIST, a chapter flip, a change of file. The panes must have given their tiles back first

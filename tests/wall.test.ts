@@ -86,6 +86,7 @@ beforeAll(async () => {
   g.cancelAnimationFrame = () => {};
   g.HTMLVideoElement = FakeVideo;
   g.window = globalThis;
+  g.location = { search: '?stats=1' }; // (the readout is open: the unit notes its video's events)
   g.document = {
     hidden: false,
     createElement: (tag: string) => {
@@ -234,5 +235,120 @@ describe('the wall unit: one video, one shared source, a frame gate of its own',
     v.present();
     vi.advanceTimersByTime(20000);
     expect(calls).toEqual({ ready: 0, fail: 0, verdict: 0 });
+  });
+});
+
+// THE FROZEN WALL (owner, on the iPad: "after a while on tablet, the work section got frozen (no panes playing
+// stuff)"): a wall the browser paused stayed paused, and its watch took the still picture for a slow machine.
+describe('the wall unit keeps its video playing while it stands', () => {
+  const doc = () => document as unknown as { hidden: boolean };
+  afterEach(() => { doc().hidden = false; });
+
+  it('a wall the browser paused on a showing page plays again at the next reading, and its watch starts afresh', async () => {
+    const { unit, v, calls } = wall();
+    v.present();
+    await settle();
+    for (let s = 2; s <= 8; s += 2) { v.total = s * 24; vi.advanceTimersByTime(2000); }
+    v.pause(); // (Back from a film page restores the floor with its videos paused)
+    vi.advanceTimersByTime(2000);
+    expect(v.paused).toBe(false);
+    expect(unit.reading()).toMatchObject({ paused: false, restarts: 1 });
+    expect(unit.reading().fps, 'the watch counts again from the replay').toBeNull();
+    // and it plays on at its rate: no verdict, ever
+    for (let s = 10; s <= 40; s += 2) { v.total = s * 24; vi.advanceTimersByTime(2000); }
+    expect(calls.verdict).toBe(0);
+    unit.destroy();
+  });
+
+  it('a paused wall on a hidden page waits, unjudged; the page showing again plays it at once', async () => {
+    const { unit, v, calls } = wall();
+    v.present();
+    await settle();
+    doc().hidden = true;
+    v.pause();
+    vi.advanceTimersByTime(30000);
+    expect(v.paused).toBe(true);
+    expect(calls.verdict).toBe(0);
+    doc().hidden = false;
+    unit.resume();
+    expect(v.paused).toBe(false);
+    expect(unit.reading().restarts).toBe(1);
+    unit.resume(); // (a second signal for the same return plays nothing twice)
+    expect(unit.reading().restarts).toBe(1);
+    unit.destroy();
+  });
+
+  it('a wall that was never paused is left alone; a destroyed one, and one before its first frame, too', async () => {
+    const early = wall();
+    early.unit.resume();
+    expect(early.unit.reading().restarts).toBe(0);
+    const { unit, v } = wall();
+    v.present();
+    await settle();
+    unit.resume();
+    expect(unit.reading().restarts).toBe(0);
+    unit.destroy();
+    unit.resume();
+    expect(v.paused).toBe(true);
+    early.unit.destroy();
+  });
+
+  it("the reading says what the video is doing, its last event, and a refused play", async () => {
+    const { unit, v } = wall();
+    v.present();
+    await settle();
+    v.readyState = 2;
+    (v as unknown as { currentTime: number }).currentTime = 12.34;
+    v.fire('waiting');
+    expect(unit.reading()).toMatchObject({ paused: false, readyState: 2, time: 12.34, restarts: 0 });
+    expect(unit.reading().lastEvent?.name).toBe('waiting');
+    v.play = () => Promise.reject(Object.assign(new Error('no'), { name: 'NotAllowedError' }));
+    v.paused = true;
+    v.fire('pause');
+    expect(unit.reading().lastEvent?.name).toBe('pause');
+    vi.advanceTimersByTime(2000);
+    await settle();
+    expect(unit.reading().lastEvent?.name).toBe('play refused');
+    unit.destroy();
+  });
+});
+
+// "Just watching the wall", the panes stopped (the owner's answer, by questionnaire): a wall that plays on while the
+// browser reports no frame counts (a video drawn into WebGL and never put on the page may have no counts to give) read
+// as a wall presenting nothing: full size, then half size, then `starved`, where no pane plays, in about 25 s.
+describe('a browser that reports no frame counts', () => {
+  it('a playing wall whose counts stay at zero after its first frame is not judged: the watch stands aside', async () => {
+    const { unit, v, calls } = wall();
+    v.present();
+    await settle();
+    for (let s = 2; s <= 60; s += 2) vi.advanceTimersByTime(2000); // (v.total stays 0 throughout)
+    expect(calls.verdict).toBe(0);
+    expect(unit.reading()).toMatchObject({ counts: false, paused: false, fps: null });
+    unit.destroy();
+  });
+
+  it('a browser that does count is judged as before, and says so', async () => {
+    const { unit, v, calls } = wall();
+    v.present();
+    await settle();
+    for (let s = 2; s <= 12; s += 2) {
+      v.total = s * 5;
+      vi.advanceTimersByTime(2000);
+    }
+    expect(calls.verdict).toBeGreaterThanOrEqual(1);
+    expect(unit.reading().counts).toBe(true);
+    unit.destroy();
+  });
+
+  it("the readout counts the pictures that reach the panes' textures, so a still picture on a playing wall shows", async () => {
+    const { unit, v } = wall();
+    v.present();
+    await settle();
+    const was = unit.reading().pictures;
+    v.present();
+    v.present();
+    v.present();
+    expect((unit.reading().pictures ?? 0) - (was ?? NaN)).toBe(3);
+    unit.destroy();
   });
 });

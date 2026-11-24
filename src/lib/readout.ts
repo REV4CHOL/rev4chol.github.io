@@ -1,8 +1,8 @@
 import type { PressureState } from './pressure';
-import { TIER_LABELS, type FloorMode, type QualityReport, type Tier } from './quality';
+import { TIER_LABELS, type FloorMode, type QualityReport, type Tier, type WallVerdict } from './quality';
 
 /** THE READOUT (spec 2026-11-24-work-wall-video-design, §4.8; owner 2026-11-24: the site should "detect if the
- *  machine … have sufficient RAM", and say what it found). `?stats=1` on any page shows seven lines, refreshed once a
+ *  machine … have sufficient RAM", and say what it found). `?stats=1` on any page shows eight lines, refreshed once a
  *  second, with a COPY button: what the ladder decided and from what, and every reading of ship A and ship B. Ship
  *  B's readings (stalls, the loops' health, the meter against its budget, pressure, a discarded tab) are shown and
  *  decide nothing yet. Nothing is sent anywhere: the panel reads what the page already knows.
@@ -13,8 +13,12 @@ import { TIER_LABELS, type FloorMode, type QualityReport, type Tier } from './qu
 /** What the WORK floor hands the readout (works/world.ts). Other pages have no floor. */
 export interface FloorReadings {
   mode: FloorMode;
-  /** the wall video, when one is playing or starting (works/wall.ts) */
-  wall: { file: string; ready: boolean; fps: number | null; dropped: number; decoded: number } | null;
+  /** the wall video, when one is playing or starting (works/wall.ts WallReading) */
+  wall: {
+    file: string; ready: boolean; fps: number | null; dropped: number; decoded: number;
+    paused: boolean; readyState: number; time: number; restarts: number; lastEvent: { name: string; at: number } | null;
+    counts: boolean; pictures: number | null;
+  } | null;
   /** how many of the panes' own videos are playing */
   playing: number;
   /** the loops' health reading (works/loop-health.ts) */
@@ -22,11 +26,17 @@ export interface FloorReadings {
   /** bytes of the textures Pixi holds for the floor (lib/meter.ts) */
   textures: number;
   /** every live video element's picture size, the wall's first and then the panes' own: the meter lists them and
-   *  never adds them up (it cannot see a decoder's memory). Not one of the seven lines: read at
+   *  never adds them up (it cannot see a decoder's memory). Not one of the eight lines: read at
    *  `rvlWorld.readings().videos`. */
   videos: string[];
   /** the floor's budget in MB (lib/quality.ts budgetFor) */
   budget: number;
+  /** the page's last lifecycle event the floor heard (`hidden`, `shown`, `shown from the back cache`, …) */
+  page: { name: string; at: number } | null;
+  /** what the wall's watch has found this session (works/wall-watch.ts) */
+  verdict: WallVerdict;
+  /** the floor's WebGL context is lost right now */
+  contextLost: boolean;
 }
 
 let floor: (() => FloorReadings) | null = null;
@@ -49,8 +59,26 @@ const MB = 1024 * 1024;
 const tier = (t: Tier): string => TIER_LABELS[t].toUpperCase();
 const mb = (bytes: number): string => `${Math.round(bytes / MB)} MB`;
 const NO_FLOOR = 'NO FLOOR ON THIS PAGE';
+const ago = (e: { name: string; at: number }, now: number): string =>
+  `${e.name.toUpperCase()} ${Math.max(0, Math.round((now - e.at) / 1000))} S AGO`;
 
-/** The seven lines. `fps`: frames a second over the last second (null before the first second is in). `heap`: the
+/** THE PLAYBACK LINE (owner, on the iPad: "after a while on tablet, the work section got frozen (no panes playing
+ *  stuff)"): the wall video as it stands (paused or playing, its readyState, its play position, the pictures that
+ *  reached the panes' texture), how often the page played it again, the video's and the page's last events, what the
+ *  watch remembers, and the WebGL context. */
+function playbackLine(f: FloorReadings | null, now: number): string {
+  if (!f) return `PLAYBACK   ${NO_FLOOR}`;
+  const w = f.wall;
+  const video = w
+    ? `${w.paused ? 'PAUSED' : 'PLAYING'} · READY ${w.readyState} · AT ${w.time.toFixed(1)} S · ` +
+      `${w.pictures === null ? 'PICTURES NOT COUNTED' : `PICTURES ${w.pictures}`} · RESTARTED ${w.restarts} · ` +
+      `${w.lastEvent ? `LAST VIDEO EVENT ${ago(w.lastEvent, now)}` : 'NO VIDEO EVENT YET'}`
+    : 'NO WALL VIDEO';
+  const page = f.page ? `LAST PAGE EVENT ${ago(f.page, now)}` : 'NO PAGE EVENT YET';
+  return `PLAYBACK   ${video} · ${page} · VERDICT ${f.verdict.toUpperCase()} · WEBGL ${f.contextLost ? 'LOST' : 'OK'}`;
+}
+
+/** The eight lines. `fps`: frames a second over the last second (null before the first second is in). `heap`: the
  *  JavaScript heap in bytes, or null where the browser does not report it. `now`: the page's clock
  *  (performance.now), the same clock as the report's last signal. */
 export function readoutLines(
@@ -76,7 +104,9 @@ export function readoutLines(
       ? 'NO WALL VIDEO'
       : !w.ready
         ? `${w.file.toUpperCase()} · STARTING`
-        : `${w.file.toUpperCase()} · ${w.fps === null ? 'COUNTING' : `${Math.round(w.fps)} FPS PRESENTED`} · ${w.dropped} DROPPED OF ${w.decoded} DECODED`;
+        : !w.counts
+          ? `${w.file.toUpperCase()} · FRAME COUNTS NOT REPORTED`
+          : `${w.file.toUpperCase()} · ${w.fps === null ? 'COUNTING' : `${Math.round(w.fps)} FPS PRESENTED`} · ${w.dropped} DROPPED OF ${w.decoded} DECODED`;
     wall = `WALL       MODE ${f.mode.toUpperCase()} · ${video}`;
 
     const h = f.health;
@@ -99,5 +129,5 @@ export function readoutLines(
     `${q.weak ? `WEAK BY ITS ${q.weak.toUpperCase()}` : 'NOT WEAK'} · ${d.gpu ?? 'GPU NOT NAMED'}` +
     `${d.dataSaver ? ' · SAVE-DATA OR 2G' : ''}${q.discarded ? ' · THIS TAB WAS DISCARDED AND LOADED AGAIN' : ''}`;
 
-  return [level, frames, wall, own, memory, `PRESSURE   ${pressure.toUpperCase()}`, device];
+  return [level, frames, wall, own, memory, `PRESSURE   ${pressure.toUpperCase()}`, device, playbackLine(f, now)];
 }

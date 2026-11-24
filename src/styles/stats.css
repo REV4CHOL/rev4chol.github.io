@@ -1,4 +1,4 @@
-/* THE READOUT (?stats=1; src/shell/stats.ts): seven lines at the left edge, over everything, for whoever is
+/* THE READOUT (?stats=1; src/shell/stats.ts): eight lines at the left edge, over everything, for whoever is
    measuring. Nothing here shows without the parameter: this sheet is loaded with the panel. The panel lets every
    press and hover through to the page under it (the floor's panes, THE LIST's button); only COPY takes a press. */
 #rvl-stats {
