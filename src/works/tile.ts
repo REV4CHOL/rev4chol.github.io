@@ -7,6 +7,7 @@ import { quality } from '../lib/quality';
 import { videoTexture } from '../lib/video-texture';
 import { HOVER_LIFT, HOVER_M, ISO, SIZE_MUL_LARGE, cardSize, cellToWorld } from './constants';
 import { PaneGlow } from './glow';
+import type { LoopSample } from './loop-health';
 import { rowsOf, type Placed } from './layout';
 import { stripName } from './legend';
 import { loadPosterCanvas, type PosterResult } from './poster';
@@ -43,6 +44,8 @@ export class ProjectTile extends Container {
    *  sprite stays hidden (poster showing) until then, so a stalled decoder
    *  can never park a black rectangle over a good poster. */
   private frameSeen = false;
+  /** when this pane was last told to play its own loop (the page's clock) */
+  private playSince = 0;
   /** hover.mp4 confirmed absent — stop re-attempting it on every hover, which
    *  restarted the loop (404 → fallback → reload → first-frame wait) and read
    *  as a stall each time the pointer touched the tile. */
@@ -63,6 +66,7 @@ export class ProjectTile extends Container {
     if (!this.video) this.createVideo();
     if (!this.video) return; // creation failed
     this.mode = 'live';
+    this.playSince = performance.now();
     if (this.videoSprite) this.videoSprite.visible = this.frameSeen;
     void this.video.play().catch(() => { /* poster remains visible underneath */ });
   }
@@ -104,6 +108,27 @@ export class ProjectTile extends Container {
 
   hasVideo(): boolean {
     return !!this.video;
+  }
+
+  /** This pane's own loop as the loops' health reading takes it (works/loop-health.ts): how long it has been told to
+   *  play, the frames it has presented so far (the element's own totals), and whether its data reaches a second past
+   *  the play position or the file's end. `fps` is the loop's frame rate, which the caller knows. Null while the pane
+   *  sleeps or has no video, and in a browser that gives no totals: there the reading counts nothing. */
+  loopSample(now: number, fps: number): LoopSample | null {
+    const v = this.video;
+    if (!v || this.mode === 'sleep' || typeof v.getVideoPlaybackQuality !== 'function') return null;
+    const q = v.getVideoPlaybackQuality();
+    let ahead = 0;
+    for (let i = 0; i < v.buffered.length; i++) {
+      if (v.buffered.start(i) <= v.currentTime && v.currentTime <= v.buffered.end(i)) ahead = v.buffered.end(i);
+    }
+    return {
+      slug: this.project.slug,
+      playingFor: now - this.playSince,
+      presented: q.totalVideoFrames - q.droppedVideoFrames,
+      buffered: ahead >= Math.min(v.currentTime + 1, (v.duration || Infinity) - 0.05),
+      fps,
+    };
   }
 
   releaseVideo(): void {

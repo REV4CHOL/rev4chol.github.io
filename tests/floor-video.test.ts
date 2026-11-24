@@ -71,3 +71,17 @@ describe('waste removed on every tier (pins)', () => {
     expect(world).toMatch(/destroy\(\): void \{[\s\S]*?tile\.destroyPoster\(\);[\s\S]*?this\.app\.destroy\(true, \{ children: true \}\);/);
   });
 });
+
+describe("a pane reports its own loop to the health reading (pins)", () => {
+  const tile = read('src/works/tile.ts');
+
+  it("the frames presented are the element's own totals: decoded, less dropped", () => {
+    expect(tile).toContain('loopSample(now: number, fps: number): LoopSample | null {');
+    expect(tile).toContain('presented: q.totalVideoFrames - q.droppedVideoFrames,');
+  });
+
+  it('the clock starts when the pane is told to play, and a browser without the totals reports nothing', () => {
+    expect(tile).toContain('this.playSince = performance.now();');
+    expect(tile).toContain("typeof v.getVideoPlaybackQuality !== 'function'");
+  });
+});
