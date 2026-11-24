@@ -57,3 +57,17 @@ describe("the floor's video follows the mode (pins)", () => {
     expect(world).toMatch(/onFail: \(\) => \{\s+if \(this\.wall !== wall \|\| this\.exiting\) return;/);
   });
 });
+
+describe('waste removed on every tier (pins)', () => {
+  const tile = read('src/works/tile.ts');
+  const world = read('src/works/world.ts');
+
+  it('a pane asks for a hover clip only when the manifest lists one for its film', () => {
+    expect(tile).toContain('if (!hasHoverClip(this.project.slug) || this.hoverMissing) return;');
+  });
+
+  it("each pane's poster texture is destroyed with its source, before the app is", () => {
+    expect(tile).toMatch(/destroyPoster\(\): void \{[\s\S]*?tex\.destroy\(true\);/);
+    expect(world).toMatch(/destroy\(\): void \{[\s\S]*?tile\.destroyPoster\(\);[\s\S]*?this\.app\.destroy\(true, \{ children: true \}\);/);
+  });
+});

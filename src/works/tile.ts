@@ -1,7 +1,7 @@
 import { Container, Graphics, Matrix, Sprite, Text, Texture } from 'pixi.js';
 import gsap from 'gsap';
 import type { Project } from '../lib/content';
-import { aspectRatio, isPlaceholder, loopSrcChain, projectAssetUrl } from '../lib/content';
+import { aspectRatio, hasHoverClip, isPlaceholder, loopSrcChain, projectAssetUrl } from '../lib/content';
 import { reducedMotion } from '../lib/env';
 import { quality } from '../lib/quality';
 import { videoTexture } from '../lib/video-texture';
@@ -145,7 +145,9 @@ export class ProjectTile extends Container {
   }
 
   swapToMontage(): void {
-    if (this.hoverMissing) return; // keep the loop rolling — no montage exists
+    // keep the loop rolling when no montage exists: the manifest lists none for this film (no request is made), or
+    // one was listed and failed
+    if (!hasHoverClip(this.project.slug) || this.hoverMissing) return;
     if (!this.video) this.createVideo();
     const v = this.video;
     if (!v) return;
@@ -162,6 +164,15 @@ export class ProjectTile extends Container {
     if (v.src === base || v.src.endsWith(base)) return;
     v.src = base;
     if (this.mode !== 'sleep') void v.play().catch(() => {});
+  }
+
+  /** The poster's texture and its canvas, given back when the floor is torn down. (The app's teardown destroys the
+   *  sprites and leaves their textures, and Texture.from(canvas) keeps a texture in Pixi's cache until the texture
+   *  itself is destroyed: every chapter flip left a chapter's posters behind. tests/poster-texture.test.ts) */
+  destroyPoster(): void {
+    const tex = this.posterSprite.texture;
+    this.posterSprite.texture = Texture.EMPTY;
+    tex.destroy(true);
   }
 
   /** One brief glitch tick on the dithered poster — sleeping tiles stay alive. */

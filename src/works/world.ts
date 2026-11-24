@@ -698,6 +698,7 @@ export class WorksWorld {
     for (const tile of this.tiles.values()) {
       tile.killTweens(); // no tween may outlive the scene graph it writes into
       tile.releaseVideo();
+      tile.destroyPoster(); // (the app's teardown below leaves textures: works/tile.ts)
     }
     this.pan.dispose();
     this.hideLabel();
