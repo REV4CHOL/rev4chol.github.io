@@ -136,14 +136,16 @@ Everything lives in `content/about/`. **The test images shipped there are
 placeholders — replace them with your real photos.**
 
 - **The portrait is found automatically — no field to edit.** Drop in
-  `portrait.jpg` (or `.jpeg/.png/.webp`) for the big scanner portrait. Any
-  size, any aspect ratio: it is cover-cropped and dithered into the site's
-  look, so you can swap the picture forever without touching the design.
-  No portrait = the machine scans static and says AWAITING SUBJECT.
-- The portrait glitches on its own every few seconds; hover puts a reticle
-  under your cursor, click fires a long burst. Chromatic echo frames breathe
-  around it and a scanner line sweeps it continuously. MTN calm mode freezes
-  all of it to one still dither.
+  `portrait.jpg` (or `.jpeg/.png/.webp`) for the big portrait. It is shown
+  as it is: in colour, no dither, no glitch, nothing drawn on it. The frame
+  is 4:5 (shaped like 1440 × 1800); a picture of another shape is
+  cover-cropped to fill it (a little off the top and bottom of a 3:4
+  photo). Make it about 1440 × 1800 and strip its metadata (camera,
+  location) before committing: the repo is public.
+  No portrait = the frame stays black and says AWAITING SUBJECT.
+- The rings, the corner ticks and the SUBJ tag stand around the picture,
+  the caption under it. (The old ABOUT archive, `about-old.html`, still runs
+  the same file through its glitch machine.)
 - **`about.json`** (all fields optional — delete any and the page adapts):
   - `statement` — the line under your name
   - `bio` — list of paragraphs (first one renders big and italic)

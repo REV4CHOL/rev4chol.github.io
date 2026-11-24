@@ -2,13 +2,11 @@ import { AboutContent, loadAbout, SiteContent } from '../lib/content';
 import { crossedHtml } from '../lib/cross';
 import { escapeHtml } from '../lib/escape';
 import { scrambleEl } from '../lib/scramble';
-import { sound } from '../lib/sound';
 import { armStamps } from '../lib/stamps';
 import { capabilitiesFromTagline, portraitCandidates } from '../about/operator';
-import { mountSpecimen } from '../about/specimen';
-import { armPosterLock } from '../lib/poster-lock';
+import { armPosterLock, posterZoom } from '../lib/poster-lock';
 import { armGlideNav, navNeighbors } from '../lib/swipe-nav';
-import { hashSlug } from '../project/dossier';
+import { holePad, holeProps, holeRect } from '../project/holes';
 import { startPage } from '../shell/page';
 import '../styles/about.css';
 
@@ -87,7 +85,7 @@ function render(site: SiteContent, about: AboutContent): void {
     )
     .join('');
 
-  // -- the specimen (portrait through the machine) ----------------------
+  // -- the portrait: the owner's photograph, shown as it is --------------
   void mountPortrait(site);
 
   // -- OP: dossier ------------------------------------------------------
@@ -164,38 +162,70 @@ function render(site: SiteContent, about: AboutContent): void {
   armStamps();
 }
 
+/** THE PORTRAIT AS IT IS (owner, 2026-11-25: "remove the effect on the picture in about section"). The photograph is
+ *  a plain <img> in the 4:5 frame, cover-fitted, in colour: no dither, no glitch, no echo plates, no sweep. It joins
+ *  the frame once decoded (the frame holds its size from the first paint, black until then). No file on hand: the
+ *  frame stays black and says so. The archive (about-old) keeps its glitch machine. */
 async function mountPortrait(site: SiteContent): Promise<void> {
-  const canvas = document.getElementById('a-specimen') as HTMLCanvasElement;
+  const fig = document.getElementById('a-portrait')!;
   const cap = document.getElementById('a-portrait-cap')!;
-  const seed = hashSlug(`operator-${site.name.toLowerCase()}`);
+  armPhotoHole(fig);
+  const awaiting = () => { cap.textContent = 'AWAITING SUBJECT // DROP PORTRAIT.JPG'; };
 
   const url = await probeFirst(portraitCandidates());
-  if (!url) {
-    // no portrait on file yet — the machine scans static instead
-    cap.textContent = 'AWAITING SUBJECT // DROP PORTRAIT.JPG';
-    const spec = mountSpecimen(canvas, null, 0, 0, seed);
-    wireBursts(canvas, spec);
+  if (!url) { awaiting(); return; }
+  const img = document.createElement('img');
+  img.className = 'a-photo';
+  img.alt = `${site.name}, portrait`;
+  img.decoding = 'async';
+  img.draggable = false;
+  img.src = url;
+  try {
+    await img.decode();
+  } catch {
+    awaiting();
     return;
   }
-  const img = new Image();
-  img.addEventListener('load', () => {
-    cap.textContent = `SUBJECT :: ${site.name.toUpperCase()} // VERIFIED`;
-    const spec = mountSpecimen(canvas, img, img.naturalWidth, img.naturalHeight, seed);
-    wireBursts(canvas, spec);
-  });
-  img.addEventListener('error', () => {
-    cap.textContent = 'AWAITING SUBJECT // DROP PORTRAIT.JPG';
-    const spec = mountSpecimen(canvas, null, 0, 0, seed);
-    wireBursts(canvas, spec);
-  });
-  img.src = url;
+  fig.prepend(img);
+  cap.textContent = `SUBJECT :: ${site.name.toUpperCase()} // VERIFIED`;
 }
 
-function wireBursts(canvas: HTMLCanvasElement, spec: { burst(ms?: number): void }): void {
-  canvas.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;
-    spec.burst(520);
-    sound.zap();
-  });
+/** The site's film layers (grain + scanlines, src/shell/grain.ts) off the photograph: the overlay grain lands hardest
+ *  on mid-tones, which is a photo's whole range. The layers' own punched hole (base.css `.has-hole`, the one the film
+ *  player and STORY's city use) follows the frame on scroll and resize, the film page's way (project/holes.ts): every
+ *  box read before anything is written, the hole clamped to the screen, and a layer written only when its values
+ *  change, so a scroll with the photo off the screen paints nothing again (the owner's phone, 2026-11-25). Rects arrive
+ *  in viewport px; the layers lay out in plate px under the poster lock, hence the zoom. */
+function armPhotoHole(target: HTMLElement): void {
+  const written = new WeakMap<HTMLElement, string>();
+  const syncHole = () => {
+    const layers = [document.getElementById('grain'), document.querySelector<HTMLElement>('.scan-layer')];
+    const z = posterZoom();
+    const de = document.documentElement;
+    const vw = Math.max(window.innerWidth, de.clientWidth), vh = Math.max(window.innerHeight, de.clientHeight);
+    const r = target.getBoundingClientRect();
+    const huds = [...document.querySelectorAll<HTMLElement>('.hud-bl, .hud-br')].map((h) => [h, h.getBoundingClientRect()] as const);
+    const props = holeProps([['--hole', holeRect(r, z, vw, vh, holePad(vh, z))]]);
+    const key = props.map(([k, v]) => `${k}:${v}`).join(';');
+    for (const el of layers) {
+      if (!el || written.get(el) === key) continue;
+      written.set(el, key);
+      el.classList.add('has-hole');
+      for (const [k, v] of props) el.style.setProperty(k, v);
+    }
+    // the HUD's foot readouts (fixed, over the page) step aside while they meet the photo, as they do for a film's
+    // player: at 1920 x 1080 the timecode stood on the picture's lower right
+    for (const [h, b] of huds) {
+      h.classList.toggle('hud-yield', r.left < b.right && b.left < r.right && r.top < b.bottom && b.top < r.bottom);
+    }
+  };
+  syncHole();
+  window.addEventListener('scroll', syncHole, { passive: true });
+  window.addEventListener('resize', syncHole);
+  window.addEventListener('load', syncHole);
+  void document.fonts?.ready?.then(syncHole);
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(syncHole).observe(target);
+  // the layers are dealt by the shell; if they arrive after this page's first sync, the next frame catches them
+  requestAnimationFrame(syncHole);
 }
 

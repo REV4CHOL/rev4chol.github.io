@@ -2,8 +2,9 @@
    ABOUT — the OPERATOR FILE.
    The machine examines its own operator. Same acid quartet discipline as the
    procedure dossier: signal structure, alert interactives, field blueprint
-   forms, flourish one soft accent. Every photograph on this page passes
-   through the dither machine — the page owns the look, not the picture.
+   forms, flourish one soft accent. The operator's photograph is the one
+   thing shown as it is (owner, 2026-11-25): the hardware frames it, never
+   paints on it.
 
    POSTER-LOCKED (owner decree): on fine pointers this page is a fixed 1440px
    plate (lib/poster-lock.ts zooms <body> to the viewport) — browser zoom and
@@ -99,7 +100,7 @@
   font-size: var(--t-lg); line-height: 1.4; color: var(--bone); max-width: 26ch;
 }
 
-/* the subject — portrait through the machine, big enough to hold the room */
+/* the subject — the operator's portrait, big enough to hold the room */
 .a-subject { position: relative; justify-self: end; width: 100%; min-width: 0; }
 /* rings center on the portrait frame (top-aligned 4:5 box), not the whole
    column — the callouts below must not drag the scanner's eye down */
@@ -117,20 +118,23 @@
 @keyframes a-reticle-spin { to { rotate: 360deg; } }
 .rvl-calm .a-reticle i, .rvl-lite .a-reticle i { animation: none; }
 
+/* THE PORTRAIT AS IT IS (owner, 2026-11-25: "remove the effect on the picture in about section"): the owner's
+   photograph, plain, in colour. The frame is the sized element (width from the column, height from the 4:5 ratio, held
+   from the first paint, black until the file is decoded); the photo fills it, cover-fitted, so a picture of any ratio
+   dropped in later still fits. Nothing is drawn on the picture: the ticks stand outside its corners, the caption under
+   it, and the site's grain and scanlines carry a hole over it (pages/about.ts). */
 .a-portrait {
-  position: relative; margin: 0; width: 100%; overflow: hidden;
+  position: relative; margin: 0; width: 100%; aspect-ratio: 4 / 5;
   background: #000; outline: 1px solid rgba(200, 255, 0, 0.3);
 }
-/* the canvas is the sized element: width from the column, height from the
-   ratio — never from its 720×900 backing store (that intrinsic size used to
-   leak through the %-height circularity and overflow the phone column) */
-.a-portrait canvas {
-  display: block; width: 100%; height: auto; aspect-ratio: 4 / 5;
-  image-rendering: pixelated; cursor: crosshair; touch-action: manipulation;
+.a-portrait .a-photo {
+  position: absolute; inset: 0; display: block;
+  width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
-/* corner ticks — the floor-tile grammar */
+/* corner ticks — the floor-tile grammar, just outside the picture's corners */
 .a-portrait::after {
-  content: ''; position: absolute; inset: 10px; z-index: 2; pointer-events: none;
+  content: ''; position: absolute; inset: -7px; z-index: 2; pointer-events: none;
   background:
     linear-gradient(var(--signal), var(--signal)) 0 0 / 18px 1.5px,
     linear-gradient(var(--signal), var(--signal)) 0 0 / 1.5px 18px,
@@ -142,49 +146,19 @@
     linear-gradient(var(--signal), var(--signal)) 100% 100% / 1.5px 18px;
   background-repeat: no-repeat; opacity: 0.7;
 }
+/* the caption stands in the gap under the picture, left, across from the callouts' right-hand column; it takes no
+   room of its own, so nothing under the frame moves */
 .a-portrait figcaption {
-  position: absolute; left: 14px; bottom: 12px; z-index: 2; pointer-events: none;
-  color: rgba(237, 237, 230, 0.8); letter-spacing: 0.12em;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
+  position: absolute; left: 0; top: calc(100% + 9px); z-index: 2; pointer-events: none;
+  color: rgba(237, 237, 230, 0.8); letter-spacing: 0.12em; white-space: nowrap;
 }
 
-/* misregistered echo frames — the portrait's chromatic plates, breathing on
-   stepped clocks like the channel ident's slivers */
-.a-echo {
-  position: absolute; inset: 0; z-index: 3; pointer-events: none;
-  border: 1.5px solid var(--alert); opacity: 0.75;
-  animation: a-echo-a 2.9s steps(2) infinite;
-}
-.a-echo-b {
-  border-color: var(--field); opacity: 0.85;
-  animation: a-echo-b 3.7s steps(2) infinite;
-}
-@keyframes a-echo-a {
-  0%, 100% { translate: 9px 7px; }
-  50% { translate: 12px 4px; }
-}
-@keyframes a-echo-b {
-  0%, 100% { translate: -8px -6px; }
-  50% { translate: -5px -9px; }
-}
-.rvl-calm .a-echo, .rvl-lite .a-echo { animation: none; }
+/* the HUD's foot readouts step aside while they meet the photo (pages/about.ts, as on a film page) */
+.page-about .hud.hud-yield { opacity: 0; transition: opacity 0.2s; }
 
-/* the scanner never stops reading the subject */
-.a-sweep {
-  position: absolute; left: 0; right: 0; top: 0; height: 20%;
-  z-index: 2; pointer-events: none; mix-blend-mode: screen;
-  background: linear-gradient(180deg, transparent, rgba(200, 255, 0, 0.16) 55%, rgba(200, 255, 0, 0.4) 97%, transparent);
-  animation: a-sweep-run 6.5s linear infinite;
-}
-@keyframes a-sweep-run {
-  0% { transform: translateY(-110%); }
-  100% { transform: translateY(520%); }
-}
-.rvl-calm .a-sweep, .rvl-lite .a-sweep { display: none; }
-
-/* vertical raw-feed tag riding the frame's right shoulder */
+/* vertical raw-feed tag riding the frame's right shoulder (below the corner tick) */
 .a-subj-tag {
-  position: absolute; right: -14px; top: 8px; z-index: 2;
+  position: absolute; right: -14px; top: 16px; z-index: 2;
   writing-mode: vertical-rl; letter-spacing: 0.3em;
   color: color-mix(in srgb, var(--bone) 65%, transparent);
 }
@@ -387,10 +361,10 @@
   .a-name { font-size: clamp(2.4rem, 16.5vw, 4.4rem); }
   .a-name::before { translate: 5px 3px; }
   .a-name::after { translate: -4px -2px; }
-  .a-subj-tag { right: 2px; }
+  .a-subj-tag { right: -15px; } /* in the column's 18 px margin, off the picture */
   .a-subject { justify-self: stretch; width: 100%; }
   .a-reticle i:nth-child(3) { display: none; }
-  .a-callouts { justify-items: start; }
+  .a-callouts { justify-items: start; margin-top: 38px; } /* the caption's line under the picture, then the callouts */
   .a-callout { flex-direction: row-reverse; }
 
   .a-cal-bars { height: 52px; }
