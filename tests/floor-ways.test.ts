@@ -430,6 +430,18 @@ describe('a phone gets the reel, never the floor (pins)', () => {
     }
   });
 
+  it('a pane\'s words are smaller (owner, 2026-11-24: "The texts need to be smaller in size. Currently too large"; C)', () => {
+    // the name: fitted as before, then shown at 66% of that size (works/reel.ts shownSize), in both of the fit's ends
+    expect(view).toContain("if (one !== null) { s.fontSize = `${shownSize(one)}px`; return; }");
+    expect(view).toContain('s.fontSize = `${shownSize(size)}px`; // (the fit settled: the name shown smaller, wrapping as it will)');
+    // the roles at 10 px (were 11), upright and on its side (the side rules leave the size alone)
+    const role = css.slice(css.indexOf('.rl-role {'));
+    expect(role.slice(0, role.indexOf('}', role.indexOf('font-size')))).toMatch(/\s+font-size: 10px;/);
+    expect(role.slice(0, role.indexOf('line-height'))).not.toContain('11px');
+    const side = css.slice(css.indexOf('/* a phone on its side'), css.indexOf('/* THE LIST\'S CITY'));
+    expect(side).not.toContain('rl-role');
+  });
+
   it('every pane in view plays, on every tier; a refusal turns the loops to images; a touch re-offers a video', () => {
     expect(view).toContain("if (!allowed) return null; // (Save-Data or a 2g line: the posters)");
     expect(view).not.toContain('quality.tier()'); // (a remembered LITE once left a phone on posters all visit)

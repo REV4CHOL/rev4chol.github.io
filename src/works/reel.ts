@@ -45,6 +45,15 @@ export function oneLineSize(widthAtMax: number, room: number): number | null {
 /** Where a wrapping name starts, by its length in letters: a longer name a step smaller. */
 export const wrapStart = (n: number): number => (n > 36 ? 24 : n > 22 ? 28 : ONE_LINE_MIN);
 
+/** The name is shown at TITLE_SCALE of the size the fit settles on (owner, 2026-11-24: "Phone's work section: The texts
+ *  need to be smaller in size. Currently too large"; chose C, "names 66%"). The fit runs as above, untouched; this one
+ *  factor goes on its result and the name wraps as it will at the smaller size. Scaling the fit's own numbers instead
+ *  would not do it: oneLineSize fills the caption, TITLE_MAX only caps it. */
+export const TITLE_SCALE = 0.66;
+
+/** The size, px, a name is shown at from its fitted size (two decimals, as a style holds it). */
+export const shownSize = (fitted: number): number => Math.round(fitted * TITLE_SCALE * 100) / 100;
+
 /** A film's roles on its pane, as its record has them: upper case, joined by " / ", a role never broken inside (SOUND
  *  DESIGNER stays whole) and no line opening on a slash. */
 export function roleLine(role: string): string {

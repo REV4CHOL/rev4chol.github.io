@@ -29,7 +29,7 @@ import { CHANNELS, type ChannelKey, channelProjects } from './channels';
 import {
   arrivalOffset, capKeyframes, coast, lapProgress, lapSeconds, lapUnits, loopsAllowed, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
   oneLineSize, paneInView, paneKeyframes, panePlay, paneTop, paneUnits, places, railProgress, railTicks, REEL_WORDS, releaseSpeed,
-  roleLine, rollPace, screenUnits, SIDE_QUERY, stripOrder, stripPlace, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
+  roleLine, rollPace, screenUnits, shownSize, SIDE_QUERY, stripOrder, stripPlace, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
   type PanePlay,
 } from './reel';
 
@@ -187,12 +187,13 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     s.fontSize = `${TITLE_MAX}px`;
     const one = oneLineSize(t.scrollWidth, room);
     s.whiteSpace = '';
-    if (one !== null) { s.fontSize = `${one}px`; return; }
+    if (one !== null) { s.fontSize = `${shownSize(one)}px`; return; }
     s.overflowWrap = 'normal'; // (whole words while it measures: a word too wide widens the name instead of breaking)
     let size = wrapStart([...(t.textContent ?? '').replace(/​/g, '')].length); // (letters, not its break marks)
     s.fontSize = `${size}px`;
     while (size > TITLE_MIN && t.scrollWidth > room + 0.5) s.fontSize = `${--size}px`;
     s.overflowWrap = '';
+    s.fontSize = `${shownSize(size)}px`; // (the fit settled: the name shown smaller, wrapping as it will)
   };
   const fit = (s: Strip) => {
     s.caps.forEach((cap, i) => {

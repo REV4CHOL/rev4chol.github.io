@@ -731,8 +731,8 @@
   text-shadow: 0 0 4px rgba(6, 6, 6, 0.9), 0 2px 18px rgba(6, 6, 6, 0.75);
 }
 .rl-title::after { content: '\00a0▸'; color: var(--acc); } /* (the arrow never wraps alone) */
-.rl-role {
-  font-size: 11px; line-height: 1.6; letter-spacing: 0.16em; color: color-mix(in srgb, var(--bone) 90%, transparent);
+.rl-role { /* (10 px, was 11: owner, 2026-11-24, "The texts need to be smaller in size"; C) */
+  font-size: 10px; line-height: 1.6; letter-spacing: 0.16em; color: color-mix(in srgb, var(--bone) 90%, transparent);
   text-shadow: 0 0 4px rgba(6, 6, 6, 0.95), 0 1px 2px rgba(6, 6, 6, 0.9);
 }
 .rl-link:active .rl-title { color: var(--acc); }

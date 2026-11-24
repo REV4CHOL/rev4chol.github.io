@@ -4,7 +4,7 @@ import { aspectRatio, parseJson, parseProjects } from '../src/lib/content';
 import { softBreaks } from '../src/lib/escape';
 import {
   capKeyframes, capOpacity, coast, COAST_TAU, lapProgress, loopsAllowed, MAX_THROW, offsetFromLap, paneKeyframes, offsetForRail, ONE_LINE_MIN, oneLineSize, paneInView, panePlay, paneTop, railProgress,
-  REEL_QUERY, REEL_WORDS, reelMode, releaseSpeed, roleLine, ROLL_SECONDS, stripOrder, TITLE_MAX, TITLE_MIN, wrapStart,
+  REEL_QUERY, REEL_WORDS, reelMode, releaseSpeed, roleLine, ROLL_SECONDS, shownSize, stripOrder, TITLE_MAX, TITLE_MIN, TITLE_SCALE, wrapStart,
   lapSeconds, lapUnits, offsetForPane, offsetForPlace, paneUnits, places, railTicks, rollPace, screenUnits, SIDE_QUERY, stripPlace,
   arrivalOffset,
 } from '../src/works/reel';
@@ -85,6 +85,20 @@ describe("a pane's words: the film's name and its roles, nothing else", () => {
     expect(wrapStart(45)).toBe(24); // FOREST ONSEN - ECOPARK'S ECO RETREAT COMMERCIAL
     for (const p of films) expect(wrapStart([...p.title].length)).toBeGreaterThanOrEqual(TITLE_MIN);
     expect(softBreaks('mr_PURPLE_dreams_in_electric_fish')).toContain('_\u200b');
+  });
+
+  // (owner, 2026-11-24: "Phone's work section: The texts need to be smaller in size. Currently too large"; chose C,
+  // "names 66%") the fit stands as it was; the name is then shown at 66% of its fitted size and wraps as it will
+  it('a name is shown at 66% of its fitted size: the fit untouched, one factor on its result', () => {
+    expect(TITLE_SCALE).toBe(0.66);
+    expect(shownSize(43)).toBeCloseTo(28.38, 2); // XI\u00caU L\u00d2NG: fitted 43, shown about 28 (not 34: the fit is not rescaled)
+    expect(shownSize(34)).toBeCloseTo(22.44, 2); // REMNANTS OF A DREAM
+    expect(shownSize(28)).toBeCloseTo(18.48, 2); // MR_PURPLE_DREAMS_IN_ELECTRIC_FISH, SOFT HOURS & LONELY LANDS
+    expect(shownSize(TITLE_MAX)).toBeCloseTo(34.32, 2);
+    for (const s of [TITLE_MIN, 30, ONE_LINE_MIN, 47, TITLE_MAX]) {
+      expect(shownSize(s)).toBeLessThan(s);
+      expect(shownSize(s)).toBe(Math.round(s * TITLE_SCALE * 100) / 100); // (two decimals, as a style holds it)
+    }
   });
 });
 

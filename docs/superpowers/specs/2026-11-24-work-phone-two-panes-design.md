@@ -179,3 +179,20 @@ In a headless browser as a touch phone, never a visible window:
 ## Out of scope
 
 The desktop and tablet floor; the film pages; the performance round's device levels (the reel uses none of them).
+
+## Smaller words (2026-11-24, later)
+
+The owner: "Phone's work section: The texts need to be smaller in size. Currently too large". From four mock-ups (A
+today, B 80%, C 66%, D 55%) the owner chose **C, "names 66%"**.
+
+The rule: **a name is fitted as before, then shown at × 0.66 of its fitted size, wrapping as it will at the smaller
+size; the roles are 10 px (were 11)**. The fit's own numbers (TITLE_MAX 52, ONE_LINE_MIN 34, TITLE_MIN 22, wrapStart)
+are untouched: oneLineSize fills the caption and TITLE_MAX only caps it, so scaling those numbers would have left
+XIÊU LÒNG at 34 px and turned several two-line names into one line at nearly today's size. Code: works/reel.ts
+TITLE_SCALE and shownSize, applied at the end of the view's fitTitle; the caption's room and place, the panes and the
+foot are unchanged.
+
+Measured on a build (headless, 390 × 844, DPR 2, touch): XIÊU LÒNG 28.38 px on 1 line (was 43), REMNANTS OF A DREAM
+22.44 px on 2 lines (was 34), MR_PURPLE_DREAMS_IN_ELECTRIC_FISH 18.48 px on 2 lines (was 28 on 3), SOFT HOURS & LONELY
+LANDS 18.48 px on 2 lines (was 28), the roles 10 px. All 19 names whole, inside their captions and panes, at 390 × 844,
+360 × 640 and on its side at 844 × 390; film 1's name whole on the screen at arrival at all three.
