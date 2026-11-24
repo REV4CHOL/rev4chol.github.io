@@ -69,6 +69,7 @@ describe('a plain list of every film', () => {
   it("a thumbnail keeps its film's shape inside a 128 × 72 box: never cropped", () => {
     expect(thumbSize(16 / 9)).toEqual({ w: 128, h: 72 });
     expect(thumbSize(4 / 3)).toEqual({ w: 96, h: 72 });
+    expect(thumbSize(3 / 2)).toEqual({ w: 108, h: 72 });
     expect(thumbSize(2.39)).toEqual({ w: 128, h: 54 });
     expect(thumbSize(9 / 16)).toEqual({ w: 41, h: 72 });
   });

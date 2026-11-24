@@ -59,7 +59,9 @@ function render(p: Project, all: Project[], idx: number): void {
     const heroSec = document.getElementById('p-hero')!;
     heroSec.classList.add('p-hero--fit');
     heroSec.style.setProperty('--pratio', String(ratio));
-    if (p.aspect === '4:3') heroSec.classList.add('p-hero--43'); // side rack panels + ring
+    // side rack panels + ring; a 3:2 picture is pillarboxed too, only narrower (owner 2026-11-24: "Keep 3:2, add that
+    // pane"), so its ring is the right panel's instrument the same way rather than the 16:9 hero's, across the picture
+    if (p.aspect === '4:3' || p.aspect === '3:2') heroSec.classList.add('p-hero--43');
     (document.querySelector('.project-main') as HTMLElement).style.setProperty('--pratio', String(ratio));
   }
   // The page chrome commits to the fixed acid quartet (--signal/--alert/

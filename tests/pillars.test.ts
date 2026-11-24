@@ -104,6 +104,7 @@ describe("a pane's card: the carpet's row height, or two rows and the seam for a
   it('every landscape card as before; the 9:16 card 258 × 458', () => {
     expect(cardSize(16 / 9, false)).toEqual({ cw: 400, ch: 225 });
     expect(cardSize(4 / 3, false)).toEqual({ cw: 300, ch: 225 });
+    expect(cardSize(3 / 2, false)).toEqual({ cw: 338, ch: 225 }); // (owner 2026-11-24: "Keep 3:2, add that pane")
     expect(cardSize(2.39, false)).toEqual({ cw: 538, ch: 225 });
     expect(cardSize(9 / 16, true)).toEqual({ cw: 258, ch: 458 });
   });
@@ -127,7 +128,7 @@ describe("the vertical pane's spine", () => {
 describe("the vertical pane's poster keeps the floor's dither screen", () => {
   it('1.6 poster pixels per card unit: 413 for the tall 9:16 card; every landscape card keeps its 640', () => {
     expect(posterWidthFor({ aspect: '9:16' })).toBe(413);
-    for (const aspect of ['16:9', '4:3', '2.39:1'] as const) expect(posterWidthFor({ aspect })).toBe(640);
+    for (const aspect of ['16:9', '4:3', '3:2', '2.39:1'] as const) expect(posterWidthFor({ aspect })).toBe(640);
   });
 });
 

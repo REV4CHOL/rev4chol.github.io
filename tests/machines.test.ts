@@ -91,6 +91,7 @@ describe('the list\'s machines', () => {
     const tall = fitAspect('9:16', 32, 18);
     expect(tall.h).toBe(18); expect(tall.w).toBeLessThan(18); expect(tall.x).toBeGreaterThan(0);
     expect(fitAspect('4:3', 32, 18)).toEqual({ x: 4, y: 0, w: 24, h: 18 });
+    expect(fitAspect('3:2', 32, 18)).toEqual({ x: 2, y: 0, w: 27, h: 18 });
     const d = new Uint8ClampedArray(4 * 16 * 4).map((_, i) => (i * 37) % 256);
     ditherRGB(d, 4, 16);
     for (let i = 0; i < d.length; i++) expect(i % 4 === 3 ? d[i] === 255 : [0, 85, 170, 255].includes(d[i])).toBe(true);

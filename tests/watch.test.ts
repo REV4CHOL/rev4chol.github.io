@@ -32,8 +32,18 @@ describe("the player's shape", () => {
     expect(playerRatio(9 / 16)).toBeCloseTo(0.5625, 4);
   });
 
-  it('every other film plays in the 16:9 player (the embed letterboxes scope and 4:3 inside it)', () => {
-    for (const r of [16 / 9, 4 / 3, 2.39]) expect(playerRatio(r)).toBeCloseTo(16 / 9, 4);
+  it('every other film plays in the 16:9 player (the embed letterboxes scope, 3:2 and 4:3 inside it)', () => {
+    for (const r of [16 / 9, 4 / 3, 3 / 2, 2.39]) expect(playerRatio(r)).toBeCloseTo(16 / 9, 4);
+  });
+});
+
+// (owner 2026-11-24, of XIÊU LÒNG's 3:2 picture: "Keep 3:2, add that pane") a 3:2 film's hero is pillarboxed like a 4:3
+// one, only narrower: it wears the same dress, the side rack panels with the ring sized into the right one, not the
+// 16:9 hero's ring hanging across the picture
+describe("a 3:2 film's hero", () => {
+  it('wears the 4:3 dress: rack panels, the ring inside the right one', () => {
+    const src = readFileSync('src/pages/project.ts', 'utf8');
+    expect(src).toContain("if (p.aspect === '4:3' || p.aspect === '3:2') heroSec.classList.add('p-hero--43');");
   });
 });
 

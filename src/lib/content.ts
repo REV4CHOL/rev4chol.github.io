@@ -30,8 +30,9 @@ export interface Project {
   accent: string;
   tileSize: 'normal' | 'large';
   /** picture aspect of the pane and all dossier media (default 16:9); 9:16 is vertical footage, shown vertical
-   *  everywhere (owner 2026-09-28: "whenever I bring you vertical footage, you gonna make a special vertical pane") */
-  aspect: '16:9' | '4:3' | '2.39:1' | '9:16';
+   *  everywhere (owner 2026-09-28: "whenever I bring you vertical footage, you gonna make a special vertical pane");
+   *  3:2 stands in its own ratio too (owner 2026-11-24: "Keep 3:2, add that pane") */
+  aspect: '16:9' | '4:3' | '3:2' | '2.39:1' | '9:16';
   /** which works channel the film broadcasts on (default "human") */
   category: 'human' | 'machine';
   synopsis: string;
@@ -176,8 +177,8 @@ export function parseProject(raw: unknown, i: number): Project {
   const tileSize = tileSizeOf(r.tileSize, file, where);
 
   const aspect = r.aspect === undefined ? '16:9' : r.aspect;
-  if (aspect !== '16:9' && aspect !== '4:3' && aspect !== '2.39:1' && aspect !== '9:16')
-    fail(file, `${where} aspect must be "16:9", "4:3", "2.39:1" or "9:16"`);
+  if (aspect !== '16:9' && aspect !== '4:3' && aspect !== '3:2' && aspect !== '2.39:1' && aspect !== '9:16')
+    fail(file, `${where} aspect must be "16:9", "4:3", "3:2", "2.39:1" or "9:16"`);
 
   const category = categoryOf(r.category, file, where);
 
@@ -338,6 +339,7 @@ export function projectAssetUrl(slug: string, file: string): string {
  *  dossier hero fit and the stills wall all derive from. */
 export function aspectRatio(a: Project['aspect']): number {
   if (a === '4:3') return 4 / 3;
+  if (a === '3:2') return 3 / 2;
   if (a === '2.39:1') return 2.39;
   if (a === '9:16') return 9 / 16;
   return 16 / 9;

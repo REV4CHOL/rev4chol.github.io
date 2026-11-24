@@ -231,6 +231,14 @@ describe('helpers', () => {
     expect(() => parseProjects([{ ...validProject(), aspect: '1:1' }])).toThrow(ContentError);
   });
 
+  // (owner 2026-11-24, asked with pictures, of XIÊU LÒNG's 3:2 picture: "Keep 3:2, add that pane")
+  it('aspect 3:2, a film in its own 3:2 ratio: the pane, the hero and the wall at 1.5', () => {
+    expect(parseProjects([{ ...validProject(), aspect: '3:2' }])[0].aspect).toBe('3:2');
+    expect(aspectRatio('3:2')).toBe(1.5);
+    expect(() => parseProjects([{ ...validProject(), aspect: '3:1' }])).toThrow(ContentError);
+    expect(() => parseProjects([{ ...validProject(), aspect: 'wide' }])).toThrow(/aspect must be "16:9", "4:3", "3:2", "2.39:1" or "9:16"/);
+  });
+
   it('film as a list (owner 2026-09-28: "one watch will spawn two"): every part in order as films, the first as film', () => {
     const [p] = parseProjects([{ ...validProject(), film: [
       { type: 'youtube', src: 'https://www.youtube.com/embed/hfq64ykkQs4', label: 'Digital Ad #1' },
