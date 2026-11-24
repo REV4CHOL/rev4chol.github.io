@@ -19,7 +19,8 @@ machines"). Everything else that design set stays.
 - The machines needed a plate of 1,792 or wider. Every laptop's plate is 1,440 to 1,728 (a 13" MacBook Air 1,470, a
   14" MacBook Pro 1,512, a 16" 1,728; Windows laptops at 1,366, 1,280 and 1,536 wide stand on 1,440 or 1,536). No laptop
   got the machines: the October design, working as written.
-- A second switch, unchanged: the quality governor's lowest tier (LITE) hides the machines on any screen.
+- A second switch: the quality governor's lowest tier (LITE) hid the machines on any screen. The owner later chose to
+  animate them at every tier (section 5).
 
 ## The owner's choice
 
@@ -61,10 +62,10 @@ Screens 1,920 wide and more stay exactly as they are.
 - **By the plate's width alone, never by the tier.** `pages/works.ts` sets the class as `listTight(plate, fine
   pointer)`. One device always reads one layout.
 - The tier moves while the page is open: it can drop to LITE a few seconds after loading and reopen about a minute
-  later. A layout that followed it would reflow every row under the reader. While the tier is LITE, a laptop's
-  narrowed list keeps city-only gutters and no machines. LITE's own rule (no machines) is not changed.
+  later. A layout that followed it would reflow every row under the reader.
 - Measured at 1,440 × 900 with THE LIST open: `rvlQuality.set(0)` then `set(2)`. The rows' width (768) and total
-  height (1,843 px) did not change, and no resize was observed. The machines hid at LITE and came back at FULL.
+  height (1,843 px) did not change, and no resize was observed. (Then the machines hid at LITE and came back at FULL;
+  since section 5 they stay.)
 - A touch screen never narrows (it builds no city), and neither does a phone's reel.
 
 ### 4. The first frame (decided here)
@@ -78,10 +79,36 @@ Screens 1,920 wide and more stay exactly as they are.
   plain black, and the rows do not move.
 - `works/list-deco.ts` never sets or clears the class.
 
+### 5. The machines at every tier (the owner's choice, 2026-11-24)
+
+- The slowed laptops above opened at LITE, and LITE hid the machines for the first half minute or more. Asked in a
+  questionnaire, the owner chose: "Animate them anyway".
+- `works/list-deco.ts`: the machines load, show and move at every tier. CALM (the MOTION switch) still stills them.
+  A failed load, no machines from `createMachines`, or a lost WebGL context still hides them. Touch screens and phones
+  still build nothing.
+- The city keeps LITE's still: it is drawn once a build and held, so the lightest tier pays only for the machines. The
+  cue, the plates and the callouts follow the machines.
+- The list's loop already steps twelve times a second and has no frame cap of its own. None is added.
+- A visible change on wide screens: at LITE, 1,920 and 2,560 now show their machines too, moving.
+- The operating system's "reduce motion" does not still them, as on the rest of the site (the site's own MOTION
+  switch decides). Measured at 1,440 × 900: under `prefers-reduced-motion: reduce` they move; with MOTION OFF they are
+  shown and still.
+- Measured on the slowed laptops (8 GB and 16 GB, 8 threads, ×6), unpinned, both ways in:
+  - in all four runs the list stood at LITE at 3, 15 and 30 s with the machines shown and moving, and at BALANCED at
+    75 s;
+  - the tier still climbed back to BALANCED, at 52 to 62.5 s after the list opened: the animation does not hold the
+    page at LITE;
+  - frames a second at LITE: 60.2 to 61.0 with the machines moving, against 60.2 to 60.6 on the previous commit with
+    them hidden. No cost showed. The slowing reaches the processor, not the graphics chip (here a fast desktop one),
+    so this does not prove a weak laptop's graphics chip carries them as easily.
+  - the same page unslowed: FULL, about 60 frames a second, on both builds.
+- At FULL, 1,920, 2,000 and 2,560 still frames stay byte-identical to the previous commit's.
+
 ## Units of code
 
 - `src/works/list-art.ts`: `COLUMN_MIN`, `columnFor`, `listTight`; `sideLayout` reads the column.
-- `src/works/list-deco.ts`: the city's column frame from `columnFor`; its header comment.
+- `src/works/list-deco.ts`: the city's column frame from `columnFor`; the machines at every tier, the city still at
+  LITE; its header comment.
 - `src/pages/works.ts`: the class, after the poster lock and on resize.
 - `src/styles/components.css`: the narrowed band and the stacked rows.
 
@@ -103,6 +130,8 @@ Screens 1,920 wide and more stay exactly as they are.
 - The stacked row's grid areas.
 - The class is set after the poster lock and before the first `await`, from the same plate the decoration reads; the
   decoration never touches it.
+- The machines at every tier (pins): never hidden by the tier; CALM stills them; the city still at LITE; a failed
+  load and a lost context hide them; phones build nothing.
 - These source pins normalise line ends.
 
 ## Verification (a hidden Chrome, the built site, the tier pinned to FULL unless said)
@@ -135,11 +164,13 @@ Screens 1,920 wide and more stay exactly as they are.
 1. The column narrows on every laptop, so the list itself is narrower there: 768 px of rows at 1,440, against 1,120.
 2. A row's name stands over its details on a laptop. On wider screens they stay side by side.
 3. A laptop's machines are 220 plate px wide (284 at 1,920, 412 at 2,560), and have no callouts.
-4. The layout follows the screen, never the tier. While a weak laptop runs at LITE, its narrowed list keeps the city
-   in the gutters, with no machines.
+4. The layout follows the screen, never the tier.
 5. The narrowing ends at 1,792 wide. From there up nothing changes. Between 1,728 and 1,792 the column is almost full
    width again.
+6. The machines move at every tier, LITE too (the owner's choice). The city stays still at LITE.
+7. On wide screens at LITE the machines now show too, where before there were none.
+8. The operating system's reduce-motion setting does not still them; the site's MOTION switch does, as everywhere.
 
 ## Out of scope
 
-Phones and touch screens (they build no city); what LITE shows; the machines' drawing.
+Phones and touch screens (they build no city); the machines' drawing.

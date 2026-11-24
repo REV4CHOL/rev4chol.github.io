@@ -95,7 +95,8 @@ Then, while it was being built:
 - Pointing at a film in the list cues it on every screen and in the LUT's grade; the machines close up to take it and
   the totem's eye turns to it.
 - CALM (the MOTION switch) draws one still frame, redrawn when a film is pointed at. The LITE tier draws the city's
-  still and no machines. The list's closing or a hidden tab stops it all.
+  still and no machines. The list's closing or a hidden tab stops it all. (2026-11-24, the owner: the machines now
+  move at every tier, LITE too; see `2026-11-24-list-laptop-machines-design.md`.)
 - Margins under 80 plate px a side (a phone, a tablet) build nothing; under 300 (1,440 wide) the city and the hardware
   but no machines; the callouts only where the margin has room (2,560).
   (2026-11-24: a laptop's screen now gets its machines: under a 1,792 plate the column narrows to leave each margin
