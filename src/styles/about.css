@@ -94,8 +94,8 @@
   letter-spacing: 0.24em; font-weight: 500;
   clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 100%, 8px 100%);
 }
-.a-statement {
-  margin: 26px 0 0; font-family: var(--f-serif); font-style: italic;
+.a-statement { /* (upright, as every running line in the serif voice: owner, 2026-11-24; see .p-synopsis) */
+  margin: 26px 0 0; font-family: var(--f-serif);
   font-size: var(--t-lg); line-height: 1.4; color: var(--bone); max-width: 26ch;
 }
 
@@ -237,8 +237,8 @@
 
 /* ------------------------------------------------------- OP: dossier -- */
 
-.a-bio-lead {
-  margin: 0; font-family: var(--f-serif); font-style: italic;
+.a-bio-lead { /* (upright: owner, 2026-11-24; see .p-synopsis) */
+  margin: 0; font-family: var(--f-serif);
   font-size: var(--t-lg); line-height: 1.5; max-width: 56ch; color: var(--bone);
 }
 .a-bio-p {

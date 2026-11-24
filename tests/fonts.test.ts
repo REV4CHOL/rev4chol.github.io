@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { brotliDecompressSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { parseJson, parseProjects } from '../src/lib/content';
+import { parseAbout, parseJson, parseProjects } from '../src/lib/content';
 
 // Every letter a film's name or synopsis carries must come from the site's own type — the owner's
 // "Ăn Hỏi" Ceremony (2026-09-27) showed its Ỏ in a system font, because Clash Display and Bodoni
@@ -147,5 +147,62 @@ describe('the site draws every letter in its own type', () => {
         expect(re.exec(f.body)?.[1], f.url).toBe(re.exec(twin!.body)?.[1]); // (…with its weights and its line metrics)
     }
     for (const voice of ['f-display', 'f-serif']) expect(stack(voice)[0].endsWith(' First'), voice).toBe(true);
+  });
+});
+
+// (owner, 2026-11-24, of a film's synopsis: "I dont like this font too hard to read."; shown the line in four faces
+//  they chose "Bodoni upright", and "Everywhere" for the four other lines that stood in the same slanted Bodoni. The
+//  face, its size and its weight stay; only the slant goes.)
+describe('the running lines stand upright', () => {
+  const sheet = (f: string) => readFileSync(fileURLToPath(new URL(`../src/styles/${f}`, import.meta.url)), 'utf8');
+  /** Every rule body a stylesheet gives a selector standing alone (".x {", at any indent). */
+  const rules = (src: string, sel: string) => {
+    const out: string[] = [];
+    const open = `${sel} {`;
+    for (let i = src.indexOf(open); i > -1; i = src.indexOf(open, i + 1)) {
+      const before = src.slice(src.lastIndexOf('\n', i) + 1, i);
+      if (before.trim() === '') out.push(src.slice(i + open.length, src.indexOf('}', i)));
+    }
+    return out;
+  };
+  // a film's synopsis, the homepage's line, ABOUT's statement and the opening of its bio, CONTACT's line
+  const LINES: [string, string][] = [
+    ['project.css', '.p-synopsis'], ['components.css', '.home-cta'], ['about.css', '.a-statement'],
+    ['about.css', '.a-bio-lead'], ['contact.css', '.c-vow'],
+  ];
+
+  it('the five lines keep the serif voice, and none of them is slanted', () => {
+    for (const [file, sel] of LINES) {
+      const found = rules(sheet(file), sel);
+      expect(found.length, sel).toBeGreaterThan(0);
+      expect(found.filter((r) => r.includes('font-family: var(--f-serif)')).length, sel).toBe(1);
+      for (const r of found) expect(r, sel).not.toContain('italic');
+    }
+  });
+
+  it("the homepage's great ampersand keeps its slant: it is a drawing, not a line to read", () => {
+    const amp = rules(sheet('components.css'), '.amp-bg');
+    expect(amp[0]).toContain('font-family: var(--f-serif); font-style: italic;');
+  });
+
+  it('nothing else on the site is slanted: the ampersand, and the face that draws it, are the only two', () => {
+    const count = (f: string) => sheet(f).split('font-style: italic').length - 1;
+    expect(['tokens.css', 'base.css', 'components.css', 'project.css', 'about.css', 'contact.css', 'story.css', 'stats.css'].map(count))
+      .toEqual([1, 0, 1, 0, 0, 0, 0, 0]);
+  });
+
+  it('the upright faces draw every letter of those lines themselves: no slanted or system face steps in', () => {
+    const upright = new Set<number>();
+    for (const fam of stack('f-serif'))
+      for (const f of faces.filter((x) => x.family === fam && !x.body.includes('font-style: italic')))
+        for (const c of codepoints(pub + f.url.slice(1))) upright.add(c);
+    const films = parseProjects(parseJson(readFileSync(pub + 'content/projects.json', 'utf8'), 'projects.json'));
+    for (const p of films) expect(missing(p.synopsis, upright), p.slug).toEqual([]);
+    const about = parseAbout(parseJson(readFileSync(pub + 'content/about/about.json', 'utf8'), 'about.json'));
+    expect(missing(about.statement, upright), 'statement').toEqual([]);
+    expect(missing(about.bio[0] ?? '', upright), 'bio').toEqual([]);
+    const vow = /<p class="c-vow">([^<]*)<\/p>/.exec(readFileSync(fileURLToPath(new URL('../contact.html', import.meta.url)), 'utf8'));
+    expect(vow, 'the line on CONTACT').not.toBeNull();
+    expect(missing(vow![1], upright), 'vow').toEqual([]);
   });
 });

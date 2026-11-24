@@ -333,9 +333,12 @@
 .p-plus-sig { color: rgba(200, 255, 0, 0.8); }
 .p-plus-alr { color: rgba(255, 46, 99, 0.8); }
 
+/* the synopsis stands UPRIGHT (owner, 2026-11-24, of the slanted Bodoni it stood in: "I dont like this font too hard
+   to read."; shown four faces they chose "Bodoni upright", and "Everywhere": the homepage's line, ABOUT's statement
+   and bio opening and CONTACT's line follow). Same face, size and weight; only the slant is gone. */
 .p-synopsis {
   position: relative; z-index: 2; margin: 0;
-  font-family: var(--f-serif); font-style: italic; font-size: var(--t-lg);
+  font-family: var(--f-serif); font-size: var(--t-lg);
   line-height: 1.5; max-width: 58ch; color: var(--bone);
 }
 

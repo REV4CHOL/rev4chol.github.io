@@ -50,8 +50,8 @@
 }
 .c-copy:hover { background: var(--alert); color: var(--void); }
 .c-copy.is-done { background: var(--signal); border-color: var(--signal); color: var(--void); }
-.c-vow {
-  margin: 0; font-family: var(--f-serif); font-style: italic;
+.c-vow { /* (upright, as every running line in the serif voice: owner, 2026-11-24; see .p-synopsis) */
+  margin: 0; font-family: var(--f-serif);
   font-size: var(--t-md); color: rgba(237, 237, 230, 0.8);
 }
 

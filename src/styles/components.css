@@ -289,8 +289,8 @@
 
 .home-cta-row { margin-top: 18px; display: flex; align-items: baseline; gap: 10px; }
 .cta-prompt { font-family: var(--f-mono); font-size: var(--t-md); color: var(--accent); }
-.home-cta {
-  font-family: var(--f-serif); font-style: italic; font-size: var(--t-lg);
+.home-cta { /* (upright, as every running line in the serif voice: owner, 2026-11-24; see .p-synopsis) */
+  font-family: var(--f-serif); font-size: var(--t-lg);
   color: var(--bone); text-decoration: none;
   border-bottom: 1px solid var(--accent); padding-bottom: 3px;
   text-shadow: 0 2px 14px rgba(6, 6, 6, 0.8);
