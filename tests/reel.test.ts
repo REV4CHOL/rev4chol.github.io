@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parseJson, parseProjects } from '../src/lib/content';
+import { aspectRatio, parseJson, parseProjects } from '../src/lib/content';
 import { softBreaks } from '../src/lib/escape';
 import {
   capKeyframes, capOpacity, coast, COAST_TAU, lapProgress, loopsAllowed, MAX_THROW, offsetFromLap, paneKeyframes, offsetForRail, ONE_LINE_MIN, oneLineSize, paneInView, panePlay, paneTop, railProgress,
   REEL_QUERY, REEL_WORDS, reelMode, releaseSpeed, roleLine, ROLL_SECONDS, stripOrder, TITLE_MAX, TITLE_MIN, wrapStart,
+  lapSeconds, lapUnits, offsetForPane, offsetForPlace, paneUnits, places, railTicks, rollPace, screenUnits, SIDE_QUERY, stripPlace,
 } from '../src/works/reel';
 
 // WORK ON A PHONE (owner, 2026-10-20: "on Phone, its completely overwhelming and disorienting … a complete redesign of
@@ -222,6 +223,86 @@ describe('the rolling strip', () => {
     expect(panePlay(2 * H, H, H, 1)).toBe('rest');
     expect(panePlay(3 * H, H, H, 1)).toBe('free');
     expect(panePlay(-3 * H, H, H, 1)).toBe('free');
+  });
+});
+
+// (owner, 2026-11-24: "the panes are too long in length and should be shorten. we should be able to see two panes on
+// the phone screen at the same time instead")
+describe('the strip, measured in units: two panes on an upright screen', () => {
+  const unitsOf = (cat: string, side: boolean) => films.filter((p) => p.category === cat).map((p) => paneUnits(aspectRatio(p.aspect) < 1, side));
+
+  it("upright a pane is half the screen and a vertical film's is the whole of it; on its side every pane is the screen", () => {
+    expect(screenUnits(false)).toBe(2);
+    expect(screenUnits(true)).toBe(1);
+    expect(paneUnits(false, false)).toBe(1);
+    expect(paneUnits(true, false)).toBe(2); // (vertical footage is never cropped wide: its pane is two panes high)
+    expect(paneUnits(true, true)).toBe(1); // (on a sideways screen it stands whole in the middle of one pane)
+    expect(paneUnits(false, true)).toBe(1);
+    expect(SIDE_QUERY).toBe('(max-height: 500px)'); // (the styles' sideways block asks the same line: tests/floor-ways.test.ts)
+    expect(REEL_QUERY).toContain(SIDE_QUERY); // (the short screen the page asks about is the sideways one)
+  });
+
+  it("a pane's place is the units before it, and a lap is all of them: the two chapters hold 12 and 6", () => {
+    expect(places([1, 1, 1, 1, 2])).toEqual([0, 1, 2, 3, 4]);
+    expect(places([2, 1, 1])).toEqual([0, 2, 3]);
+    expect(places([])).toEqual([]);
+    expect(lapUnits([1, 1, 1, 1, 2])).toBe(6);
+    expect(lapUnits([])).toBe(0);
+    expect(lapUnits(unitsOf('human', false))).toBe(12);
+    expect(unitsOf('machine', false)).toEqual([1, 1, 1, 1, 2]); // (GALAXY Z FOLD 8 ULTRA, 9:16, stands last)
+    expect(lapUnits(unitsOf('machine', true))).toBe(5); // (on its side every pane is one unit)
+  });
+
+  it("the pace is one screen's height every 18 seconds, whatever a pane's height", () => {
+    expect(rollPace(844)).toBeCloseTo(844 / ROLL_SECONDS, 9); // (47 px a second on an 844-px phone, as before)
+    expect(lapSeconds(1, 422, 844)).toBeCloseTo(9, 9); // (a unit pane passes a line in 9 seconds)
+    expect(lapSeconds(12, 422, 844)).toBeCloseTo(108, 9);
+    expect(lapSeconds(6, 422, 844)).toBeCloseTo(54, 9);
+    expect(lapSeconds(12, 390, 390)).toBeCloseTo(216, 9); // (on its side a pane is the screen: 18 seconds a pane)
+    for (const [total, unit, view] of [[12, 422, 844], [6, 320, 640], [5, 390, 390], [4, 457.5, 915]]) {
+      expect((total * unit) / lapSeconds(total, unit, view)).toBeCloseTo(rollPace(view), 9); // (a lap's length over its time)
+    }
+    expect(lapSeconds(12, 422, 0)).toBe(0);
+  });
+
+  it("the rail has one tick a film, at its middle along the lap: the vertical film's stretch is twice as long", () => {
+    const close = (got: number[], want: number[]) => { expect(got).toHaveLength(want.length); got.forEach((g, i) => expect(g).toBeCloseTo(want[i], 9)); };
+    close(railTicks([1, 1, 1, 1, 2]), [0.5 / 6, 1.5 / 6, 2.5 / 6, 3.5 / 6, 5 / 6]);
+    close(railTicks([1, 1, 1, 1, 1]), [0.1, 0.3, 0.5, 0.7, 0.9]); // (on its side: evenly, as before)
+    close(railTicks(Array.from({ length: 12 }, () => 1)), Array.from({ length: 12 }, (_, i) => (i + 0.5) / 12));
+    expect(railTicks([])).toEqual([]);
+  });
+
+  it("the strip's place is the pane under the screen's middle; it holds through a turn of the phone", () => {
+    const up = [1, 1, 1, 1, 2], side = [1, 1, 1, 1, 1];
+    expect(stripPlace(0, 422, 844, up)).toEqual([1, 0]); // (at rest two panes fill the screen: its middle is the second one's top)
+    expect(stripPlace(-211, 422, 844, up)).toEqual([0, 0.5]);
+    expect(stripPlace(4 * 422, 422, 844, up)).toEqual([4, 0.5]); // (the tall pane square in the screen)
+    expect(stripPlace(100, 0, 844, up)).toEqual([0, 0]);
+    expect(stripPlace(100, 422, 844, [])).toEqual([0, 0]);
+    // turned on its side, the same film stands under the middle: the vertical film whole in the screen
+    expect(offsetForPlace(4, 0.5, 390, 390, side)).toBeCloseTo(4 * 390, 9);
+    expect(offsetForPlace(9, 0.5, 390, 390, side)).toBe(0); // (no such pane)
+    for (const units of [up, side, [2, 1, 1], Array.from({ length: 12 }, () => 1)]) {
+      for (const [unit, view] of [[422, 844], [390, 390], [320, 640]]) for (const off of [0, 1, 333, 5 * unit + 17, -3 * unit - 5, 1e6]) {
+        const [pane, part] = stripPlace(off, unit, view, units);
+        expect(part).toBeGreaterThanOrEqual(0);
+        expect(part).toBeLessThanOrEqual(1);
+        const lap = lapUnits(units) * unit, back = offsetForPlace(pane, part, unit, view, units);
+        const d = (((back - off) % lap) + lap) % lap;
+        expect(Math.min(d, lap - d), `${units} ${unit} ${view} ${off}`).toBeCloseTo(0, 6); // (the same place, whole laps apart)
+      }
+    }
+  });
+
+  it("a keyboard's focus brings its pane to the middle of the screen, on the lap the strip is on", () => {
+    expect(offsetForPane(3, 1, 422, 844, 12, 0)).toBeCloseTo(3 * 422 - 211, 9); // (a quarter of the screen clear above it, and below)
+    expect(offsetForPane(0, 1, 422, 844, 12, 0)).toBeCloseTo(-211, 9);
+    expect(offsetForPane(4, 2, 422, 844, 6, 0)).toBeCloseTo(-2 * 422, 9); // (the tall pane square in the screen, the short way round)
+    expect(offsetForPane(4, 1, 390, 390, 5, 0)).toBeCloseTo(-390, 9); // (on its side a pane stands square, as before)
+    const far = 40 * 12 * 422;
+    expect(Math.abs(offsetForPane(3, 1, 422, 844, 12, far) - far)).toBeLessThanOrEqual(6 * 422);
+    expect(offsetForPane(3, 1, 0, 844, 12, 50)).toBeCloseTo(-422, 9); // (no height yet: no lap to choose)
   });
 });
 

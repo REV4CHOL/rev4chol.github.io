@@ -68,6 +68,62 @@ export const MAX_THROW = 6000;
 
 const mod = (a: number, m: number): number => ((a % m) + m) % m;
 
+/* ------------------------------------------------------ the strip, measured in units -- */
+// (owner, 2026-11-24: "the panes are too long in length and should be shorten. we should be able to see two panes on
+// the phone screen at the same time instead") Upright, a unit is half the screen's height: a pane is 1 unit, and a
+// vertical film's is 2, the whole screen (vertical footage is never cropped wide). On its side, a unit is the screen's
+// height and every pane is 1 unit. So the strip's rules take two heights, apart: the unit's and the screen's.
+
+/** A phone held on its side: a short screen. The styles' sideways block asks the same line. */
+export const SIDE_QUERY = '(max-height: 500px)';
+/** The screen's height in units: two panes on an upright screen, one on a phone held on its side. */
+export const screenUnits = (side: boolean): number => (side ? 1 : 2);
+/** A pane's height in units: 1; a vertical film's is 2 on an upright screen. */
+export const paneUnits = (vertical: boolean, side: boolean): number => (vertical && !side ? 2 : 1);
+/** Each pane's place in the strip: the units before it. */
+export function places(units: readonly number[]): number[] {
+  let at = 0;
+  return units.map((u) => { const here = at; at += u; return here; });
+}
+/** A lap of the strip, in units. */
+export const lapUnits = (units: readonly number[]): number => units.reduce((a, u) => a + u, 0);
+
+/** The strip's pace, px/s: one screen's height every ROLL_SECONDS, whatever a pane's height. */
+export const rollPace = (view: number): number => view / ROLL_SECONDS;
+/** How long a lap of `total` units takes at that pace, s. */
+export const lapSeconds = (total: number, unit: number, view: number): number => (view > 0 ? ((total * unit) / view) * ROLL_SECONDS : 0);
+
+/** The rail's ticks, 0..1 down the rail: one a film, at its middle along the chapter's lap, so a tall pane's stretch
+ *  is twice as long. `units` are the chapter's films', in order. */
+export function railTicks(units: readonly number[]): number[] {
+  const total = lapUnits(units), at = places(units);
+  return units.map((u, i) => (total > 0 ? (at[i] + u / 2) / total : 0));
+}
+
+/** Where the strip stands: the pane under the screen's middle, and how far down that pane the middle falls (0..1). It
+ *  holds through a turn of the phone, when both heights change and a tall pane becomes one unit. */
+export function stripPlace(offset: number, unit: number, view: number, units: readonly number[]): [pane: number, part: number] {
+  const total = lapUnits(units);
+  if (total <= 0 || unit <= 0) return [0, 0];
+  const c = mod(offset + view / 2, total * unit) / unit; // (the lap's point under the screen's middle, in units)
+  const at = places(units);
+  let i = units.length - 1;
+  while (i > 0 && at[i] > c) i--;
+  return [i, (c - at[i]) / units[i]];
+}
+/** The offset that stands the strip at that place: `part` of pane `pane` under the screen's middle. */
+export function offsetForPlace(pane: number, part: number, unit: number, view: number, units: readonly number[]): number {
+  if (pane < 0 || pane >= units.length) return 0;
+  return (places(units)[pane] + part * units[pane]) * unit - view / 2;
+}
+/** The offset that brings a pane (at `place`, `u` units tall) to the middle of the screen, on the lap nearest `current`:
+ *  a pane as tall as the screen stands square in it. */
+export function offsetForPane(place: number, u: number, unit: number, view: number, total: number, current: number): number {
+  const lap = total * unit;
+  const target = place * unit - (view - u * unit) / 2;
+  return lap > 0 ? target + Math.round((current - target) / lap) * lap : target;
+}
+
 /** The film behind each pane of the strip: the chapter in order, laid twice or thrice when it holds one or two films,
  *  so the endless strip never shows a gap. */
 export function stripOrder(films: number): number[] {
