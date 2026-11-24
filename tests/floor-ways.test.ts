@@ -362,15 +362,29 @@ describe('a phone gets the reel, never the floor (pins)', () => {
     expect(css).toMatch(/\n\.rl-strip \{[^}]*overflow: hidden;[^}]*touch-action: none;/);
     expect(css).not.toContain('scroll-snap');
     // (owner, 2026-10-20: "I want the auto scrolling to happen instantly, but slower and smoother") — on the compositor
-    expect(view).toContain('pane: li.animate(paneKeyframes(n), lane),');
-    expect(view).toContain('cap: strip.caps[i].animate(capKeyframes(n, h, strip.spans[i], [bandTop, bandBottom]), lane),'); // (its words never print over the chrome)
+    expect(view).toContain('pane: li.animate(paneKeyframes(strip.units[i], strip.total), lane),');
+    expect(view).toContain('cap: strip.caps[i].animate(capKeyframes(strip.units[i], unit, strip.total, strip.spans[i], [bandTop, bandBottom]), lane),'); // (its words never print over the chrome)
     expect(view).toContain('roll(); // (from the first frame, at its pace)');
-    expect(view).toContain('const rollSpeed = () => (reducedMotion() ? 0 : h / ROLL_SECONDS);');
+    expect(view).toContain('const rollSpeed = () => (reducedMotion() ? 0 : rollPace(view));'); // (one screen's height every 18 s, whatever a pane's height)
     expect(view).toContain('v = moved ? releaseSpeed(moves, e.timeStamp) : 0;');
     expect(view).toContain('if (target > 0 && Math.abs(v - target) < 2) { roll(); return; }'); // (the throw eases straight into the roll)
     expect(view).not.toContain('style.transform');
     expect(view).toMatch(/root\.addEventListener\('click', \(e\) => \{\s+if \(!dragged\) return;[\s\S]*?e\.preventDefault\(\);/);
     expect(view).not.toContain('rl-eof'); // (endless: no end slate on a phone)
+  });
+
+  // (owner, 2026-11-24: "we should be able to see two panes on the phone screen at the same time") the strip is measured
+  // in units, with two heights apart: the screen's and a unit's (tests/reel.test.ts holds the rules)
+  it('the strip is measured in units: two heights, its place kept through a turn of the phone, the rail by units', () => {
+    expect(view).toContain('view = strip.ol.clientHeight || window.innerHeight;'); // (no height yet under the LIST: the window's)
+    expect(view).toContain('unit = view / screenUnits(side);');
+    expect(view).toContain('strip.units = strip.order.map((f) => paneUnits(strip.tall[f], side));');
+    expect(view).toContain('const order = stripOrder(tall.map((t) => paneUnits(t, false)), screenUnits(false));');
+    expect(view).toContain('offset = offsetForPlace(pane, part, unit, view, strip.units);');
+    expect(view).toMatch(/remeasure\(\); \/\/ \(the same film stays in view through a turn of the phone\)\s+paintRail\(\);/);
+    expect(view).toMatch(/measure\(\);\s+paintRail\(\);\s+fit\(strip\);/); // (the ticks need the panes' units)
+    expect(view).toContain('offset = offsetForPane(strip.at[i], strip.units[i], unit, view, strip.total, offset);');
+    expect(view).toContain('offset = offsetForRail((clientY - r.top) / Math.max(1, r.height), unit, view, strip.chapter, offset);');
   });
 
   it("a vertical film stands vertical: on a phone held on its side it stands whole, never cropped wide", () => {

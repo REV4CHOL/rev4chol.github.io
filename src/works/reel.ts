@@ -124,36 +124,41 @@ export function offsetForPane(place: number, u: number, unit: number, view: numb
   return lap > 0 ? target + Math.round((current - target) / lap) * lap : target;
 }
 
-/** The film behind each pane of the strip: the chapter in order, laid twice or thrice when it holds one or two films,
- *  so the endless strip never shows a gap. */
-export function stripOrder(films: number): number[] {
+/** The film behind each pane of the strip: the chapter in order, laid again while it is too short for an endless
+ *  strip. A pane leaves the top whole before it comes in again below the screen, so a lap must hold the screen and the
+ *  tallest pane; and a strip is never fewer than three panes. `units` are the chapter's films', in order; `screen` is
+ *  the screen's height in units. */
+export function stripOrder(units: readonly number[], screen: number): number[] {
+  const films = units.length;
   if (films <= 0) return [];
-  const laps = films >= 3 ? 1 : Math.ceil(3 / films);
+  const laps = Math.max(Math.ceil((screen + Math.max(...units)) / lapUnits(units)), Math.ceil(3 / films));
   return Array.from({ length: films * laps }, (_, i) => i % films);
 }
 
-/** A pane's top on the screen, px: pane `i` of `n`, each `h` tall, the strip moved `offset` px on. Endless: every pane
- *  stands once in a lap, from one pane above the screen down to the lap's end. */
-export function paneTop(i: number, offset: number, h: number, n: number): number {
-  return mod(i * h - offset + h, n * h) - h;
+/** A pane's top on the screen, px: the pane at `place` (the units before it), `u` units tall, in a strip of `total`
+ *  units of `unit` px each, moved `offset` px on. Endless: every pane stands once in a lap, from its own height above
+ *  the screen's top down to the lap's end. */
+export function paneTop(place: number, u: number, offset: number, unit: number, total: number): number {
+  return mod(place * unit - offset + u * unit, total * unit) - u * unit;
 }
 
-/** The pane most in view: the one standing nearest square in the screen. */
-export function paneInView(offset: number, h: number, n: number): number {
-  return n > 0 && h > 0 ? mod(Math.round(offset / h), n) : 0;
+/** The film in view: the pane under the screen's middle. */
+export function paneInView(offset: number, unit: number, view: number, units: readonly number[]): number {
+  return stripPlace(offset, unit, view, units)[0];
 }
 
-/** The rail's playhead, 0..1 down the rail: on a pane's tick when that pane stands square in the screen. */
-export function railProgress(offset: number, h: number, n: number): number {
-  return n > 0 && h > 0 ? mod(offset + h / 2, n * h) / (n * h) : 0;
+/** The rail's playhead, 0..1 down the rail: the point of the chapter's lap (`total` units) under the screen's middle.
+ *  It sits on a film's tick when that film's middle is on the screen's. */
+export function railProgress(offset: number, unit: number, view: number, total: number): number {
+  return total > 0 && unit > 0 ? mod(offset + view / 2, total * unit) / (total * unit) : 0;
 }
 
-/** Where a touch `p` (0..1) down the rail moves the strip: that point of the lap square in the screen, on the lap the
- *  strip is already on (a scrub never spins it through a whole lap). */
-export function offsetForRail(p: number, h: number, n: number, current: number): number {
-  const lap = n * h;
-  const target = Math.max(0, Math.min(1, p)) * lap - h / 2;
-  return target + Math.round((current - target) / lap) * lap;
+/** Where a touch `p` (0..1) down the rail moves the strip: that point of the chapter's lap to the screen's middle, on
+ *  the lap the strip is already on (a scrub never spins it through a whole lap). */
+export function offsetForRail(p: number, unit: number, view: number, total: number, current: number): number {
+  const lap = total * unit;
+  const target = Math.max(0, Math.min(1, p)) * lap - view / 2;
+  return lap > 0 ? target + Math.round((current - target) / lap) * lap : target;
 }
 
 /** The strip's speed, px/s, eased toward `target` over `dt` s: a throw slows to rest, a rest swells into the roll. */
@@ -187,32 +192,34 @@ export function capOpacity(top: number, bottom: number, bandTop: number, bandBot
 // Each pane, its words and the rail's playhead run one linear animation a lap, phased by where they stand: the screen's
 // own clock moves them, so a busy page never stutters the strip. A finger takes the timelines by hand.
 
-/** Where pane `i` of `n` stands in its lap, 0..1, the strip moved `offset` px with panes `h` px tall. Its lap runs from
- *  (n − 1) panes below the screen's top (0) up to one pane above it (1). */
-export function lapProgress(i: number, offset: number, h: number, n: number): number {
-  return mod(((n - 1) * h - paneTop(i, offset, h, n)) / (n * h), 1);
+/** Where a pane stands in its lap, 0..1: the pane at `place`, `u` units tall, the strip (`total` units of `unit` px)
+ *  moved `offset` px. Its lap runs from the lap less its own height below the screen's top (0) up to its own height
+ *  above it (1). */
+export function lapProgress(place: number, u: number, offset: number, unit: number, total: number): number {
+  return mod(((total - u) * unit - paneTop(place, u, offset, unit, total)) / (total * unit), 1);
 }
 
-/** The strip's offset, px, from pane 0's place in its lap — the one nearest `near` (the strip's offset runs on through
- *  laps; a lap is n panes). */
-export function offsetFromLap(p0: number, h: number, n: number, near: number): number {
-  const lap = n * h;
-  const base = p0 * lap - (n - 1) * h; // (pane 0 stands at (n − 1)·h − p0·lap, and the offset is minus where it stands)
+/** The strip's offset, px, from the first pane's place in its lap (`u0` is that pane's units) — the one nearest `near`
+ *  (the strip's offset runs on through laps; a lap is `total` units). */
+export function offsetFromLap(p0: number, u0: number, unit: number, total: number, near: number): number {
+  const lap = total * unit;
+  const base = p0 * lap - (total - u0) * unit; // (it stands at (total − u0)·unit − p0·lap, and the offset is minus where it stands)
   return base + Math.round((near - base) / lap) * lap;
 }
 
-/** A pane's lap as keyframes, in its own height: from (n − 1) panes below the screen's top to one above it. */
-export const paneKeyframes = (n: number): Keyframe[] => [
-  { transform: `translate3d(0, ${(n - 1) * 100}%, 0)` },
+/** A pane's lap as keyframes, in its own height: from the lap less its own units below the screen's top to one of
+ *  itself above it. A tall pane's keyframes differ from a unit pane's only by that ratio. */
+export const paneKeyframes = (u: number, total: number): Keyframe[] => [
+  { transform: `translate3d(0, ${((total - u) / u) * 100}%, 0)` },
   { transform: 'translate3d(0, -100%, 0)' },
 ];
 
 /** A pane's words over its lap: dark until they rise clear of the foot, whole across the clear band, dark again as they
  *  near the header — capOpacity laid out on the pane's lap. `span` is where they stand in the pane, px from its top;
  *  `band` the clear band on the screen. */
-export function capKeyframes(n: number, h: number, span: readonly [number, number], band: readonly [number, number], fade = CAP_FADE): Keyframe[] {
+export function capKeyframes(u: number, unit: number, total: number, span: readonly [number, number], band: readonly [number, number], fade = CAP_FADE): Keyframe[] {
   const [a, b] = span, [top, bottom] = band;
-  const at = (y: number) => Math.max(0, Math.min(1, ((n - 1) * h - y) / (n * h))); // (the lap's point where the pane stands at y)
+  const at = (y: number) => Math.max(0, Math.min(1, ((total - u) * unit - y) / (total * unit))); // (the lap's point where the pane stands at y)
   const marks = [at(bottom - b), at(bottom - b - fade), at(top + fade - a), at(top - a)];
   for (let k = 1; k < marks.length; k++) marks[k] = Math.max(marks[k], marks[k - 1]); // (a tall name in a short band)
   return [

@@ -23,8 +23,9 @@ import { reducedMotion } from '../lib/env';
 import { softBreaks } from '../lib/escape';
 import { CHANNELS, type ChannelKey, channelProjects } from './channels';
 import {
-  capKeyframes, coast, lapProgress, loopsAllowed, offsetForRail, offsetFromLap, oneLineSize, paneInView, paneKeyframes, panePlay,
-  paneTop, railProgress, REEL_WORDS, releaseSpeed, roleLine, ROLL_SECONDS, stripOrder, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
+  capKeyframes, coast, lapProgress, lapSeconds, lapUnits, loopsAllowed, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
+  oneLineSize, paneInView, paneKeyframes, panePlay, paneTop, paneUnits, places, railProgress, railTicks, REEL_WORDS, releaseSpeed,
+  roleLine, rollPace, screenUnits, stripOrder, stripPlace, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
   type PanePlay,
 } from './reel';
 
@@ -57,6 +58,14 @@ interface Strip {
   caps: HTMLElement[];
   spans: [number, number][];
   films: number;
+  /** the film behind each pane, and which films are vertical (works/reel.ts: stripOrder, paneUnits) */
+  order: number[];
+  tall: boolean[];
+  /** as the screen stands (measure): each pane's height in units and its place, the strip's lap and the chapter's */
+  units: number[];
+  at: number[];
+  total: number;
+  chapter: number;
 }
 
 export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions): Reel {
@@ -105,7 +114,10 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     ol.dataset.ch = ch.key;
     ol.hidden = true;
     ol.setAttribute('aria-label', `${ch.index} ${ch.name}`);
-    const panes = stripOrder(films.length).map((f, i) => {
+    const tall = films.map((p) => aspectRatio(p.aspect) < 1);
+    // laid for the upright screen, the longer need of the two: a turn of the phone never rebuilds a strip
+    const order = stripOrder(tall.map((t) => paneUnits(t, false)), screenUnits(false));
+    const panes = order.map((f, i) => {
       const li = frameOf(films[f], i);
       if (i >= films.length) { // (a short chapter laid again: the repeats are for the eye only)
         li.setAttribute('aria-hidden', 'true');
@@ -116,7 +128,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     ol.append(...panes);
     root.append(ol);
     const caps = panes.map((li) => li.querySelector<HTMLElement>('.rl-cap')!);
-    strips.set(ch.key, { ol, panes, caps, spans: caps.map(() => [0, 0]), films: films.length });
+    strips.set(ch.key, { ol, panes, caps, spans: caps.map(() => [0, 0]), films: films.length, order, tall, units: [], at: [], total: 0, chapter: 0 });
   }
 
   /* --------------------------------------------------------------- the foot -- */
@@ -188,11 +200,28 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
 
   let active: ChannelKey = o.active;
   let strip = strips.get(active)!;
-  let offset = 0, v = 0, h = 1, raf = 0, last = 0;
+  // two heights (works/reel.ts): the screen's, and a unit's — the height of a pane of one unit
+  let offset = 0, v = 0, view = 1, unit = 1, side = false, raf = 0, last = 0;
   let parked = false, pinned = false, touching = false, pointer: number | null = null, startY = 0, startOffset = 0, moved = false, dragged = false;
   const moves: [number, number][] = [];
-  const rollSpeed = () => (reducedMotion() ? 0 : h / ROLL_SECONDS); // (CALM: it never rolls by itself)
-  const measure = () => { h = strip.ol.clientHeight || window.innerHeight; };
+  const rollSpeed = () => (reducedMotion() ? 0 : rollPace(view)); // (CALM: it never rolls by itself)
+  /** the two heights, and every pane's units and place as the screen stands */
+  const measure = () => {
+    view = strip.ol.clientHeight || window.innerHeight; // (no height yet under the LIST: the window's)
+    side = true; // (every pane the screen, as the styles still have it)
+    unit = view / screenUnits(side);
+    strip.units = strip.order.map((f) => paneUnits(strip.tall[f], side));
+    strip.at = places(strip.units);
+    strip.total = lapUnits(strip.units);
+    strip.chapter = lapUnits(strip.units.slice(0, strip.films));
+  };
+  /** the heights measured anew, the strip keeping its place: the same film under the screen's middle */
+  const remeasure = () => {
+    const [pane, part] = stripPlace(offset, unit, view, strip.units);
+    measureTop();
+    measure();
+    offset = offsetForPlace(pane, part, unit, view, strip.units);
+  };
 
   /* ---------------------------------------------- the roll, on the compositor -- */
 
@@ -202,39 +231,39 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   let lanes: { pane: Animation; cap: Animation }[] = [];
   let head: Animation | null = null;
   let rolling = false;
-  const lapMs = () => strip.panes.length * ROLL_SECONDS * 1000;
-  const headMs = () => strip.films * ROLL_SECONDS * 1000;
+  // a lap's time is its length at the roll's pace: the strip's, and the chapter's for the rail's playhead
+  const lapMs = () => lapSeconds(strip.total, unit, view) * 1000;
+  const headMs = () => lapSeconds(strip.chapter, unit, view) * 1000;
   const timelines = (): Animation[] => [...lanes.flatMap((l) => [l.pane, l.cap]), ...(head ? [head] : [])];
   /** every timeline set from the strip's offset */
   const setTimes = () => {
-    const n = strip.panes.length, lap = lapMs();
+    const lap = lapMs();
     lanes.forEach((l, i) => {
-      const t = lapProgress(i, offset, h, n) * lap;
+      const t = lapProgress(strip.at[i], strip.units[i], offset, unit, strip.total) * lap;
       l.pane.currentTime = t;
       l.cap.currentTime = t;
     });
-    if (head) head.currentTime = railProgress(offset, h, strip.films) * headMs();
+    if (head) head.currentTime = railProgress(offset, unit, view, strip.chapter) * headMs();
   };
   /** the strip's offset now: its own by hand; read from the clock while it rolls */
   const offsetNow = (): number => {
     if (rolling && lanes.length) {
       const lap = lapMs(), t = Number(lanes[0].pane.currentTime ?? 0);
-      offset = offsetFromLap((((t % lap) + lap) % lap) / lap, h, strip.panes.length, offset);
+      offset = offsetFromLap((((t % lap) + lap) % lap) / lap, strip.units[0], unit, strip.total, offset);
     }
     return offset;
   };
   /** the words' fades laid on their panes' laps (the band, the names or the screen's height changed) */
   const capFrames = () => {
-    const n = strip.panes.length;
-    lanes.forEach((l, i) => (l.cap.effect as KeyframeEffect).setKeyframes(capKeyframes(n, h, strip.spans[i], [bandTop, bandBottom])));
+    lanes.forEach((l, i) => (l.cap.effect as KeyframeEffect).setKeyframes(capKeyframes(strip.units[i], unit, strip.total, strip.spans[i], [bandTop, bandBottom])));
   };
   /** the animations anew for the strip shown, paused where it stands */
   const build = () => {
     for (const a of timelines()) a.cancel();
-    const n = strip.panes.length, lane = { duration: lapMs(), iterations: Infinity, easing: 'linear' };
+    const lane = { duration: lapMs(), iterations: Infinity, easing: 'linear' };
     lanes = strip.panes.map((li, i) => ({
-      pane: li.animate(paneKeyframes(n), lane),
-      cap: strip.caps[i].animate(capKeyframes(n, h, strip.spans[i], [bandTop, bandBottom]), lane),
+      pane: li.animate(paneKeyframes(strip.units[i], strip.total), lane),
+      cap: strip.caps[i].animate(capKeyframes(strip.units[i], unit, strip.total, strip.spans[i], [bandTop, bandBottom]), lane),
     }));
     const ph = rail.querySelector<HTMLElement>('.rl-play');
     head = ph ? ph.animate([{ transform: 'translate3d(0, 0%, 0)' }, { transform: 'translate3d(0, 100%, 0)' }], { duration: headMs(), iterations: Infinity, easing: 'linear' }) : null;
@@ -322,9 +351,9 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   };
   /** every pane's loop as the strip stands: on the screen or next in, playing; near, resting; far, let go */
   const plan = () => {
-    const n = strip.panes.length, at = offsetNow(), dir = rolling || v >= -1 ? 1 : -1, still = parked || document.hidden;
+    const at = offsetNow(), dir = rolling || v >= -1 ? 1 : -1, still = parked || document.hidden;
     const want: PanePlay[] = strip.panes.map((_, i) => {
-      const p = panePlay(paneTop(i, at, h, n), h, h, dir);
+      const p = panePlay(paneTop(strip.at[i], strip.units[i], at, unit, strip.total), strip.units[i] * unit, view, dir);
       return still && p === 'play' ? 'rest' : p;
     });
     const key = want.join(',');
@@ -349,7 +378,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     const at = offsetNow();
     strip.panes.forEach((li, i) => {
       const l = loops.get(li);
-      if (l instanceof HTMLVideoElement && l.paused && panePlay(paneTop(i, at, h, strip.panes.length), h, h, 1) === 'play') tryPlay(l);
+      if (l instanceof HTMLVideoElement && l.paused && panePlay(paneTop(strip.at[i], strip.units[i], at, unit, strip.total), strip.units[i] * unit, view, 1) === 'play') tryPlay(l);
     });
   };
   window.addEventListener('pointerdown', kick, { passive: true });
@@ -426,7 +455,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     e.preventDefault();
     e.stopPropagation();
   }, true);
-  // a keyboard's focus brings its pane square into the screen and holds the strip there until it leaves
+  // a keyboard's focus brings its pane to the middle of the screen and holds the strip there until it leaves
   root.addEventListener('focusin', (e) => {
     const li = (e.target as Element).closest<HTMLLIElement>('.rl-frame');
     const i = li ? strip.panes.indexOf(li) : -1;
@@ -434,8 +463,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     hold();
     sleep();
     pinned = true;
-    const lap = strip.panes.length * h;
-    offset = i * h + Math.round((offset - i * h) / lap) * lap;
+    offset = offsetForPane(strip.at[i], strip.units[i], unit, view, strip.total, offset);
     v = 0;
     setTimes();
     plan();
@@ -448,12 +476,13 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
 
   /* ------------------------------------------------------------- the rail -- */
 
+  // (after measure: a film's tick stands at its middle along the lap, and a tall pane's stretch is twice as long)
   const paintRail = () => {
     rail.replaceChildren();
-    const films = channelProjects(projects, active);
+    const films = channelProjects(projects, active), ticks = railTicks(strip.units.slice(0, strip.films));
     films.forEach((p, i) => {
       const t = el('i', 'rl-tick');
-      t.style.top = `${((i + 0.5) / films.length) * 100}%`;
+      t.style.top = `${ticks[i] * 100}%`;
       t.style.setProperty('--acc', p.accent);
       rail.append(t);
     });
@@ -462,7 +491,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   let scrubbing = false;
   const scrubTo = (clientY: number) => {
     const r = rail.getBoundingClientRect();
-    offset = offsetForRail((clientY - r.top) / Math.max(1, r.height), h, strip.films, offset);
+    offset = offsetForRail((clientY - r.top) / Math.max(1, r.height), unit, view, strip.chapter, offset);
     v = 0;
     setTimes();
     plan();
@@ -498,9 +527,9 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     strip = strips.get(key)!;
     for (const [k, s] of strips) s.ol.hidden = k !== key;
     paintFoot();
-    paintRail();
     measureTop();
     measure();
+    paintRail();
     fit(strip);
     offset = 0;
     v = 0;
@@ -512,11 +541,10 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   window.addEventListener('resize', () => {
     clearTimeout(resizeT);
     resizeT = window.setTimeout(() => {
-      const was = h, wasRolling = rolling;
+      const wasRolling = rolling;
       hold();
-      measureTop();
-      measure();
-      offset = (offset / Math.max(1, was)) * h; // (the same film stays in view through a turn of the phone)
+      remeasure(); // (the same film stays in view through a turn of the phone)
+      paintRail();
       fit(strip);
       build();
       replan();
@@ -540,7 +568,8 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     offset: () => offsetNow(),
     speed: () => (rolling ? rollSpeed() : v),
     rolling: () => rolling,
-    inView: () => strip.panes[paneInView(offsetNow(), h, strip.panes.length)]?.dataset.slug,
+    inView: () => strip.panes[paneInView(offsetNow(), unit, view, strip.units)]?.dataset.slug,
+    sizes: () => ({ view, unit, side, units: [...strip.units] }),
     chapter: () => active,
     playing: () => [...loops].filter(([, l]) => (l instanceof HTMLVideoElement ? !l.paused : l.classList.contains('is-live'))).map(([li]) => li.dataset.slug),
     loops: () => loops.size,
@@ -564,8 +593,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     park(p) {
       parked = p;
       if (p) { hold(); sleep(); replan(); return; }
-      measureTop();
-      measure();
+      remeasure();
       fit(strip);
       capFrames();
       setTimes();

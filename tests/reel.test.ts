@@ -90,54 +90,104 @@ describe("a pane's words: the film's name and its roles, nothing else", () => {
 // (owner, 2026-10-20: "The moment we enter the work section, we can see the already continously scrolling down to the
 // next film in a continuous strips. And we can slide our finger up and down to scroll through the strip")
 describe('the rolling strip', () => {
-  const H = 844;
+  const VIEW = 844, UNIT = VIEW / 2; // (an upright 390 × 844 phone: two panes on the screen)
+  const ones = (n: number): number[] => Array.from({ length: n }, () => 1);
+  // chapters of 1, 2, 5 with a tall pane, and 12 (the two real ones are the last two); then a tall pane alone, and with one more
+  const CHAPTERS: boolean[][] = [[false], [false, false], [false, false, false, false, true], ones(12).map(() => false), [true], [true, false]];
+  /** a chapter's strip as the view lays it: built once for the upright screen, measured as the screen stands */
+  const lay = (tall: boolean[], side: boolean) => {
+    const order = stripOrder(tall.map((t) => paneUnits(t, false)), screenUnits(false));
+    const units = order.map((f) => paneUnits(tall[f], side)), view = side ? 390 : VIEW;
+    return { units, at: places(units), total: lapUnits(units), unit: view / screenUnits(side), view };
+  };
 
-  it('is endless: every pane stands once in a lap, from one pane above the screen to the lap\'s end', () => {
-    for (const n of [3, 5, 12]) for (const offset of [0, 1, 420, H, 5 * H + 17, -3 * H - 5, 1e6]) {
-      const tops = Array.from({ length: n }, (_, i) => paneTop(i, offset, H, n));
-      for (const t of tops) { expect(t).toBeGreaterThanOrEqual(-H); expect(t).toBeLessThan((n - 1) * H + 1e-6); }
-      const sorted = [...tops].sort((a, b) => a - b);
-      for (let k = 1; k < n; k++) expect(sorted[k] - sorted[k - 1]).toBeCloseTo(H, 6); // (no gap, no overlap)
-      expect(tops.some((t) => t <= 0 && t + H > 0)).toBe(true); // (the screen's top is always covered)
+  it('is endless: every pane stands once in a lap, and the screen is always covered, upright and on its side', () => {
+    for (const tall of CHAPTERS) for (const side of [false, true]) {
+      const { units, at, total, unit, view } = lay(tall, side);
+      expect(units.length).toBeGreaterThanOrEqual(3);
+      expect(total).toBeGreaterThanOrEqual(screenUnits(side) + Math.max(...units)); // (the screen and the tallest pane)
+      for (const offset of [0, 1, 211, unit, view, 5 * unit + 17, -3 * unit - 5, 1e6]) {
+        const spans = units.map((u, i) => { const top = paneTop(at[i], u, offset, unit, total); return [top, top + u * unit]; });
+        spans.forEach(([top], i) => { // (from its own height above the screen's top to the lap's end)
+          expect(top).toBeGreaterThanOrEqual(-units[i] * unit - 1e-6);
+          expect(top).toBeLessThan((total - units[i]) * unit + 1e-6);
+        });
+        // down the screen each pane starts where the last one ended: no gap, no overlap
+        const on = spans.filter(([top, bottom]) => bottom > 1e-6 && top < view - 1e-6).sort((a, b) => a[0] - b[0]);
+        expect(on[0][0]).toBeLessThanOrEqual(1e-6);
+        for (let k = 1; k < on.length; k++) expect(on[k][0]).toBeCloseTo(on[k - 1][1], 6);
+        expect(on[on.length - 1][1]).toBeGreaterThanOrEqual(view - 1e-6);
+      }
     }
   });
 
-  it('rolls the next film in from below: one pane on, the strip has moved one pane', () => {
-    expect(paneTop(0, 0, H, 12)).toBe(0);
-    expect(paneTop(1, 0, H, 12)).toBe(H);
-    expect(paneTop(1, H, H, 12)).toBe(0);
-    expect(paneTop(0, H, H, 12)).toBe(-H);
-    expect(paneTop(0, 12 * H, H, 12)).toBe(0); // (a whole lap: the first film again)
-    expect(paneTop(11, -H, H, 12)).toBe(0); // (dragged back from the first film: the last one)
+  it('rolls the next film in from below: one unit on, the strip has moved one pane', () => {
+    expect(paneTop(0, 1, 0, UNIT, 12)).toBe(0);
+    expect(paneTop(1, 1, 0, UNIT, 12)).toBe(UNIT); // (two panes fill the screen at rest)
+    expect(paneTop(2, 1, 0, UNIT, 12)).toBe(VIEW); // (the third waits just under it)
+    expect(paneTop(1, 1, UNIT, UNIT, 12)).toBe(0);
+    expect(paneTop(0, 1, UNIT, UNIT, 12)).toBe(-UNIT);
+    expect(paneTop(0, 1, 12 * UNIT, UNIT, 12)).toBe(0); // (a whole lap: the first film again)
+    expect(paneTop(11, 1, -UNIT, UNIT, 12)).toBe(0); // (dragged back from the first film: the last one)
+    // a tall pane (CH·02's last: place 4, 2 units, a lap of 6) is the whole screen
+    expect(paneTop(4, 2, 4 * UNIT, UNIT, 6)).toBe(0); // (square in the screen)
+    expect(paneTop(4, 2, 6 * UNIT - 1, UNIT, 6)).toBe(1 - VIEW); // (a pixel of it left at the top …)
+    expect(paneTop(4, 2, 6 * UNIT + 1, UNIT, 6)).toBe(4 * UNIT - 1); // (… then it waits two screens down: never a jump in sight)
+    // on its side a pane is the screen, as before
+    expect(paneTop(1, 1, 390, 390, 12)).toBe(0);
+    expect(paneTop(0, 1, 390, 390, 12)).toBe(-390);
   });
 
-  it('knows the film in view, and the rail\'s playhead sits on its tick when it stands square', () => {
-    expect(paneInView(0, H, 12)).toBe(0);
-    expect(paneInView(H * 0.4, H, 12)).toBe(0);
-    expect(paneInView(H * 0.6, H, 12)).toBe(1);
-    expect(paneInView(-H, H, 12)).toBe(11);
-    for (const i of [0, 4, 11]) expect(railProgress(i * H, H, 12)).toBeCloseTo((i + 0.5) / 12, 9);
-    expect(railProgress(12 * H, H, 12)).toBeCloseTo(0.5 / 12, 9);
+  it("knows the film in view, the pane under the screen's middle; the rail's playhead marks that point of the lap", () => {
+    const twelve = ones(12), ch2 = [1, 1, 1, 1, 2];
+    expect(paneInView(-UNIT / 2, UNIT, VIEW, twelve)).toBe(0); // (the first pane's middle on the screen's)
+    expect(paneInView(0, UNIT, VIEW, twelve)).toBe(1); // (at rest the middle is the second pane's top)
+    expect(paneInView(UNIT * 0.9, UNIT, VIEW, twelve)).toBe(1);
+    expect(paneInView(UNIT, UNIT, VIEW, twelve)).toBe(2);
+    expect(paneInView(-UNIT - 1, UNIT, VIEW, twelve)).toBe(11);
+    expect(paneInView(3 * UNIT, UNIT, VIEW, ch2)).toBe(4); // (the tall pane, from its top …)
+    expect(paneInView(5 * UNIT - 1, UNIT, VIEW, ch2)).toBe(4); // (… to its foot)
+    expect(paneInView(0, UNIT, VIEW, [])).toBe(0);
+    // the playhead sits on a film's tick when that film's middle is on the screen's
+    const ticks = railTicks(ch2);
+    ch2.forEach((u, i) => expect(railProgress(offsetForPane(places(ch2)[i], u, UNIT, VIEW, 6, 0), UNIT, VIEW, 6)).toBeCloseTo(ticks[i], 9));
+    expect(railProgress(0, UNIT, VIEW, 12)).toBeCloseTo(1 / 12, 9); // (at rest: between the first two films' ticks)
+    expect(railProgress(12 * UNIT, UNIT, VIEW, 12)).toBeCloseTo(1 / 12, 9);
+    for (const i of [0, 4, 11]) expect(railProgress(i * 390, 390, 390, 12)).toBeCloseTo((i + 0.5) / 12, 9); // (on its side, as before: on its tick when it stands square)
+    expect(railProgress(0, 0, VIEW, 12)).toBe(0);
   });
 
-  it('a touch on the rail moves the strip there, on the lap it is already on', () => {
+  it("a touch on the rail brings that point of the lap to the screen's middle, on the lap the strip is already on", () => {
+    const twelve = ones(12), ticks = railTicks(twelve);
     for (const i of [0, 3, 5, 11]) {
-      const at = offsetForRail((i + 0.5) / 12, H, 12, 0);
-      expect(paneInView(at, H, 12)).toBe(i);
-      expect(Math.abs(at)).toBeLessThanOrEqual(6 * H); // (the short way round: the last film is one pane back)
+      const at = offsetForRail(ticks[i], UNIT, VIEW, 12, 0);
+      expect(paneInView(at, UNIT, VIEW, twelve)).toBe(i);
+      expect(railProgress(at, UNIT, VIEW, 12)).toBeCloseTo(ticks[i], 9);
+      expect(Math.abs(at)).toBeLessThanOrEqual(6 * UNIT); // (the short way round)
     }
-    expect(offsetForRail(11.5 / 12, H, 12, 0)).toBeCloseTo(-H, 6);
-    const far = 40 * 12 * H; // (forty laps on)
-    expect(Math.abs(offsetForRail(0.5, H, 12, far) - far)).toBeLessThanOrEqual(6 * H);
-    expect(offsetForRail(-1, H, 12, 0)).toBeCloseTo(-H / 2, 6); // (held to the rail's ends)
+    // the vertical film's tick stands its pane square in the screen
+    expect(paneTop(4, 2, offsetForRail(railTicks([1, 1, 1, 1, 2])[4], UNIT, VIEW, 6, 0), UNIT, 6)).toBeCloseTo(0, 6);
+    const far = 40 * 12 * UNIT; // (forty laps on)
+    expect(Math.abs(offsetForRail(0.5, UNIT, VIEW, 12, far) - far)).toBeLessThanOrEqual(6 * UNIT);
+    expect(offsetForRail(-1, UNIT, VIEW, 12, 0)).toBeCloseTo(-VIEW / 2, 6); // (held to the rail's ends)
+    expect(offsetForRail(11.5 / 12, 390, 390, 12, 0)).toBeCloseTo(-390, 6); // (on its side, as before: the last film is one pane back)
   });
 
-  it('a short chapter is laid again, so the strip never shows a gap', () => {
-    expect(stripOrder(12)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
-    expect(stripOrder(5)).toEqual([0, 1, 2, 3, 4]);
-    expect(stripOrder(2)).toEqual([0, 1, 0, 1]);
-    expect(stripOrder(1)).toEqual([0, 0, 0]);
-    expect(stripOrder(0)).toEqual([]);
+  it('a short chapter is laid again until it holds the screen and its tallest pane, and never fewer than three panes', () => {
+    expect(stripOrder(ones(12), 2)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(stripOrder([1, 1, 1, 1, 2], 2)).toEqual([0, 1, 2, 3, 4]); // (CH·02: 6 units, laid once)
+    expect(stripOrder([1, 1], 2)).toEqual([0, 1, 0, 1]);
+    expect(stripOrder([1], 2)).toEqual([0, 0, 0]); // (upright: three units for unit panes)
+    expect(stripOrder([2, 1], 2)).toEqual([0, 1, 0, 1]); // (… four with a vertical film: 3 units are too few)
+    expect(stripOrder([1, 1, 2], 2)).toEqual([0, 1, 2]);
+    expect(stripOrder([2], 2)).toEqual([0, 0, 0]); // (4 units would do: never fewer than three panes)
+    expect(stripOrder([1, 1], 1)).toEqual([0, 1, 0, 1]); // (on its side, as before)
+    expect(stripOrder([1], 1)).toEqual([0, 0, 0]);
+    expect(stripOrder([], 2)).toEqual([]);
+    for (const tall of CHAPTERS) { // (a strip laid for the upright screen is long enough on its side: a turn never rebuilds it)
+      const side = stripOrder(tall.map((t) => paneUnits(t, true)), screenUnits(true));
+      expect(stripOrder(tall.map((t) => paneUnits(t, false)), screenUnits(false)).length).toBeGreaterThanOrEqual(side.length);
+    }
   });
 
   // (owner, 2026-10-20: "I want the auto scrolling to happen instantly, but slower and smoother")
@@ -148,8 +198,8 @@ describe('the rolling strip', () => {
     for (let t = 0; t < 3; t += 1 / 60) v = coast(v, 0, 1 / 60);
     expect(Math.abs(v)).toBeLessThan(5); // (a hard throw is at rest within three seconds)
     let r = 0;
-    for (let t = 0; t < 2; t += 1 / 60) r = coast(r, H / ROLL_SECONDS, 1 / 60);
-    expect(r).toBeGreaterThan(0.98 * (H / ROLL_SECONDS)); // (and the roll is back to pace within two)
+    for (let t = 0; t < 2; t += 1 / 60) r = coast(r, rollPace(VIEW), 1 / 60);
+    expect(r).toBeGreaterThan(0.98 * rollPace(VIEW)); // (and the roll is back to pace within two)
     expect(coast(500, 120, 0)).toBe(500);
   });
 
@@ -161,43 +211,60 @@ describe('the rolling strip', () => {
     expect(releaseSpeed([[0, 900], [10, 0]], 10)).toBe(MAX_THROW);
   });
 
-  it('on the compositor: each pane\'s lap is the same place as the strip\'s arithmetic, and the clock\'s time gives the offset back', () => {
-    for (const n of [3, 5, 12]) for (const off of [0, 300, H, 7.5 * H, -2.25 * H]) for (let i = 0; i < n; i++) {
-      const p = lapProgress(i, off, H, n);
-      expect(p).toBeGreaterThanOrEqual(0);
-      expect(p).toBeLessThan(1);
-      // the keyframes run from (n - 1) panes down to one pane up, linearly: the pane stands where paneTop says
-      const y = (n - 1) * H - p * n * H;
-      const d = (((y - paneTop(i, off, H, n)) % (n * H)) + n * H) % (n * H);
-      expect(Math.min(d, n * H - d)).toBeCloseTo(0, 6); // (the same place, a whole lap apart at most)
+  it("on the compositor: each pane's lap is the same place as the strip's arithmetic, and the clock's time gives the offset back", () => {
+    for (const tall of CHAPTERS) for (const side of [false, true]) {
+      const { units, at, total, unit } = lay(tall, side), lap = total * unit;
+      for (const off of [0, 300, unit, 7.5 * unit, -2.25 * unit]) {
+        units.forEach((u, i) => {
+          const p = lapProgress(at[i], u, off, unit, total);
+          expect(p).toBeGreaterThanOrEqual(0);
+          expect(p).toBeLessThan(1);
+          // the keyframes run from the lap less the pane's own height down to its own height up, linearly
+          const y = (total - u) * unit - p * lap;
+          const d = (((y - paneTop(at[i], u, off, unit, total)) % lap) + lap) % lap;
+          expect(Math.min(d, lap - d)).toBeCloseTo(0, 6); // (the same place, a whole lap apart at most)
+        });
+        expect(offsetFromLap(lapProgress(0, units[0], off, unit, total), units[0], unit, total, off)).toBeCloseTo(off, 6); // (the offset read back off the clock)
+      }
     }
-    expect(paneKeyframes(12)).toEqual([{ transform: 'translate3d(0, 1100%, 0)' }, { transform: 'translate3d(0, -100%, 0)' }]);
-    for (const off of [0, 420, 5 * H + 3, 40 * 12 * H + 100]) {
-      expect(offsetFromLap(lapProgress(0, off, H, 12), H, 12, off)).toBeCloseTo(off, 6); // (the offset read back off the clock)
-    }
-    expect(offsetFromLap(lapProgress(0, 3 * H, H, 12), H, 12, 0)).toBeCloseTo(3 * H, 6);
+    expect(paneKeyframes(1, 12)).toEqual([{ transform: 'translate3d(0, 1100%, 0)' }, { transform: 'translate3d(0, -100%, 0)' }]);
+    expect(paneKeyframes(1, 6)).toEqual([{ transform: 'translate3d(0, 500%, 0)' }, { transform: 'translate3d(0, -100%, 0)' }]);
+    // a tall pane's keyframes differ only by the ratio: in its own height, (6 − 2) / 2 of itself down
+    expect(paneKeyframes(2, 6)).toEqual([{ transform: 'translate3d(0, 200%, 0)' }, { transform: 'translate3d(0, -100%, 0)' }]);
+    expect(offsetFromLap(lapProgress(0, 1, 3 * UNIT, UNIT, 12), 1, UNIT, 12, 0)).toBeCloseTo(3 * UNIT, 6);
+    const far = 40 * 6 * UNIT + 100; // (a tall first pane, forty laps on)
+    expect(offsetFromLap(lapProgress(0, 2, far, UNIT, 6), 2, UNIT, 6, far - 100)).toBeCloseTo(far, 6);
   });
 
-  it('the words\' fade, laid on the lap as keyframes, matches the fade the strip computes by hand', () => {
-    const n = 12, span: [number, number] = [640, 756], band: [number, number] = [124, 782];
-    const kf = capKeyframes(n, H, span, band);
-    const offsets = kf.map((k) => k.offset as number);
-    for (let k = 1; k < offsets.length; k++) expect(offsets[k]).toBeGreaterThanOrEqual(offsets[k - 1]);
-    const at = (p: number) => { // (the keyframes' opacity at lap point p, linearly between them)
-      for (let k = 1; k < kf.length; k++) {
-        const [a, b] = [kf[k - 1], kf[k]];
-        if (p <= (b.offset as number)) {
-          const w = (b.offset as number) - (a.offset as number);
-          return w <= 0 ? (b.opacity as number) : (a.opacity as number) + ((b.opacity as number) - (a.opacity as number)) * ((p - (a.offset as number)) / w);
+  it("the words' fade, laid on the lap as keyframes, matches the fade the strip computes by hand: a half pane's, and a tall pane's", () => {
+    const band: [number, number] = [124, 782]; // (under the header; above a 62 px foot on an 844 screen)
+    const cases: [u: number, total: number, span: [number, number]][] = [
+      [1, 12, [218, 334]], // a half pane: its words end 88 px above its own foot
+      [1, 12, [191, 334]], // the tallest name of chapter one (143 px)
+      [2, 6, [640, 756]], // the tall pane: where a whole-screen pane's words stood before
+    ];
+    for (const [u, total, span] of cases) {
+      const kf = capKeyframes(u, UNIT, total, span, band);
+      const offsets = kf.map((k) => k.offset as number);
+      for (let k = 1; k < offsets.length; k++) expect(offsets[k]).toBeGreaterThanOrEqual(offsets[k - 1]);
+      const at = (p: number) => { // (the keyframes' opacity at lap point p, linearly between them)
+        for (let k = 1; k < kf.length; k++) {
+          const [a, b] = [kf[k - 1], kf[k]];
+          if (p <= (b.offset as number)) {
+            const w = (b.offset as number) - (a.offset as number);
+            return w <= 0 ? (b.opacity as number) : (a.opacity as number) + ((b.opacity as number) - (a.opacity as number)) * ((p - (a.offset as number)) / w);
+          }
         }
+        return kf[kf.length - 1].opacity as number;
+      };
+      for (let off = -VIEW; off <= 2 * VIEW; off += 37) {
+        const top = paneTop(0, u, off, UNIT, total), p = lapProgress(0, u, off, UNIT, total);
+        expect(at(p), `${u} of ${total}, offset ${off}`).toBeCloseTo(capOpacity(top + span[0], top + span[1], ...band), 2);
       }
-      return kf[kf.length - 1].opacity as number;
-    };
-    for (let off = -H; off <= 2 * H; off += 37) {
-      const top = paneTop(0, off, H, n), p = lapProgress(0, off, H, n);
-      expect(at(p), `offset ${off}`).toBeCloseTo(capOpacity(top + span[0], top + span[1], ...band), 2);
     }
-    expect(capOpacity(H * 0 + span[0], H * 0 + span[1], ...band)).toBe(1); // (square in the screen, its words stand whole)
+    // at rest both panes' names stand whole: the upper pane's, and the lower one's clear of the foot
+    expect(capOpacity(218, 334, ...band)).toBe(1);
+    expect(capOpacity(UNIT + 218, UNIT + 334, ...band)).toBe(1);
   });
 
   it("a pane's words fade as they pass under the header or the foot, and stand whole between", () => {
@@ -213,16 +280,16 @@ describe('the rolling strip', () => {
   });
 
   it('plays every pane on the screen and the next to come in; rests the near; lets the far go', () => {
-    expect(panePlay(0, H, H, 1)).toBe('play');
-    expect(panePlay(-H / 2, H, H, 1)).toBe('play'); // (half out at the top)
-    expect(panePlay(H / 2, H, H, 1)).toBe('play'); // (half in from below)
-    expect(panePlay(H, H, H, 1)).toBe('play'); // (the next to come in, rolling on)
-    expect(panePlay(H, H, H, -1)).toBe('rest'); // (… but not while the strip goes back)
-    expect(panePlay(-H, H, H, -1)).toBe('play'); // (going back, the one above comes in)
-    expect(panePlay(-H, H, H, 1)).toBe('rest');
-    expect(panePlay(2 * H, H, H, 1)).toBe('rest');
-    expect(panePlay(3 * H, H, H, 1)).toBe('free');
-    expect(panePlay(-3 * H, H, H, 1)).toBe('free');
+    expect(panePlay(0, VIEW, VIEW, 1)).toBe('play');
+    expect(panePlay(-VIEW / 2, VIEW, VIEW, 1)).toBe('play'); // (half out at the top)
+    expect(panePlay(VIEW / 2, VIEW, VIEW, 1)).toBe('play'); // (half in from below)
+    expect(panePlay(VIEW, VIEW, VIEW, 1)).toBe('play'); // (the next to come in, rolling on)
+    expect(panePlay(VIEW, VIEW, VIEW, -1)).toBe('rest'); // (… but not while the strip goes back)
+    expect(panePlay(-VIEW, VIEW, VIEW, -1)).toBe('play'); // (going back, the one above comes in)
+    expect(panePlay(-VIEW, VIEW, VIEW, 1)).toBe('rest');
+    expect(panePlay(2 * VIEW, VIEW, VIEW, 1)).toBe('rest');
+    expect(panePlay(3 * VIEW, VIEW, VIEW, 1)).toBe('free');
+    expect(panePlay(-3 * VIEW, VIEW, VIEW, 1)).toBe('free');
   });
 });
 
