@@ -31,16 +31,16 @@
         "sha256": "7154a50e7f04430743959b903a7092f728b8aff2e54111a15491d4bc53683b70"
       }
     },
-    "far-east": {
+    "mistchild": {
       "x": 4,
       "y": 4,
       "w": 626,
       "h": 262,
-      "fps": 25,
+      "fps": 24,
       "loop": {
         "file": "preview.mp4",
-        "bytes": 1972034,
-        "sha256": "eccaee423f6cda27d9e73fb4749ee7f1345a28ec937f49e0e7a079f4c15962ca"
+        "bytes": 1770194,
+        "sha256": "2befedb44e65c636bb24eec9ab1a033aac2505e9556720b72dea9be024b5909f"
       }
     },
     "an-hoi": {
@@ -139,16 +139,16 @@
         "sha256": "c1b05071adeb54aaa6539c3203f6ece43ca93ffdae0b0584fe56573c2ad05bcb"
       }
     },
-    "mistchild": {
+    "far-east": {
       "x": 1272,
       "y": 274,
       "w": 626,
       "h": 262,
-      "fps": 24,
+      "fps": 25,
       "loop": {
         "file": "preview.mp4",
-        "bytes": 1770194,
-        "sha256": "2befedb44e65c636bb24eec9ab1a033aac2505e9556720b72dea9be024b5909f"
+        "bytes": 1972034,
+        "sha256": "eccaee423f6cda27d9e73fb4749ee7f1345a28ec937f49e0e7a079f4c15962ca"
       }
     },
     "the-lovers": {
