@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { barView, captionCommand, handshake, HANDSHAKE_MS, knownTrack, levelLabel, phaseOf, seekTo, timeText, volumeCommands, volumeKey } from '../src/project/player-bar';
+import { barView, captionCommand, fullWords, handshake, HANDSHAKE_MS, knownTrack, levelLabel, phaseOf, seekTo, timeText, volumeCommands, volumeKey } from '../src/project/player-bar';
 import { GREETING_MS, GREETINGS, mergeInfo, NO_INFO, ytInfo } from '../src/project/parts';
 import { embedSrc } from '../src/lib/embeds';
 
@@ -226,6 +226,23 @@ describe('the CC switch, as commands', () => {
     const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
     expect(knownTrack(broken, 'x', 'fr')).toBe('fr');
     expect(knownTrack(broken, 'x', null)).toBeNull();
+  });
+});
+
+// The owner, 2026-11-25: "Player: FULL SCREEN should be FULLSCREEN". One word, in what the button shows and what it
+// says to a screen reader; the markup and the bar's repaint take their words from one place.
+describe('the fullscreen button, in one word', () => {
+  it('reads FULLSCREEN out of fullscreen, EXIT in it, and its labels say the same word', () => {
+    expect(fullWords(false)).toEqual({ aria: 'Fullscreen', icon: 'full', word: 'FULLSCREEN' });
+    expect(fullWords(true)).toEqual({ aria: 'Exit fullscreen', icon: 'exit', word: 'EXIT' });
+  });
+  it('no "full screen" in two words is left in the bar', () => {
+    const bar = readFileSync('src/project/player-bar.ts', 'utf8');
+    // (in a string or the markup: the owner's own words are quoted in a comment)
+    expect(bar).not.toMatch(/['`>][^'`<\n]*full screen[^'`<\n]*['`<]/i);
+    expect(bar).not.toMatch(/aria-label="[^"]*full screen/i);
+    expect(bar).toContain('fullWords(false)');
+    expect(bar).toContain('fullWords(on)');
   });
 });
 

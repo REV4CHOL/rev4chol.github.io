@@ -163,6 +163,12 @@ export function knownTrack(store: Store | null, id: string, offered: string | nu
   return typeof all[id] === 'string' ? all[id] : null;
 }
 
+/** The fullscreen button's words (owner, 2026-11-25: "Player: FULL SCREEN should be FULLSCREEN"): one word, in what it
+ *  shows and what it says; in fullscreen it reads EXIT. The markup and the repaint both take them from here. */
+export function fullWords(on: boolean): { aria: string; icon: string; word: string } {
+  return on ? { aria: 'Exit fullscreen', icon: 'exit', word: 'EXIT' } : { aria: 'Fullscreen', icon: 'full', word: 'FULLSCREEN' };
+}
+
 /** The seek track's keys: the arrows step SEEK_STEP s, Home and End go to the ends; null for any other key. */
 export const SEEK_STEP = 5;
 export function seekTo(key: string, time: number, duration: number): number | null {
@@ -289,6 +295,7 @@ export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { pl
   bar.className = 'p-bar';
   bar.setAttribute('role', 'group');
   bar.setAttribute('aria-label', `${frame.title}: player controls`);
+  const fullOff = fullWords(false);
   bar.innerHTML =
     `<button type="button" class="p-bar-btn p-bar-play" aria-label="Play">${svg('play')}<span class="p-bar-word">PLAY</span></button>` +
     `<span class="p-bar-time" hidden><span class="p-bar-el">0:00</span><span class="p-bar-sep"> / </span><span class="p-bar-tot">0:00</span></span>` +
@@ -297,7 +304,7 @@ export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { pl
     `<button type="button" class="p-bar-btn p-bar-cc" aria-label="Turn captions on" aria-pressed="false" hidden>${svg('ccoff')}<span class="p-bar-word">CC OFF</span></button>` +
     `<button type="button" class="p-bar-btn p-bar-sound" aria-label="Mute" aria-pressed="true">${svg('on')}<span class="p-bar-word">SOUND ON</span></button>` +
     `<div class="p-bar-vol" role="slider" tabindex="0" aria-label="Volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" aria-valuetext="100%"><span class="p-bar-vrail"><span class="p-bar-vfill"></span><span class="p-bar-vknob"></span></span></div>` +
-    `<button type="button" class="p-bar-btn p-bar-full" aria-label="Full screen">${svg('full')}<span class="p-bar-word">FULL SCREEN</span></button>`;
+    `<button type="button" class="p-bar-btn p-bar-full" aria-label="${fullOff.aria}">${svg(fullOff.icon)}<span class="p-bar-word">${fullOff.word}</span></button>`;
   root.append(pic, bar);
   host.append(root);
   const record = opts.record ?? null;
@@ -394,7 +401,8 @@ export function armBar(film: BigFilm, programme: Programme): void {
       put(ccBtn, view.cc.aria, view.cc.pressed ? 'cc' : 'ccoff', view.cc.label);
     }
     const on = fs();
-    put(fullBtn, on ? 'Exit full screen' : 'Full screen', on ? 'exit' : 'full', on ? 'EXIT' : 'FULL SCREEN');
+    const fw = fullWords(on);
+    put(fullBtn, fw.aria, fw.icon, fw.word);
     // the time runs on between the player's deliveries while it plays
     if (view.phase === 'playing' && !ticker) ticker = window.setInterval(paint, 250);
     if (view.phase !== 'playing' && ticker) { clearInterval(ticker); ticker = 0; }
