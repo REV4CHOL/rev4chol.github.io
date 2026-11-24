@@ -21,3 +21,39 @@ describe("a pane's tile of the wall video (pins)", () => {
     expect(tile).not.toMatch(/wallSprite\.destroy\(\{/);
   });
 });
+
+describe("the floor's video follows the mode (pins)", () => {
+  const world = read('src/works/world.ts');
+
+  it('pausing gives every video back, and one guard keeps every playback pass asleep under the list', () => {
+    expect(world).toMatch(/pause\(\): void \{[\s\S]*?this\.playback\.releaseAll\(\);\s+this\.dropWall\(\);\s+this\.app\.stop\(\);/);
+    expect(world).toContain('paused: () => w.paused,');
+    expect(read('src/works/playback.ts')).toContain('if (this.policy.paused()) return;');
+  });
+
+  it('the mode is worked out at a build, at once on a step down, never on a step up', () => {
+    expect(world).toContain('w.takeMode(w.modeNow());'); // the build: a load, a chapter flip
+    expect(world).toMatch(/resume\(\): void \{[\s\S]*?this\.takeMode\(this\.modeNow\(\)\);/); // the return from THE LIST
+    expect(world).toContain('modeAfterTierChange(w.mode, tierWas, t, w.facts())');
+  });
+
+  it("the mode rations the panes' own loops: how many, which panes, and how long a sleeping pane keeps its video", () => {
+    expect(world).toContain('cap: () => ownLoopCap(w.mode, quality.tier(), isMobile()),');
+    expect(world).toContain('releaseAfter: () => releaseAfterMs(w.mode),');
+    expect(world).toMatch(/mayPlay: \(slug\) => w\.mode === 'own' \|\| w\.mode === 'posters'/);
+  });
+
+  it('the page tells the floor its chapter', () => {
+    expect(read('src/pages/works.ts')).toContain('}, key);');
+  });
+
+  it("the wall unit is the world's: the panes give their tiles back before it is destroyed, at THE LIST and at a flip", () => {
+    expect(world).toMatch(/private dropWall\(\): void \{[\s\S]*?tile\.setWall\(null\);[\s\S]*?this\.wall\.destroy\(\);/);
+    expect(world).toMatch(/destroy\(\): void \{[\s\S]*?this\.dropWall\(\);[\s\S]*?this\.app\.destroy\(true, \{ children: true \}\);/);
+  });
+
+  it('a pinned page obeys no watch, and a floor on its way out takes up no new video', () => {
+    expect(world).toMatch(/onVerdict: \(\) => \{\s+if \(this\.wall !== wall \|\| this\.exiting \|\| quality\.pinned\(\) !== null\) return;/);
+    expect(world).toMatch(/onFail: \(\) => \{\s+if \(this\.wall !== wall \|\| this\.exiting\) return;/);
+  });
+});

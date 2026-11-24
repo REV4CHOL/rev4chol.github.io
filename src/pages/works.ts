@@ -111,7 +111,7 @@ startPage(
       hud.setCount(list.length); // films only — a held place is not a project
       world = await WorksWorld.create(host, channelProjects(floor, key), {
         onCoords: (x, y) => hud.setCoords(x, y),
-      });
+      }, key);
       (window as unknown as { rvlWorld: WorksWorld }).rvlWorld = world; // debug handle for verification
       buildSemanticList(list, world);
     };

@@ -4,10 +4,13 @@ import { Application, ColorMatrixFilter, Container } from 'pixi.js';
 import gsap from 'gsap';
 import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
 import type { FloorItem, Project } from '../lib/content';
-import { aspectRatio, isBlank } from '../lib/content';
-import { dprCap, finePointer, reducedMotion } from '../lib/env';
+import { aspectRatio, isBlank, wallFor } from '../lib/content';
+import { dprCap, finePointer, isMobile, reducedMotion } from '../lib/env';
 import { posterZoom } from '../lib/poster-lock';
-import { maxFpsFor, quality } from '../lib/quality';
+import {
+  floorMode, maxFpsFor, modeAfterTierChange, ownLoopCap, quality, type FloorFacts, type FloorMode,
+} from '../lib/quality';
+import type { WallEntry } from '../lib/wall-files';
 import { softBreaks } from '../lib/escape';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
@@ -26,11 +29,13 @@ import { paneToWake } from './hover';
 import { PanController } from './input';
 import { BlankPane } from './blank';
 import { layoutProjects, packRows, paneBand, rowsOf, type Placed } from './layout';
-import { PlaybackManager } from './playback';
+import { PlaybackManager, releaseAfterMs } from './playback';
 import { loadPosterCanvas } from './poster';
 import type { TileRect, ViewRect } from './priority';
 import { nearestPane, strayed } from './stray';
 import { ProjectTile } from './tile';
+import { WallVideo } from './wall';
+import { readWallMemory, sessionStore, writeWallMemory, type WallMemory } from './wall-watch';
 
 export interface WorldHooks { onCoords(x: number, y: number): void }
 
@@ -57,6 +62,19 @@ export class WorksWorld {
 
   /** the floor stands still while the page shows its list of films (pause/resume) */
   private paused = false;
+
+  /** WHAT THE FLOOR PLAYS (lib/quality.ts floorMode; owner 2026-11-24: one combined video per chapter "for weak
+   *  machines only"): each pane's own loop, or the chapter's wall video as tiles, or neither. Worked out when the
+   *  floor is built (a load, a chapter flip, the return from THE LIST) and at once when the tier steps down or the
+   *  wall's own watch gives a verdict. A step up changes no video until the next build. */
+  mode: FloorMode = 'own';
+  /** the chapter this floor shows: its wall's key in the manifest (`human`, `machine`) */
+  private chapter = '';
+  private wall: WallVideo | null = null;
+  /** the films with a tile in the wall that is playing or about to: their panes need no loop of their own */
+  private tiled = new Set<string>();
+  /** what the wall's watch found this session, and the wall files that failed in it (works/wall-watch.ts) */
+  private wallMem: WallMemory = { verdict: 'ok', failed: [] };
   /** the awake pane's lift: the scale its preview stands at (hoverFit, hoverFitIn) */
   private lift = 1;
   /** where the awake pane's caption stands from its card's centre (plate px), and the zoom it was placed at */
@@ -74,9 +92,12 @@ export class WorksWorld {
     return [...this.tiles.values(), ...this.blanks];
   }
 
-  static async create(host: HTMLElement, stream: FloorItem[], hooks: WorldHooks): Promise<WorksWorld> {
+  static async create(host: HTMLElement, stream: FloorItem[], hooks: WorldHooks, chapter: string): Promise<WorksWorld> {
     const w = new WorksWorld();
     w.hooks = hooks;
+    w.chapter = chapter;
+    w.wallMem = readWallMemory(sessionStore());
+    quality.floorBuilt(); // (the long frames of a build are its own work, not stalls: lib/quality.ts)
 
     const app = new Application();
     await app.init({
@@ -130,17 +151,30 @@ export class WorksWorld {
       w.blanks.push(pane);
       w.tilesLayer.addChild(pane);
     }
-    w.playback = new PlaybackManager(w.tiles);
+    // the floor's mode rations the panes' own loops: how many, which panes, never under THE LIST, and how long a
+    // sleeping pane keeps its video
+    w.playback = new PlaybackManager(w.tiles, {
+      cap: () => ownLoopCap(w.mode, quality.tier(), isMobile()),
+      mayPlay: (slug) => w.mode === 'own' || w.mode === 'posters' || (w.mode !== 'starved' && !w.tiled.has(slug)),
+      paused: () => w.paused,
+      releaseAfter: () => releaseAfterMs(w.mode),
+    });
 
     // THE TIER, LIVE (lib/quality.ts; owner 2026-09-28: "the website automatically adapts to any computer strength"):
     // on a change the canvas re-sizes at the tier's resolution, the ticker takes its cap, the carpet's hover filter
     // comes or goes, the glows follow, and the loops re-count on the next playback pass. Nothing reloads.
+    let tierWas = quality.tier();
     w.offQuality = quality.on((t) => {
       app.renderer.resize(app.screen.width, app.screen.height, dprCap());
       app.ticker.maxFPS = maxFpsFor(t);
       if (w.hoveredSlug) w.tilesLayer.filters = t > 0 ? [w.desat] : [];
       for (const tile of w.tiles.values()) tile.retune();
-      w.playback.update(w.viewRect(), w.hoveredSlug);
+      // THE FLOOR'S VIDEO: a step down switches at once; a step up waits for the next build, so no machine downloads
+      // the wall and then a chapter of loops in one view. (Under THE LIST nothing plays: resume() works the mode out.)
+      const mode = w.paused ? w.mode : modeAfterTierChange(w.mode, tierWas, t, w.facts());
+      tierWas = t;
+      if (mode !== w.mode) w.takeMode(mode);
+      else w.playback.update(w.viewRect(), w.hoveredSlug);
     });
 
     w.desat.saturate(-0.35, false);
@@ -238,6 +272,9 @@ export class WorksWorld {
       }
       w.afterTick(tk.deltaMS);
     });
+    // THE FLOOR'S VIDEO, from the machine's class and the tier (lib/quality.ts)
+    w.takeMode(w.modeNow());
+    quality.floorBuilt();
     return w;
   }
 
@@ -264,7 +301,8 @@ export class WorksWorld {
     this.shimmerClock += dtMs;
     if (this.shimmerClock > 380 && !reducedMotion() && quality.tier() > 0) { // (LITE: the loops are the life)
       this.shimmerClock = 0;
-      const sleeping = [...this.tiles.values()].filter((t) => t.mode === 'sleep');
+      // (a pane showing its tile of the wall is moving already: the tick is for a pane resting on its poster)
+      const sleeping = [...this.tiles.values()].filter((t) => t.mode === 'sleep' && !t.hasWall());
       if (sleeping.length) {
         sleeping[Math.floor(Math.random() * sleeping.length)].shimmer();
       }
@@ -293,20 +331,91 @@ export class WorksWorld {
     gsap.to(this.pan.pos, { x: -home.cx * zs, y: -home.cy * zs, duration: reducedMotion() ? 0 : 0.7, ease: 'power2.out' });
   }
 
-  /** The floor stands still while the page shows its list: no pane awake, every loop asleep, the ticker stopped. */
+  /** The floor stands still while the page shows its list: no pane awake, the ticker stopped, and every video given
+   *  back: each pane's own loop and the wall. (Asleep, they kept their decoders and textures under the list for as
+   *  long as it showed; and a tier change woke them all: 11 videos playing behind the list, measured 2026-11-24.) */
   pause(): void {
     if (this.paused) return;
     this.unhover();
     this.paused = true;
-    for (const t of this.tiles.values()) t.sleep();
+    this.playback.releaseAll();
+    this.dropWall();
     this.app.stop();
   }
 
+  /** Back from the list: a build like any other. The mode is worked out anew and the videos come back under the
+   *  posters. */
   resume(): void {
     if (!this.paused) return;
     this.paused = false;
     this.app.start();
+    quality.floorBuilt();
+    this.takeMode(this.modeNow());
+  }
+
+  /** The floor's facts: the ladder's half (the tier, the class, the pin, Save-Data) and the wall's (which files may
+   *  be tried, and what its watch found this session). */
+  private facts(): FloorFacts {
+    const e = wallFor(this.chapter);
+    const failed = this.wallMem.failed;
+    return quality.floorFacts({
+      wall: e !== null && !failed.includes(e.file),
+      small: e !== null && e.small !== null && !failed.includes(e.small),
+      verdict: this.wallMem.verdict,
+    });
+  }
+
+  private modeNow(): FloorMode {
+    return floorMode(this.facts());
+  }
+
+  /** Take a mode up. Every switch happens under the posters: the own loops that are leaving are given back, each
+   *  pane rests on its poster, the new video starts, and the panes take their tiles once its frame gate has opened
+   *  (works/wall.ts). The pointed pane keeps its own loop through it. A change of file is a new wall unit: nothing is
+   *  resized in place. */
+  private takeMode(mode: FloorMode): void {
+    const which = mode === 'wall' ? 'full' : mode === 'wall-small' ? 'small' : null;
+    if (this.wall && this.wall.which !== which) this.dropWall();
+    const entry = which ? wallFor(this.chapter) : null;
+    this.mode = mode;
+    this.tiled = new Set(entry ? Object.keys(entry.tiles) : []);
     this.playback.update(this.viewRect(), this.hoveredSlug);
+    this.playback.releaseIdle();
+    if (entry && which && !this.wall && !this.paused) this.startWall(entry, which);
+  }
+
+  private startWall(entry: WallEntry, which: 'full' | 'small'): void {
+    const wall: WallVideo = new WallVideo(entry, which, {
+      onReady: () => {
+        if (this.wall !== wall) return;
+        for (const [slug, tile] of this.tiles) tile.setWall(wall.textureFor(slug));
+      },
+      // the file will not play: remembered for the session, and the floor falls to what is left
+      onFail: () => {
+        if (this.wall !== wall || this.exiting) return;
+        this.wallMem.failed.push(wall.file);
+        writeWallMemory(sessionStore(), this.wallMem);
+        this.takeMode(this.modeNow());
+      },
+      // the wall's own watch: the full-size video gives way to its half-size copy, the copy to `starved`; remembered
+      // for the session, so the next page does not try again. (A pinned page shows the watch's reading on the
+      // readout and obeys nothing.)
+      onVerdict: () => {
+        if (this.wall !== wall || this.exiting || quality.pinned() !== null) return;
+        this.wallMem.verdict = which === 'full' ? 'small' : 'starved';
+        writeWallMemory(sessionStore(), this.wallMem);
+        this.takeMode(this.modeNow());
+      },
+    });
+    this.wall = wall;
+  }
+
+  /** Stop the wall: every pane gives its tile back first, then the unit destroys the one shared source. */
+  private dropWall(): void {
+    if (!this.wall) return;
+    for (const tile of this.tiles.values()) tile.setWall(null);
+    this.wall.destroy();
+    this.wall = null;
   }
 
   viewRect(): ViewRect {
@@ -585,6 +694,7 @@ export class WorksWorld {
     gsap.killTweensOf(this.pan.pos);
     gsap.killTweensOf(this.app.stage.position);
     gsap.killTweensOf([this.tilesLayer, this.fieldsC, this.debrisC, ...this.blanks]);
+    this.dropWall();
     for (const tile of this.tiles.values()) {
       tile.killTweens(); // no tween may outlive the scene graph it writes into
       tile.releaseVideo();
