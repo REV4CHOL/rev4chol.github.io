@@ -183,8 +183,14 @@ async function mountPortrait(site: SiteContent): Promise<void> {
   try {
     await img.decode();
   } catch {
-    awaiting();
-    return;
+    // a browser may refuse decode() for a picture it can still show: wait for the load itself
+    const shown = img.complete
+      ? img.naturalWidth > 0
+      : await new Promise<boolean>((done) => {
+        img.addEventListener('load', () => done(img.naturalWidth > 0), { once: true });
+        img.addEventListener('error', () => done(false), { once: true });
+      });
+    if (!shown) { awaiting(); return; }
   }
   fig.prepend(img);
   cap.textContent = `SUBJECT :: ${site.name.toUpperCase()} // VERIFIED`;
@@ -214,7 +220,7 @@ function armPhotoHole(target: HTMLElement): void {
       for (const [k, v] of props) el.style.setProperty(k, v);
     }
     // the HUD's foot readouts (fixed, over the page) step aside while they meet the photo, as they do for a film's
-    // player: at 1920 x 1080 the timecode stood on the picture's lower right
+    // player: on a 1440 x 900 screen (and a short tablet) the timecode stood across the picture's foot at rest
     for (const [h, b] of huds) {
       h.classList.toggle('hud-yield', r.left < b.right && b.left < r.right && r.top < b.bottom && b.top < r.bottom);
     }

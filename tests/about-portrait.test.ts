@@ -75,11 +75,16 @@ describe('ABOUT: the portrait is the photograph, no machine on it', () => {
     expect(cap).not.toContain('bottom:');
     const phone = block(css, '@media (max-width: 760px) and (pointer: coarse) {');
     expect(phone).not.toContain('.a-subj-tag { right: 2px; }');
-    // on a phone the callouts stand left, under the caption's line, so they step down to clear it
-    expect(phone).toContain('.a-callouts { justify-items: start; margin-top: 38px; }');
   });
 
-  it("the HUD's foot readouts step aside while they meet the photo (they stood on it at 1920 x 1080)", () => {
+  it('a subject column under 480 px steps the callouts down under the caption (they overlapped on narrow tablets and phones)', () => {
+    expect(css).toContain('.a-subject { container: a-subject / inline-size; }');
+    expect(block(css, '@container a-subject (max-width: 479px) {')).toContain('.a-callouts { margin-top: 38px; }');
+    // after the base rule it overrides (equal specificity: the later one wins; placed before it, it did nothing)
+    expect(css.indexOf('@container a-subject')).toBeGreaterThan(css.indexOf('.a-callouts {'));
+  });
+
+  it("the HUD's foot readouts step aside while they meet the photo (at rest they stood on its foot at 1440 x 900)", () => {
     expect(page).toContain("document.querySelectorAll<HTMLElement>('.hud-bl, .hud-br')");
     expect(page).toContain("h.classList.toggle('hud-yield',");
     expect(css).toContain('.page-about .hud.hud-yield { opacity: 0;');

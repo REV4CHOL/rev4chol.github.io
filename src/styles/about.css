@@ -168,6 +168,14 @@
   color: var(--bone); letter-spacing: 0.1em;
 }
 .a-callout { display: flex; align-items: center; gap: 12px; }
+/* a narrow subject column (a phone, a portrait or 11-inch tablet: under 480 px) cannot hold the caption and the first
+   callout side by side (measured: they overlapped on ipad-11, ipad-portrait and android-portrait), so the callouts
+   step down under the caption's line; 480 and wider keep their place. (After .a-callouts: an override of equal
+   specificity comes after the rule it overrides.) */
+.a-subject { container: a-subject / inline-size; }
+@container a-subject (max-width: 479px) {
+  .a-callouts { margin-top: 38px; }
+}
 .ac-line { position: relative; width: 64px; border-top: 1px dotted rgba(200, 255, 0, 0.65); }
 .ac-line::before {
   content: ''; position: absolute; left: -2px; top: -2.5px;
@@ -364,7 +372,7 @@
   .a-subj-tag { right: -15px; } /* in the column's 18 px margin, off the picture */
   .a-subject { justify-self: stretch; width: 100%; }
   .a-reticle i:nth-child(3) { display: none; }
-  .a-callouts { justify-items: start; margin-top: 38px; } /* the caption's line under the picture, then the callouts */
+  .a-callouts { justify-items: start; }
   .a-callout { flex-direction: row-reverse; }
 
   .a-cal-bars { height: 52px; }
