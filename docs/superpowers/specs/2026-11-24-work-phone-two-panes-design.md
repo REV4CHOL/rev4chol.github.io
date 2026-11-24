@@ -70,8 +70,15 @@ screen's.
   longest names of chapter one fit a half pane with their roles (measured in the mock-ups: captions run 77 to 143 px
   high).
 - They are placed from the pane's own bottom edge, at today's distance (the foot's height, the safe area and 26 px).
-  So a pane standing at the screen's bottom shows its words clear of the foot, and at arrival and under CALM both
-  panes' names are whole.
+  So a pane standing at the screen's bottom shows its words clear of the foot: the lower pane's name is whole whenever
+  the strip stands still.
+- The upper pane's name is whole only where the pane is tall enough to hold the words under the header. The header ends
+  at 124 px, and a name stands whole when its caption starts 144 px or more down its pane. Measured on 2026-11-24 in a
+  hidden phone browser, with each of chapter one's 12 films standing still in the upper pane: 12 names whole at
+  412 × 785 and taller and at 390 × 844; 11 at 390 × 750; 10 at 390 × 700; 9 at 360 × 700; 5 at 390 × 664 and at
+  375 × 667; 2 at 360 × 640; none at 375 × 548 and 360 × 560. (An earlier text of this design said both panes' names
+  were whole at arrival and under CALM. That held only on the tallest screens.) Rolling, every name is whole for
+  about 7 to 11 seconds a lap, while its pane crosses the lower half.
 - The bottom corner marks keep today's distance from the pane's bottom edge; the top marks stand 14 px inside the
   pane's top edge.
 - The words fade under the header and the foot as today. The fade is already computed from the pane's place and the
@@ -89,7 +96,16 @@ screen's.
 
 ### 5. Arrival and the rest
 
-- The gate wipe at arrival covers every pane standing on the screen (two), not the first only.
+- **The strip arrives with film 1's bottom edge at the screen's bottom** (the owner, 2026-11-24: "Film 1 in the lower
+  half"). Upright, film 1 stands in the lower half and the chapter's last film above it: the strip starts one pane
+  early in its lap. With film 1 on top its name went under the header at once: whole for 0 seconds on screens up to
+  700 px tall and for 0.4 to 1.8 seconds on taller ones, then not again until the lap came round, 108 seconds later.
+  In the lower half it is whole for 8 to 10 seconds, as on the strip of 2026-10-20 (measured at 390 × 664, 390 × 844
+  and 360 × 640). The rule in units: the strip starts the screen's units less film 1's units before the lap's start.
+  So a chapter whose first film is vertical arrives with that film filling the screen, and a phone on its side
+  arrives with film 1 filling the screen, as before. A channel change arrives the same way.
+- The gate wipe at arrival covers every pane standing on the screen at arrival (upright: the last film and film 1),
+  not the first only.
 - Unchanged: a tap opens the film and a drag never does; the throw and its return to the roll; CALM never rolls by
   itself; the channel change; the LIST switch; the quiet section; a tablet and a desktop keep the floor.
 
@@ -130,8 +146,9 @@ marks' anchors; the arrival wipe; the pace; the sideways block.
 ## Verification
 
 In a headless browser as a touch phone, never a visible window:
-- 390 × 844: chapter one at rest (both names whole), mid-roll, and its longest names; chapter two with the vertical
-  film standing tall and uncropped;
+- 390 × 844: chapter one at arrival (film 1 in the lower half with its name whole, the last film above it), mid-roll,
+  and its longest names; chapter two with the vertical film standing tall and uncropped;
+- film 1's name from arrival: whole for 8 seconds or more at 390 × 664, 390 × 844 and 360 × 640;
 - 360 × 640 and 412 × 915: two panes fill the screen;
 - 844 × 390: one pane a screen, the vertical film whole in the middle;
 - the pace from the first sample; a drag, a throw and its return to the roll; the rail; CALM; a tap opens the film;
@@ -151,6 +168,11 @@ In a headless browser as a touch phone, never a visible window:
 6. A phone held on its side keeps one pane a screen.
 7. A chapter of one or two films is laid again until the strip is long enough: upright, three units, four with a
    vertical film; never fewer than three panes.
+8. The strip arrives with film 1 in the lower half (the owner's choice, 2026-11-24); the chapter's last film is the
+   first picture at the top of the screen.
+9. On a short screen the upper pane's name lies partly under the header while the strip stands still (the numbers are
+   in "Words and marks"). Left as it is. One way to change it later: the words stand nearer their pane's bottom edge
+   while the pane is in the upper half, and rise to clear the foot only at the screen's bottom.
 
 ## Out of scope
 
