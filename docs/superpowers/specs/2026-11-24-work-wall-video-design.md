@@ -5,6 +5,9 @@ Part 1 of the performance round. HOMEPAGE, STORY and the film pages follow in th
 Revised the same day after three later messages from the owner (§1, messages 5 to 7): the combined video goes to weak
 machines only, and the site keeps deciding from live signs after a machine arrives (§4.9).
 
+Revised once more after a review of that revision: the weak class chooses the floor's video only and caps no tier
+(§4.6), and the part ships in two (§3.1).
+
 ## 1. What was asked
 
 The owner, 2026-11-24, in two messages (1 and 2, then 3 and 4):
@@ -175,7 +178,8 @@ Read from the code, not measured:
 
 Part 1 is five things:
 
-1. The device ladder: how a machine is placed, and that a weak one stays where it was put.
+1. The device ladder: how a machine is placed, which class it is in, and that a machine with 4 GB or less stays
+   where it was put.
 2. The WORK floor plays one combined video on a weak machine, and on any machine that proves slow, so every pane
    moves there. A machine that is not weak keeps each pane's own loop.
 3. The ladder keeps deciding after a machine arrives: from live signs of distress, and from a meter of what the site
@@ -192,6 +196,33 @@ Not in this part:
 - A phone's WORK. The reel is untouched here; its panes are being redesigned under a separate request.
 - The STORY city's own governor (`src/about/city-governor.ts`), which has its own "less than 4" rule.
 
+### 3.1 Two ships
+
+The owner chose "WORK first, then laptop test". So the part ships twice, and the laptop's reading stands between.
+
+**Ship A** is what the laptop needs, and what can be proved on the development PC:
+
+- the weak class, and the floor's video chosen by it (§4.1, §4.6);
+- the wall videos, their script, their map and the guard against a stale wall (§4.2 to §4.4);
+- the wall on the floor, its modes and the wall's own watch (§4.5);
+- the opening rule's `<= 4` and the hardware ceiling at that same line (§4.6);
+- the waste removed (§4.7);
+- the readout, showing every reading of both ships (§4.8).
+
+In ship A these are measured and shown on the readout, and decide nothing: the stalls, the loops' health watch, the
+meter and its budgets, processor pressure, and whether the tab was discarded. Each of them can lower a machine for a
+day, on numbers that cannot be proved on the development PC. The laptop's reading comes first.
+
+**Ship B**, after the laptop's reading, with its numbers set from that reading:
+
+- the stalls step the tier down;
+- the loops' health watch switches the floor;
+- a lost context, a discarded tab, processor pressure and the meter's shedding act (§4.9);
+- a hidden page gives its videos back (§4.9).
+
+Where a later section gives a rule of ship B, it is the rule as designed today. Ship B's plan is written after the
+reading and may move its numbers.
+
 ## 4. The design
 
 ### 4.1 What plays where
@@ -200,11 +231,12 @@ Two things decide the floor's video: the machine's class and the tier.
 
 - **The weak class** (§4.6): a machine that reports 8 GB of memory or less, or 4 threads or fewer, or whose main
   pointer is a touch screen (a tablet; a phone has its reel). It is read from the hardware at every page's start.
-- **The tier**: FULL, BALANCED or LITE, as today. A weak machine never rises above BALANCED.
+- **The tier**: FULL, BALANCED or LITE, as today. The class chooses the floor's video at every tier; the tier's
+  other knobs follow the tier as today.
 
 | | FULL | BALANCED | LITE |
 |---|---|---|---|
-| A weak machine | Not reached, except by the pin: own loops | The wall | The wall |
+| A weak machine | The wall | The wall | The wall |
 | Any other machine | Own loops, as today | Own loops, as today | The wall |
 
 A machine that is not weak reaches LITE by proving slow, or by having no graphics chip at work (a software
@@ -229,9 +261,10 @@ The mode is worked out in four steps:
 4. A wall that plays follows its own watch (§4.5): `wall`, then `wall-small`, then `starved`. With no half-size
    file, `posters` stands in for `wall-small`.
 
-A pinned page (`?gfx=`) takes step 1 from the pinned tier, and step 3 as it stands. It skips steps 2 and 4: it shows
-both watches' readings on the readout and obeys neither, and it ignores what an earlier visit remembered. So
-`?gfx=full` shows twelve own loops on any machine. That is the owner's switch for seeing the floor as it was.
+A pinned page (`?gfx=`) takes step 1 from the pinned tier, and step 3 as it stands. A pin of FULL also sets the
+class aside: the machine is read as not weak. It skips steps 2 and 4: it shows both watches' readings on the readout
+and obeys neither, and it ignores what an earlier visit remembered. So `?gfx=full` shows twelve own loops on any
+machine. That is the owner's switch for seeing the floor as it was. `?gfx=balanced` and `?gfx=lite` keep the class.
 
 When the mode is worked out:
 
@@ -360,7 +393,8 @@ One new unit, `src/works/wall.ts`, owns the wall video. The world creates it; a 
   `starved`. The first 4 s after a video starts are not judged, and nor is a hidden page. A move down is remembered
   for the session, so the next page does not try again.
 - **The loops' health watch** runs in `own`. Smooth frames on the page say nothing about starving decoders, so the
-  floor reads the videos themselves.
+  floor reads the videos themselves. In ship A it measures and shows its reading on the readout; its verdict
+  switches the floor from ship B on (§3.1).
   - Every second, for each own loop the floor has told to play, it reads the frames the video has presented so far
     (the element's own totals from `getVideoPlaybackQuality`: frames decoded, less frames dropped) and works out
     the frames due: the loop's frame rate times the seconds it has been counted. The frame rate is the manifest's
@@ -399,24 +433,29 @@ One new unit, `src/works/wall.ts`, owns the wall video. The world creates it; a 
   - Firefox and Safari report nothing. One 8 GB laptop is weak in Chrome and not weak in Firefox, where the thread
     line, the measured frames and the health watch have to catch it.
   - How Chrome rounds a 12 GB machine was not checked.
-- **The opening tier.** `startTier` caps a weak machine at BALANCED. That replaces "fewer than 4 threads, or less
-  than 4 GB", which let the laptop profile's 4 GB and 4 threads through (§2.3). A touch screen is capped already.
-- **A hardware ceiling.** The highest tier a device may reach: BALANCED for a weak machine, FULL for any other. The
-  restored tier and ceiling are both lowered to it. So a weak machine never climbs to FULL, and what an earlier
+- **The opening tier.** `startTier` caps at BALANCED a machine that reports 4 GB or less, or 4 threads or fewer:
+  `<= 4` where today's rule reads `< 4`, which let the laptop profile's 4 GB and 4 threads through (§2.3). A touch
+  screen is capped already. The 8 GB line does not move the opening tier.
+- **A hardware ceiling.** The highest tier a device may reach: BALANCED for a machine that reports 4 GB or less, or
+  4 threads or fewer (the line the owner approved first, "never pushed up to the heavy level"); FULL for any other.
+  The restored tier and ceiling are both lowered to it. So such a machine never climbs to FULL, and what an earlier
   visit remembered cannot lift it.
-- **The ceiling reaches every page.** The ladder is shared, so a weak machine is held at BALANCED across the site.
-  Today a phone, a tablet and an 8 GB laptop may climb to FULL after 12 s of fast frames. What FULL gave them, and
-  they now do without: a sharper Pixi canvas (up to 1.5 device pixels a CSS pixel on a touch screen and 2 on a
-  laptop, against 1 and 1.5), the homepage reel's lens pass, the grain's faster re-deal, the display's own frame
-  rate above 60, and on a laptop the STORY city's top tier. A phone's WORK reel does not read the tier and is
-  untouched. This is design call 1 (§8).
-- **A named integrated GPU alone** still opens BALANCED and may climb to FULL on fast frames, as today. A laptop with
-  more than 8 GB and more than 4 threads has that room.
-- **Stalls count.** A frame longer than 250 ms is no longer thrown away. Three of them within 10 s make the window
-  SLOW, and the governor steps down as for any slow window. Not counted: frames inside the opening hold of 2.5 s, the
-  first frame after the tab returns from hidden, and gaps over 5 s (a sleeping machine).
-- **Live signals.** After a machine arrives the ladder also takes: a lost WebGL context, a discarded tab, processor
-  pressure, the floor's memory budget and the loops' health watch (§4.9). Each is recorded with its time.
+- **The class caps no tier.** The revision before this one held the whole weak class at BALANCED on every page. The
+  ladder is shared, so that would have taken FULL from every phone, every tablet and every 8 GB laptop across the
+  site: a sharper Pixi canvas, the homepage reel's lens pass, the grain's faster re-deal. The owner's answer was
+  about who gets the combined video, not about that. So the class chooses the floor's video only, at whatever tier
+  the machine stands, and an 8 GB laptop, a tablet and a phone may still climb to FULL on fast frames, as today.
+- **A named integrated GPU alone** still opens BALANCED and may climb to FULL on fast frames, as today.
+- **Stalls are counted.** A frame longer than 250 ms is no longer thrown away. Not counted: frames inside the
+  opening hold of 2.5 s, the 4 s after a floor is built (a load, a chapter flip, the return from THE LIST), the
+  first frame after the tab returns from hidden, and gaps over 5 s (a sleeping machine). Ship A counts them and shows
+  them. From ship B, three within 10 s make the window SLOW, and the governor steps down as for any slow window.
+  What the loads measured so far show: none or one such frame in a page's first 17 s on the development PC as it
+  is, and up to two on WORK with the main thread slowed six times (§2.2's runs). A flip and the return from THE LIST
+  were not measured; ship A's readout counts them.
+- **Live signals** (ship B, §3.1). After a machine arrives the ladder also takes: a lost WebGL context, a discarded
+  tab, processor pressure, the floor's memory budget and the loops' health watch (§4.9). Each is recorded with its
+  time. Ship A records and shows them and lets none of them act.
 - **The pin still wins.** `?gfx=` sets the tier and the ceiling whatever the hardware and the signals say. It is the
   owner's and the testers' switch. A pinned page records the signals and shows them on the readout, and moves
   neither the tier nor the mode; its meter sheds nothing. The floor still stops and is built again after a lost
@@ -470,7 +509,8 @@ Two ways around the limit were considered and rejected:
 - **Probing**: allocating memory and timing it. It spends the memory it is trying to protect, and its answer is
   unreliable.
 
-**Symptoms.** Each lightens the site as soon as it is read, is recorded with its time, and is remembered as any step
+**Symptoms.** These act from ship B on (§3.1); ship A reads them, records them and shows them on the readout. Each
+lightens the site as soon as it is read, is recorded with its time, and is remembered as any step
 down is: in the session, and for a day. Stalls and pressure go through the governor as a slow window does, with its
 3 s between two steps. The others act on the spot.
 
@@ -480,7 +520,7 @@ down is: in the session, and for a day. Stalls and pressure go through the gover
 | Stalls | Three frames over 250 ms within 10 s (§4.6) | The window is SLOW: a step down |
 | Starving decoders | The loops' health watch (§4.5) | The floor takes the wall; the tier stays |
 | A lost WebGL context | `webglcontextlost` on the floor's canvas | One step down; the tier that was left is closed for the session; the wall is due for the rest of the visit; the floor is built again (below) |
-| A discarded tab | `document.wasDiscarded` is true at load | The page opens one tier lower than the device rule and the remembered tier give, and that tier is the visit's ceiling |
+| A discarded tab | `document.wasDiscarded` is true at load, on a machine of the weak class | The page opens one tier lower than the device rule and the remembered tier give, and that tier is the visit's ceiling |
 | Processor pressure | `PressureObserver` on `cpu`, where the browser has one | `serious` or `critical` for 10 s running counts as a SLOW window; no step up while it lasts |
 | The site's own growth | The meter, still over its budget after shedding (below) | One step down |
 
@@ -501,7 +541,9 @@ short of memory, so the floor reads it as a memory signal.
 
 **A discarded tab.** Chrome throws a background tab away when memory is short and loads it again when the visitor
 returns; `document.wasDiscarded` is then true. Chrome's Memory Saver setting also discards tabs that were only
-idle, and the flag does not say which it was (not checked here). A wrong reading costs one visit a tier lower.
+idle, and the flag does not say which it was (not checked here). So the rule reads the flag only on a machine of the
+weak class: a machine with memory to spare is never lowered for having sat idle. There a wrong reading costs one
+visit a tier lower.
 
 **Processor pressure.** A machine out of memory starts swapping, and swapping shows as load and as stalls. Where the
 browser has `PressureObserver`, the ladder watches `cpu` with one reading a second. The reading is the whole
@@ -620,7 +662,8 @@ New, on the pure parts:
 - The floor's mode: one pure function from the tier, the weak class, the pin, Save-Data or 2g, the wall's and the
   half-size file's presence, the health watch's flag, a lost context in the visit and the wall watch's verdict, to
   one of the five modes. Tested through both tables of §4.1 and its four steps:
-  - BALANCED gives `wall` on a weak machine and `own` on any other; LITE gives `wall` on both; FULL gives `own`;
+  - a weak machine gives `wall` at every tier; any other gives `own` at FULL and at BALANCED and `wall` at LITE; a
+    pin of FULL gives `own` on any machine;
   - the health flag turns `own` into `wall`, and into `posters` where no wall can play; so does a lost context in
     the visit;
   - Save-Data and 2g give `posters` wherever a wall is due;
@@ -636,11 +679,13 @@ New, on the pure parts:
 - `quality`:
   - the weak class: 8 GB is weak and 16 is not; an unreported memory is not weak by memory; 4 threads are weak and
     8 are not; a coarse pointer is weak;
-  - a weak machine opens BALANCED and its hardware ceiling is BALANCED; the existing fixtures whose device now falls
-    in the weak class move to BALANCED, and the plan lists each one;
-  - a remembered FULL on a weak machine restores as BALANCED with a BALANCED ceiling;
-  - the pin still gives FULL on a weak machine;
-  - three stalls in 10 s give a step down, two do not, and none are counted inside the hold or after a hidden tab;
+  - a machine with 4 GB or less, or 4 threads or fewer, opens BALANCED and its hardware ceiling is BALANCED; 8 GB
+    with 8 threads is weak for the floor, opens as today and keeps a FULL ceiling; the existing fixtures the `<= 4`
+    line moves are listed in the plan;
+  - a remembered FULL on a machine under the hardware ceiling restores as BALANCED with a BALANCED ceiling;
+  - the pin still gives FULL on any machine;
+  - the stalls are counted, and none inside the hold, in the 4 s after a floor is built, or after a hidden tab;
+    from ship B, three in 10 s give a step down and two do not;
   - a lost context steps down one tier at once and closes the tier that was left; at LITE the tier stays;
   - a discarded tab opens one tier lower, with that tier as the visit's ceiling;
   - pressure: 10 s of `serious` or `critical` running count as a SLOW window and 9 s do not; `nominal` or `fair`
@@ -681,6 +726,7 @@ Source pins to update:
 ### 7.1 With the harness (the development PC, a fresh browser per page)
 
 Expectations, not promises. The last task of the plan measures the right-hand column and records it in the plan.
+The rows on a lost context, a hidden page, the health watch's verdict and the meter belong to ship B's plan (§3.1).
 
 Three profiles answer as a laptop with a named integrated GPU at 1366×768, the main thread slowed six times. They
 differ in what they report: 4 GB and 4 threads (§2.1's laptop profile), 8 GB and 8 threads, 16 GB and 8 threads.
@@ -688,7 +734,7 @@ differ in what they report: 4 GB and 4 threads (§2.1's laptop profile), 8 GB an
 | | Today (measured) | Expected | After the build |
 |---|---|---|---|
 | The 4 GB profile: the tier 2 s, 15 s and 60 s after boot | balanced, full, full | balanced at all three; the wall | measured in the plan's last task |
-| The 8 GB profile: the same | not measured | balanced at all three; the wall | measured in the plan's last task |
+| The 8 GB profile: the same | not measured | balanced, then full, as today; the wall at every tier | measured in the plan's last task |
 | The 16 GB profile: the same | not measured | balanced, then full, as today; own loops at both | measured in the plan's last task |
 | WORK, the 4 GB profile, `?gfx=balanced`: videos decoding at rest | 11 | 1 | measured in the plan's last task |
 | WORK, the 4 GB profile, `?gfx=balanced`: picture decoded each second | about 200 million px | about 50 million | measured in the plan's last task |
@@ -739,7 +785,7 @@ What the lines decide:
 
 - `WALL` drops many frames at `wall`, few at `wall-small`: the laptop cannot hold 1080p, and the ladder is doing its
   job. Nothing to change.
-- `DEVICE` reads not weak, or `LEVEL` opened at FULL: the placement missed the laptop, and the `DEVICE` and `MEMORY`
+- `DEVICE` reads not weak, or `WALL` shows own loops: the placement missed the laptop, and the `DEVICE` and `MEMORY`
   lines say what rule would catch it.
 - `OWN LOOPS` at `?gfx=full` presents under half of its frames: the laptop's decoders starve on twelve loops, which
   is the failure the health watch is there to catch on a machine that is not weak.
@@ -753,9 +799,9 @@ HOMEPAGE, STORY and the film pages are designed after this reading.
 
 ## 8. Design calls for the owner
 
-1. **The ceiling reaches every page.** A phone, a tablet and an 8 GB laptop are held at BALANCED across the site
-   and do without what FULL gave them (§4.6). The alternative keeps the ceiling at the earlier line (4 GB or less, or
-   4 threads or fewer) and lets the 8 GB and touch lines choose only the floor's video.
+1. **The class chooses the floor's video only.** The hardware ceiling stays at the line approved first (4 GB or
+   less, or 4 threads or fewer). An 8 GB laptop, a tablet and a phone may still climb to FULL as today, and a machine
+   of the class plays the wall there too (§4.6). The alternative holds the whole class at BALANCED on every page.
 2. **The thread line.** A desktop with four threads, plenty of memory and a strong graphics card is weak too. The
    alternative is memory and the pointer alone.
 3. **The 8 GB line reads an old Chrome's capped value as weak**, so a strong machine on an old Chrome gets the wall.
@@ -772,10 +818,13 @@ HOMEPAGE, STORY and the film pages are designed after this reading.
    them, repeat every fourth frame instead.
 10. **Save-Data and 2g get no wall**: 3 loops and posters, as today.
 11. **Where a wall is due and cannot play, 3 own loops play**, also on a machine whose twelve loops starved.
+Calls 6 and 12 to 16 are ship B's (§3.1); their numbers are set after the laptop's reading.
+
 12. **A lost context**: the floor waits 4 s for it, is built anew and not patched, plays the wall for the rest of
     the visit, and gives way to THE LIST at a second loss. The tier that was left stays closed for the session.
-13. **A discarded tab opens one tier lower**, though Chrome's Memory Saver also discards idle tabs on a machine with
-    memory to spare. The alternative ignores the flag.
+13. **A discarded tab opens one tier lower**, on a machine of the weak class only: Chrome's Memory Saver also
+    discards idle tabs, and a machine with memory to spare should not be lowered for sitting idle. The alternative
+    ignores the flag.
 14. **Processor pressure lowers the level** after 10 s of `serious` or `critical`. It is the whole machine's load: a
     render or an export running beside the browser lowers the site too. The alternative only holds back a step up.
 15. **A page hidden for 30 s gives its videos back**, and shows posters for a moment on return.
