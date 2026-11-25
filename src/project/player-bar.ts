@@ -215,10 +215,11 @@ export function fullWords(on: boolean): { aria: string; icon: string; word: stri
   return on ? { aria: 'Exit fullscreen', icon: 'exit', word: 'EXIT' } : { aria: 'Fullscreen', icon: 'full', word: 'FULLSCREEN' };
 }
 
-/** The orientation a film in fullscreen asks of a touch screen (a design call, 2026-11-25): its own shape, a vertical
- *  film upright, every other on its side; null with a mouse (a desktop has no turn to ask for). */
-export function lockFor(ratio: number, coarse: boolean): 'landscape' | 'portrait' | null {
-  if (!coarse) return null;
+/** The orientation a film in fullscreen asks of an Android screen (a design call, 2026-11-25): its own shape, a
+ *  vertical film upright, every other on its side; null on every other target (an iPad is a touch screen too, and the
+ *  ask was never run on Safari: iPhone, iPad and PC stay as they were). */
+export function lockFor(ratio: number, target: FrameTarget): 'landscape' | 'portrait' | null {
+  if (target !== 'android') return null;
   return ratio < 1 ? 'portrait' : 'landscape';
 }
 
@@ -663,15 +664,15 @@ export function armBar(film: BigFilm, programme: Programme): void {
       if (fs() && view.phase === 'playing' && !bar.querySelector(':focus-visible')) root.classList.add('p-film--idle');
     }, IDLE_MS);
   };
-  // THE DEVICE TURNS WITH THE FILM: on a touch screen, a film gone fullscreen asks for its own orientation (lockFor),
-  // and gives it back on the way out; a browser that refuses (an iPad, most desktops) is never asked twice for an answer
+  // THE DEVICE TURNS WITH THE FILM: on Android, a film gone fullscreen asks for its own orientation (lockFor), and
+  // gives it back on the way out; a refusal is swallowed
   let locked = false;
   const turnFor = (on: boolean) => {
     type Orient = { lock?: (o: string) => Promise<void>; unlock?: () => void };
     const o = (typeof screen !== 'undefined' ? screen.orientation : undefined) as Orient | undefined;
     try {
       if (on) {
-        const want = lockFor(film.ratio, typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
+        const want = lockFor(film.ratio, film.target);
         if (!want || !o?.lock) return;
         locked = true;
         void Promise.resolve(o.lock(want)).catch(() => {});

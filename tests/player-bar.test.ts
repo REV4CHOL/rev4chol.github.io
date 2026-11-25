@@ -498,16 +498,23 @@ describe("Android's player", () => {
     expect(page).toContain('target: frameTarget(navigator.userAgent)');
   });
 
-  // a design call (the coordinating session's, 2026-11-25): in fullscreen on a touch screen the device is asked to turn
-  // to the film's own shape; a refusal (an iPad, a desktop, a browser without it) is swallowed
-  it("fullscreen on a touch screen asks for the film's own orientation; never on a mouse", () => {
-    expect(lockFor(16 / 9, true)).toBe('landscape');
-    expect(lockFor(3 / 2, true)).toBe('landscape');
-    expect(lockFor(2.39, true)).toBe('landscape');
-    expect(lockFor(9 / 16, true)).toBe('portrait');
-    expect(lockFor(1, true)).toBe('landscape');
-    expect(lockFor(16 / 9, false)).toBeNull();
-    expect(lockFor(9 / 16, false)).toBeNull();
+  // a design call (the coordinating session's, 2026-11-25): in fullscreen on Android the device is asked to turn to the
+  // film's own shape; a refusal is swallowed. Only where the frame's target is Android: an iPad is a touch screen too,
+  // and the ask was never run on Safari (iPhone, iPad and PC stay as they were)
+  it("fullscreen on Android asks for the film's own orientation; never on another screen, a touch screen or not", () => {
+    expect(lockFor(16 / 9, 'android')).toBe('landscape');
+    expect(lockFor(3 / 2, 'android')).toBe('landscape');
+    expect(lockFor(2.39, 'android')).toBe('landscape');
+    expect(lockFor(9 / 16, 'android')).toBe('portrait');
+    expect(lockFor(1, 'android')).toBe('landscape');
+    expect(lockFor(16 / 9, 'big')).toBeNull();
+    expect(lockFor(9 / 16, 'big')).toBeNull();
+  });
+
+  it('the ask follows the film\'s own target, never the pointer', () => {
+    const bar = readFileSync('src/project/player-bar.ts', 'utf8');
+    expect(bar).toContain('lockFor(film.ratio, film.target)');
+    expect(bar.slice(bar.indexOf('const turnFor = '), bar.indexOf('const onFs = '))).not.toContain('pointer: coarse');
   });
 
   it("the narrow bar's own rules stand only under the Android frame's class: a PC's and an iPad's bar are untouched", () => {
