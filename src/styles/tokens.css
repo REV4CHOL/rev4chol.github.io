@@ -35,6 +35,17 @@
 @font-face { font-family: 'RVL Viet Display First'; src: url('/fonts/Anybody-Vietnamese-Wide-Var.woff2') format('woff2'); font-weight: 100 600; font-display: swap; ascent-override: 89%; descent-override: 25%; line-gap-override: 9%; unicode-range: U+1EA0-1EF9; }
 @font-face { font-family: 'RVL Viet Display First'; src: url('/fonts/Anybody-Vietnamese-Wide-ExtraBold.woff2') format('woff2'); font-weight: 601 900; font-display: swap; ascent-override: 89%; descent-override: 25%; line-gap-override: 9%; unicode-range: U+1EA0-1EF9; }
 @font-face { font-family: 'RVL Viet Serif First'; src: url('/fonts/LibreBodoni-Vietnamese-Var.woff2') format('woff2'); font-weight: 400 700; font-display: swap; ascent-override: 112.5%; descent-override: 40%; line-gap-override: 0%; unicode-range: U+1EA0-1EF9; }
+/* The micro voice's Vietnamese (owner, 2026-11-25, of who directed seven films: Hồ Mai Phương, Minh Quốc / Myke, Tony
+   Phạm, Nguyễn Lion, Võ Thành Công, Bá Hương, Khang Nguyễn; a director's name stands in this voice on the wall's
+   caption, THE LIST, the phone's strip and the hero's readouts). Martian Mono has the accented letters other
+   languages share (Ă Â Ê Ô, the plain accents, Ẽ Ị Ọ Ụ Ỳ Ỹ, Đ) and no Vietnamese beyond them. Measured over the
+   alphabet's 134 letters outside plain ASCII: 38 it pieced from a letter and a loose accent (Ồ Ố Ạ Ễ ...), 44 fell
+   to Geist Mono as it stands, lighter and narrower (Ơ Ư Ả ...). So those 82 letters, and only those, come from this
+   face, named FIRST in the voice: Geist Mono itself (no new file), drawn at 113 % so its capitals are as tall as
+   Martian's (0.71 em against 0.80), and wearing Martian's line (ascent 100 %, descent 20 %, no gap; the overrides
+   are multiplied by the size, hence 88.5 % and 17.7 %): a line with a borrowed letter measures what Martian's own
+   does. Its letters stay 3 % narrower than Martian's (0.678 em against 0.70) and a touch lighter. */
+@font-face { font-family: 'RVL Viet Micro First'; src: url('/fonts/GeistMono-Var.woff2') format('woff2'); font-weight: 100 900; font-display: swap; size-adjust: 113%; ascent-override: 88.5%; descent-override: 17.7%; line-gap-override: 0%; unicode-range: U+01A0-01A1, U+01AF-01B0, U+1EA0-1EBB, U+1EBE-1EC9, U+1ECE-1EE3, U+1EE6-1EF1, U+1EF4-1EF7; }
 
 :root {
   /* palette — spec §3.1 */
@@ -56,7 +67,7 @@
   --f-serif: 'RVL Viet Serif First', 'Bodoni Moda', 'RVL Viet Serif', 'Didot', serif; /* the wordmark, the & */
   --f-text: 'Source Serif 4', Georgia, serif; /* the running lines: 400, 'opsz' 20 (owner, 2026-11-25) */
   --f-mono: 'Geist Mono', ui-monospace, 'Cascadia Mono', monospace;
-  --f-micro: 'Martian Mono', 'Geist Mono', ui-monospace, monospace; /* Geist Mono has the Vietnamese block */
+  --f-micro: 'RVL Viet Micro First', 'Martian Mono', 'Geist Mono', ui-monospace, monospace; /* the companion draws the Vietnamese Martian lacks */
 
   /* type scale. RULE: Clash Display owns >= --t-xl, and every film's name at any
      size (owner 2026-10-13: Bodoni's titles were hard to read). Bodoni next to

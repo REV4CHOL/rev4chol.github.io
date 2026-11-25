@@ -105,10 +105,10 @@ describe('the site draws every letter in its own type', () => {
     }
   });
 
-  it('the Vietnamese companions stand on both sides of the primary in their voices, and the micro voice falls back to Geist Mono', () => {
+  it('the Vietnamese companions stand on both sides of the primary in their voices; the micro voice names its own first and falls back to Geist Mono', () => {
     expect(stack('f-display').slice(0, 3)).toEqual(['RVL Viet Display First', 'Clash Display', 'RVL Viet Display']);
     expect(stack('f-serif').slice(0, 3)).toEqual(['RVL Viet Serif First', 'Bodoni Moda', 'RVL Viet Serif']);
-    expect(stack('f-micro').slice(0, 2)).toEqual(['Martian Mono', 'Geist Mono']); // Geist Mono has the whole block
+    expect(stack('f-micro').slice(0, 3)).toEqual(['RVL Viet Micro First', 'Martian Mono', 'Geist Mono']); // Geist Mono has the whole block
   });
 
   it('each companion face is on disk, covers the Vietnamese block, and keeps its primary\'s line metrics', () => {
@@ -132,7 +132,7 @@ describe('the site draws every letter in its own type', () => {
   // letters of the Vietnamese block that way, Bodoni Moda 48, none outside the block. So each companion stands a second
   // time, limited to that block and named FIRST in its voice: it takes those letters whole before the primary is asked.
   it('the Vietnamese block is drawn whole by the companions: a face limited to it leads the display and serif voices', () => {
-    const first = faces.filter((f) => f.family.endsWith(' First'));
+    const first = faces.filter((f) => /^RVL Viet (Display|Serif) First$/.test(f.family)); // (the micro voice's has its own test below)
     expect(first.map((f) => f.family)).toEqual(['RVL Viet Display First', 'RVL Viet Display First', 'RVL Viet Serif First']);
     for (const f of first) {
       expect(/unicode-range:\s*([^;]+);/.exec(f.body)?.[1].trim(), f.url).toBe('U+1EA0-1EF9'); // (that block only: every other letter stays the primary's)
@@ -142,6 +142,51 @@ describe('the site draws every letter in its own type', () => {
         expect(re.exec(f.body)?.[1], f.url).toBe(re.exec(twin!.body)?.[1]); // (…with its weights and its line metrics)
     }
     for (const voice of ['f-display', 'f-serif']) expect(stack(voice)[0].endsWith(' First'), voice).toBe(true);
+  });
+
+  // The owner, 2026-11-25, of who directed seven films (Hồ Mai Phương, Minh Quốc / Myke, Tony Phạm, Nguyễn Lion, Võ
+  // Thành Công, Bá Hương, Khang Nguyễn): a director's name stands in the micro voice on the wall's caption, THE LIST,
+  // the phone's strip and the hero's readouts. Martian Mono has the accented letters other languages share (Ă Â Ê Ô,
+  // the plain accents, Ẽ Ị Ọ Ụ Ỳ Ỹ, Đ) and no Vietnamese beyond them. Measured in Chrome over the alphabet's 134
+  // letters outside plain ASCII, capitals and small: 38 it PIECED from a letter and a loose accent (Ồ Ố Ạ Ễ …), 44
+  // fell to Geist Mono as it stands, lighter and narrower (Ơ Ư Ả …), 52 it drew whole. So the micro voice has a
+  // companion too, named FIRST: Geist Mono itself (the mono voice's file, which has every one of them whole), limited
+  // to exactly the letters Martian Mono has no glyph for, drawn at 113 % so its capitals stand as tall as Martian's
+  // (0.71 em against 0.80: 0.805 at 113 %), and wearing Martian's line (ascent 100 %, descent 20 %, no gap: the
+  // overrides are multiplied by the size, so 88.5 % and 17.7 %; a line holding a borrowed letter then measures
+  // Martian's own 1.2 em, where it measured 1.47 em without them).
+  it('the micro voice draws every Vietnamese letter whole: a companion limited to the letters Martian Mono lacks leads it', () => {
+    const micro = faces.filter((f) => f.family === 'RVL Viet Micro First');
+    expect(micro.map((f) => f.url)).toEqual(['/fonts/GeistMono-Var.woff2']); // (one face, no new file)
+    const face = micro[0];
+    expect(stack('f-micro')[0]).toBe('RVL Viet Micro First');
+
+    // the Vietnamese alphabet outside plain ASCII: twelve vowels under six tones, in both cases, and Đ đ
+    const tones = ['', '\u0300', '\u0301', '\u0309', '\u0303', '\u0323'];
+    const small = [...'aăâeêioôơuưy'].flatMap((b) => tones.map((t) => (b + t).normalize('NFC'))).concat('đ');
+    const alphabet = [...new Set([...small, ...small.map((l) => l.toUpperCase())])]
+      .filter((l) => [...l].length === 1 && l.codePointAt(0)! > 127).map((l) => l.codePointAt(0)!).sort((a, b) => a - b);
+    expect(alphabet.length).toBe(134);
+
+    const martian = codepoints(pub + 'fonts/MartianMono-Var.woff2'), geist = codepoints(pub + 'fonts/GeistMono-Var.woff2');
+    const lacks = alphabet.filter((c) => !martian.has(c));
+    expect(lacks.length).toBe(82); // (the 38 pieced and the 44 that fell through)
+    expect(lacks.filter((c) => !geist.has(c)).map((c) => c.toString(16))).toEqual([]); // (the companion's file has each of them)
+
+    // its range is those letters, no more and no fewer: every letter Martian has of its own stays Martian's
+    const range = /unicode-range:\s*([^;]+);/.exec(face.body)![1].split(',').flatMap((part) => {
+      const m = /^U\+([0-9A-F]+)(?:-([0-9A-F]+))?$/i.exec(part.trim())!;
+      const from = parseInt(m[1], 16), to = parseInt(m[2] ?? m[1], 16);
+      return Array.from({ length: to - from + 1 }, (_, i) => from + i);
+    });
+    expect(range.map((c) => c.toString(16))).toEqual(lacks.map((c) => c.toString(16)));
+    expect(range.includes(0x20)).toBe(false); // (never the space: the voice's own line is Martian's)
+
+    // sized to Martian's capitals, wearing Martian's line, at every weight Geist Mono has
+    const geistFace = faces.find((f) => f.family === 'Geist Mono')!;
+    expect(/font-weight:\s*([^;]+);/.exec(face.body)?.[1]).toBe(/font-weight:\s*([^;]+);/.exec(geistFace.body)?.[1]);
+    expect([/size-adjust:\s*([\d.]+%)/, /ascent-override:\s*([\d.]+%)/, /descent-override:\s*([\d.]+%)/, /line-gap-override:\s*([\d.]+%)/]
+      .map((re) => re.exec(face.body)?.[1])).toEqual(['113%', '88.5%', '17.7%', '0%']);
   });
 });
 
