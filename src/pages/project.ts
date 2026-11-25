@@ -19,8 +19,12 @@ import { playerRecords, recordPlayer } from '../lib/player-record';
 import { stillParts } from '../project/pillars';
 import { meets, playerRatio, watchKind } from '../project/watch';
 import { armStamps } from '../lib/stamps';
+import { keepPlace } from '../lib/keep-place';
 import { startPage } from '../shell/page';
 import '../styles/project.css';
+
+// the visitor's place after a reload or Back (lib/keep-place.ts): armed before the boot builds the page
+keepPlace();
 
 startPage(
   'project',

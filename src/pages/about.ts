@@ -7,8 +7,12 @@ import { capabilitiesFromTagline, portraitCandidates } from '../about/operator';
 import { armPosterLock, posterZoom } from '../lib/poster-lock';
 import { armGlideNav, navNeighbors } from '../lib/swipe-nav';
 import { holePad, holeProps, holeRect } from '../project/holes';
+import { keepPlace } from '../lib/keep-place';
 import { startPage } from '../shell/page';
 import '../styles/about.css';
+
+// the visitor's place after a reload or Back (lib/keep-place.ts): armed before the boot builds the page
+keepPlace();
 
 startPage(
   'about',
