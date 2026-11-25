@@ -288,15 +288,17 @@ startPage(
     };
 
     paint();
+    // a Back to the strip: the place it was left on (works/back-state.ts); a fresh visit arrives at film 1 as designed
+    const navType = (performance.getEntriesByType?.('navigation')[0] as PerformanceNavigationTiming | undefined)?.type;
+    const reelBack = returning(navType) ? entryOf(history.state).reel : null;
     if (reelOn) {
-      reel = mountReel(main, projects, { active, onTune: (key) => void flip(key), onAll: () => setView('list', true) });
+      reel = mountReel(main, projects, { active, onTune: (key) => void flip(key), onAll: () => setView('list', true), start: reelBack, onOpen: (place) => stamp({ reel: place }) });
       hud.setCount(channelProjects(projects, active).length);
     } else await mount(active);
     setView(view);
     // a Back (or Forward) to the list: the place it was left; set again once the faces have laid it out, unless the
     // visitor has moved it meanwhile. A fresh visit or a reload starts at the top.
-    const nav = performance.getEntriesByType?.('navigation')[0] as PerformanceNavigationTiming | undefined;
-    if (view === 'list' && returning(nav?.type) && placeBack()) {
+    if (view === 'list' && returning(navType) && placeBack()) {
       let set = listEl.scrollTop;
       const again = () => { if (listEl.scrollTop === set && placeBack()) set = listEl.scrollTop; };
       requestAnimationFrame(() => requestAnimationFrame(again));

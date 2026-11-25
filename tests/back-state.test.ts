@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { entryOf, listStartTop, restoredTop, returning, viewOnLoad, wallByBack } from '../src/works/back-state';
+import { entryOf, listStartTop, reelReturn, restoredTop, returning, viewOnLoad, wallByBack } from '../src/works/back-state';
 
 // THE BROWSER'S BACK ON WORK (the review's walkthroughs, 2026-11-25): THE LIST had no history entry of its own, so Back
 // from it left WORK altogether; a Back from a film opened from the list found the list at its top. Each history entry
@@ -62,5 +62,23 @@ describe('where the list opens by hand', () => {
     expect(listStartTop('human', heads)).toBe(0);
     expect(listStartTop('machine', heads.slice(0, 1))).toBe(0);
     expect(listStartTop('machine', [])).toBe(0);
+  });
+});
+
+// THE PHONE'S STRIP AFTER BACK (the review's walkthroughs, iPhone; the same on the Android phone when the strip had been
+// moved before the press): open the second or third pane's film, press Back, and the strip arrived at film 1 again.
+describe('the strip comes back to the place it was left on', () => {
+  it('reads a place of the right kinds only', () => {
+    expect(entryOf({ reel: { ch: 'machine', pane: 2, part: 0.25 } })).toEqual({ reel: { ch: 'machine', pane: 2, part: 0.25 } });
+    expect(entryOf({ reel: { ch: 'nope', pane: 2, part: 0.25 } })).toEqual({});
+    expect(entryOf({ reel: { ch: 'human', pane: -1, part: 0.25 } })).toEqual({});
+    expect(entryOf({ reel: { ch: 'human', pane: 1.5, part: 0.25 } })).toEqual({});
+    expect(entryOf({ reel: { ch: 'human', pane: 1, part: 1.5 } })).toEqual({});
+  });
+  it('in the chapter it was left in, on a pane the strip has', () => {
+    expect(reelReturn({ reel: { ch: 'human', pane: 3, part: 0.4 } }, 'human', 28)).toEqual([3, 0.4]);
+    expect(reelReturn({ reel: { ch: 'human', pane: 3, part: 0.4 } }, 'machine', 28)).toBeNull();
+    expect(reelReturn({ reel: { ch: 'human', pane: 30, part: 0.4 } }, 'human', 28)).toBeNull();
+    expect(reelReturn({}, 'human', 28)).toBeNull();
   });
 });

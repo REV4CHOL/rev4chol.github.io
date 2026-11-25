@@ -27,6 +27,7 @@ import { reducedMotion } from '../lib/env';
 import { fillCrossed } from '../lib/cross';
 import { softBreaks } from '../lib/escape';
 import { fillTitle, settleLockup } from '../lib/title';
+import { reelReturn, type ReelPlace } from './back-state';
 import { CHANNELS, type ChannelKey, channelProjects } from './channels';
 import {
   arrivalOffset, capKeyframes, coast, lanesToRetime, lapProgress, lapSeconds, lapUnits, loopsAllowed, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
@@ -47,6 +48,11 @@ export interface ReelOptions {
   onTune(key: ChannelKey): void;
   /** the list is asked for */
   onAll(): void;
+  /** a return by Back: the place the strip was left on (works/back-state.ts); its first show starts there instead of
+   *  arriving at film 1 */
+  start?: ReelPlace | null;
+  /** a film is opened: the strip's place as it stands, for the history entry */
+  onOpen?(place: ReelPlace): void;
 }
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string): HTMLElementTagNameMap[K] => {
@@ -482,6 +488,13 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     s.ol.addEventListener('pointercancel', up);
   }
   // a drag never opens a film; a tap does (the link's own click, with the house wipe)
+  // a film opened (a tap, not a drag): the place the strip stands on, so Back comes back to it (works/back-state.ts;
+  // before the drag's own listener, which clears `dragged`)
+  root.addEventListener('click', (e) => {
+    if (dragged || !(e.target as Element).closest?.('.rl-link')) return;
+    const [pane, part] = stripPlace(offsetNow(), unit, view, strip.units);
+    o.onOpen?.({ ch: active, pane, part });
+  }, true);
   root.addEventListener('click', (e) => {
     if (!dragged) return;
     dragged = false;
@@ -549,6 +562,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
 
   /* ------------------------------------------------------------ the rest -- */
 
+  let returnTo: ReelPlace | null = o.start ?? null;
   const show = (key: ChannelKey) => {
     for (const a of timelines()) a.cancel();
     lanes = [];
@@ -565,6 +579,10 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     paintRail();
     fit(strip);
     offset = arrivalOffset(strip.units, unit, view); // (film 1's bottom edge at the screen's bottom: upright, the chapter's last film above it)
+    // a return by Back, the first show only: the place the strip was left on (works/back-state.ts)
+    const back = returnTo ? reelReturn({ reel: returnTo }, key, strip.panes.length) : null;
+    returnTo = null;
+    if (back) offset = offsetForPlace(back[0], back[1], unit, view, strip.units);
     v = 0;
     // the panes on the screen as it arrives come up through the gate (the styles' arrival wipe): upright, the last film and film 1
     strip.panes.forEach((li, i) => li.classList.toggle('is-gate', panePlay(paneTop(strip.at[i], strip.units[i], offset, unit, strip.total), strip.units[i] * unit, view, unit) === 'play'));

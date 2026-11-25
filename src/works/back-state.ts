@@ -8,7 +8,9 @@ import { viewFromSearch, type WorkView } from './index-list';
  *    and Forward to the list; the list's own "back to the wall" button then goes back in history rather than piling
  *    entries up.
  *  - THE LIST'S PLACE: the row the visitor opened, and its height in the list's view, so Back from a film finds the
- *    list where it was left (the list was laid out anew at its top: scrollTop 1340 before, 0 after, on an iPad). */
+ *    list where it was left (the list was laid out anew at its top: scrollTop 1340 before, 0 after, on an iPad).
+ *  - THE PHONE'S STRIP: the place it stood on when a film was opened, so Back finds that film again (it arrived at
+ *    film 1 every time). Its FIRST arrival (film 1 in the lower half) is the owner's and is untouched. */
 export interface WorkEntry {
   /** the view this entry shows */
   view?: WorkView;
@@ -18,7 +20,12 @@ export interface WorkEntry {
    *  view (px from the scroller's top edge) */
   row?: string;
   rowAt?: number;
+  /** the phone's strip: the place under the screen's middle when a film was opened (works/reel.ts stripPlace) */
+  reel?: ReelPlace;
 }
+
+/** A place on the strip: a chapter, a pane of its strip and the part of that pane under the screen's middle. */
+export interface ReelPlace { ch: ChannelKey; pane: number; part: number }
 
 /** What WORK knows of an entry's state, of the right kinds; anything else is left out. */
 export function entryOf(state: unknown): WorkEntry {
@@ -29,6 +36,9 @@ export function entryOf(state: unknown): WorkEntry {
   if (s.pushed === true) e.pushed = true;
   if (typeof s.row === 'string') e.row = s.row;
   if (typeof s.rowAt === 'number' && Number.isFinite(s.rowAt)) e.rowAt = s.rowAt;
+  const r = s.reel as Record<string, unknown> | null | undefined;
+  if (r && typeof r === 'object' && (r.ch === 'human' || r.ch === 'machine') && Number.isInteger(r.pane) && (r.pane as number) >= 0
+    && typeof r.part === 'number' && r.part >= 0 && r.part < 1) e.reel = { ch: r.ch, pane: r.pane as number, part: r.part };
   return e;
 }
 
@@ -63,4 +73,11 @@ export function listStartTop(active: ChannelKey, heads: readonly { key: ChannelK
   if (!heads.length || heads[0].key === active) return 0;
   const h = heads.find((x) => x.key === active);
   return h ? Math.max(0, Math.round(h.top - heads[0].top)) : 0;
+}
+
+/** Where the strip comes back to: the place it was left on, when it was left in this chapter and the strip has that
+ *  pane (`panes`); otherwise null, and the strip arrives as designed. */
+export function reelReturn(entry: WorkEntry, ch: ChannelKey, panes: number): [pane: number, part: number] | null {
+  const r = entry.reel;
+  return r && r.ch === ch && r.pane < panes ? [r.pane, r.part] : null;
 }
