@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { cursorParts } from '../src/shell/cursor';
+import { cursorParts, focusKey } from '../src/shell/cursor';
 
 // THE CURSOR'S TAG FOR A KEYBOARD USER (the review's walkthroughs, 2026-11-25): Tab to a pane on WORK and the floor names
 // it OPEN ▸ on the site's cursor, which had never moved: the tag and its box stood in the screen's top-left corner.
@@ -23,5 +23,15 @@ describe('the cursor is drawn only where the pointer has been, and the keyboard 
     expect(css.indexOf('#cursor.is-unmoved { visibility: hidden; }')).toBeGreaterThan(-1);
     expect(css.indexOf('#cursor.no-tag .cursor-label { visibility: hidden; }')).toBeGreaterThan(-1);
     expect(css.indexOf('#cursor.no-box .x { outline: none; }')).toBeGreaterThan(box);
+  });
+});
+
+// Only the key that moves the focus hands the cursor to the keyboard: an arrow that pans the floor, a modifier, a held
+// key or typing in a field leaves the mouse's tag where it is (a held key repeating while the mouse moves would flicker).
+describe('which key hands the cursor to the keyboard', () => {
+  it('Tab and Shift+Tab, once per press', () => {
+    expect(focusKey({ key: 'Tab', repeat: false })).toBe(true);
+    expect(focusKey({ key: 'Tab', repeat: true })).toBe(false);
+    for (const key of ['ArrowRight', 'Shift', 'Control', 'Meta', 'a', 'Enter', ' ', 'Escape']) expect(focusKey({ key, repeat: false })).toBe(false);
   });
 });

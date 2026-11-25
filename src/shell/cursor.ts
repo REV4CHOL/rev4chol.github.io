@@ -51,12 +51,17 @@ export function cursorCoords(x: number, y: number): string {
 /** What of the cursor shows (the review's walkthroughs, 2026-11-25: a keyboard user's Tab to a pane on WORK wrote OPEN ▸
  *  and its box on a cursor that had never moved, in the screen's top-left corner):
  *  - nothing until the pointer has moved once: the cursor stands only where the pointer has been;
- *  - while the keyboard drives (a key pressed since the pointer last moved), the cross stays where the mouse rests, but
+ *  - while the keyboard drives (Tab pressed since the pointer last moved: focusKey), the cross stays where the mouse rests, but
  *    without a tag: a tag names what is under the pointer, and a pane the keyboard brought forward is not; its box
  *    stays only over a link really under it. The next move of the mouse gives it all back. */
 export function cursorParts(s: { moved: boolean; keyed: boolean; onLink: boolean }): { shown: boolean; tag: boolean; box: boolean } {
   return { shown: s.moved, tag: !s.keyed, box: s.onLink || !s.keyed };
 }
+
+/** The key that hands the cursor to the keyboard: Tab (with or without Shift), once per press. An arrow that pans the
+ *  floor, a modifier, a held key's repeats or typing in a field leave the mouse's tag as it is (a repeating key with
+ *  the mouse moving would make the tag flicker). */
+export const focusKey = (e: { key: string; repeat: boolean }): boolean => e.key === 'Tab' && !e.repeat;
 
 export function initCursor(): void {
   if (!finePointer() || reducedMotion()) return;
@@ -75,7 +80,7 @@ export function initCursor(): void {
     c.classList.toggle('no-box', !p.box);
   };
   shape();
-  window.addEventListener('keydown', () => { if (!keyed) { keyed = true; shape(); } }, true);
+  window.addEventListener('keydown', (e) => { if (focusKey(e) && !keyed) { keyed = true; shape(); } }, true);
   let raf = 0;
   window.addEventListener('pointermove', (e) => {
     const { clientX, clientY } = e;
