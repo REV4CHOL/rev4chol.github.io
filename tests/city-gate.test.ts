@@ -60,7 +60,7 @@ describe("STORY's gate", () => {
     const s = readFileSync('src/pages/story.ts', 'utf8');
     expect(s.indexOf('cityGate(probeGpu())')).toBeGreaterThan(-1);
     expect(s.indexOf('cityGate(probeGpu())')).toBeLessThan(s.indexOf('armPosterLock('));
-    expect(s).toContain("armPosterLock({ exempt: '#a3c, .a3-still' })");
+    expect(s).toContain("armPosterLock({ exempt: '#a3c, .a3-still', narrow: true })");
     expect(s).toMatch(/canvas\.after\(img\);\s*filmLayersOff\(\);/); // the still is the city's glass: no grain, no scanlines over it
   });
 });

@@ -14,7 +14,7 @@ let heroBurst: () => void = () => {};
 startPage('home', async ({ site }) => {
   // the poster is a fixed 1440px plate; only the reel behind it stays a true
   // full-viewport surface (counter-zoomed), so footage framing never changes
-  armPosterLock({ exempt: '#hero-host' });
+  armPosterLock({ exempt: '#hero-host', narrow: true });
   // hero first: the accent it samples from the image must land before the type reveals
   const host = document.getElementById('hero-host');
   if (host) {

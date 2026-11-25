@@ -1,3 +1,5 @@
+import { NARROW_CLASS, narrowWindow, winPin } from './window-fit';
+
 /** POSTER LOCK — a page that arms this renders on a fixed-width plate, and
  *  browser zoom changes NOTHING about it: not size, not placement, not
  *  layout — in EITHER direction (owner decree: benchmark at 100%, the
@@ -44,15 +46,53 @@
  *  coordinate space is true viewport px again — Pixi's resizeTo, pointer
  *  clientX math and world framing all stay 1:1 while the DOM chrome around
  *  it sits on the plate.
+ *
+ *  A NARROW WINDOW (`narrow: true`; owner, 2026-11-25: "Tablet layout: below a floor width the window gets the
+ *  layout a tablet gets, with readable words. Wide windows keep your poster lock exactly as now."): a window under
+ *  the floor of lib/window-fit.ts is no poster. The lock stands down (no zoom, no --plate, no --zw, no counter-zoom)
+ *  and `<html>` carries `rvl-narrow`, which the stylesheets' mirrored tablet blocks key on (lib/narrow-css.ts); there
+ *  browser zoom works as on any website. The window is read from `outerWidth`, which browser zoom does not move, so a
+ *  wide window never flips narrow under zoom and everything above stands for it unchanged. `NARROW_EVENT` fires on
+ *  `window` when the mode changes, after the lock has refitted.
  */
 export const POSTER_W = 1440;
 
-export function armPosterLock(opts: { designW?: number; exempt?: string } = {}): void {
+/** Fired on `window` when a window crosses the narrow floor, after the lock has refitted. */
+export const NARROW_EVENT = 'rvl-narrow-change';
+
+export function armPosterLock(opts: { designW?: number; exempt?: string; narrow?: boolean } = {}): void {
   if (!window.matchMedia('(pointer: fine)').matches) return;
   const floor = opts.designW ?? POSTER_W;
+  const pin = opts.narrow ? winPin(location.search) : null;
+  const root = document.documentElement;
   const fit = () => {
     const w = document.documentElement.clientWidth;
     if (w <= 0) return; // a hidden/collapsing viewport reads 0 — never apply it
+    if (opts.narrow) {
+      const narrow = narrowWindow(window.outerWidth, window.screen?.width || 0, POSTER_W, pin);
+      const was = root.classList.contains(NARROW_CLASS);
+      if (narrow) {
+        // the lock stands down: the page lays out at the window's own width, as a tablet's does
+        if (!was) {
+          root.classList.add(NARROW_CLASS);
+          for (const p of ['zoom', '--plate', '--zw']) document.body.style.removeProperty(p);
+          if (opts.exempt) {
+            for (const el of document.querySelectorAll<HTMLElement>(opts.exempt)) el.style.removeProperty('zoom');
+          }
+          window.dispatchEvent(new Event(NARROW_EVENT));
+        }
+        return;
+      }
+      if (was) {
+        root.classList.remove(NARROW_CLASS);
+        poster(w);
+        window.dispatchEvent(new Event(NARROW_EVENT));
+        return;
+      }
+    }
+    poster(w);
+  };
+  const poster = (w: number) => {
     // stateless: the plate is the CURRENT monitor, read fresh every time
     const plate = Math.max(floor, window.screen?.width || w);
     const k = w / plate;

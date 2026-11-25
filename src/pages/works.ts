@@ -1,10 +1,10 @@
 import gsap from 'gsap';
 import { isPlaceholder, loadFloor, loadLoopManifest, loadProjects, projectAssetUrl, type Project } from '../lib/content';
-import { finePointer, reducedMotion } from '../lib/env';
+import { finePointer, reducedMotion, touchLayout } from '../lib/env';
 import { fillCrossed } from '../lib/cross';
 import { softBreaks } from '../lib/escape';
 import { settleAll, titleSpan } from '../lib/title';
-import { armPosterLock, posterZoom } from '../lib/poster-lock';
+import { armPosterLock, NARROW_EVENT, posterZoom } from '../lib/poster-lock';
 import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { startPage } from '../shell/page';
@@ -24,7 +24,7 @@ startPage(
     // the DOM chrome (nav, HUD, switcher, ident, label, corner marks) is a
     // fixed 1440px plate; the FLOOR is exempt — panes and background keep
     // their true full-viewport world, untouched by the lock
-    armPosterLock({ exempt: '#floor' });
+    armPosterLock({ exempt: '#floor', narrow: true });
     // WORK ON A PHONE (owner, 2026-10-20: "on Phone, its completely overwhelming and disorienting … a complete redesign
     // … specifically for Phones"): the reel (works/reel.ts), decided once as the page loads; a phone builds no floor
     const reelOn = window.matchMedia(REEL_QUERY).matches;
@@ -38,7 +38,7 @@ startPage(
     // A TABLET'S LIST (owner, of THE LIST on an iPad: "The film list does not have the animations appear"): a touch
     // screen held on its side narrows the same way on its own screen, down to a narrower column (`rvl-list-touch`)
     const tight = () => {
-      const pointer = listPointer(finePointer(), reelOn);
+      const pointer = listPointer(!touchLayout(), reelOn); // (a narrow PC window lays THE LIST out as a tablet does)
       const on = listTight(window.innerWidth / posterZoom(), pointer);
       document.documentElement.classList.toggle('rvl-list-tight', on);
       document.documentElement.classList.toggle('rvl-list-touch', on && pointer === 'touch');
@@ -62,10 +62,13 @@ startPage(
       words.className = 'fh-text';
       // a touch screen's legend is set in pieces (one per ▪, which stays with the piece before it) so a tablet too
       // narrow for one line breaks between them (components.css); the pieces and the spaces between join back to the
-      // same words. A fine pointer's legend stays one text (its measure is the lock's, to the pixel).
-      const legend = legendText(finePointer());
-      if (finePointer()) words.textContent = legend;
-      else {
+      // same words. A fine pointer's legend stays one text (its measure is the lock's, to the pixel). A narrow PC window
+      // (owner, 2026-11-25: "Tablet layout") takes a tablet's pieces with a mouse's words, again whenever it crosses the
+      // floor (lib/window-fit.ts)
+      const fillLegend = () => {
+        const legend = legendText(finePointer());
+        if (!touchLayout()) { words.textContent = legend; return; }
+        words.replaceChildren();
         const pieces = legend.split(' ▪ ');
         pieces.forEach((s, i) => {
           const seg = document.createElement('span');
@@ -73,7 +76,9 @@ startPage(
           seg.textContent = i < pieces.length - 1 ? s + ' ▪' : s;
           words.append(seg, i < pieces.length - 1 ? ' ' : '');
         });
-      }
+      };
+      fillLegend();
+      window.addEventListener(NARROW_EVENT, fillLegend);
       hint.replaceChildren(words, toggle);
       let opened = false;
       try { opened = floorOpened(localStorage); } catch { /* no storage: stays lit */ }

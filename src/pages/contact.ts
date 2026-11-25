@@ -15,7 +15,7 @@ const BARS = 24;
 startPage('contact', ({ site }) => {
   // the console is a fixed 1440px plate — zoom and window width scale it as
   // one poster, they never reflow it (owner decree: benchmark 100% only)
-  armPosterLock();
+  armPosterLock({ narrow: true });
   // the console is taller than a phone's screen (and a short laptop's), so the glide arms only at the respective end
   // of its scroll, as on ABOUT: a thumb scrolls the page first, and only at its foot does a swipe go on to STORY
   const se = document.scrollingElement ?? document.documentElement;

@@ -58,7 +58,9 @@ describe('WORK on a tablet: the legend over the floor fits the screen (800 px: i
     const src = readFileSync('src/pages/works.ts', 'utf8');
     expect(src).toContain("className = 'fh-seg'");
     expect(src).toContain("legend.split(' ▪ ')");
-    expect(src).toContain('if (finePointer()) words.textContent = legend;'); // a fine pointer keeps its one text
+    expect(src).toContain('if (!touchLayout()) { words.textContent = legend; return; }'); // a wide PC window keeps its one text
+    expect(src).toContain('const legend = legendText(finePointer());'); // a narrow PC window: a mouse's words, a tablet's pieces
+    expect(src).toContain('window.addEventListener(NARROW_EVENT, fillLegend);'); // set again when the window crosses the floor
   });
 });
 

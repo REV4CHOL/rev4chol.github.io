@@ -66,5 +66,13 @@ export function openingFor(
 ): OpeningFrame | null {
   if (fine) return null;
   if (reelMode({ coarse: true, width: screen.w, height: screen.h })) return openingFrame(panes, screen.w, minScale);
-  return { x: 0, y: 0, scale: Math.min(1, Math.max(minScale, screen.w / DESKTOP_VIEW_W)) };
+  return desktopOpening(screen.w, minScale);
+}
+
+/** The desktop's cluster at the origin, scaled so a screen `screenW` wide shows the width of world a full-HD desktop
+ *  shows, never closer than scale 1 and never past the pinch's floor: a tablet's opening (above), and a narrow PC
+ *  window's at any size (owner, 2026-11-25: "Tablet layout"; it keeps the floor and its mouse, never the phone's
+ *  frame, even under the phone's width). */
+export function desktopOpening(screenW: number, minScale: number): OpeningFrame {
+  return { x: 0, y: 0, scale: Math.min(1, Math.max(minScale, screenW / DESKTOP_VIEW_W)) };
 }

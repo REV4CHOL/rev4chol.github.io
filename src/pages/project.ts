@@ -38,7 +38,7 @@ startPage(
   async () => {
     // the dossier is a fixed 1440px plate like the rest of the site — zoom
     // and window width scale it as one document, they never reflow it
-    armPosterLock();
+    armPosterLock({ narrow: true });
     const projects = await loadProjects();
     await loadLoopManifest(); // the hero walks the manifest-led chain
     const slug = getSlugFromSearch(location.search);

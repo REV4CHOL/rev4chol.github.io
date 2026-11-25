@@ -1,4 +1,5 @@
 import { quality, resolutionFor, videoCapFor } from './quality';
+import { NARROW_CLASS } from './window-fit';
 
 // Calm mode is a SITE choice, not the OS's. Motion is this site's identity, so it
 // runs full by default: Windows commonly ships with "animation effects" off, which
@@ -11,6 +12,12 @@ export const reducedMotion = (): boolean =>
 
 export const finePointer = (): boolean =>
   typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches;
+
+/** Is the page laid out as a touch screen's? A touch screen, or a narrow PC window (`rvl-narrow`, set by the poster
+ *  lock: lib/window-fit.ts), which takes the tablet's LAYOUT and keeps a mouse's behaviour (`finePointer()` still
+ *  says true there: hover, the cursor, click to open). */
+export const touchLayout = (): boolean =>
+  !finePointer() || (typeof document !== 'undefined' && document.documentElement.classList.contains(NARROW_CLASS));
 
 export const isMobile = (): boolean =>
   typeof window !== 'undefined' && window.matchMedia('(max-width: 820px), (pointer: coarse)').matches;

@@ -5,7 +5,7 @@ import gsap from 'gsap';
 import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
 import type { FloorItem, Project } from '../lib/content';
 import { aspectRatio, isBlank, wallFor } from '../lib/content';
-import { dprCap, finePointer, isMobile, reducedMotion } from '../lib/env';
+import { dprCap, finePointer, isMobile, reducedMotion, touchLayout } from '../lib/env';
 import { textureBytes } from '../lib/meter';
 import { posterZoom } from '../lib/poster-lock';
 import {
@@ -22,7 +22,7 @@ import { leaveTo } from '../lib/transitions';
 import { setCursorLabel } from '../shell/cursor';
 import { captionSpot } from './caption';
 import { captionMeta, markFloorOpened } from './legend';
-import { openingFor } from './opening';
+import { desktopOpening, openingFor } from './opening';
 import {
   CARD_W, HOVER_LIFT, HOVER_M, ISO, SEAM, STEP_W, WORLD_PAD, cardSize, hoverFit, hoverFitIn, previewBox, rowAxisWorld,
 } from './constants';
@@ -264,8 +264,10 @@ export class WorksWorld {
     // THE FIRST FRAME (works/opening.ts): a fine pointer keeps the cluster at scale 1; a tablet the cluster as a
     // full-HD desktop shows it (owner, on an iPad: "zoomed WAY TOO CLOSE"); a phone-shaped touch screen one whole
     // featured pane, fitted and centred, not the seam between two (owner's testers, 2026-09-27)
-    if (!finePointer()) {
-      const frame = openingFor(
+    // A NARROW PC WINDOW (owner, 2026-11-25: "Tablet layout") opens as a tablet does, at any size: it keeps the floor
+    // and its mouse, so never the phone's one-pane frame. Decided as the floor is built, like the rest.
+    if (touchLayout()) {
+      const frame = finePointer() ? desktopOpening(app.screen.width, minZoom()) : openingFor(
         [...w.tiles.values()].map((t) => ({ x: t.x, y: t.y, halfW: t.extentX(), featured: t.project.tileSize === 'large' })),
         { w: app.screen.width, h: app.screen.height },
         false,

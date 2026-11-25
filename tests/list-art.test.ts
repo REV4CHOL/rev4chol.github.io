@@ -252,18 +252,18 @@ describe('the narrowed column, in its three places', () => {
 
   it('sets the class with the poster lock, before the list is first drawn, and lets no tier move it', () => {
     const page = read('src/pages/works.ts'), deco = read('src/works/list-deco.ts');
-    const lock = page.indexOf("armPosterLock({ exempt: '#floor' });"), set = page.indexOf(".toggle('rvl-list-tight'");
+    const lock = page.indexOf("armPosterLock({ exempt: '#floor', narrow: true });"), set = page.indexOf(".toggle('rvl-list-tight'");
     expect(lock).toBeGreaterThan(-1);
     expect(set).toBeGreaterThan(lock);
     expect(set, 'before the first await: the list never draws wide first').toBeLessThan(page.indexOf('await loadProjects()'));
-    expect(page).toContain('const pointer = listPointer(finePointer(), reelOn);');
+    expect(page).toContain('const pointer = listPointer(!touchLayout(), reelOn);'); // (a narrow PC window: a tablet's list)
     expect(page).toContain('const on = listTight(window.innerWidth / posterZoom(), pointer);');
     expect(page).toContain(".toggle('rvl-list-touch', on && pointer === 'touch');");
     expect(deco).toContain('const plateW = window.innerWidth / Z'); // (the same plate the deco lays its margins on)
     expect(deco, 'the deco never sets the layout: one device, one layout, whatever the tier').not.toContain('rvl-list-tight');
     expect(deco).not.toContain('rvl-list-touch');
     // the deco reads the pointer as the page does, and lays its margins on the same column
-    expect(deco).toContain('const pointer = listPointer(finePointer(), window.matchMedia(REEL_QUERY).matches), touch = pointer === \'touch\';');
+    expect(deco).toContain('const pointer = listPointer(!touchLayout(), window.matchMedia(REEL_QUERY).matches), touch = pointer === \'touch\';');
     expect(deco).toContain('columnFor(plateW, touch)');
     expect(deco).toContain("sideLayout(plateW, plateH, 'left', touch)");
     expect(deco).toContain("sideLayout(plateW, plateH, 'right', touch)");

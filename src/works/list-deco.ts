@@ -18,7 +18,7 @@
  *  machines cue the row a finger is on and go back to their own round when it lifts. CALM draws one still
  *  frame; the LITE tier draws the city's still, the machines moving over it (owner, 2026-11-24: "Animate them
  *  anyway"); the list's closing, or a hidden tab, stops it all. */
-import { finePointer, reducedMotion } from '../lib/env';
+import { reducedMotion, touchLayout } from '../lib/env';
 import { posterZoom } from '../lib/poster-lock';
 import { quality } from '../lib/quality';
 import { sessionTag } from '../shell/session-tag';
@@ -76,7 +76,8 @@ export function mountListDeco(listEl: HTMLElement, films: MachineFilm[]): ListDe
     Z = posterZoom(); DPR = window.devicePixelRatio || 1;
     const plateW = window.innerWidth / Z, plateH = window.innerHeight / Z;
     // the pointer as the page reads it (works.ts): a tablet lays its margins on its own, narrower column
-    const pointer = listPointer(finePointer(), window.matchMedia(REEL_QUERY).matches), touch = pointer === 'touch';
+    // (a narrow PC window, `rvl-narrow`, is laid out as a tablet: lib/window-fit.ts)
+    const pointer = listPointer(!touchLayout(), window.matchMedia(REEL_QUERY).matches), touch = pointer === 'touch';
     const l = sideLayout(plateW, plateH, 'left', touch), r = sideLayout(plateW, plateH, 'right', touch);
     hud.replaceChildren(); cueEls = []; labels = { left: [], right: [] };
     const built = !!l && !!r && !!cctx && pointer !== 'none';

@@ -19,7 +19,7 @@ startPage('story', async ({ site }) => {
   const gate = cityGate(probeGpu());
   if (gate !== 'live') mountStill();
   // the page rides the plate; the CITY keeps true viewport pixels
-  armPosterLock({ exempt: '#a3c, .a3-still' });
+  armPosterLock({ exempt: '#a3c, .a3-still', narrow: true });
   // nothing scrolls here since the tour left, so no boundary to check: the
   // glide home arms while the city drifts itself — in FREE the thumb owns
   // the stick and the look, and the page keeps its seat

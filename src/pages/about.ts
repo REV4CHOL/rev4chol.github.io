@@ -21,7 +21,7 @@ startPage(
   async ({ site }) => {
     // the page is a fixed 1440px plate — zoom and window width scale it as
     // one poster, they never reflow it (owner decree: benchmark 100% only)
-    armPosterLock();
+    armPosterLock({ narrow: true });
     // this page scrolls, so the glide only arms at the respective end of the
     // scroll — normal thumb-scrolling never drags the page itself
     const se = document.scrollingElement ?? document.documentElement;
