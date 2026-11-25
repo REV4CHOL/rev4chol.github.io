@@ -4,7 +4,7 @@ import { brotliDecompressSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { parseAbout, parseJson, parseProjects } from '../src/lib/content';
 
-// Every letter a film's name or synopsis carries must come from the site's own type — the owner's
+// Every letter a film's name carries must come from the site's own type — the owner's
 // "Ăn Hỏi" Ceremony (2026-09-27) showed its Ỏ in a system font, because Clash Display and Bodoni
 // Moda stop short of the Vietnamese block. The voices in tokens.css name companion faces for it.
 
@@ -92,11 +92,6 @@ describe('the site draws every letter in its own type', () => {
     for (const p of films) expect(missing(p.title, display), p.slug).toEqual([]);
   });
 
-  it('every synopsis, in the text voice (Source Serif 4 since the owner chose it, 2026-11-25)', () => {
-    const text = drawable('f-text');
-    for (const p of films) expect(missing(p.synopsis, text), p.slug).toEqual([]);
-  });
-
   it('sets every film\'s name in the display voice (owner 2026-10-13: "the font for project titles are very hard to read")', () => {
     const sheet = (f: string) => readFileSync(fileURLToPath(new URL(`../src/styles/${f}`, import.meta.url)), 'utf8');
     const families = (src: string, sel: string) => { // the font-family every rule for the selector sets
@@ -154,7 +149,8 @@ describe('the site draws every letter in its own type', () => {
 //  they chose "Bodoni upright", and "Everywhere" for the four other lines that stood in the same slanted Bodoni. The
 //  face, its size and its weight stay; only the slant goes.) Then, owner 2026-11-25: "Every running line: the synopsis
 //  on every film page, ABOUT's statement and OP: paragraph, and CONTACT's line" moved to the text voice, Source Serif 4
-//  (tests/text-face.test.ts); the homepage's line was not named and keeps the serif voice.
+//  (tests/text-face.test.ts); the homepage's line was not named and keeps the serif voice. The synopsis left every film
+//  page the same day, the owner's word: four lines stand.
 describe('the running lines stand upright', () => {
   const sheet = (f: string) => readFileSync(fileURLToPath(new URL(`../src/styles/${f}`, import.meta.url)), 'utf8');
   /** Every rule body a stylesheet gives a selector standing alone (".x {", at any indent). */
@@ -167,13 +163,13 @@ describe('the running lines stand upright', () => {
     }
     return out;
   };
-  // a film's synopsis, the homepage's line, ABOUT's statement and the opening of its bio, CONTACT's line
+  // the homepage's line, ABOUT's statement and the opening of its bio, CONTACT's line
   const LINES: [string, string, string][] = [
-    ['project.css', '.p-synopsis', 'f-text'], ['components.css', '.home-cta', 'f-serif'], ['about.css', '.a-statement', 'f-text'],
+    ['components.css', '.home-cta', 'f-serif'], ['about.css', '.a-statement', 'f-text'],
     ['about.css', '.a-bio-lead', 'f-text'], ['contact.css', '.c-vow', 'f-text'],
   ];
 
-  it('the five lines keep their voice (four in the text voice, the homepage\'s line in the serif), and none of them is slanted', () => {
+  it('the four lines keep their voice (three in the text voice, the homepage\'s line in the serif), and none of them is slanted', () => {
     for (const [file, sel, voice] of LINES) {
       const found = rules(sheet(file), sel);
       expect(found.length, sel).toBeGreaterThan(0);
@@ -198,8 +194,6 @@ describe('the running lines stand upright', () => {
     for (const fam of stack('f-text'))
       for (const f of faces.filter((x) => x.family === fam && !x.body.includes('font-style: italic')))
         for (const c of codepoints(pub + f.url.slice(1))) upright.add(c);
-    const films = parseProjects(parseJson(readFileSync(pub + 'content/projects.json', 'utf8'), 'projects.json'));
-    for (const p of films) expect(missing(p.synopsis, upright), p.slug).toEqual([]);
     const about = parseAbout(parseJson(readFileSync(pub + 'content/about/about.json', 'utf8'), 'about.json'));
     expect(missing(about.statement, upright), 'statement').toEqual([]);
     expect(missing(about.bio[0] ?? '', upright), 'bio').toEqual([]);

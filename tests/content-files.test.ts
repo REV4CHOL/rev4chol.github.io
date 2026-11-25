@@ -112,9 +112,6 @@ describe('shipped content files', () => {
     expect(p.role).toBe('Director / Colorist / Editor / Sound Designer');
     expect(p.runtime).toBe('1:56');
     expect(p.tags).toEqual(['experimental', 'supernatural']);
-    expect(p.synopsis).toBe('I see summer. And then the sea.');
-    // (the owner's correction the same day: the ghost line is PHILIA's, the chapter's other real film)
-    expect(projects.find((q) => q.slug === 'philia')!.synopsis).toBe('A ghost of the past, the present and the future.');
     expect(p.category).toBe('human');
     expect(p.tileSize).toBe('normal'); // out of the featured cluster, onto the ring (owner 2026-09-27)
     expect(p.aspect).toBe('2.39:1');
@@ -136,10 +133,10 @@ describe('shipped content files', () => {
   // open gap left it, and again when SALINE THRONE did)
   const BATCH = [
     { slug: 'the-father', slot: 3, was: 'void-cartography', title: 'The Father', year: 2026, role: 'Colorist', runtime: '2:27',
-      tags: ['slice of life'], synopsis: 'A father hiding secrets from his own daughter.', category: 'machine',
+      tags: ['slice of life'], category: 'machine',
       tileSize: 'large', aspect: '16:9', youtube: 'Idreboecojw', stills: 23 },
     { slug: 'halide', slot: 15, was: 'paper-lantern-war', title: 'HALIDE', year: 2026, role: 'Director / Colorist / Editor', runtime: '1:06',
-      tags: ['experimental'], synopsis: 'Whiter dreams and whiter lives.', category: 'human',
+      tags: ['experimental'], category: 'human',
       tileSize: 'normal', aspect: '2.39:1', youtube: 'dMbsrk9Eeiw', stills: 29 },
     // (the owner, mid-build: "MIST CHILD must be MISTCHILD" — one word, as its YouTube title has it;
     //  and after: "mistchild is 2025", as its folder says — the brief's 2026 was a slip)
@@ -149,7 +146,7 @@ describe('shipped content files', () => {
     //  gap gone, json 17; then 16, SALINE THRONE gone too; on 2026-11-24 the owner: 'swap the place between
     //  "MISTCHILD" with "FAR EAST"': json 5, FAR EAST's old place)
     { slug: 'mistchild', slot: 5, was: 'low-tide-gospel', title: 'MISTCHILD', year: 2025, role: 'Director / Colorist / Editor', runtime: '0:47',
-      tags: ['experimental'], synopsis: 'The child must have felt so lonely, in the mist.', category: 'human',
+      tags: ['experimental'], category: 'human',
       tileSize: 'normal', aspect: '2.39:1', youtube: 'dyqpjo4eKJI', stills: 16 },
   ];
 
@@ -160,17 +157,15 @@ describe('shipped content files', () => {
   const BATCH3 = [
     { slug: 'forest-onsen', slot: 4, where: 'takes TENDER MACHINES\' featured place in CH·02',
       title: 'FOREST ONSEN - Ecopark\'s Eco Retreat Commercial', year: 2026, role: 'AI Lead / Colorist', runtime: '0:47',
-      tags: ['real estate', 'tv commercial'], synopsis: 'Change your life’s experience, with Forest Onsen.', category: 'machine',
+      tags: ['real estate', 'tv commercial'], category: 'machine',
       tileSize: 'large', aspect: '16:9', youtube: '5drz5nwLdKM', stills: 10 },
     { slug: 'soft-hours-lonely-lands', slot: 12, where: 'takes the pane SODA COAST left',
       title: 'Soft Hours & Lonely Lands', year: 2025, role: 'Director / Colorist / Editor / Sound Designer', runtime: '1:46',
       tags: ['experimental'],
-      synopsis: 'The stillness of ordinary moments, in familiar places that feel strangely distant, with the extraordinary emotions for the empty spaces.',
       category: 'human', tileSize: 'normal', aspect: '2.39:1', youtube: 'G_wItkJWT2o', stills: 36 },
     { slug: 'an-hoi', slot: 6, where: 'fills the upper held place, featured',
       title: 'The Betrothal', year: 2026, role: 'Director / Colorist / Editor / Sound Designer', runtime: '3:17',
       tags: ['experimental', 'slice of life'],
-      synopsis: 'Gathering together, saying the first words, for their time spent together for all eternity.',
       category: 'human', tileSize: 'large', aspect: '4:3', youtube: 'XKkHkLVUC40', stills: 35 },
   ];
 
@@ -204,11 +199,11 @@ describe('shipped content files', () => {
     // (2026-11-25, the owner: its Vietnamese name joins the title; see the test under this batch)
     { slug: 'remnants-of-a-dream', slot: 0, where: 'stands in PHILIA\'s old place, featured',
       title: 'Remnants of a Dream / Tàn Tích Của Một Giấc Mơ', year: 2026, role: 'Colorist', runtime: '24:16',
-      tags: ['drama', 'indie short film'], synopsis: 'Avalon promises a bright future, but at what cost?',
+      tags: ['drama', 'indie short film'],
       category: 'human', tileSize: 'large', aspect: '16:9', youtube: 'tKWevMRBOzY', stills: 40, accent: '#ED6B85' },
     { slug: 'mission-impassible', slot: 14, where: 'takes COPPER LULLABY\'s pane',
       title: 'Mission: Impassible', year: 2025, role: 'Colorist', runtime: '1:36',
-      tags: ['comedy', 'indie short film'], synopsis: 'Failure is not an option. Neither is studying.',
+      tags: ['comedy', 'indie short film'],
       category: 'human', tileSize: 'normal', aspect: '2.39:1', youtube: 'R3tSyucJERw', stills: 19, accent: '#F5AE4A' },
   ];
 
@@ -242,7 +237,6 @@ describe('shipped content files', () => {
     expect(p.runtime).toBe('2:46');
     expect([p.year, p.role, p.tags, p.accent, p.aspect, p.category, p.tileSize]).toEqual(
       [2026, 'Director / Editor / Colorist / Sound Designer', ['spec advertisement'], '#FFA84D', '16:9', 'machine', 'large']);
-    expect(p.synopsis).toBe('A dog, a city and one long golden hour on the road. A machine-dreamt spec ad for the JAECOO J5.');
     expect(read('projects.json')).not.toContain('EGIm1gD-KTE');
     expect(readdirSync(`${root}projects/jaecoo-j5/stills`)).toHaveLength(54); // its media stay
   });
@@ -254,8 +248,8 @@ describe('shipped content files', () => {
     expect(parseFloor(rawProjects()).findIndex((it) => it.slug === 'galaxy-z-fold-8-ultra')).toBe(11);
     const p = parseProjects(rawProjects()).find((q) => q.slug === 'galaxy-z-fold-8-ultra')!;
     expect(p.title).toBe('GALAXY Z FOLD 8 ULTRA | DIGITAL AD');
-    expect([p.year, p.role, p.runtime, p.tags, p.synopsis]).toEqual(
-      [2026, 'AI Generalist', '0:24 & 0:37', ['commercial advertising'], 'Welcome to the fold.']);
+    expect([p.year, p.role, p.runtime, p.tags]).toEqual(
+      [2026, 'AI Generalist', '0:24 & 0:37', ['commercial advertising']]);
     expect(p.credits).toEqual([{ role: 'AI Generalist', name: 'Revachol' }]);
     expect([p.aspect, p.category, p.tileSize, p.accent]).toEqual(['9:16', 'machine', 'large', '#8C9EFF']);
     expect(p.films).toEqual([
@@ -300,7 +294,6 @@ describe('shipped content files', () => {
     expect(p.credits).toEqual([{ role: f.role, name: 'Revachol' }]); // no placeholder credit left behind
     expect(p.runtime).toBe(f.runtime);
     expect(p.tags).toEqual(f.tags);
-    expect(p.synopsis).toBe(f.synopsis);
     expect(p.category).toBe(f.category);
     expect(p.tileSize).toBe(f.tileSize); // the slot's own size
     expect(p.aspect).toBe(f.aspect);
@@ -489,8 +482,6 @@ describe('shipped content files', () => {
     expect(p.position).toEqual({ col: -1, row: 1 }); // (the slot under JAECOO J5)
     expect([p.client, p.artist, p.director, p.productionHouse]).toEqual(['', '', '', '']);
     expect(p.accent).toBe('#DCD3BE');
-    // (owner, 2026-11-24, their own words in place of a draft)
-    expect(p.synopsis).toBe("The most we want is what we most can't have. And what we most can't have is what we already had, and lost.");
     const dir = `${root}projects/deathman/`;
     expect(existsSync(`${dir}poster.jpg`)).toBe(true);
     const loop = mp4Facts(`${dir}preview.mp4`);
@@ -529,13 +520,13 @@ describe('shipped content files', () => {
     { slug: 'the-lovers', slot: 17, title: 'THE LOVERS', aspect: '4:3', client: '', tags: ['wedding film'],
       role: 'Director / Editor / Colorist', runtime: '3:17', film: 'https://www.youtube.com/embed/4nkgqyVtfsg',
       artist: '', productionHouse: '', director: '',
-      synopsis: 'A vow in a green garden, held close.', accent: '#6FE0B4', focus: '70% 50%',
+      accent: '#6FE0B4', focus: '70% 50%',
       loop: { size: [960, 720], seconds: 8 }, stills: 50, still: [1600, 1200] },
     // (later that day, the owner: 'Go for "Temptation / Xiêu Lòng instead of the old name'; the slug and address stay)
     { slug: 'xieu-long', slot: 18, title: 'Temptation / Xiêu Lòng', aspect: '3:2', client: '', tags: ['music video'],
       role: 'Colorist', runtime: '4:20', film: 'https://www.youtube.com/embed/wZNPHtoPZzk',
       artist: 'Dung Hoang Pham / PHUCNAM', productionHouse: 'XPOKIT', director: 'Khadarec [XPOKIT]',
-      synopsis: 'Silk, a red curtain and a paper fan: the moment a heart gives way.', accent: '#FF3D5A', focus: '50% 50%',
+      accent: '#FF3D5A', focus: '50% 50%',
       loop: { size: [1080, 720], seconds: 5.4 }, stills: 24, still: [1600, 1067] }, // (27 until the owner took three out: tests/xieu-long-stills.test.ts)
   ] as const;
 
@@ -547,7 +538,7 @@ describe('shipped content files', () => {
     expect([p.year, p.role, p.runtime, p.client, p.category, p.tileSize]).toEqual([2026, f.role, f.runtime, f.client, 'human', 'normal']);
     expect(p.credits).toEqual([{ role: f.role, name: 'Revachol' }]);
     expect([p.artist, p.productionHouse, p.director]).toEqual([f.artist, f.productionHouse, f.director]);
-    expect([p.aspect, p.tags, p.synopsis, p.accent, p.focus]).toEqual([f.aspect, [...f.tags], f.synopsis, f.accent, f.focus]);
+    expect([p.aspect, p.tags, p.accent, p.focus]).toEqual([f.aspect, [...f.tags], f.accent, f.focus]);
     // (a film with its link plays; one without says FILM LINK COMING SOON until the link comes)
     expect([p.film, p.filmPending, p.filmPrivate]).toEqual(f.film ? [{ type: 'youtube', src: f.film }, false, false] : [null, true, false]);
     const dir = `${root}projects/${f.slug}/`;

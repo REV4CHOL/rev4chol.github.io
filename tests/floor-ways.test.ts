@@ -20,7 +20,7 @@ import { nearestPane, strayed } from '../src/works/stray';
 
 const project = (over: Partial<Project> = {}): Project => ({
   slug: 'philia', title: 'PHILIA', year: 2026, role: 'Colorist', runtime: '11:42', client: '', artist: '', productionHouse: '', director: '', short: '', tags: [],
-  accent: '#c8ff00', tileSize: 'large', aspect: '16:9', category: 'human', synopsis: '', credits: [],
+  accent: '#c8ff00', tileSize: 'large', aspect: '16:9', category: 'human', credits: [],
   film: { type: 'youtube', src: 'https://youtu.be/abcdefghijk' }, films: [], filmPending: false, filmPrivate: false,
   stills: [], bigStills: [], phoneOrder: null, position: null, focus: '50% 50%',
   ...over,

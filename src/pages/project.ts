@@ -86,7 +86,7 @@ function render(p: Project, all: Project[], idx: number): void {
 
   mountHero(p, stamp);
   mountSpec(p);
-  mountSynopsis(p);
+  mountFilmSection(p);
   mountTicker(p, stamp);
   void mountWall(p);
   mountEndNav(all, idx);
@@ -194,7 +194,7 @@ function mountHero(p: Project, stamp: string): void {
         noteImageLoops(true);
         imgShown = true;
         apply();
-        heroBox.dispatchEvent(new Event('rvl-hero-frame')); // (the film's frames may be sent for: mountSynopsis)
+        heroBox.dispatchEvent(new Event('rvl-hero-frame')); // (the film's frames may be sent for: mountFilmSection)
       });
       im.addEventListener('error', () => {
         if (img !== im || !im.getAttribute('src')) return; // (let go on purpose)
@@ -397,14 +397,14 @@ function mountSpec(p: Project): void {
     .join('');
 }
 
-/* ------------------------------------------------------------ synopsis -- */
+/* ------------------------------------------------- the film: thread + player -- */
 
-function mountSynopsis(p: Project): void {
-  document.getElementById('p-synopsis')!.textContent = p.synopsis;
-
+function mountFilmSection(p: Project): void {
+  // (the synopsis stood here until the owner took it off every film page, 2026-11-25; the film's thread stands in its
+  //  row now, and the marks below are the same marks, where they always were)
   // two plus-glyphs seeded off the slug — same film, same constellation
   const rand = mulberry32(hashSlug(p.slug) ^ 0x9e3779b9);
-  const body = document.querySelector('.p-syn-sec .p-sec-body')!;
+  const body = document.querySelector('.p-film-sec .p-sec-body')!;
   for (const tone of ['sig', 'alr'] as const) {
     const s = document.createElement('span');
     s.className = `p-plus p-plus-${tone}`;
@@ -440,7 +440,7 @@ function mountSynopsis(p: Project): void {
     return;
   }
   // THE FILM STANDS READY (owner 2026-11-24: "I want to abolish the WATCH button. Instead, I want the video to be
-  // already there ready to play, with its thumbnail displaying"): the real player stands under the synopsis from the
+  // already there ready to play, with its thumbnail displaying"): the real player stands under the film's thread from the
   // start, not started, showing the platform's own thumbnail and play control, so ONE press plays it everywhere (a
   // frame made by a press cannot start with sound on an iPhone or an iPad: a second tap). It is as wide as the page
   // allows, in its own shape (vertical footage stands vertical: the review's walkthroughs, 2026-09-30, had it open

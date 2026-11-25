@@ -54,7 +54,8 @@ describe('the pillars are equal: one column count, one still size', () => {
 // there; a pillar's empty foot is see-through, and there it crossed "EOF ▪ DIGITAL AD #1". REC: stays at the wall's head.
 // (owner 2026-11-25, of SYN: "the "SYN" should stay in its place, and not move with the user's scrolling action") SYN: now
 // stands still too, so no film-page rail tag travels: the base rule is not sticky and no rule makes one sticky again.
-describe("the REC: tag stays at the wall's head, and SYN: at the synopsis's", () => {
+// (SYN: left the page with the synopsis, owner 2026-11-25: REC: is the one rail tag now.)
+describe("the REC: tag stays at the wall's head", () => {
   const css = readFileSync('src/styles/project.css', 'utf8');
   it('no rail tag of a film page travels: the base rule is not sticky, and nothing turns it sticky', () => {
     const base = css.indexOf('.p-rail-tag {');

@@ -15,7 +15,7 @@ const film = (over: Partial<{ film: { type: 'youtube'; src: string } | null; fil
   ...over,
 });
 
-describe('what stands under the synopsis', () => {
+describe("what stands under the film's thread", () => {
   it('a film with a link gets its player', () => {
     expect(watchKind(film())).toBe('watch');
   });
@@ -62,12 +62,12 @@ describe("a 3:2 film's hero", () => {
 describe('the film opens large', () => {
   const css = readFileSync('src/styles/project.css', 'utf8');
 
-  it("the player takes the page's full row under the synopsis, as tall as the screen allows", () => {
+  it("the player takes the page's full row under the thread, as tall as the screen allows", () => {
     expect(css).toContain('.p-player { grid-column: 1 / -1; grid-row: 2; margin-top: 56px; }');
     expect(css).toContain('width: min(100%, calc(min(74svh / var(--plate, 1), 760px) * var(--player-ratio, 1.7778)));');
   });
 
-  it('it no longer squeezes into the field right of the synopsis', () => {
+  it('it no longer squeezes into the field beside the first column', () => {
     expect(css).not.toContain('margin-top: -220px');
     expect(css).not.toMatch(/\.p-player \{\s*grid-column: 2;/);
   });

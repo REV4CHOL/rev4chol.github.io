@@ -21,7 +21,6 @@ const validProject = () => ({
   tags: ['short film'],
   accent: '#C8FF00',
   tileSize: 'large',
-  synopsis: 'A courier crosses the city.',
   credits: [{ role: 'Director', name: 'Revachol' }],
   film: { type: 'vimeo', src: 'https://vimeo.com/76979871' },
   stills: ['01.jpg', '02.jpg'],

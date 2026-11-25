@@ -11,7 +11,6 @@
       "indie short film"
     ],
     "accent": "#ED6B85",
-    "synopsis": "Avalon promises a bright future, but at what cost?",
     "credits": [
       {
         "role": "Colorist",
@@ -38,7 +37,6 @@
     "focus": "62% 50%",
     "aspect": "4:3",
     "tileSize": "large",
-    "synopsis": "Present as if in the past.",
     "credits": [
       {
         "role": "1st AD / Colorist / Editor / VFX Artist",
@@ -61,7 +59,6 @@
     ],
     "accent": "#FFB4A8",
     "tileSize": "large",
-    "synopsis": "Human shadows fall across a garden that was never grown. An AI short film.",
     "credits": [
       {
         "role": "Director / Editor / Colorist / Sound Designer",
@@ -84,7 +81,6 @@
       "slice of life"
     ],
     "accent": "#F4B67B",
-    "synopsis": "A father hiding secrets from his own daughter.",
     "credits": [
       {
         "role": "Colorist",
@@ -109,7 +105,6 @@
       "tv commercial"
     ],
     "accent": "#EDCB8A",
-    "synopsis": "Change your life’s experience, with Forest Onsen.",
     "credits": [
       {
         "role": "AI Lead / Colorist",
@@ -134,7 +129,6 @@
     ],
     "accent": "#85AFE0",
     "aspect": "2.39:1",
-    "synopsis": "The child must have felt so lonely, in the mist.",
     "credits": [
       {
         "role": "Director / Colorist / Editor",
@@ -161,7 +155,6 @@
     ],
     "accent": "#CFDB9E",
     "aspect": "4:3",
-    "synopsis": "Gathering together, saying the first words, for their time spent together for all eternity.",
     "credits": [
       {
         "role": "Director / Colorist / Editor / Sound Designer",
@@ -189,7 +182,6 @@
     "accent": "#FF5C4D",
     "tileSize": "large",
     "category": "human",
-    "synopsis": "Small gods on a table. The arena is wherever everyone looks at once.",
     "credits": [
       {
         "role": "Colorist",
@@ -213,7 +205,6 @@
     ],
     "accent": "#FFA84D",
     "focus": "60% 50%",
-    "synopsis": "A dog, a city and one long golden hour on the road. A machine-dreamt spec ad for the JAECOO J5.",
     "credits": [
       {
         "role": "Director / Editor / Colorist / Sound Designer",
@@ -239,7 +230,6 @@
     ],
     "accent": "#4FB3FF",
     "aspect": "2.39:1",
-    "synopsis": "I see summer. And then the sea.",
     "credits": [
       {
         "role": "Director / Colorist / Editor / Sound Designer",
@@ -264,7 +254,6 @@
     ],
     "accent": "#D689FF",
     "aspect": "4:3",
-    "synopsis": "Two morning cafés, and the street slips underwater. Stillness and voltage share one purple breath — the organic and the synthetic dreaming each other in the city's electric current.",
     "credits": [
       {
         "role": "Director / Editor / Colorist / Sound Designer",
@@ -290,7 +279,6 @@
     ],
     "accent": "#8C9EFF",
     "aspect": "9:16",
-    "synopsis": "Welcome to the fold.",
     "credits": [
       {
         "role": "AI Generalist",
@@ -323,7 +311,6 @@
     ],
     "accent": "#F39A7E",
     "aspect": "2.39:1",
-    "synopsis": "The stillness of ordinary moments, in familiar places that feel strangely distant, with the extraordinary emotions for the empty spaces.",
     "credits": [
       {
         "role": "Director / Colorist / Editor / Sound Designer",
@@ -352,7 +339,6 @@
     "tileSize": "large",
     "phoneOrder": 2,
     "category": "human",
-    "synopsis": "A ghost of the past, the present and the future.",
     "credits": [
       {
         "role": "Colorist",
@@ -377,7 +363,6 @@
     "accent": "#F5AE4A",
     "focus": "46% 50%",
     "aspect": "2.39:1",
-    "synopsis": "Failure is not an option. Neither is studying.",
     "credits": [
       {
         "role": "Colorist",
@@ -402,7 +387,6 @@
     ],
     "accent": "#FFFFFF",
     "aspect": "2.39:1",
-    "synopsis": "Whiter dreams and whiter lives.",
     "credits": [
       {
         "role": "Director / Colorist / Editor",
@@ -428,7 +412,6 @@
     ],
     "accent": "#EFC468",
     "aspect": "2.39:1",
-    "synopsis": "East of memory, the grass holds the sun and a house waits. Two silhouettes learn the horizon — the land keeping a warmth the day has already left.",
     "credits": [
       {
         "role": "Director / Editor / Colorist",
@@ -455,7 +438,6 @@
     "accent": "#6FE0B4",
     "focus": "70% 50%",
     "aspect": "4:3",
-    "synopsis": "A vow in a green garden, held close.",
     "credits": [
       {
         "role": "Director / Editor / Colorist",
@@ -484,7 +466,6 @@
     ],
     "accent": "#FF3D5A",
     "aspect": "3:2",
-    "synopsis": "Silk, a red curtain and a paper fan: the moment a heart gives way.",
     "credits": [
       {
         "role": "Colorist",
@@ -511,7 +492,6 @@
     ],
     "accent": "#DCD3BE",
     "aspect": "4:3",
-    "synopsis": "The most we want is what we most can't have. And what we most can't have is what we already had, and lost.",
     "credits": [
       {
         "role": "Director / Editor / Colorist / Sound Designer",

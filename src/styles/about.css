@@ -95,7 +95,7 @@
   letter-spacing: 0.24em; font-weight: 500;
   clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 100%, 8px 100%);
 }
-.a-statement { /* (a running line: the text voice, Source Serif 4, upright: owner, 2026-11-25; see .p-synopsis) */
+.a-statement { /* (a running line: the text voice, Source Serif 4, upright: owner, 2026-11-25; see tokens.css) */
   margin: 26px 0 0; font-family: var(--f-text); font-weight: 400; font-variation-settings: 'opsz' 20;
   font-size: var(--t-lg); line-height: 1.4; color: var(--bone);
   max-width: 32ch; /* 16em, the column Bodoni's 26ch made: a "ch" of Source Serif 4 is 0.5em, Bodoni Moda's 0.62em,
@@ -221,7 +221,7 @@
 
 /* ------------------------------------------------------- OP: dossier -- */
 
-.a-bio-lead { /* (a running line: the text voice, upright: owner, 2026-11-25; see .p-synopsis) */
+.a-bio-lead { /* (a running line: the text voice, upright: owner, 2026-11-25; see tokens.css) */
   margin: 0; font-family: var(--f-text); font-weight: 400; font-variation-settings: 'opsz' 20;
   font-size: var(--t-lg); line-height: 1.5; max-width: 56ch; color: var(--bone);
 }

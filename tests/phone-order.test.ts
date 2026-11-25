@@ -39,7 +39,7 @@ describe('the strip\'s films in the phone\'s order (works/reel.ts: stripFilms)',
 describe('`phoneOrder` in projects.json (lib/content.ts)', () => {
   const valid = (over: Record<string, unknown> = {}) => ({
     slug: 'neon-dream', title: 'Neon Dream', year: 2025, role: 'Colorist', runtime: '', tags: ['short film'], accent: '#C8FF00',
-    tileSize: 'normal', synopsis: '', credits: [], film: null, filmPending: true, stills: [], category: 'human', ...over,
+    tileSize: 'normal', credits: [], film: null, filmPending: true, stills: [], category: 'human', ...over,
   });
   it('a film without it has none; a whole number from 1 is its place', () => {
     expect(parseProjects([valid()])[0].phoneOrder).toBeNull();

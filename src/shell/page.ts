@@ -11,8 +11,9 @@ export interface PageCtx { site: SiteContent; hud: Hud }
 
 // The running text's face (Source Serif 4, owner 2026-11-25) stands on these pages' first screen or close under it,
 // so their boot waits for its Latin file as it waits for the others: the text is never drawn in a stand-in face first
-// and never reflows when the face arrives. Other pages never fetch it.
-const TEXT_FACE_PAGES: PageKey[] = ['project', 'about', 'contact'];
+// and never reflows when the face arrives. Other pages never fetch it. (A film page was one of them until its
+// synopsis left, owner 2026-11-25: nothing on it is set in this face now.)
+const TEXT_FACE_PAGES: PageKey[] = ['about', 'contact'];
 
 // STALE-DEPLOY SELF-HEAL. Every deploy renames the hashed chunks; a device
 // holding cached HTML (Pages caches everything ~10 min) then 404s its

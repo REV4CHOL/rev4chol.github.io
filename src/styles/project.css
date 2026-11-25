@@ -248,7 +248,7 @@
 .p-up:hover { color: var(--bone); animation: rgb-flick 0.32s steps(2) 1; }
 /* the picture itself plays the film (p-hero--plays, from JS, only where there is a film to watch). The hero has no
    button of its own (owner, of the hero, 2026-09-30: "remove the WATCH on this"): the player stands under the
-   synopsis */
+   film's thread */
 .p-hero--plays { cursor: pointer; }
 .pc-line { position: relative; width: 78px; border-top: 1px dotted rgba(200, 255, 0, 0.65); }
 .pc-line::before {
@@ -289,7 +289,7 @@
 }
 .p-sec-body { position: relative; min-width: 0; }
 .p-rail-tag {
-  display: inline-block; /* stands still at its section's head: SYN: and REC: alike, see below */
+  display: inline-block; /* stands still at its section's head, see below */
   font-family: var(--f-display); font-weight: 700; font-size: var(--t-xl);
   line-height: 0.8; color: transparent; -webkit-text-stroke: 1.5px var(--signal);
   opacity: 0.85;
@@ -303,7 +303,9 @@
    the pillar's end mark (the owner, of "REC:" sliding over "EOF ▪ DIGITAL AD #1": "Fix this").
    Then SYN: (owner, 2026-11-25: "the "SYN" should stay in its place, and not move with the user's scrolling action"):
    its section is tall now, the film's player stands under the synopsis, and the tag sliding down the rail followed
-   the visitor. So the base rule is no longer sticky, for both. */
+   the visitor. So the base rule is no longer sticky, for both.
+   SYN: itself left the page with the synopsis (owner, 2026-11-25: asked what should stand where it stood, "No tag").
+   REC: is the one rail tag now, and the rule holds for it. */
 
 /* ------------------------------------------------------------- spec -- */
 
@@ -335,7 +337,7 @@
   letter-spacing: 0.1em; text-transform: uppercase;
 }
 
-/* ------------------------------------------------------- SYN: story -- */
+/* -------------------------------------------- FILM: thread + player -- */
 
 .p-arc-clip { position: absolute; inset: -96px 0 -72px; overflow: hidden; pointer-events: none; }
 .p-arc {
@@ -350,25 +352,27 @@
 .p-plus-sig { color: rgba(200, 255, 0, 0.8); }
 .p-plus-alr { color: rgba(255, 46, 99, 0.8); }
 
-/* the synopsis stands UPRIGHT (owner, 2026-11-24, of the slanted Bodoni it stood in: "I dont like this font too hard
-   to read."; shown four faces they chose "Bodoni upright", and "Everywhere": the homepage's line, ABOUT's statement
-   and bio opening and CONTACT's line follow). Same face, size and weight; only the slant is gone. */
-.p-synopsis {
-  position: relative; z-index: 2; margin: 0;
-  font-family: var(--f-text); font-weight: 400; font-variation-settings: 'opsz' 20; font-size: var(--t-lg); /* (Source Serif 4: owner, 2026-11-25; tokens.css) */
-  line-height: 1.5; max-width: 58ch; color: var(--bone);
-}
+/* THE FILM'S THREAD (owner, 2026-11-25: "Completely remove the synopsis from all film's pages", and the place it
+   leaves filled with "artwork designs that align with our art direction"; of the first, louder mock-ups: "the designs
+   need to be muted, subtle"; and: "no deleting anything old", so the arc and the plus marks above stand as they did).
+   A still line drawing of the film's path (project/thread.ts): the band in the row where the synopsis stood, its
+   height kept here so the player never moves when the script draws, and the box beside the player on a wide screen.
+   Both stand under the player's level and take no pointer. Every opacity is in THREAD_INK (project/thread-plan.ts). */
+.p-thread { position: relative; z-index: 1; height: 120px; pointer-events: none; }
+.p-thread-side { position: absolute; z-index: 1; pointer-events: none; }
+.p-thread svg, .p-thread-side svg { position: absolute; display: block; overflow: visible; }
+.p-thread text, .p-thread-side text { font-family: var(--f-micro); }
 
 .p-watch { position: relative; z-index: 2; }
 /* THE FILM STANDS LARGE (the review's walkthroughs, 2026-09-30): as wide as the page allows and no taller than the screen
    shows whole, in the player's own shape (--player-ratio, from JS: vertical footage stands vertical), there from the
    start, ready to play (owner, 2026-11-24: "I want to abolish the WATCH button. Instead, I want the video to be already
    there ready to play, with its thumbnail displaying"). Before, on a wide screen, it opened in the field right of the
-   synopsis, which the 1440 plate pins to a sliver: 245 × 138 px. */
+   synopsis the page then had, which the 1440 plate pins to a sliver: 245 × 138 px. */
 /* THE PLAYER STANDS ABOVE EVERY MARK (owner, 2026-11-24: "The artworks inside the work projects of our website got
    slapped on top of the embed video"): its own z-index, never its wrapper's. On a wide screen .p-watch is
    `display: contents`, which makes no box and so no stacking level, and a player at z-index auto painted under the
-   synopsis's plus marks (z-index 1). Every mark of the section stands at 1 or below. */
+   section's plus marks (z-index 1). Every mark of the section stands at 1 or below, the film's thread too. */
 .p-player {
   margin-top: 34px; position: relative; z-index: 2;
   width: min(100%, calc(min(74svh / var(--plate, 1), 760px) * var(--player-ratio, 1.7778)));
@@ -400,17 +404,18 @@
   background-repeat: no-repeat;
 }
 
-/* wide screens: the synopsis keeps the intake sheet's column (880px), and the open player takes the page's full row
-   under it: a film and a film in parts alike.
+/* wide screens: the thread's band and, under it, the open player each take the page's full row: a film and a film in
+   parts alike. (The two columns are from the synopsis's time, the intake sheet's 880 px and the rest; a private or
+   pending film's notice still stands in the first.)
    OR pointer:fine — the locked plate is 1440 wide whatever the viewport,
    so a zoomed-in desktop must never fall out of the wide layout */
 /* narrow: layout */
 @media (min-width: 1100px), (pointer: fine) {
-  .p-syn-sec .p-sec-body {
+  .p-film-sec .p-sec-body {
     display: grid; grid-template-columns: minmax(0, 880px) minmax(0, 1fr);
     gap: 0 48px; align-items: start;
   }
-  .p-syn-sec .p-synopsis { grid-column: 1; grid-row: 1; }
+  .p-film-sec .p-thread { grid-column: 1 / -1; grid-row: 1; }
   .p-watch { display: contents; }
   .p-player { grid-column: 1 / -1; grid-row: 2; margin-top: 56px; }
 }
@@ -882,7 +887,7 @@
   background: repeating-linear-gradient(45deg, var(--alert) 0 4px, transparent 4px 9px);
   border-right: 1px solid var(--signal);
 }
-/* the private and pending lines stand exactly where the player would (under the synopsis: the wide grid's column 1, row 2) and reads
+/* the private and pending lines stand exactly where the player would (under the thread: the wide grid's column 1, row 2) and reads
    above the plus marks and the arc — no plate behind it */
 .p-private, .p-pending { position: relative; z-index: 2; }
 /* narrow: layout */

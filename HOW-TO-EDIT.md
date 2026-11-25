@@ -30,7 +30,9 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 3. Open `projects.json` and copy an existing entry. Change every field.
    List your stills by file name: `"stills": ["01.jpg", "02.jpg"]`.
 4. Save. Refresh the site. The new tile is on the floor. Before you publish,
-   run `npm run walls` once (see "Change / reorder / remove" below).
+   run `npm run walls` once (see "Change / reorder / remove" below) and
+   `npm run threads` once (it makes the six small pictures the film's page
+   hangs on its thread, from the film's stills).
 5. If the site boots into **CONTENT ERROR**, read the message — it names the
    file, the project and the field that's wrong. Fix, save, refresh.
 
@@ -53,7 +55,6 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | aspect | `"16:9"` (default), `"4:3"`, `"3:2"`, `"2.39:1"` or `"9:16"` (vertical footage) — the floor pane AND the whole dossier (hero + stills) present in this ratio; the carpet packs neighbors tight around any width. A `"4:3"` or `"3:2"` film's hero stands between two rack panels. A `"9:16"` film gets the tall vertical pane (two pane rows high, its name up a spine on the left edge; featured, it stands in the right-hand column of the centre cluster), a vertical hero and a wall of portrait stills | `"4:3"` |
 | focus | where the picture's subject sits, `"X% Y%"` — how far across, then how far down (`"0% 0%"` top-left, `"50% 50%"` the middle, the default). A phone shows each film in a pane half its screen high and crops the picture around this point; set it when the subject sits off the middle | `"60% 50%"` |
 | category | which works channel: `"human"` or `"machine"` (leave out = human) | `"machine"` |
-| synopsis | one short paragraph | |
 | credits | list of `{ "role": …, "name": … }` | |
 | film | where the full film lives — see below | |
 | stills | gallery file names, in order | `["01.jpg","02.jpg"]` |
@@ -61,7 +62,8 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | position | leave out (auto layout) or pin a pane slot on the band: `{ "col": 4, "row": 0 }` = the 5th pane of the top row | |
 | phoneOrder | the film's place on a **phone's** rolling strip in WORK, counted from 1 inside its chapter: the films with a number come first, lowest first, and the films without one follow in this file's order. Use each number once per chapter. Leave it out for none. It changes nothing on a tablet or a computer, in THE LIST or in the next-film links | `1` |
 
-**film** is the player that stands under the film's synopsis, ready to play
+**film** is the player that stands under the film's thread (the thin line of
+film with a few of its stills), ready to play
 (the platform's own thumbnail and play button; a press on it, or on the
 picture at the top of the page, plays it). It is one of:
 - `{ "type": "vimeo", "src": "https://vimeo.com/123456789" }`
@@ -193,6 +195,11 @@ build step, no terminal.
   so one file drives both. Any time; refresh. If several videos are in the
   folder, `preview.mp4` / `loop.mp4` win first, then A→Z decides.
   `hover.mp4` and a self-hosted film file are never picked.
+- **After a film's stills change, rebuild its thread's pictures:** run
+  `npm run threads` and publish what it writes (`public/content/threads.json`
+  and each film's `thread/` folder). A film's page hangs six small, dim copies
+  of its stills on the thin line of film above its player; this command makes
+  them. Run it after you add, replace or remove any still.
 - **After any loop changes, rebuild the wall videos:** run `npm run walls`
   and publish what it writes into `public/content/walls/` (three files per
   chapter). Weaker computers and tablets play ONE combined video per chapter

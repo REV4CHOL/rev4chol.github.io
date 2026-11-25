@@ -25,9 +25,10 @@ describe('nothing decorative is painted over the player', () => {
     expect(zOf('.p-player')).toBeGreaterThanOrEqual(2);
   });
 
-  it("every mark of the synopsis section stands below the player's level", () => {
+  // (the film's thread, 2026-11-25, is a mark of the section like the others: its band and its side box)
+  it("every mark of the film's section stands below the player's level", () => {
     const player = zOf('.p-player')!;
-    for (const deco of ['.p-plus', '.p-arc-clip', '.p-rail-tag', '.p-checks-v']) {
+    for (const deco of ['.p-plus', '.p-arc-clip', '.p-rail-tag', '.p-checks-v', '.p-thread', '.p-thread-side']) {
       expect(zOf(deco) ?? 0, deco).toBeLessThan(player);
     }
   });

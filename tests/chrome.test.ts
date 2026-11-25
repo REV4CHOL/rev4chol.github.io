@@ -55,7 +55,8 @@ describe("the header's veil, on every page", () => {
 
   // (owner 2026-11-25, of SYN: sliding down its rail: "the "SYN" should stay in its place, and not move with the user's
   // scrolling action") A film page's tags stand still at their section's head, so there is no veil to stop under.
-  it("a film page's rail tags do not travel: SYN: and REC: both stand at their section's head", () => {
+  // (SYN: left the page with the synopsis, owner 2026-11-25; the rule holds REC:, the one rail tag now.)
+  it("a film page's rail tag does not travel: it stands at its section's head", () => {
     const tag = rule(css('project'), '.p-rail-tag');
     expect(tag).not.toContain('sticky');
     expect(tag).not.toContain('top:');

@@ -46,7 +46,6 @@ export interface Project {
   aspect: '16:9' | '4:3' | '3:2' | '2.39:1' | '9:16';
   /** which works channel the film broadcasts on (default "human") */
   category: 'human' | 'machine';
-  synopsis: string;
   credits: Credit[];
   /** the film, or its first part */
   film: FilmRef | null;
@@ -269,7 +268,6 @@ export function parseProject(raw: unknown, i: number): Project {
     tileSize,
     aspect,
     category,
-    synopsis: str(r.synopsis, file, `${where} synopsis`, ''),
     credits,
     film,
     films,

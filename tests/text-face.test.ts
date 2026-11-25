@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { brotliDecompressSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
-import { parseAbout, parseJson, parseProjects } from '../src/lib/content';
+import { parseAbout, parseJson } from '../src/lib/content';
 
 // THE RUNNING TEXT'S FACE (owner, 2026-11-25, of a film's synopsis: "Do we have alternative fonts for this part? I really
 // dont like this font too hard to read"; shown six faces they chose "E: Source Serif 4", and for its reach: "Every
@@ -119,9 +119,10 @@ const undrawn = (line: string) => [...new Set([...line, ...line.toUpperCase()])]
   return !f || !cpsOf(f).has(cp);
 });
 
-// the four running lines (owner, 2026-11-25): a film's synopsis, ABOUT's statement and the OP: paragraph, CONTACT's line
+// the running lines (owner, 2026-11-25): ABOUT's statement and the OP: paragraph, CONTACT's line. A film's synopsis was
+// the fourth until the owner took it off every film page the same day.
 const LINES: [string, string][] = [
-  ['project.css', '.p-synopsis'], ['about.css', '.a-statement'], ['about.css', '.a-bio-lead'], ['contact.css', '.c-vow'],
+  ['about.css', '.a-statement'], ['about.css', '.a-bio-lead'], ['contact.css', '.c-vow'],
 ];
 
 describe('the running text is set in Source Serif 4', () => {
@@ -132,7 +133,7 @@ describe('the running text is set in Source Serif 4', () => {
     expect(v.some((f) => /Bodoni|RVL Viet/.test(f)), v.join(', ')).toBe(false);
   });
 
-  it('the four running lines use the text voice, upright, at weight 400 and optical size 20 (CONTACT\'s 16 px line: 16)', () => {
+  it('the three running lines use the text voice, upright, at weight 400 and optical size 20 (CONTACT\'s 16 px line: 16)', () => {
     for (const [file, sel] of LINES) {
       const opsz = sel === '.c-vow' ? 16 : 20;
       const found = rules(sheet(file), sel);
@@ -153,7 +154,7 @@ describe('the running text is set in Source Serif 4', () => {
   it('nothing else takes the text voice', () => {
     const files = ['base.css', 'components.css', 'project.css', 'about.css', 'contact.css', 'story.css', 'stats.css'];
     const users = files.flatMap((f) => (sheet(f).match(/var\(--f-text\)/g) ?? []).map(() => f));
-    expect(users.sort()).toEqual(['about.css', 'about.css', 'contact.css', 'project.css']);
+    expect(users.sort()).toEqual(['about.css', 'about.css', 'contact.css']);
   });
 
   it('the wordmark and the homepage\'s ampersand keep Bodoni Moda (the serif voice)', () => {
@@ -196,9 +197,7 @@ describe('the running text is set in Source Serif 4', () => {
     expect(undrawn('Miên Viễn Xiêu Lòng Ăn Hỏi Đ ơ ư ạ ề ỹ')).toEqual([]);
   });
 
-  it('every letter of the four lines as they stand today comes from Source Serif 4', () => {
-    const films = parseProjects(parseJson(read('../public/content/projects.json'), 'projects.json'));
-    for (const p of films) expect(undrawn(p.synopsis), p.slug).toEqual([]);
+  it('every letter of the three lines as they stand today comes from Source Serif 4', () => {
     const about = parseAbout(parseJson(read('../public/content/about/about.json'), 'about.json'));
     expect(undrawn(about.statement), 'statement').toEqual([]);
     expect(undrawn(about.bio[0] ?? ''), 'bio').toEqual([]);
@@ -206,9 +205,9 @@ describe('the running text is set in Source Serif 4', () => {
     expect(undrawn(vow![1]), 'vow').toEqual([]);
   });
 
-  it('the pages that show it hold their boot until its Latin face is in: film pages, ABOUT, CONTACT, and no other', () => {
+  it('the pages that show it hold their boot until its Latin face is in: ABOUT, CONTACT, and no other (a film page has no running text since its synopsis left)', () => {
     const page = read('../src/shell/page.ts');
-    expect(page).toMatch(/TEXT_FACE_PAGES[^=]*=\s*\[\s*'project',\s*'about',\s*'contact'\s*\]/);
+    expect(page).toMatch(/TEXT_FACE_PAGES[^=]*=\s*\[\s*'about',\s*'contact'\s*\]/);
     expect(page).toContain(`document.fonts.load('400 1rem "Source Serif 4"')`);
   });
 });
