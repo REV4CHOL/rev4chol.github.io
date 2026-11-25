@@ -17,6 +17,7 @@ import { linkParts, startedByFocus } from '../project/parts';
 import { armBar, BigFilm, mountBig } from '../project/player-bar';
 import { playerRecords, recordPlayer } from '../lib/player-record';
 import { stillParts } from '../project/pillars';
+import { inView, Size, turned, turnScroll } from '../project/turn';
 import { meets, playerRatio, watchKind } from '../project/watch';
 import { armStamps } from '../lib/stamps';
 import { keepPlace } from '../lib/keep-place';
@@ -336,6 +337,8 @@ function mountSynopsis(p: Project): void {
   };
   const programme = linkParts(talking, { onPlay: start });
   for (const b of bigs) armBar(b, programme); // (the site's own bar speaks to its player over the programme's link)
+  // a turn of the device brings a player in view, or playing, back whole under the header (project/turn.ts)
+  armTurn(player, () => talking.some((f) => { const s = programme.info(f).state; return s === 1 || s === 3; }) || videos.some((v) => !v.paused));
   // which player stands and why, for a check (the readout's PLAYER line reads the same records: `?stats=1`)
   (window as unknown as { rvlPlayer: unknown }).rvlPlayer = { state: () => playerRecords().map((r) => ({ ...r })) };
   // THE HERO FIRST: the frames' place stands from the start, but a platform's player (a megabyte of its own script) is
@@ -594,6 +597,58 @@ function armEffectHole(slot: 'player' | 'wall', target: HTMLElement): void {
     window.addEventListener('load', syncHoles);
   }
   holesRO?.observe(target);
+}
+
+/* ---------------------------------------------------------------- turn -- */
+
+/** A TURN OF THE DEVICE (project/turn.ts): touch screens only, so a window resized on a PC never moves the page. Whether
+ *  the player was in view is read as the page scrolls and kept while the screen keeps its size: at a turn the layout
+ *  has already changed when the page hears of it. After the turn (once the layout has settled, and once more a little
+ *  later), a player that was in view or playing is brought whole under the header, unless the visitor's finger is on
+ *  the page first or something is fullscreen. */
+function armTurn(player: HTMLElement, playing: () => boolean): void {
+  if (!window.matchMedia('(pointer: coarse)').matches) return;
+  // the header: the lowest of its words (the menu, the switches) standing in the top half of the screen above the player
+  // (a row off to the side of it hides none of it: measured on a phone on its side, the switches stand right of the film)
+  const header = () => {
+    const p = player.getBoundingClientRect();
+    let b = 0;
+    for (const e of document.querySelectorAll<HTMLElement>('.brand, .nav-links, .hud-tr')) {
+      const r = e.getBoundingClientRect();
+      if (r.height > 0 && r.top < window.innerHeight / 2 && r.right > p.left && r.left < p.right) b = Math.max(b, r.bottom);
+    }
+    return Math.ceil(b) + 10;
+  };
+  let size: Size = { w: window.innerWidth, h: window.innerHeight };
+  let seen = false;
+  const sample = () => { seen = inView(player.getBoundingClientRect(), window.innerHeight, header()); };
+  const same = () => window.innerWidth === size.w && window.innerHeight === size.h;
+  window.addEventListener('scroll', () => { if (same()) sample(); }, { passive: true });
+  window.addEventListener('load', sample);
+  sample();
+  let turnNo = 0;
+  const onSize = () => {
+    const now: Size = { w: window.innerWidth, h: window.innerHeight };
+    if (now.w === size.w && now.h === size.h) return;
+    const was = turned(size, now) && (seen || playing());
+    size = now;
+    const d = document as Document & { webkitFullscreenElement?: Element | null };
+    if (!was || document.fullscreenElement || d.webkitFullscreenElement) { sample(); return; }
+    const mine = ++turnNo;
+    let touched = false;
+    const hands = () => { touched = true; };
+    window.addEventListener('touchstart', hands, { once: true, passive: true });
+    const bring = () => {
+      if (touched || mine !== turnNo) return;
+      const r = player.getBoundingClientRect();
+      const to = turnScroll({ y: window.scrollY, top: r.top, height: r.height, vh: window.innerHeight, header: header() });
+      if (to !== null) window.scrollTo({ top: to, behavior: 'instant' });
+      sample();
+    };
+    window.setTimeout(bring, 350);
+    window.setTimeout(() => { bring(); window.removeEventListener('touchstart', hands); }, 1100);
+  };
+  window.addEventListener('resize', onSize);
 }
 
 /* -------------------------------------------------------------- ticker -- */
