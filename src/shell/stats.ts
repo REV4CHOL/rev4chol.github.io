@@ -3,7 +3,7 @@ import { heapBytes } from '../lib/meter';
 import { watchPressure } from '../lib/pressure';
 import { quality } from '../lib/quality';
 import { playerLine, playerRecords } from '../lib/player-record';
-import { floorReadings, fxOff, hitchLine, readoutLines, reelLine, type ReelReading } from '../lib/readout';
+import { floorReadings, fxOff, hitchLine, readoutLines, reelLine, type ReelReading, touchLine, type TouchReading } from '../lib/readout';
 
 /** THE READOUT'S PANEL (`?stats=1` on any page; the shell loads this file only then). Nine lines in the house's mono
  *  type at the left edge, refreshed once a second, and a COPY button that puts them on the clipboard as text. It
@@ -46,9 +46,11 @@ export function mountStats(): void {
   document.addEventListener('visibilitychange', () => { lastFrame = 0; away = true; });
   /** WORK's phone strip, as it stands (works/reel-view.ts hands it over); null on every other page */
   const reel = (): ReelReading | null => {
-    const r = (window as unknown as { rvlWorkReel?: { mode(): ReelReading['mode']; loops(): number; playing(): unknown[]; rolling(): boolean; pin(): string | null } }).rvlWorkReel;
-    return r ? { mode: r.mode(), loaded: r.loops(), playing: r.playing().length, rolling: r.rolling(), pin: r.pin() } : null;
+    const r = (window as unknown as { rvlWorkReel?: { mode(): ReelReading['mode']; loops(): number; playing(): unknown[]; rolling(): boolean; pin(): string | null; pictures(): number } }).rvlWorkReel;
+    return r ? { mode: r.mode(), loaded: r.loops(), playing: r.playing().length, rolling: r.rolling(), pin: r.pin(), pictures: r.pictures() } : null;
   };
+  /** what the strip's touches started (null where no play() was refused, and on every other page) */
+  const touch = (): TouchReading | null => (window as unknown as { rvlWorkReel?: { touch(): TouchReading | null } }).rvlWorkReel?.touch() ?? null;
 
   let text = '';
   let first = true;
@@ -58,12 +60,12 @@ export function mountStats(): void {
     first = false;
     frames = 0;
     since = now;
-    if (away) away = false; // (a second that held a hidden tab says nothing)
+    if (away || document.hidden) away = false; // (a second that held a hidden tab says nothing)
     else if (fps !== null && now - opened > 4000) lowest = lowest === null ? fps : Math.min(lowest, fps);
     const seconds = Math.max(0, Math.round((now - opened - 3000) / 1000));
     text = [
       ...readoutLines(quality.report(), fps, floorReadings(), heapBytes(), pressure(), now), playerLine(playerRecords()),
-      hitchLine({ hitches, longest, lowest, seconds }), reelLine(reel()),
+      hitchLine({ hitches, longest, lowest, seconds }), reelLine(reel()), touchLine(touch()),
     ].filter((l): l is string => l !== null).join('\n');
     lines.textContent = text;
   };

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { fxOff, hitchLine, reelLine } from '../src/lib/readout';
-import { loopsPin, onePlays } from '../src/works/reel';
+import { fxOff, hitchLine, reelLine, touchLine } from '../src/lib/readout';
+import { loopKind, loopsPin, onePlays, type LoopFacts } from '../src/works/reel';
 
 const read = (path: string): string => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
 const css = read('src/styles/components.css');
@@ -79,13 +79,13 @@ describe('the readings a phone hands back (the readout, ?stats=1)', () => {
   it('the view obeys the pin: no loop at all, one, or its kind', () => {
     expect(view).toContain('const pin = loopsPin(location.search);');
     expect(view).toContain("const allowed = pin !== 'off' && loopsAllowed(");
-    expect(view).toContain("const asImages = (): boolean => (pin === 'video' ? false : pin === 'image' ? imageLoopsWork() !== false : loopsAsImages());");
-    expect(view).not.toMatch(/[^.]loopsAsImages\(\) \?/); // (every choice of kind goes through asImages)
+    expect(view).toContain('const kind = (onScreen: boolean): LoopKind => loopKind({');
+    expect(view).toContain("l = kind(onScreen) === 'image' ? imageLoop(li, chain) : videoLoop(chain);"); // (every choice of kind goes through loopKind: works/reel.ts)
     expect(view).toContain("if (pin === 'one') want = onePlays(want, mids, view);");
   });
   it("a touch's re-offer plays what the plan asked for, the pin included (the first reading of `one` showed three playing)", () => {
     expect(view).toContain('wants = want;');
-    expect(view).toContain("if (l instanceof HTMLVideoElement && l.paused && wants[i] === 'play') tryPlay(l);");
+    expect(view).toContain("if (l instanceof HTMLVideoElement && l.paused && wants[i] === 'play') tryPlay(li, l);");
     expect(view).not.toMatch(/l\.paused && panePlay\(/); // (the re-offer no longer judges a pane by its place alone)
   });
   // The owner, 2026-11-25: in Low Power Mode "THE LIST lags too". A picture loop (an MP4 in an image) cannot pause, so
@@ -121,5 +121,89 @@ describe('the readings a phone hands back (the readout, ?stats=1)', () => {
     expect(stats).toContain('playerLine(playerRecords())');
     expect(stats).toContain('hitchLine(');
     expect(stats).toContain('reelLine(');
+  });
+});
+
+// The owner, 2026-11-25, Low Power Mode on, `works.html?stats=1&loops=video`, after a ten-second drag: "VIDEO LOOPS ·
+// 4 LOADED · 2 PLAYING · BY HAND", with 13 late frames in 14 s where the picture loops had given 57 in 13 s. So a touch
+// starts real videos on that phone. From the first touch the strip's loops are real videos; a player a touch has
+// started is kept and given the next film, since a new player made with no touch is refused. Nothing changes before
+// the first touch, and nothing at all in a visit where no play() was refused.
+describe('in a visit where a play() was refused, a touch starts the real videos (owner)', () => {
+  const base: LoopFacts = { pin: null, pictures: true, imageLoops: true, onScreen: true, touch: false, touched: false, spare: 0, off: false };
+
+  it('where nothing was refused, a video, as always: on the screen and beside it', () => {
+    expect(loopKind({ ...base, pictures: false })).toBe('video');
+    expect(loopKind({ ...base, pictures: false, onScreen: false })).toBe('video');
+    expect(loopKind({ ...base, pictures: false, imageLoops: null })).toBe('video');
+  });
+  it('refused, before any touch: the picture, as before', () => {
+    expect(loopKind(base)).toBe('image');
+    expect(loopKind({ ...base, onScreen: false })).toBe('image');
+  });
+  it('inside a touch, a pane on the screen gets a video; a pane waiting beside it does not (no touch would have started it)', () => {
+    expect(loopKind({ ...base, touch: true })).toBe('video');
+    expect(loopKind({ ...base, touch: true, onScreen: false })).toBe('image');
+  });
+  it('a player a touch has started carries the next film, on the screen or beside it; with none at hand, the picture', () => {
+    expect(loopKind({ ...base, touched: true, spare: 2 })).toBe('video');
+    expect(loopKind({ ...base, touched: true, spare: 1, onScreen: false })).toBe('video');
+    expect(loopKind({ ...base, touched: true, spare: 0 })).toBe('image');
+  });
+  it("once the swap is off (a started player was refused, or no touch started one), it is today's pictures, even inside a touch", () => {
+    expect(loopKind({ ...base, off: true, touch: true, touched: true, spare: 3 })).toBe('image');
+    expect(loopKind({ ...base, off: true })).toBe('image');
+  });
+  it('the address still pins the kind: video always; image always, unless this browser draws none', () => {
+    expect(loopKind({ ...base, pin: 'video' })).toBe('video');
+    expect(loopKind({ ...base, pin: 'video', off: true })).toBe('video');
+    expect(loopKind({ ...base, pin: 'image', touch: true, touched: true, spare: 3 })).toBe('image');
+    expect(loopKind({ ...base, pin: 'image', pictures: false })).toBe('image'); // (the old way, for a before and after)
+    expect(loopKind({ ...base, pin: 'image', imageLoops: false })).toBe('video');
+    expect(loopKind({ ...base, pin: 'one', touch: true })).toBe('video'); // (one loop is a count, not a kind)
+  });
+
+  it('the view: a player is kept only once a touch has started it, and only in such a visit', () => {
+    expect(view).toContain('if (!autoplayRefused()) return; // (nothing was ever refused here: no count, no player kept)');
+    expect(view).toContain('if (started.has(l) && !off && spare.length < POOL) {');
+    expect(view).toContain('const kept = off ? undefined : spare.pop();');
+  });
+  it('the view: inside a touch, a picture on the screen steps under its video, and goes once the video is seen', () => {
+    expect(view).toContain("if (wants[i] === 'play' && l instanceof HTMLImageElement) { l.classList.add('is-ghost'); loops.delete(li); any = true; }");
+    expect(view).toContain('dropGhosts(vid.parentElement, GHOST_MS);');
+    expect(view).toContain("if (!im.isConnected || im.classList.contains('is-ghost')) return;"); // (a picture let go, or stepping aside, decides nothing)
+  });
+  it('the view: every pane let go gives its player back before any pane asks for one (the lap wraps: the first pane asks first)', () => {
+    const at = (s: string): number => view.indexOf(s);
+    expect(at("strip.panes.forEach((li, i) => { if (want[i] === 'free') release(li); });")).toBeGreaterThan(0);
+    expect(at("strip.panes.forEach((li, i) => { if (want[i] === 'free') release(li); });")).toBeLessThan(at("if (want[i] !== 'play') return;"));
+    expect(at("if (want[i] !== 'play') return;")).toBeLessThan(at("if (want[i] !== 'rest') return;"));
+  });
+  it("the view: a started player refused with no touch ends the swap for the page: today's pictures, no further swaps", () => {
+    expect(view).toContain("if (vid.paused && loops.get(li) === vid) giveUp(f?.reused ? 'A REUSED PLAYER WAS REFUSED' : 'A STARTED PLAYER WAS REFUSED AGAIN');");
+    expect(view).toContain("if (!touched && lost >= GIVE_UP_AFTER) giveUp('NO TOUCH STARTED A VIDEO');");
+    expect(view).toMatch(/const giveUp = \(why: string\) => \{\s+if \(off\) return;\s+off = why;\s+spare\.length = 0;/);
+  });
+  it('the view: the pictures still stand under the LIST nowhere, a video only pauses; a picture under a video no touch started goes too', () => {
+    expect(view).toContain("if (still && li.querySelector('img.rl-loop.is-ghost')) { release(li); return; }");
+    expect(view).toContain('else if (l && still) release(li);');
+  });
+
+  it('the readout counts what the touches started, since the page opened (one paste then says whether the reuse works)', () => {
+    expect(touchLine(null)).toBeNull(); // (no strip, or no play() refused in this visit: no line)
+    expect(touchLine({ started: {}, tried: {}, reused: 0, reusedRefused: 0, off: null })).toBe('TOUCH      NO TOUCH HAS TRIED A VIDEO YET');
+    expect(touchLine({ started: { touchend: 3 }, tried: { touchend: 3, pointerdown: 3 }, reused: 12, reusedRefused: 0, off: null }))
+      .toBe('TOUCH      VIDEOS STARTED BY POINTERDOWN 0 OF 3 · BY TOUCHEND 3 OF 3 · REUSED WITH NO TOUCH 12 · REUSED AND REFUSED 0');
+    expect(touchLine({ started: { touchend: 2 }, tried: { touchend: 2 }, reused: 0, reusedRefused: 1, off: 'A REUSED PLAYER WAS REFUSED' }))
+      .toBe('TOUCH      VIDEOS STARTED BY TOUCHEND 2 OF 2 · REUSED WITH NO TOUCH 0 · REUSED AND REFUSED 1 · STOPPED: A REUSED PLAYER WAS REFUSED');
+  });
+  it('the strip line says how many loops still stand as pictures beside the videos', () => {
+    expect(reelLine({ mode: 'video', loaded: 4, playing: 3, rolling: true, pin: null, pictures: 1 })).toBe('REEL       VIDEO LOOPS · 4 LOADED · 3 PLAYING · 1 AS PICTURES · ROLLING');
+    expect(reelLine({ mode: 'video', loaded: 4, playing: 3, rolling: true, pin: null, pictures: 0 })).toBe('REEL       VIDEO LOOPS · 4 LOADED · 3 PLAYING · ROLLING');
+    expect(reelLine({ mode: 'image', loaded: 3, playing: 3, rolling: true, pin: null, pictures: 3 })).toBe('REEL       PICTURE LOOPS · 3 LOADED · 3 PLAYING · ROLLING');
+  });
+  it('the panel shows the line, and a second that held a hidden page is never the slowest second', () => {
+    expect(stats).toContain('touchLine(');
+    expect(stats).toContain('if (away || document.hidden) away = false; // (a second that held a hidden tab says nothing)');
   });
 });

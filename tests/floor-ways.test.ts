@@ -452,13 +452,14 @@ describe('a phone gets the reel, never the floor (pins)', () => {
     expect(view).toContain("if (!allowed) return null; // (Save-Data or a 2g line: the posters)");
     expect(view).not.toContain('quality.tier()'); // (a remembered LITE once left a phone on posters all visit)
     // (owner, 2026-11-24, on the design: the next pane starts as it enters) a resting pane's video is loaded, paused
-    expect(view).toContain('const l = ahead ? ensureLoop(li) : loops.get(li);');
+    expect(view).toContain("const l = !still && kind(false) === 'video' ? ensureLoop(li, false) : loops.get(li);");
     expect(view).toContain('if (l instanceof HTMLVideoElement) l.pause();'); // (a picture loop is let go instead: tests/phone-round.test.ts)
-    expect(view).toContain('const ahead = !still && !asImages();'); // (an image cannot wait paused; nothing loads under the LIST)
+    expect(view).toContain('// (a video waits paused beside the screen; a picture cannot, and nothing loads under the LIST)');
     expect(view).toContain('strip.units[i] * unit, view, unit);'); // (the loops' rule gets the pane's height, the screen's and the unit's)
     expect(view).toContain('replan(); // (it plays if its pane is on the screen; a resting pane\'s waits, paused)');
-    expect(view).toContain('l = asImages() ? imageLoop(li, chain) : videoLoop(chain);'); // (asImages: loopsAsImages() unless the address pins the kind)
-    expect(view).toContain('if (isRefusal(e)) noteRefusal();');
+    expect(view).toContain("l = kind(onScreen) === 'image' ? imageLoop(li, chain) : videoLoop(chain);"); // (loopKind: pictures after a refusal, until a touch starts the videos)
+    expect(view).toContain('if (!isRefusal(e)) return; // (a load cut short: the poster stands, and the plan offers it again)');
+    expect(view).toMatch(/if \(!isRefusal\(e\)\) return;[^\n]*\n\s+noteRefusal\(\);/);
     expect(view).toContain("window.addEventListener('touchend', kick, { passive: true });");
     expect(view).toContain('if (!reducedMotion()) {');
     expect(css).toContain('.rvl-calm .works-main.is-arriving .rl-pane, .rvl-calm .works-main.is-arriving .rl-foot { animation: none; }');

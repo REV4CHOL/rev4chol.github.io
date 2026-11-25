@@ -275,6 +275,42 @@ export function panePlay(top: number, height: number, view: number, unit: number
 
 /** Pinned to one loop (`?loops=one`): of the panes that would play, only the one whose middle (`mids`, px down the
  *  screen) is nearest the screen's keeps playing; the others rest, loaded and paused. */
+/** WHAT CARRIES A PANE'S LOOP: the video, or the MP4 as a picture (lib/autoplay.ts). */
+export type LoopKind = 'video' | 'image';
+export interface LoopFacts {
+  /** the address's pin, if any (`?loops=`) */
+  pin: LoopsPin | null;
+  /** the loops stand as pictures in this visit: a play() was refused, and this browser draws an MP4 in an image */
+  pictures: boolean;
+  /** can an MP4 stand in an image here: null until one has loaded or failed */
+  imageLoops: boolean | null;
+  /** the pane is on the screen now, not waiting beside it */
+  onScreen: boolean;
+  /** asked inside a touch's own dispatch */
+  touch: boolean;
+  /** a touch has started a video in this visit */
+  touched: boolean;
+  /** players a touch has started, waiting for a pane */
+  spare: number;
+  /** the swap to video is off for the rest of the page (a started player was refused, or no touch started one) */
+  off: boolean;
+}
+/** The owner, 2026-11-25, an iPhone in Low Power Mode: the picture loops froze the strip (57 late frames in 13 s, one of
+ *  379 ms), and with `?loops=video` a drag started real videos that cost a quarter of that. So in a visit where a
+ *  play() was refused: the pictures before the first touch, as before (the owner's own word, 2026-10-20: every loop
+ *  plays right away); inside a touch, a video for each pane on the screen, which that touch starts; afterwards a pane
+ *  gets a player a touch has already started, when one is at hand, and a picture when none is. A new player made with
+ *  no touch would be refused, so none is. Where nothing was refused, a video, as always. */
+export function loopKind(f: LoopFacts): LoopKind {
+  if (f.pin === 'video') return 'video';
+  if (f.pin === 'image') return f.imageLoops === false ? 'video' : 'image';
+  if (!f.pictures) return 'video';
+  if (f.off) return 'image';
+  if (f.touched && f.spare > 0) return 'video';
+  if (f.touch && f.onScreen) return 'video';
+  return 'image';
+}
+
 export function onePlays(want: readonly PanePlay[], mids: readonly number[], view: number): PanePlay[] {
   let best = -1;
   want.forEach((w, i) => {

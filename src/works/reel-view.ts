@@ -31,10 +31,10 @@ import { fillTitle, settleLockup } from '../lib/title';
 import { reelReturn, type ReelPlace } from './back-state';
 import { CHANNELS, type ChannelKey, channelProjects } from './channels';
 import {
-  arrivalOffset, capKeyframes, coast, lanesToRetime, lapProgress, lapSeconds, lapUnits, loopsAllowed, loopsPin, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
+  arrivalOffset, capKeyframes, coast, lanesToRetime, lapProgress, lapSeconds, lapUnits, loopKind, loopsAllowed, loopsPin, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
   onePlays, oneLineSize, paneInView, paneKeyframes, panePlay, paneTop, paneUnits, places, railProgress, railTicks, REEL_WORDS, releaseSpeed,
   roleLine, rollPace, screenUnits, shownSize, SIDE_QUERY, stripOrder, stripPlace, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
-  type PanePlay,
+  type LoopKind, type PanePlay,
 } from './reel';
 
 export interface Reel {
@@ -327,33 +327,108 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   const loops = new Map<HTMLLIElement, Loop>();
   const pin = loopsPin(location.search); // (the testers' switch: works/reel.ts)
   const allowed = pin !== 'off' && loopsAllowed((navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection);
-  /** the loops' kind: MP4s in images after a refused play() (lib/autoplay.ts), unless the address pins it */
-  const asImages = (): boolean => (pin === 'video' ? false : pin === 'image' ? imageLoopsWork() !== false : loopsAsImages());
-  const tryPlay = (vid: HTMLVideoElement) => {
-    void vid.play().catch((e) => { if (isRefusal(e)) noteRefusal(); /* (else: the poster stands; a touch retries) */ });
+  // A TOUCH STARTS THE REAL VIDEOS (owner, 2026-11-25, an iPhone in Low Power Mode; works/reel.ts loopKind). In a visit
+  // where a play() was refused the loops stand as pictures until the first touch. Inside a touch every picture on the
+  // screen steps under a video which that touch starts, and goes once the video is seen. A player a touch has started
+  // is kept when its pane lets it go and carries the next film: a new player made with no touch would be refused. If a
+  // started player is refused all the same, or no touch starts one, the page goes back to the pictures and stays there.
+  // None of it runs where nothing was refused.
+  const POOL = 6; // (the players kept: two panes on the screen, one entering, one beside it each way, one to spare)
+  const GHOST_MS = 300; // (a picture stays this long under the video that takes over: the loops' fade is 0.25 s)
+  const GIVE_UP_AFTER = 2; // (touches whose lift started no video, before the swap stops)
+  const spare: HTMLVideoElement[] = [];
+  const started = new WeakSet<HTMLVideoElement>();
+  const film = new WeakMap<HTMLVideoElement, { chain: string[]; k: number; reused: boolean }>();
+  const tally = { tried: {} as Record<string, number>, started: {} as Record<string, number>, reused: 0, reusedRefused: 0 };
+  let touch: string | null = null; // (the event whose dispatch this is)
+  let offered = new Set<HTMLVideoElement>(); // (the players already asked in this dispatch)
+  let touched = false;
+  let lifts = 0, lost = 0, lostAt = -1;
+  let off: string | null = null;
+  /** the loop's kind for a pane: works/reel.ts */
+  const kind = (onScreen: boolean): LoopKind => loopKind({
+    pin, pictures: loopsAsImages(), imageLoops: imageLoopsWork(), onScreen, touch: touch !== null, touched, spare: spare.length, off: off !== null,
+  });
+  const dropGhosts = (pane: Element | null, after = 0) => {
+    const ghosts = pane ? [...pane.querySelectorAll<HTMLImageElement>('img.rl-loop.is-ghost')] : [];
+    if (!ghosts.length) return;
+    const go = () => { for (const g of ghosts) { g.removeAttribute('src'); g.remove(); } };
+    if (after) window.setTimeout(go, after); else go();
   };
   const release = (li: HTMLLIElement) => {
+    dropGhosts(li);
     const l = loops.get(li);
     if (!l) return;
-    if (l instanceof HTMLVideoElement) { l.pause(); l.removeAttribute('src'); l.load(); } else l.removeAttribute('src');
-    l.remove();
+    if (l instanceof HTMLVideoElement) {
+      l.pause(); l.removeAttribute('src'); l.load();
+      l.remove();
+      if (started.has(l) && !off && spare.length < POOL) { // (a player a touch has started: kept for the next film)
+        l.classList.remove('is-live');
+        spare.push(l);
+      }
+    } else {
+      l.removeAttribute('src');
+      l.remove();
+    }
     loops.delete(li);
   };
   let planned = '';
   let wants: PanePlay[] = []; // (what each pane was last asked to do: a touch's re-offer reads it)
   const replan = () => { planned = ''; plan(); };
-  const videoLoop = (chain: string[]): HTMLVideoElement => {
-    let k = 0;
+  /** back to the pictures for the rest of the page: exactly what stood before a touch started anything */
+  const giveUp = (why: string) => {
+    if (off) return;
+    off = why;
+    spare.length = 0;
+    if (pin === 'video' || !loopsAsImages()) return; // (no pictures to go back to: only the keeping stops)
+    for (const [li, l] of [...loops]) if (l instanceof HTMLVideoElement) release(li);
+    replan();
+  };
+  const tryPlay = (li: HTMLLIElement, vid: HTMLVideoElement) => {
+    const by = touch, f = film.get(vid);
+    if (by) {
+      if (offered.has(vid)) return;
+      offered.add(vid);
+      if (autoplayRefused()) tally.tried[by] = (tally.tried[by] ?? 0) + 1;
+    }
+    void vid.play().then(() => {
+      if (!autoplayRefused()) return; // (nothing was ever refused here: no count, no player kept)
+      if (by) { touched = true; tally.started[by] = (tally.started[by] ?? 0) + 1; }
+      else if (f?.reused) tally.reused += 1;
+      if (f) f.reused = false;
+      started.add(vid);
+    }, (e) => {
+      if (!isRefusal(e)) return; // (a load cut short: the poster stands, and the plan offers it again)
+      noteRefusal();
+      if (by) { if (by === 'touchend' && !touched && lostAt !== lifts) { lostAt = lifts; lost += 1; } return; } // (the next touch tries it)
+      if (!started.has(vid)) return; // (a player no touch has started: a touch starts it)
+      if (f?.reused) tally.reusedRefused += 1;
+      // (a refusal from an earlier offer can arrive after a touch has started the same player: only one that still
+      //  stands refused, on its own pane, ends the swap)
+      if (vid.paused && loops.get(li) === vid) giveUp(f?.reused ? 'A REUSED PLAYER WAS REFUSED' : 'A STARTED PLAYER WAS REFUSED AGAIN');
+    });
+  };
+  const newVideo = (): HTMLVideoElement => {
     const vid = el('video', 'rl-loop');
     vid.muted = true; vid.loop = true; vid.playsInline = true; vid.preload = 'auto';
     vid.setAttribute('muted', ''); vid.setAttribute('playsinline', ''); vid.setAttribute('aria-hidden', 'true');
     vid.addEventListener('error', () => { // (the next name the folder may hold)
-      if (++k >= chain.length) return;
-      vid.src = chain[k];
+      const f = film.get(vid);
+      if (!f || !vid.getAttribute('src') || ++f.k >= f.chain.length) return;
+      vid.src = f.chain[f.k];
       vid.load();
       replan(); // (it plays if its pane is on the screen; a resting pane's waits, paused)
     });
-    vid.addEventListener('playing', () => vid.classList.add('is-live')); // (the poster until the loop has a picture)
+    vid.addEventListener('playing', () => {
+      vid.classList.add('is-live'); // (the poster until the loop has a picture)
+      dropGhosts(vid.parentElement, GHOST_MS); // (the picture it takes over from, once the video is seen)
+    });
+    return vid;
+  };
+  const videoLoop = (chain: string[]): HTMLVideoElement => {
+    const kept = off ? undefined : spare.pop();
+    const vid = kept ?? newVideo();
+    film.set(vid, { chain, k: 0, reused: !!kept });
     vid.src = chain[0];
     return vid;
   };
@@ -367,7 +442,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     im.setAttribute('aria-hidden', 'true');
     im.addEventListener('load', () => { noteImageLoops(true); im.classList.add('is-live'); });
     im.addEventListener('error', () => {
-      if (!im.isConnected) return; // (let go on purpose)
+      if (!im.isConnected || im.classList.contains('is-ghost')) return; // (let go on purpose, or stepping aside for its video)
       if (++k < chain.length) { im.src = chain[k]; return; }
       noteImageLoops(false); // (no MP4 in an image here: back to video, which a touch starts)
       release(li);
@@ -376,12 +451,12 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     im.src = chain[0];
     return im;
   };
-  const ensureLoop = (li: HTMLLIElement): Loop | null => {
+  const ensureLoop = (li: HTMLLIElement, onScreen: boolean): Loop | null => {
     if (!allowed) return null; // (Save-Data or a 2g line: the posters)
     let l = loops.get(li);
     if (l) return l;
     const chain = loopSrcChain(li.dataset.slug!);
-    l = asImages() ? imageLoop(li, chain) : videoLoop(chain);
+    l = kind(onScreen) === 'image' ? imageLoop(li, chain) : videoLoop(chain);
     li.querySelector('.rl-pane')!.insertBefore(l, li.querySelector('.rl-scan'));
     loops.set(li, l);
     return l;
@@ -390,7 +465,6 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
    *  to come in starts the moment it enters); further off, let go */
   const plan = () => {
     const at = offsetNow(), still = parked || document.hidden;
-    const ahead = !still && !asImages(); // (a video waits paused; an image cannot, and nothing loads under the LIST)
     const tops = strip.panes.map((_, i) => paneTop(strip.at[i], strip.units[i], at, unit, strip.total));
     let want: PanePlay[] = tops.map((top, i) => {
       const p = panePlay(top, strip.units[i] * unit, view, unit);
@@ -402,13 +476,21 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     if (key === planned) return;
     planned = key;
     wants = want;
+    // every pane let go first, so a player handed back is at hand for the pane that asks next (where the lap wraps,
+    // the first pane asks before the last one has given its player back)
+    strip.panes.forEach((li, i) => { if (want[i] === 'free') release(li); });
     strip.panes.forEach((li, i) => {
-      if (want[i] === 'free') release(li);
-      else if (want[i] === 'rest') {
-        const l = ahead ? ensureLoop(li) : loops.get(li);
-        if (l instanceof HTMLVideoElement) l.pause();
-        else if (l && still) release(li); // (a picture loop cannot pause: under the LIST, or on a hidden page, it is let go and comes back with the strip)
-      } else { const l = ensureLoop(li); if (l instanceof HTMLVideoElement && l.paused) tryPlay(l); }
+      if (want[i] !== 'play') return;
+      const l = ensureLoop(li, true);
+      if (l instanceof HTMLVideoElement && l.paused) tryPlay(li, l);
+    });
+    strip.panes.forEach((li, i) => {
+      if (want[i] !== 'rest') return;
+      if (still && li.querySelector('img.rl-loop.is-ghost')) { release(li); return; } // (a picture under a video no touch has started cannot pause either)
+      // (a video waits paused beside the screen; a picture cannot, and nothing loads under the LIST)
+      const l = !still && kind(false) === 'video' ? ensureLoop(li, false) : loops.get(li);
+      if (l instanceof HTMLVideoElement) l.pause();
+      else if (l && still) release(li); // (a picture loop cannot pause: under the LIST, or on a hidden page, it is let go and comes back with the strip)
     });
   };
   window.setInterval(() => { if (rolling) plan(); }, 150); // (rolling, the clock moves the strip: the loops follow it)
@@ -418,13 +500,31 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     for (const [li, l] of [...loops]) if (l instanceof HTMLVideoElement) release(li);
     replan();
   });
-  // where a browser shows no MP4 in an image, a touch is the moment it allows a video: re-offer the ones in view
-  const kick = () => {
+  // a touch is the moment a refusing browser allows a video: the pictures on the screen step under videos made and
+  // started here, inside the touch, and every paused video in view is offered again
+  const kick = (e: Event) => {
     if (parked || document.hidden) return;
+    touch = e.type;
+    try { offer(e); } finally { touch = null; } // (whatever happens in it, nothing after the touch counts as inside it)
+  };
+  const offer = (e: Event) => {
+    offered = new Set();
+    if (e.type === 'touchend') lifts += 1;
     plan(); // (the strip as it stands now)
+    if (pin !== 'image' && pin !== 'video' && loopsAsImages() && !off) {
+      if (!touched && lost >= GIVE_UP_AFTER) giveUp('NO TOUCH STARTED A VIDEO');
+      else {
+        let any = false;
+        strip.panes.forEach((li, i) => {
+          const l = loops.get(li);
+          if (wants[i] === 'play' && l instanceof HTMLImageElement) { l.classList.add('is-ghost'); loops.delete(li); any = true; }
+        });
+        if (any) replan(); // (each such pane's video is made and started now, in this touch)
+      }
+    }
     strip.panes.forEach((li, i) => {
       const l = loops.get(li);
-      if (l instanceof HTMLVideoElement && l.paused && wants[i] === 'play') tryPlay(l); // (what the plan asked: the address's pin included)
+      if (l instanceof HTMLVideoElement && l.paused && wants[i] === 'play') tryPlay(li, l); // (what the plan asked: the address's pin included)
     });
   };
   window.addEventListener('pointerdown', kick, { passive: true });
@@ -638,7 +738,11 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     chapter: () => active,
     playing: () => [...loops].filter(([, l]) => (l instanceof HTMLVideoElement ? !l.paused : l.classList.contains('is-live'))).map(([li]) => li.dataset.slug),
     loops: () => loops.size,
-    mode: () => (!allowed ? 'posters' : asImages() ? 'image' : 'video'),
+    mode: () => (!allowed ? 'posters' : [...loops.values()].some((l) => l instanceof HTMLVideoElement) || kind(true) === 'video' ? 'video' : 'image'),
+    /** the loops that stand as pictures now, a picture under a video not yet seen included */
+    pictures: () => strip.panes.reduce((n, li) => n + li.querySelectorAll('img.rl-loop').length, 0),
+    /** what the touches started since the page opened (null where no play() was refused): lib/readout.ts touchLine */
+    touch: () => (autoplayRefused() ? { tried: { ...tally.tried }, started: { ...tally.started }, reused: tally.reused, reusedRefused: tally.reusedRefused, off } : null),
     pin: () => pin,
     refused: () => autoplayRefused(),
     /** hold the strip at `px` (a screenshot's still frame); null lets it roll again */

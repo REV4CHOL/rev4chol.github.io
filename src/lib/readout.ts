@@ -145,13 +145,39 @@ export interface ReelReading {
   playing: number;
   rolling: boolean;
   pin: string | null;
+  /** the loops that still stand as pictures while others are videos (after a touch, in a visit where a play() was refused) */
+  pictures?: number;
 }
 /** The strip's line: its loops' kind, how many are loaded and playing, whether the clock or a hand moves it, and the
  *  address's pin (`?loops=`). null where there is no strip: the panel shows no line. */
 export function reelLine(r: ReelReading | null): string | null {
   if (!r) return null;
   const kind = r.mode === 'video' ? 'VIDEO LOOPS' : r.mode === 'image' ? 'PICTURE LOOPS' : 'POSTERS ONLY';
-  return `REEL       ${kind} · ${r.loaded} LOADED · ${r.playing} PLAYING · ${r.rolling ? 'ROLLING' : 'BY HAND'}${r.pin ? ` · LOOPS PINNED ${r.pin.toUpperCase()}` : ''}`;
+  const pictures = r.mode === 'video' && r.pictures ? ` · ${r.pictures} AS PICTURES` : '';
+  return `REEL       ${kind} · ${r.loaded} LOADED · ${r.playing} PLAYING${pictures} · ${r.rolling ? 'ROLLING' : 'BY HAND'}${r.pin ? ` · LOOPS PINNED ${r.pin.toUpperCase()}` : ''}`;
+}
+
+/** WHAT THE TOUCHES STARTED, counted since the page opened (works/reel-view.ts; only in a visit where a play() was
+ *  refused). A phone in a battery saver lets a video play from a touch; which event of a touch counts, and whether a
+ *  player a touch has started may play its next film with no touch, only the phone can say: this line is its answer. */
+export interface TouchReading {
+  /** plays asked inside a touch's own dispatch, by the event's name; and the ones that started */
+  tried: Record<string, number>;
+  started: Record<string, number>;
+  /** plays with no touch on a started player given a new film: the ones that started, and the ones refused */
+  reused: number;
+  reusedRefused: number;
+  /** why the swap to video stopped for this page, if it did */
+  off: string | null;
+}
+export function touchLine(t: TouchReading | null): string | null {
+  if (!t) return null;
+  const order = ['pointerdown', 'touchend'];
+  const rank = (n: string): number => (order.indexOf(n) < 0 ? order.length : order.indexOf(n));
+  const names = Object.keys(t.tried).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  if (!names.length && !t.off) return 'TOUCH      NO TOUCH HAS TRIED A VIDEO YET';
+  const by = names.map((n) => `BY ${n.toUpperCase()} ${t.started[n] ?? 0} OF ${t.tried[n]}`).join(' · ');
+  return `TOUCH      VIDEOS STARTED ${by || 'BY NONE'} · REUSED WITH NO TOUCH ${t.reused} · REUSED AND REFUSED ${t.reusedRefused}${t.off ? ` · STOPPED: ${t.off}` : ''}`;
 }
 
 /** The page's own hitches since the panel opened (shell/stats.ts counts them on its frames, after the page's first
