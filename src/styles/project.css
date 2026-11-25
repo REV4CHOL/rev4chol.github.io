@@ -28,7 +28,10 @@
 .p-hero video, .p-hero #p-hero-img, .p-hero #p-hero-veil {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
 }
-#p-hero-veil { image-rendering: pixelated; z-index: 1; }
+/* (opaque from the first paint: the canvas is blank until the poster is dithered onto it, and a blank canvas let the
+   video under it show through, with iOS's start glyph on it, while the page loaded. Owner, 2026-11-25: "for brief
+   seconds when the film page is loading, I can still see the play button as visuals before it dissapear") */
+#p-hero-veil { image-rendering: pixelated; z-index: 1; background: #000; }
 /* iOS's own start glyph is never drawn on the hero's loop (owner, 2026-11-25: "I dont like the play button on the top
    previewer in the film's page. Remove it."). A rule of its own: in a selector list, a browser that does not know the
    pseudo-element drops the whole rule. */

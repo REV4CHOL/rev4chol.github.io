@@ -77,6 +77,15 @@ describe('the page wires it', () => {
     expect(css).not.toMatch(/,\s*#p-hero-video::-webkit-media-controls-start-playback-button/);
   });
 
+  // The owner, 2026-11-25, after the first fix: "for brief seconds when the film page is loading, I can still see the
+  // play button as visuals before it dissapear". The veil is a canvas, blank until the poster is dithered onto it, and a
+  // blank canvas is see-through: the refused video showed under it, with iOS's glyph, until the poster arrived.
+  it('the veil covers the video from the first paint: it is opaque before the poster is drawn on it', () => {
+    expect(css).toMatch(/\n#p-hero-veil \{[^}]*background: #000;[^}]*\}/);
+    expect(css).toMatch(/\n#p-hero-veil \{[^}]*z-index: 1;[^}]*\}/); // (over the video and the image)
+    expect(html.indexOf('id="p-hero-veil"')).toBeGreaterThan(html.indexOf('id="p-hero-video"'));
+  });
+
   it('let go while the hero is off the screen, back when it returns; a touch anywhere tries the real video again', () => {
     expect(page).toContain('new IntersectionObserver(');
     expect(page).toContain("img.removeAttribute('src');");
