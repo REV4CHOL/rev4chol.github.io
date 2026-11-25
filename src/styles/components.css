@@ -448,6 +448,19 @@
   .home-data { font-size: 12px; }
 }
 
+/* A PHONE ON ITS SIDE (the review's walkthroughs, 2026-11-25: at 852 x 343 the colour word stood at y 0 to 64, behind
+   the header that ends at 72). A short landscape touch screen draws the headline at 13 % of the screen's height, its
+   plate a notch smaller, and closes the gaps under it, so the whole statement stands under the header and ENTER keeps
+   its place over the foot's readouts (ENTER's foot 44 px over the screen's, the X:Y line's top 38). An upright phone,
+   a tablet (672 px and up) and a PC: as before. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 480px) {
+  .home-main { padding-bottom: 44px; }
+  .st-clash { font-size: 13svh; }
+  .st-row-3 { margin-top: 8px; }
+  .st-plate { font-size: 0.9rem; padding: 5px 12px 6px 9px; }
+  .home-data, .home-cta-row { margin-top: 10px; }
+}
+
 /* calm mode (html.rvl-calm, set by the MTN toggle / pre-paint snippet):
    the whole scene stands still */
 .rvl-calm .scan-sweep { display: none; }
