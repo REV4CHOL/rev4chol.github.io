@@ -5,12 +5,18 @@ import { viewFromSearch, type WorkView } from './index-list';
  *  (a Back from a film loads WORK afresh: the page's memory is gone, the entry's state is not).
  *  - THE LIST has an entry of its own: the toggle adds it (`pushed`), so Back from the list returns to the film wall
  *    and Forward to the list; the list's own "back to the wall" button then goes back in history rather than piling
- *    entries up. */
+ *    entries up.
+ *  - THE LIST'S PLACE: the row the visitor opened, and its height in the list's view, so Back from a film finds the
+ *    list where it was left (the list was laid out anew at its top: scrollTop 1340 before, 0 after, on an iPad). */
 export interface WorkEntry {
   /** the view this entry shows */
   view?: WorkView;
   /** the list's entry was added by the toggle: the wall's entry stands right behind it */
   pushed?: boolean;
+  /** the list's place: the row the visitor opened (or the first in view), by its link, and its height in the list's
+   *  view (px from the scroller's top edge) */
+  row?: string;
+  rowAt?: number;
 }
 
 /** What WORK knows of an entry's state, of the right kinds; anything else is left out. */
@@ -20,7 +26,21 @@ export function entryOf(state: unknown): WorkEntry {
   const s = state as Record<string, unknown>;
   if (s.view === 'list' || s.view === 'floor') e.view = s.view;
   if (s.pushed === true) e.pushed = true;
+  if (typeof s.row === 'string') e.row = s.row;
+  if (typeof s.rowAt === 'number' && Number.isFinite(s.rowAt)) e.rowAt = s.rowAt;
   return e;
+}
+
+/** A return is the browser's Back or Forward (the navigation's type): a place is restored only then. A fresh visit or a
+ *  reload starts as designed (the list at its top). */
+export const returning = (navType: string | undefined): boolean => navType === 'back_forward';
+
+/** The list's scroll that stands the row the visitor left (`rowTop`: its top in the list's content) at the height it
+ *  was left at (`rowAt`), within the scroller's reach. By the row, not by the pixels: the list may lay out a little
+ *  differently on its return (its faces arriving late). */
+export function restoredTop(rowTop: number, rowAt: number, maxTop: number): number {
+  const t = rowTop - rowAt;
+  return Number.isFinite(t) ? Math.min(Math.max(0, maxTop), Math.max(0, Math.round(t))) : 0;
 }
 
 /** The view an entry shows: the address first (`?view=`), then the entry's own, then what this visit chose, then the

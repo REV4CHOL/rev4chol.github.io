@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { entryOf, viewOnLoad, wallByBack } from '../src/works/back-state';
+import { entryOf, restoredTop, returning, viewOnLoad, wallByBack } from '../src/works/back-state';
 
 // THE BROWSER'S BACK ON WORK (the review's walkthroughs, 2026-11-25): THE LIST had no history entry of its own, so Back
-// from it left WORK altogether. Each history entry of WORK now carries what it showed (works/back-state.ts).
+// from it left WORK altogether; a Back from a film opened from the list found the list at its top. Each history entry
+// of WORK now carries what it showed (works/back-state.ts).
 
 describe('an entry of WORK, read from history.state', () => {
   it('keeps only what it knows, of the right kinds', () => {
@@ -10,6 +11,24 @@ describe('an entry of WORK, read from history.state', () => {
     expect(entryOf('list')).toEqual({});
     expect(entryOf({ view: 'list', pushed: true })).toEqual({ view: 'list', pushed: true });
     expect(entryOf({ view: 'grid', pushed: 'yes' })).toEqual({});
+    expect(entryOf({ view: 'list', row: '/project.html?p=far-east', rowAt: 120.5 })).toEqual({ view: 'list', row: '/project.html?p=far-east', rowAt: 120.5 });
+    expect(entryOf({ row: 4, rowAt: 'x' })).toEqual({});
+    expect(entryOf({ row: '/project.html?p=far-east', rowAt: Number.NaN })).toEqual({ row: '/project.html?p=far-east' });
+  });
+});
+
+describe('a return restores, a fresh visit starts as designed', () => {
+  it('only a Back or a Forward is a return', () => {
+    expect(returning('back_forward')).toBe(true);
+    expect(returning('navigate')).toBe(false);
+    expect(returning('reload')).toBe(false);
+    expect(returning(undefined)).toBe(false);
+  });
+  it('the list comes back with the row the visitor left at the same height, inside the scroller', () => {
+    expect(restoredTop(1800, 420, 5000)).toBe(1380);
+    expect(restoredTop(300, 420, 5000)).toBe(0);
+    expect(restoredTop(4900, 100, 4000)).toBe(4000);
+    expect(restoredTop(Number.NaN, 100, 4000)).toBe(0);
   });
 });
 

@@ -9,7 +9,7 @@ import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { startPage } from '../shell/page';
 import { CHANNELS, ChannelKey, channelFromSearch, channelProjects } from '../works/channels';
-import { entryOf, viewOnLoad, wallByBack } from '../works/back-state';
+import { entryOf, restoredTop, returning, viewOnLoad, wallByBack } from '../works/back-state';
 import { chapterTabLabel, listGroups, searchForView, toggleText, type WorkView } from '../works/index-list';
 import { floorOpened, legendText } from '../works/legend';
 import { listPointer, listTight } from '../works/list-art';
@@ -146,6 +146,42 @@ startPage(
         listEl.focus({ preventScroll: true }); // (the arrow keys and the space bar scroll the list from here)
       }
     };
+    // THE LIST'S PLACE (works/back-state.ts): the row opened (or the first in view once the scroll rests) and its height
+    // in the list's view, kept in this entry, so a Back from a film finds the list where it was left
+    /** a row's top in the list's content, in the scroller's own px (its offsets up to the list, which is positioned) */
+    const rowTopIn = (row: HTMLElement): number => {
+      let y = 0, e: HTMLElement | null = row;
+      while (e && e !== listEl) { y += e.offsetTop; e = e.offsetParent as HTMLElement | null; }
+      return e === listEl ? y : Number.NaN;
+    };
+    const rows = () => [...listEl.querySelectorAll<HTMLElement>('.fl-row')];
+    let placeT = 0;
+    const keepPlace = (row?: HTMLElement) => {
+      clearTimeout(placeT);
+      if (view !== 'list') return;
+      const top = listEl.scrollTop;
+      const r = row ?? rows().find((a) => rowTopIn(a) + a.offsetHeight > top);
+      const href = r?.getAttribute('href');
+      if (r && href) stamp({ row: href, rowAt: rowTopIn(r) - top });
+    };
+    listEl.addEventListener('click', (e) => {
+      const row = (e.target as Element).closest?.<HTMLElement>('.fl-row');
+      if (row) keepPlace(row);
+    });
+    listEl.addEventListener('scroll', () => {
+      clearTimeout(placeT);
+      placeT = window.setTimeout(() => keepPlace(), 250);
+    }, { passive: true });
+    /** the list stood where this entry left it: true when a place was found and set */
+    const placeBack = (): boolean => {
+      const e = entryOf(history.state);
+      if (!e.row || e.rowAt === undefined) return false;
+      const row = rows().find((a) => a.getAttribute('href') === e.row);
+      if (!row) return false;
+      listEl.scrollTop = restoredTop(rowTopIn(row), e.rowAt, listEl.scrollHeight - listEl.clientHeight);
+      return true;
+    };
+
     // "back to the wall" from a list the toggle opened goes back in history (one Back later must not show the list
     // again); the browser's own Back and Forward come here as popstate, the entry saying which view it shows
     let goingBack = false;
@@ -255,6 +291,15 @@ startPage(
       hud.setCount(channelProjects(projects, active).length);
     } else await mount(active);
     setView(view);
+    // a Back (or Forward) to the list: the place it was left; set again once the faces have laid it out, unless the
+    // visitor has moved it meanwhile. A fresh visit or a reload starts at the top.
+    const nav = performance.getEntriesByType?.('navigation')[0] as PerformanceNavigationTiming | undefined;
+    if (view === 'list' && returning(nav?.type) && placeBack()) {
+      let set = listEl.scrollTop;
+      const again = () => { if (listEl.scrollTop === set && placeBack()) set = listEl.scrollTop; };
+      requestAnimationFrame(() => requestAnimationFrame(again));
+      void document.fonts?.ready.then(again);
+    }
 
     window.addEventListener('keydown', (e) => {
       if (!world || view === 'list') return; // (in the list the keys scroll the list)
