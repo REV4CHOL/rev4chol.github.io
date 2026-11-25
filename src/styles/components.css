@@ -90,6 +90,17 @@
 .hud-bl { left: 28px; bottom: 22px; }
 .hud-br { right: 28px; bottom: 22px; }
 .hud-tr { right: 28px; top: 64px; z-index: 951; } /* above the header's veil (.nav: 950), never dimmed by it */
+/* THE SWITCH ROW OVER A PICTURE (the review's walkthroughs, 2026-11-25): an OFF word is 10 to 11 px of half-strength
+   bone, and MUSIC is off by default, so over the homepage's bright loop and a film's hero on a phone it nearly vanished
+   with the halo alone. A veil of the page's own black under the row (STORY's hint and the header's grammar: a fade,
+   never a plate). It is the shadow of a line with no area of its own (the row's middle line): a spread under a blur, so
+   it is darkest behind the words, has no step anywhere to read as an edge, and has faded out about 10 px over and
+   under the row (the menu stands 10 px over it on a wide tablet). The words keep their size, colour, dimming and place;
+   over the void it is nothing. */
+.hud-tr::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 0; z-index: -1; pointer-events: none;
+  box-shadow: 0 0 12px 10px rgba(6, 6, 6, 0.85);
+}
 
 @media (max-width: 640px) and (pointer: coarse) {
   .hud-bl { left: 16px; bottom: 14px; }
