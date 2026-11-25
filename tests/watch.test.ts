@@ -149,18 +149,41 @@ describe("the film page's marks keep clear of the menu, and read over a bright p
 // House: Explosion Kitchen. Runtime: 4:20. Genre: Music Video". The spec sheet had no row for the first two. Then:
 // "Underneath PRODUCTION HOUSE, write Director: Khadarec [XPOKIT]". Shown the sheet live: "the order shouldve been
 // ARTIST - DIRECTOR - PRODUCTION HOUSE - GENRE - ROLE" and "Remove runtime from all sections on the website". Then, of
-// every film's sheet: "Website-wide: YEAR go under ROLE, Genre go above ROLE".
+// every film's sheet: "Website-wide: YEAR go under ROLE, Genre go above ROLE". Then, 2026-11-25: "As for DIRECTOR, I
+// dont want it to be in ROLE anymore ... I want this sentence: Directed by REVACHOL, placed above ROLE" (from three
+// placements they chose "Row above ROLE": the label DIRECTED BY, then the name, directly above ROLE, GENRE one row
+// up), and of the films someone else directed: "give them the same treatment as ours too". So the DIRECTOR row left
+// its place between ARTIST and PRODUCTION HOUSE: every direction is the one DIRECTED BY row (lib/roles.ts).
 describe("the spec sheet's rows", () => {
   const page = readFileSync('src/pages/project.ts', 'utf8').replace(/\r\n/g, '\n');
-  const rowAt = (label: string) => page.indexOf(`rows.push(['${label}',`);
+  const rowAt = (label: string) => page.indexOf(label === 'DIRECTED BY' ? 'rows.push([DIRECTED_BY,' : `rows.push(['${label}',`);
 
-  it('the rows stand in the order the owner gave: ARTIST, DIRECTOR, PRODUCTION HOUSE, GENRE, ROLE, YEAR, under CLIENT', () => {
-    const order = ['CLIENT', 'ARTIST', 'DIRECTOR', 'PRODUCTION HOUSE', 'GENRE', 'ROLE', 'YEAR'].map(rowAt);
+  it('the rows stand in the order the owner gave: ARTIST, PRODUCTION HOUSE, GENRE, DIRECTED BY, ROLE, YEAR, under CLIENT', () => {
+    const order = ['CLIENT', 'ARTIST', 'PRODUCTION HOUSE', 'GENRE', 'DIRECTED BY', 'ROLE', 'YEAR'].map(rowAt);
     expect(order.every((at) => at > 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(page).toContain("if (p.artist) rows.push(['ARTIST', `<span>${crossedHtml(p.artist.toUpperCase())}</span>`]);");
     expect(page).toContain("if (p.productionHouse) rows.push(['PRODUCTION HOUSE', `<span>${crossedHtml(p.productionHouse.toUpperCase())}</span>`]);");
-    expect(page).toContain("if (p.director) rows.push(['DIRECTOR', `<span>${crossedHtml(p.director.toUpperCase())}</span>`]);");
+    expect(rowAt('DIRECTOR')).toBe(-1); // (the old row, in its old place)
+  });
+
+  it('DIRECTED BY is the row directly above ROLE: REVACHOL or the film\'s own director, in the line\'s own colour', () => {
+    const at = page.indexOf('rows.push([DIRECTED_BY,');
+    const between = page.slice(at, rowAt('ROLE'));
+    expect(between).not.toContain("rows.push(['"); // (no row between the two)
+    expect(page).toContain("if (director) rows.push([DIRECTED_BY, `<span>${crossedHtml(director.toUpperCase())}</span>`, 'p-spec-dir']);");
+    expect(page).toContain("if (roles) rows.push(['ROLE', `<span>${crossedHtml(roles.toUpperCase())}</span>`]);");
+    const css = readFileSync('src/styles/project.css', 'utf8');
+    expect(css).toContain('.p-spec .p-spec-dir { color: var(--credit); }');
+    expect(css).toContain('.p-callout--dir { color: var(--credit); }');
+  });
+
+  it("the hero's readouts say it too, above ROLE", () => {
+    const dir = page.indexOf('[DIRECTED_BY, directorOf(p)');
+    const role = page.indexOf("['ROLE', rolesShown(p)");
+    expect(dir).toBeGreaterThan(0);
+    expect(role).toBeGreaterThan(dir);
+    expect(role - dir).toBeLessThan(120); // (the next line)
   });
 
   it('no running time on the film page: no RUNTIME row on the sheet, no RT callout in the hero', () => {

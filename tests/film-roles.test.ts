@@ -62,6 +62,19 @@ describe('who directed a film', () => {
   });
 });
 
+describe("the line's colour", () => {
+  // (owner, 2026-11-25: "The phrase "DIRECTED BY REVACHOL" must have a special color to make it stand out"; of four
+  //  colours shown on a film's sheet they chose "B: Gold")
+  it('is gold, one token, and nothing else on the site takes it', () => {
+    const sheet = (f: string) => readFileSync(`src/styles/${f}`, 'utf8');
+    expect(sheet('tokens.css')).toContain('--credit: #FFC53D;');
+    for (const f of readdirSync('src/styles').filter((n) => n.endsWith('.css') && !n.includes('about-old'))) {
+      const css = sheet(f).replace('--credit: #FFC53D;', '');
+      expect(css.toUpperCase(), f).not.toContain('#FFC53D'); // (only through the token)
+    }
+  });
+});
+
 describe('every place that shows a film goes through the rule', () => {
   const walk = (dir: string): string[] =>
     readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(`${dir}/${e.name}`) : e.name.endsWith('.ts') ? [`${dir}/${e.name}`] : []));

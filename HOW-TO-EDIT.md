@@ -43,12 +43,12 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | slug | folder name, lowercase-with-hyphens | `"neon-dream"` |
 | title | film title as shown. A film with a name in two languages is written `English / Vietnamese` (space, slash, space): the site stands it as two lines, the English name above and the Vietnamese name beneath it, smaller and in the film's accent colour (no slash shown). The film page's ticker and the browser tab run them with a dot between; screen readers keep the slash | `"Neon Dream"`, `"Temptation / Xiêu Lòng"` |
 | year | number, no quotes | `2026` |
-| role | your role line | `"Director / DoP"` |
+| role | your roles on the film, with ` / ` between them, in any order: the site shows them A to Z. Write `Director` among them when you directed the film: it is not shown as a role, the film gets the line **DIRECTED BY REVACHOL** above its roles instead (on its page and on its panes) | `"Director / Colorist / Editor"` |
 | runtime | free text; kept in the file, shown nowhere on the site | `"12:40"` |
 | client | commissioning client — adds a CLIENT row to the spec sheet (leave out to hide) | `"Garena"` |
 | artist | the performing artist — adds an ARTIST row to the spec sheet (leave out to hide) | `"Dung Hoang Pham / PHUCNAM"` |
 | productionHouse | the production house — adds a PRODUCTION HOUSE row to the spec sheet (leave out to hide) | `"XPOKIT"` |
-| director | the film's director, when it is someone else — adds a DIRECTOR row between ARTIST and PRODUCTION HOUSE (leave out to hide) | `"Khadarec [XPOKIT]"` |
+| director | the film's director, when it is someone else: the film gets the line **DIRECTED BY** and that name above its roles, on its page and on its panes (leave it out when you directed the film yourself, or when there is no director to name) | `"Khadarec [XPOKIT]"` |
 | tags | list of words | `["short film","sci-fi"]` |
 | accent | this film's color, hex | `"#C8FF00"` |
 | tileSize | `"normal"` or `"large"` (large = FEATURED: the centre cluster and the featured dress — every landscape pane is the same size; a vertical film's stands two rows tall) | `"large"` |

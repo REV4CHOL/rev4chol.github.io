@@ -1,8 +1,9 @@
-import { aspectRatio, FilmRef, getSlugFromSearch, isPlaceholder, loadLoopManifest, loadProjects, loopSrcChain, manifestStills, Project, projectAssetUrl } from '../lib/content';
+import { aspectRatio, FilmRef, getSlugFromSearch, isPlaceholder, loadLoopManifest, loadProjects, loopSrcChain, manifestStills, Project, projectAssetUrl, threadFrames } from '../lib/content';
 import { ditherImageToCanvas } from '../lib/dither';
 import { embedSrc } from '../lib/embeds';
 import { mulberry32 } from '../lib/rng';
 import { crossedHtml } from '../lib/cross';
+import { DIRECTED_BY, directorOf, rolesShown } from '../lib/roles';
 import { escapeHtml, softBreaks } from '../lib/escape';
 import { reducedMotion } from '../lib/env';
 import { armPosterLock, posterZoom } from '../lib/poster-lock';
@@ -17,6 +18,8 @@ import { linkParts, startedByFocus } from '../project/parts';
 import { armBar, BigFilm, mountBig } from '../project/player-bar';
 import { playerRecords, recordPlayer } from '../lib/player-record';
 import { stillParts } from '../project/pillars';
+import { mountThread } from '../project/thread';
+import { stillCode } from '../lib/thread-files';
 import { inView, Size, turned, turnScroll } from '../project/turn';
 import { meets, playerRatio, watchKind } from '../project/watch';
 import { armStamps } from '../lib/stamps';
@@ -86,7 +89,7 @@ function render(p: Project, all: Project[], idx: number): void {
 
   mountHero(p, stamp);
   mountSpec(p);
-  mountFilmSection(p);
+  mountFilmSection(p, stamp);
   mountTicker(p, stamp);
   void mountWall(p);
   mountEndNav(all, idx);
@@ -307,15 +310,17 @@ function mountHero(p: Project, stamp: string): void {
 
   document.getElementById('p-index')!.innerHTML = `<span>${stamp}</span>`;
 
+  // (who directed stands above ROLE, the roles A to Z without Director: owner, 2026-11-25, lib/roles.ts)
   const rows: [string, string][] = [
-    ['ROLE', p.role],
+    [DIRECTED_BY, directorOf(p)],
+    ['ROLE', rolesShown(p)],
     ['YR', String(p.year)],
   ]; // (no running time: owner, 2026-11-24, "Remove runtime from all sections on the website")
   document.getElementById('p-callouts')!.innerHTML = rows
     .filter(([, v]) => v)
     .map(
       ([k, v], i) =>
-        `<div class="p-callout" style="--d:${i * 90}ms"><span class="pc-line"></span><span>${k} :: ${crossedHtml(v.toUpperCase())}</span></div>`, // (a list's slashes stand as the red cross: lib/cross.ts)
+        `<div class="p-callout${k === DIRECTED_BY ? ' p-callout--dir' : ''}" style="--d:${i * 90}ms"><span class="pc-line"></span><span>${k} :: ${crossedHtml(v.toUpperCase())}</span></div>`, // (a list's slashes stand as the red cross: lib/cross.ts)
     )
     .join('');
 
@@ -382,29 +387,35 @@ function mountHero(p: Project, stamp: string): void {
 // they did not name, keeps the top. No running time stands here, nor anywhere on the site ("Remove runtime from all
 // sections on the website").
 function mountSpec(p: Project): void {
-  const rows: [string, string][] = [];
+  const rows: [label: string, value: string, mark?: string][] = [];
   if (p.client) rows.push(['CLIENT', `<span>${crossedHtml(p.client.toUpperCase())}</span>`]);
   if (p.artist) rows.push(['ARTIST', `<span>${crossedHtml(p.artist.toUpperCase())}</span>`]);
-  if (p.director) rows.push(['DIRECTOR', `<span>${crossedHtml(p.director.toUpperCase())}</span>`]);
   if (p.productionHouse) rows.push(['PRODUCTION HOUSE', `<span>${crossedHtml(p.productionHouse.toUpperCase())}</span>`]);
   if (p.tags.length)
     rows.push(['GENRE', p.tags.map((t) => `<span class="p-pill">${escapeHtml(t.toUpperCase())}</span>`).join('')]);
-  if (p.role) rows.push(['ROLE', `<span>${crossedHtml(p.role.toUpperCase())}</span>`]);
+  // WHO DIRECTED, DIRECTLY ABOVE ROLE (owner, 2026-11-25: "As for DIRECTOR, I dont want it to be in ROLE anymore ... I
+  // want this sentence: Directed by REVACHOL, placed above ROLE"; from three placements they chose "Row above ROLE";
+  // "must have a special color to make it stand out"; and of the films someone else directed: "give them the same
+  // treatment as ours too"). One row for every direction; the roles under it stand A to Z without Director.
+  const director = directorOf(p);
+  if (director) rows.push([DIRECTED_BY, `<span>${crossedHtml(director.toUpperCase())}</span>`, 'p-spec-dir']);
+  const roles = rolesShown(p);
+  if (roles) rows.push(['ROLE', `<span>${crossedHtml(roles.toUpperCase())}</span>`]);
   rows.push(['YEAR', `<span>${p.year}</span>`]);
 
   document.getElementById('p-spec')!.innerHTML = rows
-    .map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`)
+    .map(([k, v, mark]) => (mark ? `<dt class="${mark}">${k}</dt><dd class="${mark}">${v}</dd>` : `<dt>${k}</dt><dd>${v}</dd>`))
     .join('');
 }
 
 /* ------------------------------------------------- the film: thread + player -- */
 
-function mountFilmSection(p: Project): void {
+function mountFilmSection(p: Project, stamp: string): void {
   // (the synopsis stood here until the owner took it off every film page, 2026-11-25; the film's thread stands in its
   //  row now, and the marks below are the same marks, where they always were)
   // two plus-glyphs seeded off the slug — same film, same constellation
   const rand = mulberry32(hashSlug(p.slug) ^ 0x9e3779b9);
-  const body = document.querySelector('.p-film-sec .p-sec-body')!;
+  // (they go into the page before the thread's band, so the thread is drawn over a mark it meets, as the synopsis was)
   for (const tone of ['sig', 'alr'] as const) {
     const s = document.createElement('span');
     s.className = `p-plus p-plus-${tone}`;
@@ -412,7 +423,7 @@ function mountFilmSection(p: Project): void {
     s.setAttribute('aria-hidden', 'true');
     s.style.left = `${52 + Math.floor(rand() * 40)}%`;
     s.style.top = `${8 + Math.floor(rand() * 70)}%`;
-    body.append(s);
+    document.getElementById('p-thread')!.before(s);
   }
 
   const player = document.getElementById('p-player') as HTMLDivElement;
@@ -437,6 +448,7 @@ function mountFilmSection(p: Project): void {
       note.textContent = 'PLACEHOLDER ▪ NO FILM HERE YET';
     }
     player.after(note);
+    armThread(p, stamp, null); // (no player: the film's thread ends inside its band)
     return;
   }
   // THE FILM STANDS READY (owner 2026-11-24: "I want to abolish the WATCH button. Instead, I want the video to be
@@ -449,7 +461,9 @@ function mountFilmSection(p: Project): void {
   player.hidden = false;
   const multi = p.films.length > 1;
   const { frames, talking, videos, bigs } = multi ? mountParts(p, player) : mountFilm(p, player);
-  armEffectHole('player', multi ? player.querySelector<HTMLElement>('.p-parts') ?? player : player);
+  const stage = multi ? player.querySelector<HTMLElement>('.p-parts') ?? player : player; // (a film in parts: its stage)
+  armEffectHole('player', stage);
+  armThread(p, stamp, stage);
 
   // THE MUSIC GIVES WAY when the film starts, and stays stopped until the next section or page, as WATCH had it. The
   // press lands inside the frame, where the page hears nothing: the player says when it plays (YouTube's messages), a
@@ -505,6 +519,27 @@ function mountFilmSection(p: Project): void {
   hero.addEventListener('click', (e) => {
     if (!(e.target as Element).closest('a, button')) open();
   });
+}
+
+/** THE FILM'S THREAD (owner, 2026-11-25: "Completely remove the synopsis from all film's pages", its place filled with
+ *  "artwork designs that align with our art direction", "muted, subtle"): a still line drawing of the film's path in
+ *  the row where the synopsis stood, carrying a few dim frames of the film's own stills, and beside the player where
+ *  there is room (project/thread.ts). Its band's place stands in the styles, so nothing moves when it is drawn; it is
+ *  drawn once the manifest has named its pictures and the section is within a screen of the visitor (its small
+ *  pictures never race the hero's loop). `stage`: the player's box, or null for a film with none. */
+function armThread(p: Project, stamp: string, stage: HTMLElement | null): void {
+  const band = document.getElementById('p-thread')!;
+  const body = document.querySelector<HTMLElement>('.p-film-sec .p-sec-body')!;
+  const go = () =>
+    void loadLoopManifest().then(() =>
+      mountThread({
+        band, side: document.getElementById('p-thread-side')!, body, rail: document.querySelector<HTMLElement>('.p-film-sec .p-rail')!,
+        stage, film: { name: p.title, year: p.year, place: stamp }, accent: p.accent, pics: threadFrames(p.slug),
+      }),
+    );
+  if (typeof IntersectionObserver === 'undefined') return go();
+  const near = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { near.disconnect(); go(); } }, { rootMargin: '100% 0px' });
+  near.observe(body);
 }
 
 /** What a film's player is made of: every frame, the frames whose player talks (YouTube), the owner's own files, and the
@@ -877,7 +912,7 @@ async function mountWall(p: Project): Promise<void> {
   const figureFor = (
     url: string,
     n: number,
-    caption = `STL·${pad2(n)} // ${p.slug.toUpperCase()}`,
+    caption = `STL·${stillCode(0, n)} // ${p.slug.toUpperCase()}`,
     alt = `${p.title} — still ${n}`,
   ): HTMLElement => {
     const wrap = document.createElement('figure');
@@ -945,7 +980,7 @@ async function mountWall(p: Project): Promise<void> {
         grid.className = 'p-vgrid';
         grid.dataset.eof = `EOF ▪ ${label}`;
         g.urls.forEach((url, i) =>
-          grid.append(figureFor(url, i + 1, `STL·${g.part}-${pad2(i + 1)}`, `${p.title}: ${label}, still ${i + 1}`)),
+          grid.append(figureFor(url, i + 1, `STL·${stillCode(g.part, i + 1)}`, `${p.title}: ${label}, still ${i + 1}`)),
         );
         col.append(grid);
         pillars.append(col);
@@ -954,7 +989,7 @@ async function mountWall(p: Project): Promise<void> {
     } else {
       const grid = document.createElement('div');
       grid.className = 'p-vgrid';
-      urls.forEach((url, i) => grid.append(figureFor(url, i + 1, `STL·${pad2(i + 1)}`)));
+      urls.forEach((url, i) => grid.append(figureFor(url, i + 1, `STL·${stillCode(0, i + 1)}`)));
       wall.append(grid);
     }
     return;

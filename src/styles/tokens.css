@@ -47,8 +47,9 @@
   --bone: #EDEDE6;
   --accent: var(--signal); /* per-view dominant accent; project pages override */
   /* the DIRECTED BY line, wherever a film's direction is written: the sheet, the hero's readouts, the wall's caption,
-     THE LIST's rows, the phone's strip (owner, 2026-11-25: "must have a special color to make it stand out") */
-  --credit: var(--signal);
+     THE LIST's rows, the phone's strip (owner, 2026-11-25: "must have a special color to make it stand out"; shown the
+     line in four colours on a film's sheet they chose "B: Gold"). Nothing else on the site is gold: keep it so. */
+  --credit: #FFC53D;
 
   /* voices — spec §3.2 */
   --f-display: 'RVL Viet Display First', 'Clash Display', 'RVL Viet Display', system-ui, sans-serif;

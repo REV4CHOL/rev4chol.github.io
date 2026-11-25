@@ -1,3 +1,4 @@
+import { THREAD_DIR, type ThreadEntry } from './thread-files';
 import { readWalls, type WallEntry } from './wall-files';
 
 export interface NavItem { label: string; href: string }
@@ -394,6 +395,31 @@ let stillsManifest: Record<string, string[]> | null | undefined;
 /** each chapter's wall video, and the films that have a hover clip: empty until a manifest lists them */
 let wallsManifest: Record<string, WallEntry> = {};
 let hoverManifest: string[] = [];
+/** each film's thread pictures (npm run threads): empty until a manifest lists them */
+let threadsManifest: Record<string, ThreadEntry[]> = {};
+
+/** The manifest's thread pictures as the page may use them: per film, the entries that are a still's code (digits,
+ *  with a part before a hyphen), a width and a height. Anything else is dropped; a film left with none is not listed. */
+export function readThreads(raw: unknown): Record<string, ThreadEntry[]> {
+  const out: Record<string, ThreadEntry[]> = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const [slug, list] of Object.entries(raw as Record<string, unknown>)) {
+    if (!Array.isArray(list)) continue;
+    const good = list.filter(
+      (e): e is ThreadEntry =>
+        Array.isArray(e) && e.length === 3 && typeof e[0] === 'string' && /^\d+(-\d+)?$/.test(e[0]) &&
+        typeof e[1] === 'number' && typeof e[2] === 'number' && e[1] > 0 && e[2] > 0,
+    );
+    if (good.length) out[slug] = good;
+  }
+  return out;
+}
+
+/** A film's thread pictures as the manifest lists them: each still's code, its small copy's address and its own size,
+ *  in order. Empty when the manifest lists none: the film's thread is then drawn without frames (project/thread.ts). */
+export function threadFrames(slug: string): { code: string; url: string; w: number; h: number }[] {
+  return (threadsManifest[slug] ?? []).map(([code, w, h]) => ({ code, url: projectAssetUrl(slug, `${THREAD_DIR}/${code}.jpg`), w, h }));
+}
 
 /** The homepage reel's files as the manifest lists them (slot order), or
  *  null when no manifest is available — callers fall back to probing. */
@@ -429,12 +455,14 @@ export async function loadLoopManifest(): Promise<void> {
       stills?: Record<string, string[]>;
       walls?: unknown;
       hover?: unknown;
+      threads?: unknown;
     };
     loopManifest = data.projects ?? null;
     homeManifest = Array.isArray(data.home) ? data.home : null;
     stillsManifest = data.stills ?? null;
     wallsManifest = readWalls(data.walls);
     hoverManifest = Array.isArray(data.hover) ? data.hover.filter((s): s is string => typeof s === 'string') : [];
+    threadsManifest = readThreads(data.threads);
   } catch {
     loopManifest = null;
     homeManifest = null;

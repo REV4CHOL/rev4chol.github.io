@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { readThreads } from '../src/lib/content';
 
 // THE SYNOPSIS LEFT EVERY FILM PAGE AND THE THREAD STANDS IN ITS PLACE (owner, 2026-11-25: "Completely remove the
 // synopsis from all film's pages. AFter removing the synopsis there sure will be a black blank space left empty, so
@@ -76,5 +77,49 @@ describe('the thread stands where the synopsis stood', () => {
     }
     const mine = css.split('\n').filter((l) => l.includes('.p-thread')).join('\n');
     expect(mine).not.toMatch(/animation|transition|filter|sticky/);
+  });
+});
+
+describe('the thread is drawn from the film and the manifest', () => {
+  it("the manifest's thread pictures are read per film; anything that is not a code and a size is dropped", () => {
+    const m = readThreads({
+      philia: [['01', 192, 102], ['09', 192, 102]],
+      galaxy: [['1-01', 108, 192]],
+      junk: 'x',
+      odd: [['../poster', 192, 102], ['02', 0, 5], ['03', 192], 7],
+      none: [],
+    });
+    expect(m).toEqual({ philia: [['01', 192, 102], ['09', 192, 102]], galaxy: [['1-01', 108, 192]] });
+    expect(readThreads(undefined)).toEqual({});
+    expect(readThreads([['01', 1, 1]])).toEqual({});
+  });
+
+  it('the page mounts it for a film with a player and for a film with none (a private film, a link to come)', () => {
+    expect(page).toContain('mountThread({');
+    expect(page).toContain('pics: threadFrames(p.slug)');
+    expect(page.split('armThread(p, stamp, ').length - 1).toBe(2);
+    expect(page).toContain("film: { name: p.title, year: p.year, place: stamp }");
+  });
+
+  it("a frame's code is the wall's own: the wall's captions and the thread's frames come from one function", () => {
+    expect(page).toContain('caption = `STL·${stillCode(0, n)} // ${p.slug.toUpperCase()}`');
+    expect(page).toContain('`STL·${stillCode(g.part, i + 1)}`');
+    expect(page).toContain('`STL·${stillCode(0, i + 1)}`');
+    expect(page).not.toMatch(/STL·\$\{pad2|STL·\$\{g\.part\}-/);
+  });
+
+  // (a plus mark's place is drawn by lot, and on a phone one in three lands in the band: on top of a still it read as
+  //  a fault. The marks stand where they always did; they are only put into the page before the band, so the thread,
+  //  like the synopsis before it, is drawn over a mark it meets.)
+  it('an old plus mark that meets the thread stands under it, as it stood under the synopsis', () => {
+    expect(page).toContain("document.getElementById('p-thread')!.before(s);");
+    expect(page).not.toContain('body.append(s);');
+  });
+
+  it('the drawing is still: nothing in its page code animates, and it measures in layout px', () => {
+    const src = read('src/project/thread.ts');
+    expect(src).not.toMatch(/\.animate\(|transition|setInterval|gsap|scroll/i);
+    expect(src).toContain('const z = zoomOf(m.band);');
+    expect(src).toContain('new ResizeObserver(ask)');
   });
 });

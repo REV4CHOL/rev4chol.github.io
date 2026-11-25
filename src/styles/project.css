@@ -232,6 +232,7 @@
   display: grid; gap: 16px; justify-items: end; color: var(--bone); letter-spacing: 0.1em;
 }
 .p-callout { display: flex; align-items: center; gap: 12px; }
+.p-callout--dir { color: var(--credit); } /* who directed: the line's own colour (owner, 2026-11-25; tokens.css) */
 /* ink and halo, the homepage's nav treatment (no plates): over a bright picture the marks read as nothing, ROLE, YR
    and RT white on a white sky (the review's walkthroughs, 2026-09-30) */
 .p-status, .p-index, .p-callouts, .p-up {
@@ -329,6 +330,9 @@
   padding: 13px 0; border-bottom: 1px dotted rgba(237, 237, 230, 0.22);
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
+/* WHO DIRECTED (owner, 2026-11-25: "this sentence: Directed by REVACHOL, placed above ROLE", and: "must have a special
+   color to make it stand out"): the row's label and its name both take the line's own colour (tokens.css) */
+.p-spec .p-spec-dir { color: var(--credit); }
 /* a genre is a tag, not a button (the review's walkthroughs, 2026-09-30: both pressed them): dotted and square, where the
    site's buttons (COPY EMAIL, the social links) are solid pills */
 .p-pill {
