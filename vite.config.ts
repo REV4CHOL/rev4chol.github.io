@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import { UNTOUCHED_PAGES, withCsp } from './src/lib/csp';
 import { pickLoopFiles } from './src/lib/loop-files';
+import { narrowCss } from './src/lib/narrow-css';
 import { scanHover, scanWalls } from './src/lib/wall-scan';
 
 const p = (f: string) => fileURLToPath(new URL(f, import.meta.url));
@@ -120,9 +121,23 @@ function contentSecurityPolicy(): Plugin {
   };
 }
 
+/** A narrow PC window reads the tablet's layout blocks (src/lib/narrow-css.ts): each sheet of src/styles/ but the
+ *  archived ABOUT's gets its marked blocks mirrored, before Vite's own CSS handling, in dev and in the build. */
+function narrowWindowCss(): Plugin {
+  return {
+    name: 'revachol-narrow-css',
+    enforce: 'pre',
+    transform(code, id) {
+      const file = id.split('?')[0].replace(/\\/g, '/');
+      if (!/\/src\/styles\/[^/]+\.css$/.test(file) || file.endsWith('/about-old.css')) return null;
+      return { code: narrowCss(code), map: null };
+    },
+  };
+}
+
 export default defineConfig({
   appType: 'mpa',
-  plugins: [mediaManifest(), contentSecurityPolicy()],
+  plugins: [narrowWindowCss(), mediaManifest(), contentSecurityPolicy()],
   build: {
     target: 'es2022',
     rollupOptions: {
