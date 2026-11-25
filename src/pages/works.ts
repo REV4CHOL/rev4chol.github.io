@@ -9,7 +9,7 @@ import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { startPage } from '../shell/page';
 import { CHANNELS, ChannelKey, channelFromSearch, channelProjects } from '../works/channels';
-import { entryOf, restoredTop, returning, viewOnLoad, wallByBack } from '../works/back-state';
+import { entryOf, listStartTop, restoredTop, returning, viewOnLoad, wallByBack } from '../works/back-state';
 import { chapterTabLabel, listGroups, searchForView, toggleText, type WorkView } from '../works/index-list';
 import { floorOpened, legendText } from '../works/legend';
 import { listPointer, listTight } from '../works/list-art';
@@ -142,7 +142,9 @@ startPage(
       } else stamp({ view: v, pushed: false }, url);
       sound.click();
       if (v === 'list') {
-        listEl.scrollTop = 0;
+        // by hand: at the top, or from a later chapter at that chapter's heading (works/back-state.ts)
+        listEl.scrollTop = listStartTop(active, [...listEl.querySelectorAll<HTMLElement>('.fl-group')]
+          .map((g) => ({ key: g.dataset.ch as ChannelKey, top: g.offsetTop })));
         listEl.focus({ preventScroll: true }); // (the arrow keys and the space bar scroll the list from here)
       }
     };
@@ -346,6 +348,7 @@ function buildFilmList(host: HTMLElement, projects: Project[]): void {
   for (const g of listGroups(projects)) {
     const sec = document.createElement('section');
     sec.className = 'fl-group';
+    sec.dataset.ch = g.key;
     const head = document.createElement('h2');
     head.className = 'fl-head micro';
     head.textContent = g.heading;

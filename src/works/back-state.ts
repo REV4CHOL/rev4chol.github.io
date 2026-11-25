@@ -1,3 +1,4 @@
+import type { ChannelKey } from './channels';
 import { viewFromSearch, type WorkView } from './index-list';
 
 /** THE BROWSER'S BACK ON WORK (the review's walkthroughs, 2026-11-25). Each history entry of WORK carries, in its own
@@ -52,3 +53,14 @@ export function viewOnLoad(search: string, entry: WorkEntry, remembered: string 
 /** The list's "back to the wall" goes back in history when the toggle added the list's entry (the wall's stands right
  *  behind it); a list opened by its own address has no wall behind it, and changes its entry in place as before. */
 export const wallByBack = (entry: WorkEntry): boolean => entry.view === 'list' && entry.pushed === true;
+
+/** Where THE LIST opens BY HAND (the review's walkthroughs, an Android tablet: opened from CH·02 it started at CH·01,
+ *  the "CH·02 ▪ AI" heading 1 678 px down): from a chapter after the first, the scroll that stands that chapter's
+ *  heading where the first chapter's heading stands; from the first chapter, or one the list does not hold, the top.
+ *  `heads`: each chapter heading's top in the list's content, in the list's order. A return by Back never comes here:
+ *  it restores the place the visitor left (restoredTop). */
+export function listStartTop(active: ChannelKey, heads: readonly { key: ChannelKey; top: number }[]): number {
+  if (!heads.length || heads[0].key === active) return 0;
+  const h = heads.find((x) => x.key === active);
+  return h ? Math.max(0, Math.round(h.top - heads[0].top)) : 0;
+}

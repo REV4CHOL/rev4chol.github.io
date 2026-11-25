@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { entryOf, restoredTop, returning, viewOnLoad, wallByBack } from '../src/works/back-state';
+import { entryOf, listStartTop, restoredTop, returning, viewOnLoad, wallByBack } from '../src/works/back-state';
 
 // THE BROWSER'S BACK ON WORK (the review's walkthroughs, 2026-11-25): THE LIST had no history entry of its own, so Back
 // from it left WORK altogether; a Back from a film opened from the list found the list at its top. Each history entry
@@ -48,5 +48,19 @@ describe('the view an entry shows', () => {
     expect(wallByBack({ view: 'list' })).toBe(false); // (a list opened by its address: no wall entry behind it)
     expect(wallByBack({})).toBe(false);
     expect(wallByBack({ view: 'floor', pushed: true })).toBe(false);
+  });
+});
+
+// THE LIST OPENED FROM THE AI CHAPTER (the review's walkthroughs, Android tablet): it started at CH·01, the "CH·02 ▪ AI"
+// heading 1 678 px down on a 672 px screen.
+describe('where the list opens by hand', () => {
+  const heads = [{ key: 'human' as const, top: 34 }, { key: 'machine' as const, top: 1712 }];
+  it("from a chapter after the first: that chapter's heading where the first chapter's heading stands", () => {
+    expect(listStartTop('machine', heads)).toBe(1678);
+  });
+  it('from the first chapter, or a chapter the list does not hold: at the top', () => {
+    expect(listStartTop('human', heads)).toBe(0);
+    expect(listStartTop('machine', heads.slice(0, 1))).toBe(0);
+    expect(listStartTop('machine', [])).toBe(0);
   });
 });
