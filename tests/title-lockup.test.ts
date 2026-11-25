@@ -171,7 +171,9 @@ describe("the film page's ticker sets a dot between a two-language title's names
 
 describe('the unseen keep the plain string with its slash', () => {
   it('aria labels and the screen-reader list', () => {
-    expect(src('src/works/reel-view.ts')).toContain("a.setAttribute('aria-label', `${p.title}. ${p.role}. Open this film.`);");
+    // (the label is works/reel.ts paneLabel: the plain title first, as written; tests/directed-panes.test.ts reads it)
+    expect(src('src/works/reel-view.ts')).toContain("a.setAttribute('aria-label', paneLabel(p));");
+    expect(src('src/works/reel.ts')).toContain("return [p.title, who ? `Directed by ${who}` : '', rolesShown(p), 'Open this film']");
     expect(src('src/pages/works.ts')).toContain("a.textContent = `${p.title} (${p.year})${isPlaceholder(p) ? ' — placeholder' : ''}`;");
   });
 });

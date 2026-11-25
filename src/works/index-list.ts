@@ -1,5 +1,6 @@
 import type { Project } from '../lib/content';
 import { aspectRatio } from '../lib/content';
+import { directedLine, rolesShown } from '../lib/roles';
 import { splitTitle } from '../lib/title';
 import { CHANNELS, channelProjects, type ChannelKey } from './channels';
 import { REEL_WORDS } from './reel';
@@ -52,10 +53,10 @@ export function thumbSize(ratio: number): { w: number; h: number } {
     : { w: Math.round(THUMB.h * ratio), h: THUMB.h };
 }
 
-/** `2026 · COLORIST`; a film kept off the public web says so at the end. No running time (owner, 2026-11-24: "Remove
+/** `2026 · COLORIST / EDITOR` (the roles A to Z, without Director: lib/roles.ts); a film kept off the public web says so at the end. No running time (owner, 2026-11-24: "Remove
  *  runtime from all sections on the website"). */
 export function rowMeta(p: Pick<Project, 'year' | 'role' | 'filmPrivate'>): string {
-  return [p.year, p.role, p.filmPrivate ? 'PRIVATE FILM' : ''].filter(Boolean).join(' · ').toUpperCase();
+  return [p.year, rolesShown(p), p.filmPrivate ? 'PRIVATE FILM' : ''].filter(Boolean).join(' · ').toUpperCase();
 }
 
 export interface ListRow {
@@ -63,6 +64,8 @@ export interface ListRow {
   href: string;
   title: string;
   meta: string;
+  /** `DIRECTED BY REVACHOL`, standing above the meta; '' when nobody is on record (lib/roles.ts) */
+  directed: string;
   accent: string;
   thumb: { w: number; h: number };
 }
@@ -95,6 +98,7 @@ export function listGroups(projects: Project[]): ListGroup[] {
         href: `/project.html?p=${encodeURIComponent(p.slug)}`,
         title: p.title,
         meta: rowMeta(p),
+        directed: directedLine(p),
         accent: p.accent,
         thumb: thumbSize(aspectRatio(p.aspect)),
       })),

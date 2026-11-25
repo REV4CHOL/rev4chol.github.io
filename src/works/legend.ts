@@ -1,4 +1,5 @@
 import { isPlaceholder, type Project } from '../lib/content';
+import { rolesShown } from '../lib/roles';
 
 /** THE FLOOR'S SIGNPOSTS (owner's testers, 2026-09-27: "confused, not knowing what to do, where to go … what to
  *  click on, like completely lost"; owner, 2026-09-28: "still unclear … imagine a not so tech-savvy person read
@@ -25,10 +26,11 @@ export function stripName(p: Pick<Project, 'short' | 'year' | 'slug'>): string {
 
 type CaptionFields = Pick<Project, 'year' | 'role' | 'film' | 'filmPending' | 'filmPrivate'>;
 
-/** `2025 · DIRECTOR / EDITOR / COLORIST ▪ CLICK TO OPEN`; a placeholder's starts `PLACEHOLDER · NO FILM YET ▪`. No
+/** `2025 · COLORIST / EDITOR ▪ CLICK TO OPEN`: the roles A to Z, without Director (lib/roles.ts: the direction is a line
+ *  of its own above these facts, written by world.ts); a placeholder's starts `PLACEHOLDER · NO FILM YET ▪`. No
  *  running time (owner, 2026-11-24: "Remove runtime from all sections on the website"). */
 export function captionMeta(p: CaptionFields, fine: boolean): string {
-  const facts = [p.year, p.role].filter(Boolean).join(' · ').toUpperCase();
+  const facts = [p.year, rolesShown(p)].filter(Boolean).join(' · ').toUpperCase();
   return [isPlaceholder(p) ? 'PLACEHOLDER · NO FILM YET' : '', facts, fine ? OPEN_VERB.fine : OPEN_VERB.coarse]
     .filter(Boolean)
     .join(' ▪ ');

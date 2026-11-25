@@ -378,7 +378,11 @@ function buildFilmList(host: HTMLElement, projects: Project[]): void {
       img.height = r.thumb.h;
       img.src = projectAssetUrl(r.slug, 'poster.jpg');
       thumb.append(img);
-      a.append(thumb, titleSpan('fl-title', r.title, softBreaks), fillCrossed(span('fl-meta micro', ''), r.meta), span('fl-open micro', 'OPEN ▸'));
+      const meta = fillCrossed(span('fl-meta micro', ''), r.meta);
+      // who directed: a small line in the credit colour at the head of the meta, the facts under it (owner, 2026-11-25:
+      // "Directed by REVACHOL, placed above ROLE", "On panes too"); none when nobody is on record (lib/roles.ts)
+      if (r.directed) meta.prepend(fillCrossed(span('fl-dir', ''), r.directed), ' ');
+      a.append(thumb, titleSpan('fl-title', r.title, softBreaks), meta, span('fl-open micro', 'OPEN ▸'));
       const li = document.createElement('li');
       li.append(a);
       rows.append(li);

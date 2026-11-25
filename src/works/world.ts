@@ -14,6 +14,7 @@ import {
 import { offerFloorReadings, type FloorReadings } from '../lib/readout';
 import type { WallEntry } from '../lib/wall-files';
 import { fillCrossed } from '../lib/cross';
+import { directedLine } from '../lib/roles';
 import { softBreaks } from '../lib/escape';
 import { fillTitle, settleLockup } from '../lib/title';
 import { scrambleEl } from '../lib/scramble';
@@ -825,6 +826,20 @@ export class WorksWorld {
     const shout = (s: string) => softBreaks(s.toUpperCase());
     fillCrossed(meta, captionMeta(p, finePointer())); // …ending with the verb that opens the pane
     meta.style.color = p.accent;
+    // who directed: a small line in the credit colour between the name and the facts (owner, 2026-11-25: "Directed by
+    // REVACHOL, placed above ROLE", "On panes too"); none when nobody is on record (lib/roles.ts). Written afresh for
+    // every pane, before the caption is measured and placed
+    let dir = el.querySelector<HTMLElement>('.tl-dir');
+    const directed = directedLine(p);
+    if (directed && !dir) {
+      dir = document.createElement('p');
+      dir.className = 'tl-dir micro';
+      meta.before(dir);
+    }
+    if (dir) {
+      fillCrossed(dir, directed);
+      dir.hidden = !directed;
+    }
     // (placed by its real words; the scramble then runs over them. A two-language name stands as its lockup, each line
     // scrambling in its own span: lib/title.ts)
     fillTitle(title, p.short || p.title, shout);

@@ -25,6 +25,7 @@
 import { aspectRatio, loopSrcChain, projectAssetUrl, type Project } from '../lib/content';
 import { autoplayRefused, imageLoopsWork, isRefusal, loopsAsImages, noteImageLoops, noteRefusal, onRefusal } from '../lib/autoplay';
 import { reducedMotion } from '../lib/env';
+import { directedLine } from '../lib/roles';
 import { fillCrossed } from '../lib/cross';
 import { softBreaks } from '../lib/escape';
 import { fillTitle, settleLockup } from '../lib/title';
@@ -33,7 +34,7 @@ import { CHANNELS, type ChannelKey, channelProjects } from './channels';
 import {
   arrivalOffset, capKeyframes, coast, focusCentres, lanesToRetime, lapProgress, lapSeconds, lapUnits, loopKind, loopsAllowed, loopsPin, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
   onePlays, oneLineSize, paneInView, paneKeyframes, panePlay, paneTop, paneUnits, places, railProgress, railTicks, REEL_WORDS, releaseSpeed,
-  roleLine, rollPace, screenUnits, shownSize, SIDE_QUERY, stripFilms, stripOrder, stripPlace, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
+  paneLabel, roleLine, rollPace, screenUnits, shownSize, SIDE_QUERY, stripFilms, stripOrder, stripPlace, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
   type LoopKind, type PanePlay,
 } from './reel';
 
@@ -104,7 +105,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     a.href = `/project.html?p=${p.slug}`;
     a.dataset.internal = '';
     a.draggable = false;
-    a.setAttribute('aria-label', `${p.title}. ${p.role}. Open this film.`);
+    a.setAttribute('aria-label', paneLabel(p));
     const pane = el('span', `rl-pane${aspectRatio(p.aspect) < 1 ? ' is-vertical' : ''}`);
     pane.style.setProperty('--focus', p.focus); // (the crop keeps the film's subject: its focus point)
     const img = el('img', 'rl-poster');
@@ -115,7 +116,11 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     img.src = projectAssetUrl(p.slug, 'poster.jpg');
     pane.append(img, el('i', 'rl-scan'));
     const cap = el('span', 'rl-cap');
-    cap.append(el('i', 'rl-bar'), fillTitle(el('span', 'rl-title'), p.title, softBreaks), fillCrossed(el('span', 'rl-role micro'), roleLine(p.role))); // (a long name breaks at its _; a two-language name stands as two lines, lib/title.ts)
+    cap.append(el('i', 'rl-bar'), fillTitle(el('span', 'rl-title'), p.title, softBreaks), fillCrossed(el('span', 'rl-role micro'), roleLine(p))); // (a long name breaks at its _; a two-language name stands as two lines, lib/title.ts)
+    // who directed: a small line in the credit colour at the head of the roles (owner, 2026-11-25: "Directed by
+    // REVACHOL, placed above ROLE", "On panes too"); none when nobody is on record (lib/roles.ts)
+    const dir = directedLine(p);
+    if (dir) cap.querySelector('.rl-role')!.prepend(fillCrossed(el('span', 'rl-dir'), dir), ' ');
     a.append(pane, cap);
     li.append(a);
     return li;

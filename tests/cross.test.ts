@@ -48,12 +48,19 @@ describe('where the cross stands', () => {
   it("a film page: the hero's ROLE readout and the sheet's rows", () => {
     const page = src('src/pages/project.ts');
     expect(page).toContain('${k} :: ${crossedHtml(v.toUpperCase())}');
-    for (const field of ['client', 'artist', 'director', 'productionHouse', 'role'])
+    for (const field of ['client', 'artist', 'productionHouse'])
       expect(page, field).toContain(`<span>\${crossedHtml(p.${field}.toUpperCase())}</span>`);
+    // (who directed and the roles come from the one rule, lib/roles.ts: two directors, or two roles, are parted by the cross)
+    expect(page).toContain('<span>${crossedHtml(director.toUpperCase())}</span>');
+    expect(page).toContain('<span>${crossedHtml(roles.toUpperCase())}</span>');
   });
 
   it('WORK: the phone strip, THE LIST and the card of the lifted pane', () => {
-    expect(src('src/works/reel-view.ts')).toContain("fillCrossed(el('span', 'rl-role micro'), roleLine(p.role))");
+    expect(src('src/works/reel-view.ts')).toContain("fillCrossed(el('span', 'rl-role micro'), roleLine(p))");
+    // (and the DIRECTED BY line above the roles on all three: a slash between two directors is crossed too)
+    expect(src('src/works/reel-view.ts')).toContain("fillCrossed(el('span', 'rl-dir'), dir)");
+    expect(src('src/pages/works.ts')).toContain("fillCrossed(span('fl-dir', ''), r.directed)");
+    expect(src('src/works/world.ts')).toContain('fillCrossed(dir, directed)');
     expect(src('src/pages/works.ts')).toContain("fillCrossed(span('fl-meta micro', ''), r.meta)");
     expect(src('src/works/world.ts')).toContain('fillCrossed(meta, captionMeta(p, finePointer()))');
   });

@@ -50,13 +50,14 @@ describe('the loops (owner, 2026-10-20: "I want the videos to play continuously 
 });
 
 describe("a pane's words: the film's name and its roles, nothing else", () => {
-  it('the roles as the record has them, upper case, a role never broken inside, no line opening on a slash', () => {
-    expect(roleLine('Colorist')).toBe('COLORIST');
-    expect(roleLine('Director / Colorist / Editor / Sound Designer')).toBe('DIRECTOR / COLORIST / EDITOR / SOUND DESIGNER');
-    expect(roleLine('1st AD / Colorist')).toBe('1ST AD / COLORIST');
-    expect(roleLine(' AI Lead /  Colorist ')).toBe('AI LEAD / COLORIST');
+  // (owner, 2026-11-25: the roles A to Z, and Director is no role: it is the DIRECTED BY line above them, lib/roles.ts)
+  it('the roles A to Z without Director, upper case, a role never broken inside, no line opening on a slash', () => {
+    expect(roleLine({ role: 'Colorist' })).toBe('COLORIST');
+    expect(roleLine({ role: 'Director / Colorist / Editor / Sound Designer' })).toBe('COLORIST / EDITOR / SOUND DESIGNER');
+    expect(roleLine({ role: '1st AD / Colorist' })).toBe('1ST AD / COLORIST');
+    expect(roleLine({ role: ' AI Lead /  Colorist ' })).toBe('AI LEAD / COLORIST');
     for (const p of films) {
-      const line = roleLine(p.role);
+      const line = roleLine(p);
       expect(line, p.slug).not.toMatch(/^\s|\s$/);
       for (const brk of line.split(' ')) expect(brk.startsWith('/'), `${p.slug}: a line opens on a slash`).toBe(false);
     }

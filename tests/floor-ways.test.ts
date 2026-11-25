@@ -45,7 +45,7 @@ describe('a plain list of every film', () => {
   it('a row carries its title, its facts and its link; no number (the films\' own numbers skip inside a chapter)', () => {
     const [human] = listGroups(all);
     expect(human.rows.find((r) => r.slug === 'philia')).toEqual({
-      slug: 'philia', title: 'PHILIA', href: '/project.html?p=philia', meta: '2026 · COLORIST', accent: '#c8ff00', thumb: { w: 128, h: 72 },
+      slug: 'philia', title: 'PHILIA', href: '/project.html?p=philia', meta: '2026 · COLORIST', directed: '', accent: '#c8ff00', thumb: { w: 128, h: 72 },
     });
   });
 
@@ -431,7 +431,7 @@ describe('a phone gets the reel, never the floor (pins)', () => {
   });
 
   it('a pane carries the film\'s name and its roles, nothing else (owner: "Do not clog this section up with texts")', () => {
-    expect(view).toContain("fillTitle(el('span', 'rl-title'), p.title, softBreaks), fillCrossed(el('span', 'rl-role micro'), roleLine(p.role))");
+    expect(view).toContain("fillTitle(el('span', 'rl-title'), p.title, softBreaks), fillCrossed(el('span', 'rl-role micro'), roleLine(p))");
     for (const gone of ['rl-syn', 'rl-tags', 'rl-meta', 'rl-door', 'rl-stills', 'rl-num', 'rl-cue', 'teaser(', 'rowMeta(']) {
       expect(view, gone).not.toContain(gone);
     }

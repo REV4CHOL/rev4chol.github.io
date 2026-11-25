@@ -12,6 +12,8 @@
  *  strips. And we can slide our finger up and down to scroll through the strip"). Pure: which screens get it, the
  *  strip's arithmetic, its words, the loops' rule; works/reel-view.ts builds it. */
 
+import { directorOf, rolesShown } from '../lib/roles';
+
 /** A phone: touch, and narrow (portrait) or short (landscape). A tablet and a desktop keep the floor. */
 export function reelMode(m: { coarse: boolean; width: number; height: number }): boolean {
   return m.coarse && (m.width <= 640 || m.height <= 500);
@@ -64,14 +66,21 @@ export const TITLE_SCALE = 0.66;
 /** The size, px, a name is shown at from its fitted size (two decimals, as a style holds it). */
 export const shownSize = (fitted: number): number => Math.round(fitted * TITLE_SCALE * 100) / 100;
 
-/** A film's roles on its pane, as its record has them: upper case, joined by " / ", a role never broken inside (SOUND
- *  DESIGNER stays whole) and no line opening on a slash. */
-export function roleLine(role: string): string {
-  return role
+/** A film's roles on its pane: A to Z, without Director (lib/roles.ts: the direction is a line of its own above them),
+ *  upper case, joined by " / ", a role never broken inside (SOUND DESIGNER stays whole) and no line opening on a slash. */
+export function roleLine(p: { role: string }): string {
+  return rolesShown(p)
     .split('/')
     .map((r) => r.trim().toUpperCase().replace(/\s+/g, ' '))
     .filter(Boolean)
     .join(' / ');
+}
+
+/** A pane's link, read aloud: `Soda Coast. Directed by Revachol. Colorist / Editor / Sound Designer. Open this film.`;
+ *  the name as written (a two-language name keeps its slash), who directed only when someone is on record. */
+export function paneLabel(p: { title: string; role: string; director: string }): string {
+  const who = directorOf(p);
+  return [p.title, who ? `Directed by ${who}` : '', rolesShown(p), 'Open this film'].filter(Boolean).join('. ') + '.';
 }
 
 /* ---------------------------------------------------------------------- the rolling strip -- */
