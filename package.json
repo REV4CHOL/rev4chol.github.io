@@ -10,7 +10,8 @@
     "check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "walls": "node scripts/make-walls.mjs"
+    "walls": "node scripts/make-walls.mjs",
+    "threads": "node scripts/make-threads.mjs"
   },
   "dependencies": {
     "gsap": "^3.12.5",

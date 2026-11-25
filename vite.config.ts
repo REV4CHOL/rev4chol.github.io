@@ -5,6 +5,7 @@ import { defineConfig, type Plugin } from 'vite';
 import { UNTOUCHED_PAGES, withCsp } from './src/lib/csp';
 import { pickLoopFiles } from './src/lib/loop-files';
 import { narrowCss } from './src/lib/narrow-css';
+import { THREAD_DIR, type ThreadEntry } from './src/lib/thread-files';
 import { scanHover, scanWalls } from './src/lib/wall-scan';
 
 const p = (f: string) => fileURLToPath(new URL(f, import.meta.url));
@@ -76,12 +77,26 @@ function scanLoops(): { projects: Record<string, string[]>; home: string[]; stil
   return { projects: out, home: scanHomeLoops(), stills: scanStills() };
 }
 
+/** Each film's thread pictures (npm run threads): the map as the script wrote it, without a film whose files are not
+ *  all there (its thread is then drawn without frames). */
+function scanThreads(): Record<string, ThreadEntry[]> {
+  const out: Record<string, ThreadEntry[]> = {};
+  try {
+    const map = JSON.parse(readFileSync(p('public/content/threads.json'), 'utf8')) as Record<string, ThreadEntry[]>;
+    for (const [slug, list] of Object.entries(map)) {
+      if (!Array.isArray(list) || list.length === 0) continue;
+      if (list.every((e) => existsSync(p(`public/content/projects/${slug}/${THREAD_DIR}/${e[0]}.jpg`)))) out[slug] = list;
+    }
+  } catch { /* no map: no thread pictures */ }
+  return out;
+}
+
 /** The whole manifest: the loops, the reel and the stills (scanLoops), then each chapter's wall video with only the
- *  tiles that are still good, and the films that have a hover clip (src/lib/wall-scan.ts):
- *  { projects, home, stills, walls, hover }. The pages read walls and hover clips from here and never probe. */
+ *  tiles that are still good, the films that have a hover clip (src/lib/wall-scan.ts) and each film's thread pictures:
+ *  { projects, home, stills, walls, hover, threads }. The pages read walls, hover clips and threads from here and never probe. */
 function scanMedia() {
   const root = p('public/content/');
-  return { ...scanLoops(), walls: scanWalls(root), hover: scanHover(root) };
+  return { ...scanLoops(), walls: scanWalls(root), hover: scanHover(root), threads: scanThreads() };
 }
 
 function mediaManifest(): Plugin {
