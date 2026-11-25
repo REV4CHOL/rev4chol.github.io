@@ -340,6 +340,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     loops.delete(li);
   };
   let planned = '';
+  let wants: PanePlay[] = []; // (what each pane was last asked to do: a touch's re-offer reads it)
   const replan = () => { planned = ''; plan(); };
   const videoLoop = (chain: string[]): HTMLVideoElement => {
     let k = 0;
@@ -400,10 +401,14 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     const key = want.join(',');
     if (key === planned) return;
     planned = key;
+    wants = want;
     strip.panes.forEach((li, i) => {
       if (want[i] === 'free') release(li);
-      else if (want[i] === 'rest') { const l = ahead ? ensureLoop(li) : loops.get(li); if (l instanceof HTMLVideoElement) l.pause(); }
-      else { const l = ensureLoop(li); if (l instanceof HTMLVideoElement && l.paused) tryPlay(l); }
+      else if (want[i] === 'rest') {
+        const l = ahead ? ensureLoop(li) : loops.get(li);
+        if (l instanceof HTMLVideoElement) l.pause();
+        else if (l && still) release(li); // (a picture loop cannot pause: under the LIST, or on a hidden page, it is let go and comes back with the strip)
+      } else { const l = ensureLoop(li); if (l instanceof HTMLVideoElement && l.paused) tryPlay(l); }
     });
   };
   window.setInterval(() => { if (rolling) plan(); }, 150); // (rolling, the clock moves the strip: the loops follow it)
@@ -416,10 +421,10 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   // where a browser shows no MP4 in an image, a touch is the moment it allows a video: re-offer the ones in view
   const kick = () => {
     if (parked || document.hidden) return;
-    const at = offsetNow();
+    plan(); // (the strip as it stands now)
     strip.panes.forEach((li, i) => {
       const l = loops.get(li);
-      if (l instanceof HTMLVideoElement && l.paused && panePlay(paneTop(strip.at[i], strip.units[i], at, unit, strip.total), strip.units[i] * unit, view, unit) === 'play') tryPlay(l);
+      if (l instanceof HTMLVideoElement && l.paused && wants[i] === 'play') tryPlay(l); // (what the plan asked: the address's pin included)
     });
   };
   window.addEventListener('pointerdown', kick, { passive: true });

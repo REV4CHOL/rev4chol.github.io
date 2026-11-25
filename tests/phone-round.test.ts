@@ -83,6 +83,18 @@ describe('the readings a phone hands back (the readout, ?stats=1)', () => {
     expect(view).not.toMatch(/[^.]loopsAsImages\(\) \?/); // (every choice of kind goes through asImages)
     expect(view).toContain("if (pin === 'one') want = onePlays(want, mids, view);");
   });
+  it("a touch's re-offer plays what the plan asked for, the pin included (the first reading of `one` showed three playing)", () => {
+    expect(view).toContain('wants = want;');
+    expect(view).toContain("if (l instanceof HTMLVideoElement && l.paused && wants[i] === 'play') tryPlay(l);");
+    expect(view).not.toMatch(/l\.paused && panePlay\(/); // (the re-offer no longer judges a pane by its place alone)
+  });
+  // The owner, 2026-11-25: in Low Power Mode "THE LIST lags too". A picture loop (an MP4 in an image) cannot pause, so
+  // under the LIST the strip's pictures kept running behind it.
+  it('where the strip stands still (under the LIST, on a hidden page) a picture loop is let go; a video only pauses', () => {
+    expect(view).toContain('if (l instanceof HTMLVideoElement) l.pause();');
+    expect(view).toContain('else if (l && still) release(li);');
+    expect(view).toContain("return still && p === 'play' ? 'rest' : p;"); // (still: every pane on the screen rests)
+  });
   it('the strip says what it is doing, in one line', () => {
     expect(reelLine(null)).toBeNull(); // (no strip on this page: no line)
     expect(reelLine({ mode: 'video', loaded: 3, playing: 2, rolling: true, pin: null })).toBe('REEL       VIDEO LOOPS · 3 LOADED · 2 PLAYING · ROLLING');
