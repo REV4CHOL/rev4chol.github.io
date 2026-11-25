@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { DESKTOP_VIEW_W, openingFor, openingFrame } from '../src/works/opening';
+import { DESKTOP_VIEW_W, openingFor, openingFrame, pcOpening } from '../src/works/opening';
 import { reelMode } from '../src/works/reel';
 
 const pane = (x: number, y: number, featured = true, halfW = 460) => ({ x, y, halfW, featured });
@@ -37,10 +37,28 @@ describe('a tablet opens on what a desktop shows (owner, on an iPad: "it got zoo
   const floor = [pane(-420, -230), pane(420, -230), pane(300, 200)];
   const min = (w: number) => Math.max(0.16, Math.min(0.5, w / 1920)); // world.ts minZoom
 
-  it('a fine pointer keeps its own opening: no frame, the cluster at scale 1', () => {
-    expect(openingFor(floor, { w: 1440, h: 900 }, true, min(1440))).toBeNull();
-    expect(openingFor(floor, { w: 1920, h: 1080 }, true, min(1920))).toBeNull();
-    expect(openingFor(floor, { w: 1366, h: 939 }, true, min(1366))).toBeNull();
+  // (owner, 2026-11-25: "for PC's work section when first booting up, I want the view to already be maxed zoomed out.
+  // Right now its already zoom in a bit, and I dont like it". It stood at scale 1; the wheel's floor is 0.5.)
+  it('a PC opens fully zoomed out: the cluster at the middle, at the scale the wheel can go no further out than', () => {
+    for (const w of [1366, 1440, 1920, 2560, 3840]) {
+      expect(openingFor(floor, { w, h: 900 }, true, min(w)), `${w} px wide`).toEqual({ x: 0, y: 0, scale: 0.5 });
+    }
+    // a narrow PC window too (it keeps the floor and its mouse): its own floor, whatever its width
+    for (const w of [1280, 960, 800, 600, 320]) {
+      expect(openingFor(floor, { w, h: 900 }, true, min(w)), `${w} px wide`).toEqual({ x: 0, y: 0, scale: min(w) });
+    }
+    expect(pcOpening(0.5)).toEqual({ x: 0, y: 0, scale: 0.5 });
+  });
+
+  it('never the phone frame for a mouse, however narrow its window', () => {
+    expect(openingFor(floor, { w: 390, h: 844 }, true, min(390))).toEqual(pcOpening(min(390)));
+  });
+
+  it('world.ts asks the one rule for every screen, a mouse included', () => {
+    const world = readFileSync('src/works/world.ts', 'utf8');
+    expect(world).toMatch(/const frame = openingFor\(\s*\[\.\.\.w\.tiles\.values\(\)\]/);
+    expect(world).toMatch(/\{ w: app\.screen\.width, h: app\.screen\.height \},\s*finePointer\(\),\s*minZoom\(\),/);
+    expect(world).not.toMatch(/if \(touchLayout\(\)\) \{\s*const frame/);
   });
 
   it('a touch screen the floor reaches opens on the cluster, showing the width of world a full-HD desktop shows', () => {
@@ -75,5 +93,20 @@ describe('a tablet opens on what a desktop shows (owner, on an iPad: "it got zoo
     const world = readFileSync('src/works/world.ts', 'utf8');
     expect(world).toContain('app.screen.width / 1920');
     expect(world).toContain('openingFor(');
+  });
+});
+
+describe('Back from a film returns the wall as the visitor left it', () => {
+  // The burst that opens a film moves the camera onto that film. A page the browser restores on Back kept the
+  // burst's camera: with the wall opening fully zoomed out (owner, 2026-11-25) it came back shifted off its middle
+  // (measured on a 1920 px PC: the camera 264 px right and 86 px down of where it stood).
+  const world = readFileSync('src/works/world.ts', 'utf8');
+  it('enter() notes where the camera stood before the burst moves it', () => {
+    expect(world).toMatch(/const stood = \{ x: this\.pan\.pos\.x, y: this\.pan\.pos\.y \};/);
+  });
+  it('the restore (Back, or a navigation that stalled) puts the camera back there', () => {
+    expect(world).toMatch(/this\.armRestore\(\(\) => this\.resetBurst\(tile, jitter, stood\)\);/);
+    expect(world).toMatch(/armFailsafe\(\(\) => this\.resetBurst\(tile, jitter, stood\)\);/);
+    expect(world).toMatch(/gsap\.killTweensOf\(this\.pan\.pos\);\s*this\.pan\.panTo\(stood\.x, stood\.y\);/);
   });
 });

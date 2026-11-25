@@ -5,7 +5,7 @@ import gsap from 'gsap';
 import { GlitchFilter, RGBSplitFilter } from 'pixi-filters';
 import type { FloorItem, Project } from '../lib/content';
 import { aspectRatio, isBlank, wallFor } from '../lib/content';
-import { dprCap, finePointer, isMobile, reducedMotion, touchLayout } from '../lib/env';
+import { dprCap, finePointer, isMobile, reducedMotion } from '../lib/env';
 import { textureBytes } from '../lib/meter';
 import { posterZoom } from '../lib/poster-lock';
 import {
@@ -22,7 +22,7 @@ import { leaveTo } from '../lib/transitions';
 import { setCursorLabel } from '../shell/cursor';
 import { captionSpot } from './caption';
 import { captionMeta, markFloorOpened } from './legend';
-import { desktopOpening, openingFor } from './opening';
+import { openingFor } from './opening';
 import {
   CARD_W, HOVER_LIFT, HOVER_M, ISO, SEAM, STEP_W, WORLD_PAD, cardSize, hoverFit, hoverFitIn, previewBox, rowAxisWorld,
 } from './constants';
@@ -261,22 +261,20 @@ export class WorksWorld {
       },
     );
 
-    // THE FIRST FRAME (works/opening.ts): a fine pointer keeps the cluster at scale 1; a tablet the cluster as a
-    // full-HD desktop shows it (owner, on an iPad: "zoomed WAY TOO CLOSE"); a phone-shaped touch screen one whole
-    // featured pane, fitted and centred, not the seam between two (owner's testers, 2026-09-27)
-    // A NARROW PC WINDOW (owner, 2026-11-25: "Tablet layout") opens as a tablet does, at any size: it keeps the floor
-    // and its mouse, so never the phone's one-pane frame. Decided as the floor is built, like the rest.
-    if (touchLayout()) {
-      const frame = finePointer() ? desktopOpening(app.screen.width, minZoom()) : openingFor(
-        [...w.tiles.values()].map((t) => ({ x: t.x, y: t.y, halfW: t.extentX(), featured: t.project.tileSize === 'large' })),
-        { w: app.screen.width, h: app.screen.height },
-        false,
-        minZoom(),
-      );
-      if (frame) {
-        w.worldC.scale.set(frame.scale);
-        w.pan.panTo(frame.x, frame.y);
-      }
+    // THE FIRST FRAME (works/opening.ts), decided as the floor is built, like the rest: a mouse opens FULLY ZOOMED
+    // OUT, the cluster at the middle (owner, 2026-11-25: "for PC's work section when first booting up, I want the view
+    // to already be maxed zoomed out"), in a wide window and a narrow one alike; a tablet the cluster as a full-HD
+    // desktop showed it at scale 1 (owner, on an iPad: "zoomed WAY TOO CLOSE"); a phone-shaped touch screen one whole
+    // featured pane, fitted and centred, not the seam between two (owner's testers, 2026-09-27).
+    const frame = openingFor(
+      [...w.tiles.values()].map((t) => ({ x: t.x, y: t.y, halfW: t.extentX(), featured: t.project.tileSize === 'large' })),
+      { w: app.screen.width, h: app.screen.height },
+      finePointer(),
+      minZoom(),
+    );
+    if (frame) {
+      w.worldC.scale.set(frame.scale);
+      w.pan.panTo(frame.x, frame.y);
     }
 
     let coordsClock = 0;
@@ -658,6 +656,9 @@ export class WorksWorld {
       tile.sizeMul;
     gsap.killTweensOf(tile.m);
     gsap.killTweensOf(this.pan.pos);
+    // where the visitor stood when they pressed: the burst moves the camera onto the film, and a page the browser
+    // restores on Back must come back as it was left, not on the burst's close-up (resetBurst)
+    const stood = { x: this.pan.pos.x, y: this.pan.pos.y };
     gsap.to(this.pan.pos, { x: -tile.x * zs, y: -tile.y * zs, duration: 0.42, ease: 'power2.in' });
     gsap.to(tile.m, {
       a: cover, b: 0, c: 0, d: cover,
@@ -672,18 +673,20 @@ export class WorksWorld {
     this.app.ticker.add(jitter);
     // bfcache restore (Back from the project page) resumes this exact tab with `entering`
     // still true and the burst never torn down — undo it so the floor comes back sane.
-    this.armRestore(() => this.resetBurst(tile, jitter));
-    armFailsafe(() => this.resetBurst(tile, jitter));
+    this.armRestore(() => this.resetBurst(tile, jitter, stood));
+    armFailsafe(() => this.resetBurst(tile, jitter, stood));
     window.setTimeout(() => leaveTo(dest), 500);
   }
 
-  /** Undo enter()'s burst (filters, jitter ticker, camera/tile/layer tweens, reparent) and
+  /** Undo enter()'s burst (filters, jitter ticker, camera/tile/layer tweens, reparent; the camera back where it
+   *  stood before the burst moved it) and
    *  any pre-burst hover residue (desat filter, hovered slug, glow, montage src) — only
    *  reachable via bfcache restore, since a fresh load never has a burst in flight. */
-  private resetBurst(tile: ProjectTile, jitter: () => void): void {
+  private resetBurst(tile: ProjectTile, jitter: () => void, stood: { x: number; y: number }): void {
     this.app.ticker.remove(jitter);
     this.worldC.filters = [];
     gsap.killTweensOf(this.pan.pos);
+    this.pan.panTo(stood.x, stood.y); // (the wall as the visitor left it: whole, if it stood fully zoomed out)
     gsap.killTweensOf(tile.m);
     gsap.killTweensOf(this.tilesLayer);
     // force the erupted tile home even if it was entered without a preceding hover

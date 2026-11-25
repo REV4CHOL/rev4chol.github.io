@@ -103,7 +103,9 @@ describe('the pages that opt in', () => {
   });
 });
 
-describe("WORK in a narrow window opens as a tablet does, at any size", () => {
+// (Until 2026-11-25 night a narrow PC window took this opening too. The owner then asked for a PC's wall to open
+// fully zoomed out, so a mouse has one opening in every window: tests/opening.test.ts.)
+describe("WORK on a tablet opens on the desktop's cluster", () => {
   it('the desktop cluster at w / 1920, between the pinch floor and 1', () => {
     expect(desktopOpening(960, 0.5)).toEqual({ x: 0, y: 0, scale: 0.5 });
     expect(desktopOpening(1100, 0.2).scale).toBeCloseTo(1100 / DESKTOP_VIEW_W, 9);
@@ -112,7 +114,7 @@ describe("WORK in a narrow window opens as a tablet does, at any size", () => {
   it('a tablet takes the same opening', () => {
     expect(openingFor([], { w: 1366, h: 939 }, false, 0.5)).toEqual(desktopOpening(1366, 0.5));
   });
-  it('world.ts gives a narrow fine pointer that opening, never the phone frame', () => {
-    expect(readFileSync('src/works/world.ts', 'utf8')).toContain('const frame = finePointer() ? desktopOpening(app.screen.width, minZoom()) : openingFor(');
+  it('a narrow fine pointer never takes the phone frame: it opens as every PC does', () => {
+    expect(openingFor([{ x: 300, y: 200, halfW: 460, featured: true }], { w: 600, h: 900 }, true, 0.3125)).toEqual({ x: 0, y: 0, scale: 0.3125 });
   });
 });

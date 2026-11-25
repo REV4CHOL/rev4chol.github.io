@@ -51,7 +51,7 @@ export const DESKTOP_VIEW_W = 1920;
  *  TOO CLOSE to the panes"). Every touch screen used to take the phone's frame above; on a tablet that is scale 1 (the
  *  fit is wider than the screen, so the cap holds it), centred on one pane: a featured pane 73% of an iPad's width, 98%
  *  of a portrait iPad's, wider than a portrait Android tablet. Now:
- *  - a fine pointer: null, the floor's own opening (the cluster at the origin, scale 1), untouched;
+ *  - a fine pointer: fully zoomed out (`pcOpening`, below), in a wide window and a narrow one alike;
  *  - a phone-shaped touch screen (the strip's own cut, `reelMode`): the phone's frame, one whole pane. The strip is
  *    decided once, as the page loads, so the floor reaches such a screen only when a tablet narrowed after loading
  *    (split view, multi-window) and builds its next chapter at that size;
@@ -64,15 +64,23 @@ export function openingFor(
   fine: boolean,
   minScale: number,
 ): OpeningFrame | null {
-  if (fine) return null;
+  if (fine) return pcOpening(minScale);
   if (reelMode({ coarse: true, width: screen.w, height: screen.h })) return openingFrame(panes, screen.w, minScale);
   return desktopOpening(screen.w, minScale);
 }
 
+/** A PC OPENS FULLY ZOOMED OUT (owner, 2026-11-25: "for PC's work section when first booting up, I want the view to
+ *  already be maxed zoomed out. Right now its already zoom in a bit, and I dont like it"). The cluster at the middle,
+ *  at the zoom's own floor: the scale the wheel can go no further out than (world.ts `minZoom`, 0.5 on any window
+ *  960 px or wider). It stood at scale 1. A mouse has this one opening in every window: a narrow PC window took the
+ *  tablet's until the same night, and never takes the phone's one-pane frame. */
+export function pcOpening(minScale: number): OpeningFrame {
+  return { x: 0, y: 0, scale: minScale };
+}
+
 /** The desktop's cluster at the origin, scaled so a screen `screenW` wide shows the width of world a full-HD desktop
- *  shows, never closer than scale 1 and never past the pinch's floor: a tablet's opening (above), and a narrow PC
- *  window's at any size (owner, 2026-11-25: "Tablet layout"; it keeps the floor and its mouse, never the phone's
- *  frame, even under the phone's width). */
+ *  showed at scale 1, never closer than scale 1 and never past the pinch's floor: a TABLET's opening (above). A PC,
+ *  narrow window or wide, opens further out since 2026-11-25 (`pcOpening`). */
 export function desktopOpening(screenW: number, minScale: number): OpeningFrame {
   return { x: 0, y: 0, scale: Math.min(1, Math.max(minScale, screenW / DESKTOP_VIEW_W)) };
 }
