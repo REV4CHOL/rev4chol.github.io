@@ -102,6 +102,7 @@
     repeating-linear-gradient(90deg, rgba(200, 255, 0, 0.65) 0 2px, transparent 2px 24px) 0 0 / 100% 14px no-repeat,
     repeating-linear-gradient(90deg, rgba(255, 46, 99, 0.8) 0 2.5px, transparent 2.5px 120px) 0 0 / 100% 14px no-repeat;
 }
+/* narrow: layout */
 @media (max-width: 760px) and (pointer: coarse) {
   /* a phone's top band is the menu's, the switches', the status line's and the index's: no room for the stamp (it sat
      on MOTION and on the status line) */
@@ -111,6 +112,7 @@
    the centred stamp stood on it. Once the band can hold the stamp BELOW that line (190 px and up) the stamp's top is
    at least 124 px and its size is capped to what is left above the sprocket rail; a shorter band keeps the stamp as it
    was (a smaller stamp would be a speck), and a stamp already below 124 px does not move. --bh is the band's height. */
+/* narrow: layout */
 @media (pointer: coarse) and (min-width: 761px) and (orientation: portrait) {
   .p-band-t::after {
     --bh: calc((100cqh - var(--pfith)) / 2);
@@ -161,6 +163,7 @@
   width: calc(((100cqw - var(--pfitw)) / 2) * 1.15); height: auto; aspect-ratio: 1 / 1;
   right: calc(((100cqw - var(--pfitw)) / 2) * -0.08);
 }
+/* narrow: layout */
 @media (max-width: 900px) and (pointer: coarse) {
   .p-pillar { display: none; } /* narrow TOUCH screens letterbox instead — a zoomed desktop keeps its rack panels */
 }
@@ -401,6 +404,7 @@
    under it: a film and a film in parts alike.
    OR pointer:fine — the locked plate is 1440 wide whatever the viewport,
    so a zoomed-in desktop must never fall out of the wide layout */
+/* narrow: layout */
 @media (min-width: 1100px), (pointer: fine) {
   .p-syn-sec .p-sec-body {
     display: grid; grid-template-columns: minmax(0, 880px) minmax(0, 1fr);
@@ -554,6 +558,7 @@
 /* THE VOLUME SLIDER (owner, 2026-11-24, ticked "A volume slider: A slider beside SOUND ON / OFF on PCs (phones and
    tablets use their own volume keys)"): a fine pointer only, drawn like the seek track */
 .p-bar-vol { display: none; }
+/* narrow: touch */
 @media (pointer: fine) {
   .p-bar-vol {
     flex: none; display: flex; align-items: center; width: 88px; height: 100%; padding: 0 12px 0 2px;
@@ -575,6 +580,7 @@
   .p-bar-word { display: none; }
 }
 /* a finger: every control at least 44 px */
+/* narrow: touch */
 @media (pointer: coarse) {
   .p-bar { height: 46px; } /* (44 px inside its two 1 px borders) */
   .p-bar-btn { min-width: 44px; }
@@ -590,6 +596,7 @@
 }
 .p-film--fs.p-film--idle .p-bar { opacity: 0; pointer-events: none; }
 /* the site's own cursor lives outside the fullscreen layer: there the system's pointer shows, and hides with the bar */
+/* narrow: touch */
 @media (pointer: fine) {
   body.cursor-live .p-film--fs, body.cursor-live .p-film--fs * { cursor: default !important; }
   body.cursor-live .p-film--fs button, body.cursor-live .p-film--fs .p-bar-seek, body.cursor-live .p-film--fs .p-bar-vol { cursor: pointer !important; }
@@ -719,10 +726,12 @@
   .p-stillcol-num { color: var(--signal); opacity: 0.5; }
   .p-stillcol:nth-child(2n) .p-stillcol-num { color: var(--alert); }
 }
+/* narrow: layout */
 @media (max-width: 1099px) and (pointer: coarse) {
   .p-wall--vertical .p-vgrid { --cols: 3; }
   .p-stillcol .p-vgrid { --cols: 2; }
 }
+/* narrow: layout */
 @media (max-width: 760px) and (pointer: coarse) {
   .p-wall--vertical .p-vgrid { --cols: 2; }
   /* a phone stacks the pillars, part 1 first; the seam lies across */
@@ -774,6 +783,7 @@
 
 /* coarse-gated: the poster lock must never see this block — a zoomed-in
    desktop viewport crosses 760px too, only touch devices reflow */
+/* narrow: layout */
 @media (max-width: 760px) and (pointer: coarse) {
   .p-hero { --hero-h: min(88svh, 820px); }
   .p-scanframe { inset: 96px 16px var(--p-frame-b, 130px) 16px; }
@@ -836,6 +846,7 @@
 /* the private and pending lines stand exactly where the player would (under the synopsis: the wide grid's column 1, row 2) and reads
    above the plus marks and the arc — no plate behind it */
 .p-private, .p-pending { position: relative; z-index: 2; }
+/* narrow: layout */
 @media (min-width: 1100px), (pointer: fine) {
   .p-private, .p-pending { grid-column: 1; grid-row: 2; justify-self: start; }
 }

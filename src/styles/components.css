@@ -62,6 +62,7 @@
 
 /* coarse-gated: the phone nav is for phones — a desktop viewport narrowed by
    browser zoom keeps the desktop chrome (the 100%-benchmark zoom law) */
+/* narrow: layout */
 @media (max-width: 640px) and (pointer: coarse) {
   .nav { flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 16px; }
   .nav-links { gap: 0 18px; flex-wrap: wrap; }
@@ -98,6 +99,7 @@
    under the row (the menu stands 10 px over it on a wide tablet). The words keep their size, colour, dimming and place;
    over the void it is nothing. ON TOUCH SCREENS ONLY, where the walkthroughs met it: a PC keeps its row as it was (the
    owner's word for STORY's hint, 2026-11-24: a veil on touch, none on a PC). */
+/* narrow: touch */
 @media (pointer: coarse) {
   .hud-tr::before {
     content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 0; z-index: -1; pointer-events: none;
@@ -105,6 +107,7 @@
   }
 }
 
+/* narrow: layout */
 @media (max-width: 640px) and (pointer: coarse) {
   .hud-bl { left: 16px; bottom: 14px; }
   .hud-br { right: 16px; bottom: 34px; text-align: right; }
@@ -139,6 +142,7 @@
   right: calc(92px * var(--uiz)); top: calc(96px * var(--uiz));
   width: calc(150px * var(--uiz)); height: calc(10px * var(--uiz));
 }
+/* narrow: layout */
 @media (max-width: 640px) and (pointer: coarse) {
   .nav { padding: calc(14px * var(--uiz)) calc(16px * var(--uiz)); }
   .nav-links { gap: calc(16px * var(--uiz)); }
@@ -156,6 +160,7 @@
    value is pinned to its 1440 resolution — the fluid tokens here, and every
    `--zw` consumer through the --zw pin (1vw at 1440 = 14.4px). Coarse
    pointers never lock: phones and tablets keep the fluid base values. */
+/* narrow: layout */
 @media (pointer: fine) {
   .page-home, .page-work, .page-contact, .page-project, .page-lost {
     --t-lg: 2rem;      /* clamp(1.4rem, 2.5vw, 2rem) @1440 → cap */
@@ -167,6 +172,9 @@
                           fluid clamp evaluates at the 100% benchmark and never
                           moves under zoom in either direction */
   }
+}
+/* narrow: touch */
+@media (pointer: fine) {
   /* the home poster never scrolls: fractional plate zoom overreports
      scrollHeight by ~10px and hung a phantom scrollbar on the plate */
   html:has(> body.page-home) { overflow-y: clip; }
@@ -235,6 +243,7 @@
 /* phone: the kicker line goes entirely — owner decree, the small poster
    carries no //SYS furniture. (Coarse-gated: a zoomed-in desktop keeps the
    JS-pinned kicker under the wordmark.) */
+/* narrow: layout */
 @media (max-width: 640px) and (pointer: coarse) {
   .hk-kicker { display: none; }
 }
@@ -427,6 +436,7 @@
 /* pointer:coarse keeps this a PHONE block: deep zoom-in on desktop shrinks
    the CSS viewport under 640px too, and must NOT flip the poster into the
    small-screen clamps (that re-miniaturizes the type the zoom fix restores) */
+/* narrow: layout */
 @media (max-width: 640px) and (pointer: coarse) {
   .hk-ticks { display: none; }
   /* a phone's switch row reaches 18 px from the edge, so the spine cannot pass beside it: it starts under the row (its
@@ -463,6 +473,7 @@
    screen wider than the phone block's: the statement, its plate and its & at --tab-k of their fluid size, the roles
    line 12 px. Never under a phone's own (the headline 4rem, the plate 1.1rem): a small tablet does not read smaller
    than a phone. A fine pointer (a PC) and the phone block above are untouched. tests/home-tablet.test.ts holds it. */
+/* narrow: layout */
 @media (min-width: 641px) and (pointer: coarse) {
   .home-statement { --tab-k: 0.6; }
   .st-clash { font-size: max(4rem, calc(clamp(4rem, calc(12.5 * var(--zw)), 10.5rem) * var(--tab-k))); }
@@ -479,6 +490,7 @@
    plate a notch smaller, and closes the gaps under it, so the whole statement stands under the header and ENTER keeps
    its place over the foot's readouts (ENTER's foot 44 px over the screen's, the X:Y line's top 38). An upright phone,
    a tablet (672 px and up) and a PC: as before. */
+/* narrow: layout */
 @media (pointer: coarse) and (orientation: landscape) and (max-height: 480px) {
   .home-main { padding-bottom: 44px; }
   .st-clash { font-size: 13svh; }
@@ -600,12 +612,14 @@
 .floor-hint:empty { display: none; }
 /* a phone: the legend wraps under the HUD's two lines (this override once stood above the rule it overrides, so it
    never applied — from 81d985e to 2026-09-28 the legend ran one line across the HUD and off the screen's edge) */
+/* narrow: layout */
 @media (max-width: 640px) and (pointer: coarse) {
   .floor-hint { top: calc(150px * var(--uiz)); white-space: normal; width: max-content; max-width: min(300px, calc(100vw - 32px)); line-height: 1.8; text-wrap: balance; }
 }
 /* a tablet (touch, wider than a phone) too narrow for the legend's one line (about 890 px: at 800 it ran off both edges
    and began mid-word): the box is as wide as the legend, never wider than the screen less a 16 px margin, and the legend
    breaks between its pieces (works.ts sets each as an .fh-seg), balanced, centred. The button below follows in the flow. */
+/* narrow: layout */
 @media (pointer: coarse) and (min-width: 641px) {
   .floor-hint { width: max-content; max-width: calc(100vw - 32px); }
   .floor-hint .fh-text { display: block; white-space: normal; text-wrap: balance; }
@@ -614,6 +628,7 @@
 /* a touch screen's legend stands down while a pane is awake: the preview and its caption take its place (they shared
    one spot; the review's walkthroughs, 2026-09-30) */
 .floor-hint { transition: opacity 0.2s; }
+/* narrow: touch */
 @media (pointer: coarse) {
   .works-main.is-awake .floor-hint { opacity: 0; visibility: hidden; }
 }
@@ -636,6 +651,7 @@
 }
 .works-main.is-list .fh-text { display: none; }
 .works-main.is-list .view-toggle { margin-top: 0; }
+/* narrow: touch */
 @media (max-width: 640px) and (pointer: coarse) {
   .view-toggle { min-height: 44px; }
 }
@@ -690,6 +706,7 @@
 .fl-title { --tt-acc: var(--row-accent); } /* (a two-language name's second line: lib/title.ts) */
 .fl-meta { font-size: 11px; line-height: 1.6; color: color-mix(in srgb, var(--bone) 70%, transparent); }
 .fl-open { font-size: 11px; white-space: nowrap; color: color-mix(in srgb, var(--bone) 60%, transparent); }
+/* narrow: layout */
 @media (max-width: 640px) and (pointer: coarse) {
   .film-list { top: 204px; padding: 26px 16px 72px; }
   .fl-row {
@@ -1003,6 +1020,7 @@ html.rvl-list-touch .fl-group { max-width: clamp(488px, 100% - 616px, 1120px); }
 /* phone: the two names stack — lift the stack clear of the bottom HUD.
    (Must sit AFTER the base .ch-* rules above: equal specificity, order wins.)
    Coarse-gated: a zoomed-in desktop keeps the plate-locked bezel dial. */
+/* narrow: layout */
 @media (max-width: 640px) and (pointer: coarse) {
   /* (30 px off the foot: the bottom readouts it once cleared have left the phone) */
   .ch-switch { bottom: calc(30px * var(--uiz)); gap: calc(10px * var(--uiz)) calc(22px * var(--uiz)); }
@@ -1045,6 +1063,7 @@ html.rvl-list-touch .fl-group { max-width: clamp(488px, 100% - 616px, 1120px); }
 .swipe-cue .swc-kicker { display: block; font-size: 9px; letter-spacing: 0.34em; opacity: 0.8; padding-left: 0.34em; margin-bottom: 3px; }
 /* a touch screen's kicker says NEXT PAGE (swipe-nav.ts, cueKicker): it stands over a page's name only, never over the
    plain scroll hint */
+/* narrow: touch */
 @media (pointer: coarse) { .swipe-cue[data-state="scroll"] .swc-kicker { display: none; } }
 .swipe-cue .swc-chevron {
   display: block; font-size: 15px; line-height: 0.9; margin-top: 1px;
@@ -1096,6 +1115,7 @@ html.rvl-list-touch .fl-group { max-width: clamp(488px, 100% - 616px, 1120px); }
 /* A PHONE'S CHROME (the review's walkthroughs, 2026-09-30): the bottom readouts and the film count leave every page (the
    homepage's decree, everywhere: they were printed over the page's own text as it scrolled), the switches take a
    thumb's target, and the scrolled veil reaches their row. */
+/* narrow: layout */
 @media (max-width: 640px) and (pointer: coarse) {
   .hud-bl, .hud-br { display: none; }
   #hud-count { display: none; }
@@ -1106,6 +1126,7 @@ html.rvl-list-touch .fl-group { max-width: clamp(488px, 100% - 616px, 1120px); }
 /* A PHONE HELD ON ITS SIDE (a short touch screen; the review's walkthroughs, 2026-11-25): the foot readouts leave too.
    At 852 x 343 the coordinates stood inside CONTACT's COPY EMAIL button and across ABOUT's tagline. The line is the
    sideways phone's own (works/reel.ts SIDE_QUERY), on touch only: a short desktop window keeps them. */
+/* narrow: touch */
 @media (pointer: coarse) and (max-height: 500px) {
   .hud-bl, .hud-br { display: none; }
 }
@@ -1116,12 +1137,14 @@ html.rvl-list-touch .fl-group { max-width: clamp(488px, 100% - 616px, 1120px); }
    the switches' row stands 18 px under the links' at 1024 px and 10 px at 1280 and up (the menu's type grows with the
    screen), so a link's box ends 7 px under its words and a switch's starts 10 px over its own (1100 px and up: 4 and 4),
    each reaching its 44 px on the side away from the other row. Measured at 800, 1024, 1180, 1280 and 1366. */
+/* narrow: touch */
 @media (pointer: coarse) and (min-width: 641px) {
   .nav-links a::after, .hud-tr button::after { content: ''; position: absolute; left: 0; right: 0; height: 44px; }
   .nav-links a::after { top: calc((100% - 44px) / 2); }
   .hud-tr button { position: relative; }
   .hud-tr button::after { top: -10px; }
 }
+/* narrow: touch */
 @media (pointer: coarse) and (min-width: 1100px) {
   .nav-links a::after { top: calc(100% - 40px); }
   .hud-tr button::after { top: -4px; }

@@ -101,6 +101,7 @@
 /* phone — AFTER base rules: equal specificity, source order decides.
    Coarse-gated: the poster lock must never see this block (a zoomed-in
    desktop viewport crosses 760px too; only actual touch devices reflow) */
+/* narrow: layout */
 @media (max-width: 760px) and (pointer: coarse) {
   /* the first line stands under the switches' row (top 108), not on it */
   .c-console { padding: 164px 18px 32px; }
@@ -119,6 +120,7 @@
    three AUX pills 30 px): each gets a 44 px tall press area, an invisible box with no layout of its own, as the menu and
    the switches have (components.css), so not one visible pixel moves. Each box stands centred on its own words: the
    address's ends 20 px or more above COPY EMAIL's border, a pill's 7 px into the 18 px between rows. */
+/* narrow: touch */
 @media (pointer: coarse) {
   .c-freq, .c-social { position: relative; }
   .c-social { white-space: nowrap; } /* (the box's empty content must not open a line break inside a pill: YOUTUBE wrapped) */

@@ -117,6 +117,7 @@ dd .rvl-x { filter: drop-shadow(0 0 0.4em rgba(255, 46, 99, 0.5)); }
 }
 
 /* ---- custom cursor ---- */
+/* narrow: touch */
 @media (pointer: fine) {
   body.cursor-live, body.cursor-live * { cursor: none !important; }
 }

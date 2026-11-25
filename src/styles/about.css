@@ -313,12 +313,15 @@
 /* a tablet (touch, wider than a phone): a skill's name is never cut. It may wrap between words. Below 1000 px the two
    columns are one (a column of 258 px at 800 could not hold CINEMATOGRAPHY); from 1000 px the counter at the
    cartridge's end is dropped, as the phone drops it: two columns never leave room for it beside the longest name */
+/* narrow: layout */
 @media (pointer: coarse) and (min-width: 761px) {
   .a-bar-name { flex: 0 1 auto; min-width: 0; white-space: normal; }
 }
+/* narrow: layout */
 @media (pointer: coarse) and (min-width: 761px) and (max-width: 999px) {
   .a-rack { grid-template-columns: 1fr; gap: 36px; }
 }
+/* narrow: layout */
 @media (pointer: coarse) and (min-width: 1000px) {
   .a-bar-cap { display: none; }
 }
@@ -351,6 +354,7 @@
    screen its press area is 44 px tall, an invisible box with no layout of its own (the menu's and the switches' way,
    components.css), so nothing moves. It reaches 16 px over and under the words: the YES line ends 32 px above them and
    the social buttons start 22 px below, so it crosses neither. */
+/* narrow: touch */
 @media (pointer: coarse) {
   .a-mail a { position: relative; }
   .a-mail a::after { content: ''; position: absolute; left: 0; right: 0; top: calc((100% - 44px) / 2); height: 44px; }
@@ -374,6 +378,7 @@
 
 /* coarse-gated: a zoomed-in desktop viewport crosses 760px too, and the
    poster lock must never see this block — only actual touch devices do */
+/* narrow: layout */
 @media (max-width: 760px) and (pointer: coarse) {
   .a-hero { padding: 150px 18px 56px; }
   .a-status { left: 16px; right: 16px; top: 130px; }
@@ -411,6 +416,7 @@
 /* Fine pointers only (the lock regime): vw units bypass CSS `zoom`, so every
    vw-fluid value the page consumes is pinned to what it resolves to at the
    1440 plate width. Coarse devices keep the fluid base rules above. */
+/* narrow: layout */
 @media (pointer: fine) {
   .page-about {
     --t-lg: 2rem;      /* clamp(1.4rem, 2.5vw, 2rem) @1440 → cap */

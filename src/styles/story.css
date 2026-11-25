@@ -110,6 +110,7 @@ body.a3-touch-free .a3-lift { display: flex; }
    4.8 px: each row's box stops 2 px into it, which leaves 0.8 px of air between them (the dial's box ends 0.8 px past
    the screen's bottom edge, which nothing can touch); and sideways the gaps (12 to 26 px) are wider
    than the 3.5 px a 37 px word gains on each side. */
+/* narrow: touch */
 @media (pointer: coarse) {
   .a3-fly button, .a3-tod button { position: relative; }
   .a3-fly button::after, .a3-tod button::after {
@@ -117,12 +118,14 @@ body.a3-touch-free .a3-lift { display: flex; }
     width: max(100%, 44px); height: 44px;
   }
 }
+/* narrow: touch */
 @media (pointer: coarse) and (min-width: 721px) {
   .a3-fly button::after { top: -2px; translate: -50% 0; }
   .a3-tod button::after { top: calc(100% - 42px); translate: -50% 0; }
 }
 /* the phone's clock row stands 12 px apart and its words are 25 to 51 px wide: a box never reaches further than half
    that gap (6 px) past its word, so two neighbours' boxes meet and never overlap (a 25 px DAY gets 37 px, not 44) */
+/* narrow: touch */
 @media (pointer: coarse) and (max-width: 720px) {
   .a3-tod button::after { width: max(100%, min(44px, calc(100% + 12px))); }
 }
@@ -132,6 +135,7 @@ body.a3-touch-free .a3-lift { display: flex; }
    header's grammar: a fade, never a plate; the decree above holds): 84% dark behind the words, then a 16 px spread under
    a 20 px blur, so it has faded out by 26 px beyond them and has no edge to read as a box. Over a pure white sky that leaves the words at 6:1 or
    better. The line does not move: a shadow takes no room. A PC keeps its 70% ink and no veil. */
+/* narrow: touch */
 @media (pointer: coarse) {
   .a3-hint {
     color: var(--bone);
