@@ -57,7 +57,8 @@ export class PanController {
     el.addEventListener('pointercancel', this.onUp);
     // THE DESKTOP'S ZOOM (owner, on a Mac Studio: "I cannot zoom out or in in the Works section" — the floor only knew
     // a two-finger pinch on a touch screen): a trackpad's pinch arrives as a wheel with ctrlKey held (Chrome, Edge,
-    // Firefox) or as Safari's gesture events; a mouse wheel's notch zooms too, a trackpad's two-finger scroll pans.
+    // Firefox) or as Safari's gesture events; EVERY OTHER WHEEL ZOOMS TOO, a mouse's and a trackpad's two-finger scroll
+    // alike (onWheel says why). A drag moves the wall; a wheel never does.
     // Every zoom is about the cursor, the world point under it held still, as the pinch does.
     el.addEventListener('wheel', this.onWheel, { passive: false });
     el.addEventListener('gesturestart', this.onGestureStart as EventListener, { passive: false });
@@ -84,22 +85,22 @@ export class PanController {
 
   /** A wheel or a gesture starts no drag: pick up from where the floor IS (a coast, a panTo) as a pointer's down does. */
   private settleRaw(): void { if (!this.dragging) { this.raw = { ...this.pos }; this.vel = { x: 0, y: 0 }; } }
+  /** THE WHEEL ZOOMS, ALWAYS (owner, 2026-11-25, on a PC: "for work section, it's should have been only mouse scrolling
+   *  to zoom in and out. Instead it just move around. I have to press Ctrl+ scrolling for the zoom to work"; the wall's
+   *  own line says SCROLL TO ZOOM). It used to zoom only when the step looked like a classic mouse notch (a whole number
+   *  of 40 px or more, nothing sideways) and to pan otherwise, taking the rest for a trackpad. That was a guess at the
+   *  device, and a wrong one: a notch is 100 px only at a browser zoom of 100 % with Windows' three lines a notch (at
+   *  110 % it is 90.909, at 150 % 66.667), and a smooth wheel sends small steps. Never guess the device from a wheel's
+   *  numbers again. The up-and-down part zooms about the cursor; the sideways part does nothing. */
   private onWheel = (e: WheelEvent) => {
     e.preventDefault(); // (the page under the floor must neither scroll nor browser-zoom)
-    this.settleRaw();
     const k = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1; // lines, pages → px
-    const dy = e.deltaY * k, dx = e.deltaX * k;
-    // a pinch (ctrl held by the browser), a wheel with a modifier, or a mouse wheel's notch (a whole, large step with
-    // no sideways part — a trackpad's scroll is small, fractional, two-axis) zooms; anything else pans
-    const notch = e.deltaMode !== 0 || (Math.abs(dy) >= 40 && dx === 0 && Number.isInteger(dy));
-    if (e.ctrlKey || e.metaKey || notch) {
-      const factor = Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0025));
-      if (this.zoomAbout(e.clientX, e.clientY, factor)) this.applyDelta(0, 0, 0);
-      return;
-    }
-    this.raw.x -= dx; this.raw.y -= dy; // (raw, not pos: the rubber band and the clamp apply as they do to a drag)
-    this.vel = { x: 0, y: 0 };
-    this.applyDelta(0, 0, 0);
+    const dy = e.deltaY * k;
+    if (!dy) return;
+    this.settleRaw();
+    // (a pinch, ctrl held by the browser, comes in small steps: it turns faster)
+    const factor = Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0025));
+    if (this.zoomAbout(e.clientX, e.clientY, factor)) this.applyDelta(0, 0, 0);
   };
   /** Safari's pinch: GestureEvent.scale is cumulative from the gesture's start. */
   private gestureScale = 1;

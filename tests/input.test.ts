@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Bounds, PanController, ZoomHost } from '../src/works/input';
+import { FLOOR_LEGEND } from '../src/works/legend';
 
 // PanController only touches the DOM via el.addEventListener/setPointerCapture, so we
 // build a minimal fake element that records the listeners it's given, then invoke those
@@ -556,17 +558,48 @@ describe("the desktop's zoom (owner, on a Mac Studio: 'I cannot zoom out or in i
     expect(Number.isFinite(pan.pos.x) && Number.isFinite(pan.pos.y)).toBe(true);
   });
 
-  it("pans on a trackpad's two-finger scroll (small, two-axis deltas) and zooms on a mouse wheel's notch", () => {
+  // THE WHEEL ZOOMS, ALWAYS (owner, 2026-11-25, on a PC: "for work section, it's should have been only mouse scrolling
+  // to zoom in and out. Instead it just move around. I have to press Ctrl+ scrolling for the zoom to work"). The wheel
+  // used to zoom only when its step looked like a classic notch (a whole number of 40 or more, nothing sideways) and
+  // panned otherwise: a guess at the device. A notch is 100 px only at a browser zoom of 100 % with Windows' three
+  // lines a notch: at 110 % it is 90.909, at 150 % 66.667, at 90 % 111.111, and a smooth wheel sends small ones.
+  const WALL = { minX: -1000, maxX: 1000, minY: -1000, maxY: 1000 };
+  it('a mouse wheel zooms whatever the size of its step: a notch at any browser zoom, a smooth wheel', () => {
+    for (const step of [-100, -90.909, -66.667, -33.333, -111.111, -4.5]) {
+      const { host, state } = makeZoom({ x: 100, y: 100 }, 1);
+      const { pan, listeners } = makeController(WALL, false, () => {}, host);
+      wheel(listeners, { deltaY: step }); // up: closer
+      expect(state.s, `a step of ${step}`).toBeCloseTo(Math.exp(-step * 0.0025), 9);
+      expect(pan.pos.x, `a step of ${step}`).toBeCloseTo(0, 9); // (the cursor is at the middle: nothing moves)
+      expect(pan.pos.y, `a step of ${step}`).toBeCloseTo(0, 9);
+      wheel(listeners, { deltaY: -step }); // down: back out
+      expect(state.s, `a step of ${step}`).toBeCloseTo(1, 9);
+    }
+  });
+
+  it("a wheel never moves the wall: a two-finger scroll zooms about the cursor too, and its sideways part does nothing", () => {
     const { host, state } = makeZoom({ x: 100, y: 100 }, 1);
-    const { pan, listeners } = makeController({ minX: -1000, maxX: 1000, minY: -1000, maxY: 1000 }, false, () => {}, host);
-    wheel(listeners, { deltaX: 6.5, deltaY: -12.25 }); // a trackpad scroll
-    expect(state.s).toBe(1);
-    expect(pan.pos.x).toBeCloseTo(-6.5, 6);
-    expect(pan.pos.y).toBeCloseTo(12.25, 6);
-    wheel(listeners, { deltaY: -100 }); // a mouse notch, up: zoom in
-    expect(state.s).toBeGreaterThan(1);
-    wheel(listeners, { deltaMode: 1, deltaY: 3 }); // a line-mode notch (Firefox), down: zoom out
-    expect(state.s).toBeLessThan(Math.exp(0.25));
+    const { pan, listeners } = makeController(WALL, false, () => {}, host);
+    pan.panTo(40, -20);
+    wheel(listeners, { deltaX: 6.5, deltaY: -12.25, clientX: 160, clientY: 130 }); // a trackpad's scroll, up
+    expect(state.s).toBeCloseTo(Math.exp(12.25 * 0.0025), 9);
+    expect((160 - 100 - pan.pos.x) / state.s).toBeCloseTo(20, 6); // the world point under the cursor stays put
+    expect((130 - 100 - pan.pos.y) / state.s).toBeCloseTo(50, 6);
+    const at = { s: state.s, x: pan.pos.x, y: pan.pos.y };
+    wheel(listeners, { deltaX: 80, deltaY: 0, clientX: 160, clientY: 130 }); // sideways only
+    expect({ s: state.s, x: pan.pos.x, y: pan.pos.y }).toEqual(at);
+  });
+
+  it('a wheel that counts in lines (Firefox) zooms as well', () => {
+    const { host, state } = makeZoom({ x: 100, y: 100 }, 1);
+    const { listeners } = makeController(WALL, false, () => {}, host);
+    wheel(listeners, { deltaMode: 1, deltaY: 3 }); // three lines down: out
+    expect(state.s).toBeCloseTo(Math.exp(-48 * 0.0025), 9);
+  });
+
+  it("the wall's own words promise it (SCROLL TO ZOOM), and no guess at the device is left in the code", () => {
+    expect(FLOOR_LEGEND.fine).toContain('SCROLL TO ZOOM');
+    expect(readFileSync('src/works/input.ts', 'utf8')).not.toMatch(/const notch\b/);
   });
 
   it("zooms by Safari's gesture events, whose scale is cumulative from the gesture's start", () => {
