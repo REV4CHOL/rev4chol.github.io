@@ -427,3 +427,9 @@
   .a-hero-grid { gap: 56px; }        /* clamp(24px, 4vw, 56px) @1440 */
   .a-bar-name { font-size: 27.5px; } /* clamp(17px, 11px + 1.15vw, 28px) @1440 */
 }
+
+/* ABOUT IN A NARROW PC WINDOW (lib/window-fit.ts): the scroll cue is its mark alone. A narrow window lays this page out
+   as a tablet does, so the bio's first lines reach the foot of the first screen, where the cue stands, and its words
+   SCROLL DOWN stood over the running text (seen live, 2026-11-25, 1280 px on a 2560 px screen). A tablet shows the
+   mark alone there by a touch rule a mouse does not read. NEXT PAGE, at the page's end, keeps its words. */
+html.rvl-narrow .swipe-cue[data-state="scroll"] .swc-kicker { display: none; }
