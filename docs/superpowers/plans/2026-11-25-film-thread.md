@@ -1,6 +1,6 @@
 # The Film Thread Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Every film page loses its synopsis line and its `SYN:` tag and gains "the thread", a quiet, still line drawing of the film's path with a few dim frames of the film's own stills, in the row where the synopsis stood and, where there is room, beside the player.
 
@@ -74,7 +74,7 @@ export function wallCodes(files: readonly string[], vertical: boolean): string[]
 - `public/content/threads.json`: `{ "<slug>": ThreadEntry[] }`, one key per film, slugs in `projects.json` order, entries in pick order. The thumbnail of an entry is `projects/<slug>/thread/<code>.jpg`.
 - The media manifest (`/content/media-manifest.json`) gains `threads: Record<string, ThreadEntry[]>`: the map as read, minus any film with a missing thumbnail file.
 
-- [ ] **Step 1: Write the failing test `tests/thread-files.test.ts`**
+- [x] **Step 1: Write the failing test `tests/thread-files.test.ts`**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -115,9 +115,9 @@ describe("a film's thread shows six of its stills, spread through its wall", () 
 });
 ```
 
-- [ ] **Step 2: Run it and see it fail** — `npx vitest run tests/thread-files.test.ts` → FAIL (cannot find `../src/lib/thread-files`).
+- [x] **Step 2: Run it and see it fail** — `npx vitest run tests/thread-files.test.ts` → FAIL (cannot find `../src/lib/thread-files`).
 
-- [ ] **Step 3: Write `src/lib/thread-files.ts`**
+- [x] **Step 3: Write `src/lib/thread-files.ts`**
 
 ```ts
 /** THE THREAD'S PICTURES (owner, 2026-11-25: the film's thread stands where the synopsis stood). Pure rules shared by
@@ -155,9 +155,9 @@ export function wallCodes(files: readonly string[], vertical: boolean): string[]
 }
 ```
 
-- [ ] **Step 4: Run it and see it pass** — `npx vitest run tests/thread-files.test.ts` → PASS.
+- [x] **Step 4: Run it and see it pass** — `npx vitest run tests/thread-files.test.ts` → PASS.
 
-- [ ] **Step 5: Write the failing test `tests/threads.test.ts`** (the map against the real folders; ffprobe parts skip where it is not installed, as `tests/loop-bars.test.ts` does)
+- [x] **Step 5: Write the failing test `tests/threads.test.ts`** (the map against the real folders; ffprobe parts skip where it is not installed, as `tests/loop-bars.test.ts` does)
 
 ```ts
 import { spawnSync } from 'node:child_process';
@@ -214,9 +214,9 @@ describe("the threads' pictures (npm run threads)", () => {
 });
 ```
 
-- [ ] **Step 6: Run it and see it fail** — `npx vitest run tests/threads.test.ts` → FAIL (no `public/content/threads.json`).
+- [x] **Step 6: Run it and see it fail** — `npx vitest run tests/threads.test.ts` → FAIL (no `public/content/threads.json`).
 
-- [ ] **Step 7: Write `scripts/make-threads.mjs`** in the manner of `scripts/make-walls.mjs` (same header comment style, same `run`, same refusal when ffmpeg is missing). It must:
+- [x] **Step 7: Write `scripts/make-threads.mjs`** in the manner of `scripts/make-walls.mjs` (same header comment style, same `run`, same refusal when ffmpeg is missing). It must:
   1. Read `public/content/projects.json` (slug, aspect) in order.
   2. For each film: list `projects/<slug>/stills` (`/\.(jpe?g|png|gif|webp|avif)$/i`), `wallOrder` it, take `threadPicks(n)`, name each by `wallCodes(files, aspect === '9:16')[i]`.
   3. Write every thumbnail into a temporary folder first: `ffmpeg -v error -y -i <still> -vf "scale=w='if(gte(iw,ih),min(192,iw),-2)':h='if(gte(iw,ih),-2,min(192,ih))':flags=lanczos,hue=s=0.15" -frames:v 1 -q:v 5 -map_metadata -1 <tmp>/<slug>/<code>.jpg` (the numbers from `THREAD_LONG_SIDE` and `THREAD_SATURATION`), then read its real width and height with ffprobe.
@@ -224,11 +224,11 @@ describe("the threads' pictures (npm run threads)", () => {
   5. Print one line per film (`philia  6 thumbnails  21 KB`) and a total.
   Add `"threads": "node scripts/make-threads.mjs"` to `package.json`'s scripts, after `"walls"`.
 
-- [ ] **Step 8: Run `npm run threads`**, then look at four thumbnails with the Read tool (PHILIA's first, a 2.39:1 film's, GALAXY's `1-01.jpg`, MIEN VIEN's first): each must be the whole still, nearly grey, not stretched.
+- [x] **Step 8: Run `npm run threads`**, then look at four thumbnails with the Read tool (PHILIA's first, a 2.39:1 film's, GALAXY's `1-01.jpg`, MIEN VIEN's first): each must be the whole still, nearly grey, not stretched.
 
-- [ ] **Step 9: Run both tests and see them pass** — `npx vitest run tests/thread-files.test.ts tests/threads.test.ts` → PASS.
+- [x] **Step 9: Run both tests and see them pass** — `npx vitest run tests/thread-files.test.ts tests/threads.test.ts` → PASS.
 
-- [ ] **Step 10: The manifest.** In `vite.config.ts` add, beside `scanStills`:
+- [x] **Step 10: The manifest.** In `vite.config.ts` add, beside `scanStills`:
 
 ```ts
 /** Each film's thread pictures (npm run threads): the map as the script wrote it, without a film whose files are not
@@ -247,9 +247,9 @@ function scanThreads(): Record<string, ThreadEntry[]> {
 ```
   with `import { THREAD_DIR, type ThreadEntry } from './src/lib/thread-files';`, and make `scanMedia()` return `{ ...scanLoops(), walls: scanWalls(root), hover: scanHover(root), threads: scanThreads() }`. Update the comment above `scanMedia` to name `threads`.
 
-- [ ] **Step 11: Check the manifest.** `npx vite build --outDir <a scratch folder outside the repo> --emptyOutDir`, then read `<that folder>/content/media-manifest.json`: `threads` has 20 keys of 6 entries. Delete the scratch folder.
+- [x] **Step 11: Check the manifest.** `npx vite build --outDir <a scratch folder outside the repo> --emptyOutDir`, then read `<that folder>/content/media-manifest.json`: `threads` has 20 keys of 6 entries. Delete the scratch folder.
 
-- [ ] **Step 12: Commit**
+- [x] **Step 12: Commit**
 
 ```bash
 git add src/lib/thread-files.ts scripts/make-threads.mjs tests/thread-files.test.ts tests/threads.test.ts vite.config.ts package.json public/content/threads.json public/content/projects/*/thread
@@ -338,7 +338,7 @@ export function planSide(o: { side: Box; exit: number; player: Box; pics: readon
 - Phone (band 394 px, rail 0): the film enters at x 0, y 60, dips under a roller at about (74, 62), carries three frames 64 px wide (max box 64 x 48), passes the gate near the right end and leaves at x = w. The name on one line at the top left (y 14), the place at the top right (`anchor: 'end'`). No reel. `type: 8`.
 - Everything scales by rule, not by a zoom: fixed px near the ends, the frames by shares of the straight run. A frame takes its own picture's shape (`frameSize`), so a portrait picture stands upright (max box 80 x 64 gives about 36 x 64).
 
-- [ ] **Step 1: Write the failing test `tests/thread-plan.test.ts`**
+- [x] **Step 1: Write the failing test `tests/thread-plan.test.ts`**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -565,9 +565,9 @@ describe('the side run', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and see it fail** — `npx vitest run tests/thread-plan.test.ts` → FAIL (cannot find `../src/project/thread-plan`).
+- [x] **Step 2: Run it and see it fail** — `npx vitest run tests/thread-plan.test.ts` → FAIL (cannot find `../src/project/thread-plan`).
 
-- [ ] **Step 3: Write `src/project/thread-plan.ts`.** The constants and signatures exactly as in **Interfaces**; the geometry from the **Reference** block, by these rules:
+- [x] **Step 3: Write `src/project/thread-plan.ts`.** The constants and signatures exactly as in **Interfaces**; the geometry from the **Reference** block, by these rules:
   - No DOM, no imports. Round every coordinate to one decimal at most (the film's straight run and the frame boxes on whole px). Never hand back `-0` (a box's `x` with no rail is `0`: the tests compare with `toEqual`, which tells the two apart).
   - The path is ONE sub-path (a single `M`): it is stroked three times. Absolute commands only (`M`, `L`, `C`, `Q`, `A`).
   - A narrow band (down to 280 px, a small phone) keeps three frames by making their box smaller, never by letting them touch.
@@ -578,9 +578,9 @@ describe('the side run', () => {
   - `planSide`: `box: { x: 0, y: 0, w: side.w, h: side.h }`; the film straight down from `(exit - side.x, 0)`; frames, gate and reel at the reference's shares of the player's height, each clamped inside the box; the reel's radius shrinks to fit a narrow box; the place label on the side of the reel with more room.
   Add any further tests you find you need; do not weaken the ones above.
 
-- [ ] **Step 4: Run it and see it pass** — `npx vitest run tests/thread-plan.test.ts` → PASS. Then `npx tsc --noEmit` and read only the errors in your two files (other files may be mid-change): none.
+- [x] **Step 4: Run it and see it pass** — `npx vitest run tests/thread-plan.test.ts` → PASS. Then `npx tsc --noEmit` and read only the errors in your two files (other files may be mid-change): none.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/project/thread-plan.ts tests/thread-plan.test.ts
@@ -627,7 +627,7 @@ git commit -m "feat(film page): the thread's geometry: boxes in, a drawing's des
 ```
   with, inside the existing wide rule, `.p-film-sec .p-thread { grid-column: 1 / -1; grid-row: 1; }` in place of the synopsis's line, and `.p-syn-sec` renamed `.p-film-sec` wherever it stands (`project.html`, `project.css`, `project.ts`).
 
-- [ ] **Step 1: Write the failing test `tests/film-thread.test.ts`**
+- [x] **Step 1: Write the failing test `tests/film-thread.test.ts`**
 
 ```ts
 import { readFileSync } from 'node:fs';
@@ -696,19 +696,19 @@ describe('the thread stands where the synopsis stood', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and see it fail** — `npx vitest run tests/film-thread.test.ts` → FAIL (the synopsis is still everywhere).
+- [x] **Step 2: Run it and see it fail** — `npx vitest run tests/film-thread.test.ts` → FAIL (the synopsis is still everywhere).
 
-- [ ] **Step 3: The content.** Remove the `"synopsis": …` line from all 20 entries of `public/content/projects.json` (a script: read as text, drop each line matching `^\s*"synopsis": ".*",?\r?$`, check 20 were dropped and the file still parses with 20 films and no trailing comma; keep the file's line ends). In `src/lib/content.ts` remove `synopsis: string;` from `Project` (with its doc comment if it has one) and the `synopsis: str(...)` line from the parser.
+- [x] **Step 3: The content.** Remove the `"synopsis": …` line from all 20 entries of `public/content/projects.json` (a script: read as text, drop each line matching `^\s*"synopsis": ".*",?\r?$`, check 20 were dropped and the file still parses with 20 films and no trailing comma; keep the file's line ends). In `src/lib/content.ts` remove `synopsis: string;` from `Project` (with its doc comment if it has one) and the `synopsis: str(...)` line from the parser.
 
-- [ ] **Step 4: The page.** `project.html`: the section as in **Interfaces**. `src/pages/project.ts`: rename `mountSynopsis` to `mountFilm`… the name `mountFilm` is taken (the single player): name it `mountFilmSection`; drop the `p-synopsis` line; the plus marks' `body` selector becomes `.p-film-sec .p-sec-body`; fix the comments that say "under the synopsis" to "under the thread". `src/styles/project.css`: remove the `.p-synopsis` rule and its comment; add the four thread rules after the plus marks' rules; in the wide rule rename the section and put `.p-film-sec .p-thread { grid-column: 1 / -1; grid-row: 1; }` where the synopsis's line stood; reword the comments that name the synopsis (the section's heading comment becomes `/* -------------------------------------------- FILM: thread + player -- */`). The rail tag's rules and comments stay, the comment's SYN: history included.
+- [x] **Step 4: The page.** `project.html`: the section as in **Interfaces**. `src/pages/project.ts`: rename `mountSynopsis` to `mountFilm`… the name `mountFilm` is taken (the single player): name it `mountFilmSection`; drop the `p-synopsis` line; the plus marks' `body` selector becomes `.p-film-sec .p-sec-body`; fix the comments that say "under the synopsis" to "under the thread". `src/styles/project.css`: remove the `.p-synopsis` rule and its comment; add the four thread rules after the plus marks' rules; in the wide rule rename the section and put `.p-film-sec .p-thread { grid-column: 1 / -1; grid-row: 1; }` where the synopsis's line stood; reword the comments that name the synopsis (the section's heading comment becomes `/* -------------------------------------------- FILM: thread + player -- */`). The rail tag's rules and comments stay, the comment's SYN: history included.
 
-- [ ] **Step 5: The guide.** `HOW-TO-EDIT.md`: remove the `synopsis` row; "the player that stands under the film's synopsis" becomes "the player that stands under the film's thread (the thin line of film with a few of its stills)"; under the `stills` row's section add: "After you add, replace or remove a film's stills, run `npm run threads` and commit what it writes: it makes the six small pictures the film's thread shows."
+- [x] **Step 5: The guide.** `HOW-TO-EDIT.md`: remove the `synopsis` row; "the player that stands under the film's synopsis" becomes "the player that stands under the film's thread (the thin line of film with a few of its stills)"; under the `stills` row's section add: "After you add, replace or remove a film's stills, run `npm run threads` and commit what it writes: it makes the six small pictures the film's thread shows."
 
-- [ ] **Step 6: The other tests.** Fixtures: drop `synopsis: ''` / `synopsis: '…'` from the fixtures in `channels`, `content`, `floor-ways`, `list-order`, `phone-order` and every `synopsis` assertion in `content-files` and `content` (a film's facts stay: only the synopsis lines go). `fonts.test.ts`: drop the two loops over `p.synopsis` and `['project.css', '.p-synopsis', 'f-text']` from `LINES` (the title "the five lines" becomes four). `text-face.test.ts`: drop `['project.css', '.p-synopsis']` from `LINES` and the loop over `p.synopsis` ("the four running lines" becomes three). `chrome.test.ts` and `pillars.test.ts`: the tests stay as they are; add to their comments that SYN: left the page with the synopsis (2026-11-25) and the rule now holds REC:. `player-layer.test.ts`: the marks' list becomes `['.p-plus', '.p-arc-clip', '.p-rail-tag', '.p-checks-v', '.p-thread', '.p-thread-side']` and the test's name "every mark of the film's section". `watch.test.ts`: wording only ("under the thread").
+- [x] **Step 6: The other tests.** Fixtures: drop `synopsis: ''` / `synopsis: '…'` from the fixtures in `channels`, `content`, `floor-ways`, `list-order`, `phone-order` and every `synopsis` assertion in `content-files` and `content` (a film's facts stay: only the synopsis lines go). `fonts.test.ts`: drop the two loops over `p.synopsis` and `['project.css', '.p-synopsis', 'f-text']` from `LINES` (the title "the five lines" becomes four). `text-face.test.ts`: drop `['project.css', '.p-synopsis']` from `LINES` and the loop over `p.synopsis` ("the four running lines" becomes three). `chrome.test.ts` and `pillars.test.ts`: the tests stay as they are; add to their comments that SYN: left the page with the synopsis (2026-11-25) and the rule now holds REC:. `player-layer.test.ts`: the marks' list becomes `['.p-plus', '.p-arc-clip', '.p-rail-tag', '.p-checks-v', '.p-thread', '.p-thread-side']` and the test's name "every mark of the film's section". `watch.test.ts`: wording only ("under the thread").
 
-- [ ] **Step 7: Run** `npx vitest run tests/film-thread.test.ts` → PASS; `npm run check` → no error in the files of this task; `npm test` → only failures that belong to tasks 1, 2 or 4 (none are expected: their tests are their own files).
+- [x] **Step 7: Run** `npx vitest run tests/film-thread.test.ts` → PASS; `npm run check` → no error in the files of this task; `npm test` → only failures that belong to tasks 1, 2 or 4 (none are expected: their tests are their own files).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add public/content/projects.json src/lib/content.ts project.html src/pages/project.ts src/styles/project.css HOW-TO-EDIT.md tests/film-thread.test.ts tests/content-files.test.ts tests/content.test.ts tests/channels.test.ts tests/floor-ways.test.ts tests/list-order.test.ts tests/phone-order.test.ts tests/fonts.test.ts tests/text-face.test.ts tests/chrome.test.ts tests/pillars.test.ts tests/player-layer.test.ts tests/watch.test.ts
@@ -752,7 +752,7 @@ export interface ThreadMount {
 export function mountThread(m: ThreadMount): void;
 ```
 
-- [ ] **Step 1: Write the failing test `tests/thread-draw.test.ts`**
+- [x] **Step 1: Write the failing test `tests/thread-draw.test.ts`**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -824,9 +824,9 @@ describe('the thread as markup', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and see it fail** — `npx vitest run tests/thread-draw.test.ts` → FAIL (cannot find `../src/project/thread-draw`).
+- [x] **Step 2: Run it and see it fail** — `npx vitest run tests/thread-draw.test.ts` → FAIL (cannot find `../src/project/thread-draw`).
 
-- [ ] **Step 3: Write `src/project/thread-draw.ts`.** One function building a string. In order, all strokes `fill="none"`, 1 px unless said:
+- [x] **Step 3: Write `src/project/thread-draw.ts`.** One function building a string. In order, all strokes `fill="none"`, 1 px unless said:
   1. `<svg xmlns="http://www.w3.org/2000/svg" viewBox="x y w h" width="w" height="h" aria-hidden="true" focusable="false">`.
   2. The film (bone is `#EDEDE6`, written as a colour attribute; tokens.css's `--bone` and `--void`): the path stroked in bone, `stroke-width="5"` (`THREAD.gap + 2`), `opacity` `line`; the same path in the page's black (`#060606`), `stroke-width="3"`, no opacity; the same path in bone, `stroke-width="2"`, `stroke-dasharray="1 7"`, `opacity` `tick`.
   3. Rollers: a circle `opacity` `roller`, a 1.2 px dot `opacity` `hub`.
@@ -836,11 +836,11 @@ describe('the thread as markup', () => {
   7. Labels: `<text>` `opacity` `type`, `font-size` `plan.type`, escaped (`escapeHtml` from `src/lib/escape`).
   Opacities are written with `String(value)` from `THREAD_INK`, never typed in.
 
-- [ ] **Step 4: Run it and see it pass** — `npx vitest run tests/thread-draw.test.ts` → PASS.
+- [x] **Step 4: Run it and see it pass** — `npx vitest run tests/thread-draw.test.ts` → PASS.
 
-- [ ] **Step 5: `threadFrames` in `src/lib/content.ts`.** Beside `stillsManifest`: `let threadsManifest: Record<string, ThreadEntry[]> = {};`; in `loadLoopManifest` read `data.threads` (an object whose values are arrays of `[string, number, number]`; anything else is dropped); `threadFrames(slug)` maps each entry to `{ code, url: projectAssetUrl(slug, `${THREAD_DIR}/${encodeURIComponent(code)}.jpg`), w, h }`. Add a test to `tests/film-thread.test.ts` that `content.ts` contains `export function threadFrames(slug: string)` and reads `data.threads`.
+- [x] **Step 5: `threadFrames` in `src/lib/content.ts`.** Beside `stillsManifest`: `let threadsManifest: Record<string, ThreadEntry[]> = {};`; in `loadLoopManifest` read `data.threads` (an object whose values are arrays of `[string, number, number]`; anything else is dropped); `threadFrames(slug)` maps each entry to `{ code, url: projectAssetUrl(slug, `${THREAD_DIR}/${encodeURIComponent(code)}.jpg`), w, h }`. Add a test to `tests/film-thread.test.ts` that `content.ts` contains `export function threadFrames(slug: string)` and reads `data.threads`.
 
-- [ ] **Step 6: Write `src/project/thread.ts`.**
+- [x] **Step 6: Write `src/project/thread.ts`.**
 
 ```ts
 /** THE FILM'S THREAD, DRAWN (owner, 2026-11-25). Measures the band and the player, asks the planner what to draw
@@ -906,7 +906,7 @@ export function mountThread(m: ThreadMount): void {
 ```
   (Import only what is used: `noUnusedLocals` is on. The band's 120 px is held on both sides by tests: `tests/film-thread.test.ts` for the styles, `tests/thread-plan.test.ts` for `THREAD.bandH`.)
 
-- [ ] **Step 7: Mount it.** In `src/pages/project.ts`: `mountFilmSection(p, stamp)` (pass the stamp from `render`), and at its end, on every branch (a film with a player, a film in parts, a private or pending film):
+- [x] **Step 7: Mount it.** In `src/pages/project.ts`: `mountFilmSection(p, stamp)` (pass the stamp from `render`), and at its end, on every branch (a film with a player, a film in parts, a private or pending film):
 
 ```ts
   // THE THREAD (project/thread.ts): drawn once the manifest has named its pictures; its band's place stands in the styles
@@ -921,9 +921,9 @@ export function mountThread(m: ThreadMount): void {
 ```
   (restructure the early `return` of the no-player branch so the mount runs for it too). The wall's captions use the shared code: `STL·${stillCode(0, n)}` and `STL·${stillCode(g.part, i + 1)}` in place of the two hand-built strings. Add to `tests/film-thread.test.ts`: `project.ts` contains `mountThread({`, `threadFrames(p.slug)`, `` `STL·${stillCode(g.part, i + 1)}` `` and no `STL·${g.part}-`.
 
-- [ ] **Step 8: The gates.** `npm run check` → exit 0. `npm test` → all pass. `npx vite build --outDir <scratch> --emptyOutDir` → exit 0.
+- [x] **Step 8: The gates.** `npm run check` → exit 0. `npm test` → all pass. `npx vite build --outDir <scratch> --emptyOutDir` → exit 0.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/project/thread-draw.ts src/project/thread.ts tests/thread-draw.test.ts tests/film-thread.test.ts src/lib/content.ts src/pages/project.ts
@@ -934,8 +934,8 @@ git commit -m "feat(film page): the film's thread is drawn where the synopsis st
 
 ### Task 5: Seen, measured, published
 
-- [ ] **Step 1: The matrix.** On the built site, headless (the harness's visit tool, never a visible window), for PHILIA, a 2.39:1 film (`mistchild`), a 4:3 (`deathman`), TEMPTATION (`xieu-long`), GALAXY (`galaxy-z-fold-8-ultra`) and EVER FARAWAY (`mien-vien`) on a 1920 px PC, a 1366 x 768 laptop, an iPad, an iPhone and an Android phone: a picture of the section, and by eval the smallest gap between every drawn element of the thread (`#p-thread svg *`, `#p-thread-side svg *`, by `getBoundingClientRect`) and the player's box grown by its ticks (10 px) and its label (24 px above): at least 14 px (in layout px). Also by eval: `scrollWidth` equals the screen's width (no sideways scroll), the band's height is 120 layout px, the side box is hidden where the spec says there is no room.
-- [ ] **Step 2: The sheet.** One picture of the band for each of the 20 films on the PC, read one by one: a frame that reads as an empty black box is named in the report (the rule picks by place, not by brightness).
-- [ ] **Step 3: The old marks.** On PHILIA's page, PC and phone: the arc and both plus marks are in the picture where they were; `REC:` stands at the wall's head.
-- [ ] **Step 4: Publish.** The privacy sweep of the commits' messages and added lines; `git push origin master`; watch the deploy for the sha; on the live site check `content/media-manifest.json` has `threads` for 20 films and one thumbnail answers 200; visit PHILIA and GALAXY live on a PC and an iPhone.
-- [ ] **Step 5: The notes** (local only, never committed): the rulebook, the handoff, the memory. Report to the owner with pictures, saying plainly that Safari on a real iPhone was not checked.
+- [x] **Step 1: The matrix.** On the built site, headless (the harness's visit tool, never a visible window), for PHILIA, a 2.39:1 film (`mistchild`), a 4:3 (`deathman`), TEMPTATION (`xieu-long`), GALAXY (`galaxy-z-fold-8-ultra`) and EVER FARAWAY (`mien-vien`) on a 1920 px PC, a 1366 x 768 laptop, an iPad, an iPhone and an Android phone: a picture of the section, and by eval the smallest gap between every drawn element of the thread (`#p-thread svg *`, `#p-thread-side svg *`, by `getBoundingClientRect`) and the player's box grown by its ticks (10 px) and its label (24 px above): at least 14 px (in layout px). Also by eval: `scrollWidth` equals the screen's width (no sideways scroll), the band's height is 120 layout px, the side box is hidden where the spec says there is no room.
+- [x] **Step 2: The sheet.** One picture of the band for each of the 20 films on the PC, read one by one: a frame that reads as an empty black box is named in the report (the rule picks by place, not by brightness).
+- [x] **Step 3: The old marks.** On PHILIA's page, PC and phone: the arc and both plus marks are in the picture where they were; `REC:` stands at the wall's head.
+- [x] **Step 4: Publish.** The privacy sweep of the commits' messages and added lines; `git push origin master`; watch the deploy for the sha; on the live site check `content/media-manifest.json` has `threads` for 20 films and one thumbnail answers 200; visit PHILIA and GALAXY live on a PC and an iPhone.
+- [x] **Step 5: The notes** (local only, never committed): the rulebook, the handoff, the memory. Report to the owner with pictures, saying plainly that Safari on a real iPhone was not checked.
