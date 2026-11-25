@@ -345,6 +345,14 @@
 .a-mail { margin: 36px 0 0; color: rgba(237, 237, 230, 0.6); letter-spacing: 0.14em; }
 .a-mail a { color: var(--bone); text-decoration: none; }
 .a-mail a:hover { color: var(--signal); }
+/* A FINGER'S TARGET (the review's walkthroughs, 2026-11-25: the address was a 151 x 12 target on the iPad): on a touch
+   screen its press area is 44 px tall, an invisible box with no layout of its own (the menu's and the switches' way,
+   components.css), so nothing moves. It reaches 16 px over and under the words: the YES line ends 32 px above them and
+   the social buttons start 22 px below, so it crosses neither. */
+@media (pointer: coarse) {
+  .a-mail a { position: relative; }
+  .a-mail a::after { content: ''; position: absolute; left: 0; right: 0; top: calc((100% - 44px) / 2); height: 44px; }
+}
 .a-socials { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 20px; }
 .a-social {
   border: 1px solid var(--flourish); color: var(--flourish); border-radius: 999px;
