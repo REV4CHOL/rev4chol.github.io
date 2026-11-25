@@ -74,10 +74,10 @@ describe('the music gives way when the film starts', () => {
 });
 
 describe('a film whose link is on its way', () => {
-  it('one quiet line where the player would stand, in the private line\'s style', () => {
+  it('one quiet line where the player would stand, in the placeholder line\'s style', () => {
     expect(page).toContain("note.textContent = 'FILM LINK COMING SOON';");
     expect(page).not.toContain('.disabled = true');
-    expect(css).toContain('.p-placeholder, .p-private, .p-pending {');
+    expect(css).toContain('.p-placeholder, .p-pending {');
   });
 });
 

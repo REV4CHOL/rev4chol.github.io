@@ -297,7 +297,8 @@ function mountSynopsis(p: Project): void {
     const note = document.createElement('p');
     if (kind === 'private') {
       // PRIVATE (owner 2026-09-28, MIEN VIEN: the link "will never arrive"): no player, and where it would stand, what
-      // a visitor can and cannot do in one line, in the placeholder line's quiet style (the reason stays off the site)
+      // a visitor can and cannot do in one line (the reason stays off the site), set as a notice, not a footnote (owner,
+      // 2026-11-25: "Same words, clearer: keep your words, set larger and brighter so they read as a notice")
       note.className = 'p-private micro';
       note.textContent = 'PRIVATE FILM ▪ NOT AVAILABLE TO WATCH ONLINE';
     } else if (kind === 'pending') {

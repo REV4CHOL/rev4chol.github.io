@@ -815,12 +815,32 @@
 }
 
 /* PLACEHOLDER (owner's testers, 2026-09-27): where the player would stand on a stand-in's dossier, the truth in one line.
-   PRIVATE (owner 2026-09-28): a film kept off the public web says so in the same quiet line; PENDING, a film whose link
-   is on its way, too (FILM LINK COMING SOON: it was a greyed WATCH until the button went, 2026-11-24) */
-.p-placeholder, .p-private, .p-pending { margin-top: 38px; color: color-mix(in srgb, var(--bone) 55%, transparent); letter-spacing: 0.22em; }
+   PENDING, a film whose link is on its way, says so in the same quiet line (FILM LINK COMING SOON: it was a greyed WATCH
+   until the button went, 2026-11-24) */
+.p-placeholder, .p-pending { margin-top: 38px; color: color-mix(in srgb, var(--bone) 55%, transparent); letter-spacing: 0.22em; }
+/* PRIVATE (owner 2026-09-28): a film kept off the public web says so where its player would stand. A NOTICE, not a
+   footnote (owner, 2026-11-25: "Same words, clearer: keep your words, set larger and brighter so they read as a notice,
+   not a footnote"): the same words, a step up from the micro labels' 10 px, in full ink, on the dark plate and signal
+   hairline of the player's own marks, with the hazard strip of the page's rack panels at its left edge. Not a button:
+   square, no hover, it links nowhere. */
+.p-private {
+  display: block; width: fit-content; max-width: 100%; box-sizing: border-box;
+  margin-top: 38px; padding: 15px 22px 15px 32px;
+  background: rgba(6, 6, 6, 0.95); border: 1px solid var(--signal);
+  font-size: var(--t-sm); line-height: 1.55; letter-spacing: 0.22em; color: var(--bone);
+}
+.p-private::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 14px;
+  background: repeating-linear-gradient(45deg, var(--alert) 0 4px, transparent 4px 9px);
+  border-right: 1px solid var(--signal);
+}
 /* the private and pending lines stand exactly where the player would (under the synopsis: the wide grid's column 1, row 2) and reads
    above the plus marks and the arc — no plate behind it */
 .p-private, .p-pending { position: relative; z-index: 2; }
 @media (min-width: 1100px), (pointer: fine) {
   .p-private, .p-pending { grid-column: 1; grid-row: 2; justify-self: start; }
+}
+/* a phone: the notice a step smaller, so its words break in two lines, not four */
+@media (max-width: 760px) and (pointer: coarse) {
+  .p-private { font-size: var(--t-xs); padding: 13px 16px 13px 28px; letter-spacing: 0.16em; }
 }
