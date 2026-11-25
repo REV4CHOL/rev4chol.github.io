@@ -114,6 +114,18 @@
   .cc-line::before { right: auto; left: -2px; }
 }
 
+/* A FINGER'S TARGETS (the review's walkthroughs, 2026-11-25: on touch screens the address was 23 to 27 px tall and the
+   three AUX pills 30 px): each gets a 44 px tall press area, an invisible box with no layout of its own, as the menu and
+   the switches have (components.css), so not one visible pixel moves. Each box stands centred on its own words: the
+   address's ends 20 px or more above COPY EMAIL's border, a pill's 7 px into the 18 px between rows. */
+@media (pointer: coarse) {
+  .c-freq, .c-social { position: relative; }
+  .c-social { white-space: nowrap; } /* (the box's empty content must not open a line break inside a pill: YOUTUBE wrapped) */
+  .c-freq::after, .c-social::after {
+    content: ''; position: absolute; left: 0; right: 0; top: calc(50% - 22px); height: 44px;
+  }
+}
+
 /* THE CUE ON THIS PAGE (the review's walkthroughs, 2026-11-25): the console is a little taller than a phone's or a
    short laptop's screen, so the cue's plain scroll hint at the top stood on its own lines (the chevron on RESPONSE,
    on the vow; SCROLL DOWN on the EOF line). Here the cue shows only where a swipe or a scroll leaves for STORY: at the
