@@ -1095,6 +1095,12 @@ html.rvl-list-touch .fl-group { max-width: clamp(488px, 100% - 616px, 1120px); }
   .nav::before { height: 184px; background: linear-gradient(180deg, var(--void) 0%, var(--void) 70%, transparent 100%); }
   .home-data { font-size: 11px; }
 }
+/* A PHONE HELD ON ITS SIDE (a short touch screen; the review's walkthroughs, 2026-11-25): the foot readouts leave too.
+   At 852 x 343 the coordinates stood inside CONTACT's COPY EMAIL button and across ABOUT's tagline. The line is the
+   sideways phone's own (works/reel.ts SIDE_QUERY), on touch only: a short desktop window keeps them. */
+@media (pointer: coarse) and (max-height: 500px) {
+  .hud-bl, .hud-br { display: none; }
+}
 
 /* A TABLET'S FINGER (touch, wider than a phone; the phone's own rules stand above): the menu's links were 30 px tall and
    the three switches 16 px, a finger misses them. The HIT AREA grows to 44 px: an invisible box with no layout of its

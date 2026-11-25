@@ -9,6 +9,7 @@ import { armPosterLock, posterZoom } from '../lib/poster-lock';
 import { armGlideNav, navNeighbors } from '../lib/swipe-nav';
 import { holePad, holeProps, holeRect } from '../project/holes';
 import { keepPlace } from '../lib/keep-place';
+import { hudYields } from '../shell/hud-yield';
 import { startPage } from '../shell/page';
 import '../styles/about.css';
 
@@ -168,6 +169,24 @@ function render(site: SiteContent, about: AboutContent): void {
   armStamps();
 }
 
+/** ABOUT's words and controls that a foot readout must not lie on (the review's walkthroughs, 2026-11-25: the timecode
+ *  over the CLASS callout, the coordinates on the tagline and on the OP: heading). Running words are read as their own
+ *  ink (a range over the text: a paragraph's box is wider than its lines); hardware that carries words (a skill bar, a
+ *  plate, a button) as its box. */
+const WORD_TEXT = [
+  '.a-status', '.a-name', '.a-statement', '.a-portrait figcaption', '.a-subj-tag', '.a-callout', '.a-cal-label',
+  '.a-rail-tag', '.a-bio p', '.a-spec dt', '.a-spec dd', '.a-transmit-q', '.a-mail', '.a-eof span',
+].join(', ');
+const WORD_BOXES = '.a-name-plate, .a-skill-head, .a-bar, .a-chip, .a-yes, .a-social';
+function pageWords(): DOMRect[] {
+  const range = document.createRange();
+  const text = [...document.querySelectorAll<HTMLElement>(WORD_TEXT)].map((el) => {
+    range.selectNodeContents(el);
+    return range.getBoundingClientRect();
+  });
+  return [...text, ...[...document.querySelectorAll<HTMLElement>(WORD_BOXES)].map((el) => el.getBoundingClientRect())];
+}
+
 /** The rack's counters show only where every one stands whole (about/rack.ts): judged when the rack is built, when the
  *  fonts arrive (the names' widths change) and when the window changes. Each judgement shows the counters first, so
  *  they are measured where they would stand; the bars' padding and border are plate px under the poster lock, their
@@ -203,8 +222,8 @@ function armRackCaps(rack: HTMLElement): void {
 async function mountPortrait(site: SiteContent): Promise<void> {
   const fig = document.getElementById('a-portrait')!;
   const cap = document.getElementById('a-portrait-cap')!;
-  armPhotoHole(fig);
-  const awaiting = () => { cap.textContent = 'AWAITING SUBJECT // DROP PORTRAIT.JPG'; };
+  const resync = armPhotoHole(fig);
+  const awaiting = () => { cap.textContent = 'AWAITING SUBJECT // DROP PORTRAIT.JPG'; resync(); };
 
   const url = await probeFirst(portraitCandidates());
   if (!url) { awaiting(); return; }
@@ -228,6 +247,7 @@ async function mountPortrait(site: SiteContent): Promise<void> {
   }
   fig.prepend(img);
   cap.textContent = `SUBJECT :: ${site.name.toUpperCase()} // VERIFIED`;
+  resync(); // (the caption is words the readouts step aside for)
 }
 
 /** The site's film layers (grain + scanlines, src/shell/grain.ts) off the photograph: the overlay grain lands hardest
@@ -236,7 +256,7 @@ async function mountPortrait(site: SiteContent): Promise<void> {
  *  box read before anything is written, the hole clamped to the screen, and a layer written only when its values
  *  change, so a scroll with the photo off the screen paints nothing again (the owner's phone, 2026-11-25). Rects arrive
  *  in viewport px; the layers lay out in plate px under the poster lock, hence the zoom. */
-function armPhotoHole(target: HTMLElement): void {
+function armPhotoHole(target: HTMLElement): () => void {
   const written = new WeakMap<HTMLElement, string>();
   const syncHole = () => {
     const layers = [document.getElementById('grain'), document.querySelector<HTMLElement>('.scan-layer')];
@@ -245,6 +265,8 @@ function armPhotoHole(target: HTMLElement): void {
     const vw = Math.max(window.innerWidth, de.clientWidth), vh = Math.max(window.innerHeight, de.clientHeight);
     const r = target.getBoundingClientRect();
     const huds = [...document.querySelectorAll<HTMLElement>('.hud-bl, .hud-br')].map((h) => [h, h.getBoundingClientRect()] as const);
+    // (a phone hides the readouts: then nothing more is read on its scroll)
+    const over = huds.some(([, b]) => b.width > 0) ? [r, ...pageWords()] : [];
     const props = holeProps([['--hole', holeRect(r, z, vw, vh, holePad(vh, z))]]);
     const key = props.map(([k, v]) => `${k}:${v}`).join(';');
     for (const el of layers) {
@@ -254,10 +276,9 @@ function armPhotoHole(target: HTMLElement): void {
       for (const [k, v] of props) el.style.setProperty(k, v);
     }
     // the HUD's foot readouts (fixed, over the page) step aside while they meet the photo, as they do for a film's
-    // player: on a 1440 x 900 screen (and a short tablet) the timecode stood across the picture's foot at rest
-    for (const [h, b] of huds) {
-      h.classList.toggle('hud-yield', r.left < b.right && b.left < r.right && r.top < b.bottom && b.top < r.bottom);
-    }
+    // player: on a 1440 x 900 screen (and a short tablet) the timecode stood across the picture's foot at rest; and
+    // while they meet the page's own words and controls (shell/hud-yield.ts)
+    for (const [h, b] of huds) h.classList.toggle('hud-yield', hudYields(b, over));
   };
   syncHole();
   window.addEventListener('scroll', syncHole, { passive: true });
@@ -267,5 +288,6 @@ function armPhotoHole(target: HTMLElement): void {
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(syncHole).observe(target);
   // the layers are dealt by the shell; if they arrive after this page's first sync, the next frame catches them
   requestAnimationFrame(syncHole);
+  return syncHole;
 }
 
