@@ -20,6 +20,8 @@ import { stillParts } from '../project/pillars';
 import { inView, Size, turned, turnScroll } from '../project/turn';
 import { meets, playerRatio, watchKind } from '../project/watch';
 import { armStamps } from '../lib/stamps';
+import { autoplayRefused, imageLoopsWork, isRefusal, noteImageLoops, noteRefusal, onRefusal } from '../lib/autoplay';
+import { heroMode, imageNext, veilLifted } from '../project/hero-loop';
 import { armScrollCue } from '../lib/swipe-nav';
 import { cueBottom } from '../project/cue-place';
 import { keepPlace } from '../lib/keep-place';
@@ -156,43 +158,135 @@ function mountHero(p: Project, stamp: string): void {
   }
 
   // The dither veil only lifts once BOTH the poster has loaded (with its
-  // 350ms minimum dwell) AND the hero video can actually play. If the hero
+  // 350ms minimum dwell) AND a moving picture carries the loop. If the hero
   // video errors out, the veil must never lift — the dithered poster is the
   // correct degraded hero, not a blank element underneath a hidden canvas.
+  // THE LOOP WHERE PLAY() IS REFUSED (owner, 2026-11-25, an iPhone in Low Power Mode: "I dont like the play button on
+  // the top previewer in the film's page. Remove it. I want the preview loop to automatically already play at the
+  // start"): iOS refused the video and drew its own start glyph on it. As on the homepage and WORK's phone strip
+  // (lib/autoplay.ts), the loop then stands as an MP4 inside an <img> in the video's own box (Safari plays it as a silent
+  // looping picture); where a browser cannot draw one, the dithered poster stands and the visitor's first touch starts
+  // the video. The decisions are project/hero-loop.ts.
   let posterReady = false;
   let videoReady = false;
   let heroDead = false;
-  const maybeReveal = () => {
-    if (heroDead || !posterReady || !videoReady) return;
-    veil.style.transition = 'opacity 1.1s';
-    veil.style.opacity = '0';
-  };
-
+  let playing = false;
+  let lifted = false;
+  const heroBox = document.getElementById('p-hero')!;
   // the hero walks the same accepted loop names as the floor pane, so one
   // clip drives both — swap the file in the project folder, refresh, done
   const chain = loopSrcChain(p.slug);
   let chainIdx = 0;
+  // THE IMAGE: made on a refusal, let go (no src) while the hero is off the screen, given back when it returns
+  let img: HTMLImageElement | null = null;
+  let imgIdx = 0;
+  let imgShown = false;
+  let onScreen = true;
+  const ensureImage = () => {
+    if (!img) {
+      const im = document.createElement('img');
+      im.id = 'p-hero-img';
+      im.alt = '';
+      im.decoding = 'async';
+      im.draggable = false;
+      im.setAttribute('aria-hidden', 'true');
+      im.addEventListener('load', () => {
+        noteImageLoops(true);
+        imgShown = true;
+        apply();
+        heroBox.dispatchEvent(new Event('rvl-hero-frame')); // (the film's frames may be sent for: mountSynopsis)
+      });
+      im.addEventListener('error', () => {
+        if (img !== im || !im.getAttribute('src')) return; // (let go on purpose)
+        const next = imageNext(imgIdx, chain.length, imgIdx === chainIdx && hero.readyState >= 1);
+        if (next === null) { noteImageLoops(false); apply(); return; } // (no MP4 in an image here: the poster, a touch)
+        imgIdx = next;
+        im.src = chain[imgIdx];
+      });
+      imgIdx = chainIdx; // (the name the video stands on)
+      hero.after(im); // (over the video, under the veil)
+      img = im;
+    }
+    if (onScreen && !img.getAttribute('src')) img.src = chain[imgIdx];
+  };
+  // the video playing again takes over: the image stays until the video has painted a frame or two, then goes
+  const dropImage = () => {
+    const out = img;
+    if (!out) return;
+    img = null;
+    imgShown = false;
+    requestAnimationFrame(() => requestAnimationFrame(() => { out.removeAttribute('src'); out.remove(); }));
+  };
+  const apply = () => {
+    const mode = heroMode({ playing, refused: autoplayRefused(), imageLoops: imageLoopsWork() });
+    if (mode === 'image' && !heroDead) ensureImage();
+    else dropImage();
+    const up = veilLifted({ mode, poster: posterReady, dead: heroDead, videoReady, imageShown: imgShown });
+    if (up === lifted) return;
+    lifted = up;
+    // (lifts slowly, as it always has; covers again at once: a refusal, or the image let go off the screen)
+    veil.style.transition = up ? 'opacity 1.1s' : 'none';
+    veil.style.opacity = up ? '0' : '1';
+  };
+  const tryPlay = () => {
+    void hero.play().catch((e) => { if (isRefusal(e)) noteRefusal(); /* (else: a load cut short; canplay tries again) */ });
+  };
+  onRefusal(apply);
   hero.src = chain[0];
-  // the early play() below can fire before data exists and its rejection is
-  // swallowed — canplay is the moment playback is actually possible, so nudge
-  // again here or the hero can sit frozen on its first frame
+  // the early play() below can fire before data exists — canplay is the moment
+  // playback is actually possible, so nudge again here or the hero can sit
+  // frozen on its first frame
   hero.addEventListener('canplay', () => {
     videoReady = true;
-    void hero.play().catch(() => {});
-    maybeReveal();
+    tryPlay();
+    apply();
   }, { once: true });
+  hero.addEventListener('playing', () => {
+    playing = true;
+    apply();
+    window.removeEventListener('pointerdown', retry);
+    window.removeEventListener('touchend', retry);
+  });
+  // the video stopped after it took over (iOS pauses a muted video off the screen, and may refuse its resume): the image
+  // or the poster carries the loop again, and a touch tries the video again (where nothing was refused, nothing changes)
+  hero.addEventListener('pause', () => {
+    if (!playing || hero.ended) return;
+    playing = false;
+    apply();
+    window.addEventListener('pointerdown', retry, { passive: true });
+    window.addEventListener('touchend', retry, { passive: true });
+  });
   hero.addEventListener('error', () => {
     chainIdx += 1;
     if (chainIdx < chain.length) {
       hero.src = chain[chainIdx];
-      void hero.play().catch(() => {});
+      tryPlay();
       return;
     }
     heroDead = true;
     console.warn(`[revachol] missing media: ${chain[0]} (or an accepted loop name) — hero stays on the dithered poster`);
     hero.remove();
+    apply();
   });
-  void hero.play().catch(() => {});
+  // A TOUCH IS THE MOMENT a refusing browser allows a video: at the visitor's first touch anywhere (and every later one
+  // until it plays) the real video is tried again inside that gesture, and on `playing` it takes over from the image or
+  // the poster. Passive, nothing stopped: the hero's own press still brings the film into view and plays it.
+  const retry = () => {
+    if (playing || heroDead || !autoplayRefused()) return;
+    tryPlay();
+  };
+  window.addEventListener('pointerdown', retry, { passive: true });
+  window.addEventListener('touchend', retry, { passive: true });
+  // an animated picture is drawn by the page, not by the video chip: off the screen, the image is let go
+  if (typeof IntersectionObserver !== 'undefined') {
+    new IntersectionObserver((es) => {
+      onScreen = es[es.length - 1].isIntersecting;
+      if (!onScreen && img) { img.removeAttribute('src'); imgShown = false; }
+      apply();
+    }).observe(heroBox);
+  }
+  tryPlay();
+  apply(); // (a visit refused before starts on the image at once)
 
   const posterImg = new Image();
   posterImg.onload = () => {
@@ -202,7 +296,7 @@ function mountHero(p: Project, stamp: string): void {
     veil.getContext('2d')?.drawImage(d, 0, 0);
     setTimeout(() => {
       posterReady = true;
-      maybeReveal();
+      apply();
     }, 350);
   };
   posterImg.onerror = () => veil.remove();
@@ -380,6 +474,7 @@ function mountSynopsis(p: Project): void {
   const heroVideo = document.getElementById('p-hero-video') as HTMLVideoElement | null;
   if (!heroVideo || heroVideo.readyState >= 3) wake();
   else for (const ev of ['playing', 'error']) heroVideo.addEventListener(ev, wake, { once: true });
+  document.getElementById('p-hero')?.addEventListener('rvl-hero-frame', wake, { once: true }); // (the loop as an image: its first frame)
   setTimeout(wake, 4000);
   if (typeof IntersectionObserver !== 'undefined') {
     const near = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { wake(); near.disconnect(); } }, { rootMargin: '25% 0px' });

@@ -23,10 +23,18 @@
    factor — the division cancels it so the hero band always takes the same
    share of the real screen (unlocked pages: --plate is 1) */
 .p-hero { --hero-h: min(calc(92svh / var(--plate, 1)), 980px); position: relative; height: var(--hero-h); overflow: hidden; background: #000; }
-.p-hero video, .p-hero #p-hero-veil {
+/* (#p-hero-img: the loop as an image where a play() is refused, pages/project.ts mountHero: the video's twin in every
+   rule, same box, same fit, same hiccup, the same calm) */
+.p-hero video, .p-hero #p-hero-img, .p-hero #p-hero-veil {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
 }
 #p-hero-veil { image-rendering: pixelated; z-index: 1; }
+/* iOS's own start glyph is never drawn on the hero's loop (owner, 2026-11-25: "I dont like the play button on the top
+   previewer in the film's page. Remove it."). A rule of its own: in a selector list, a browser that does not know the
+   pseudo-element drops the whole rule. */
+#p-hero-video::-webkit-media-controls-start-playback-button { display: none !important; -webkit-appearance: none; }
+#p-hero-video::-webkit-media-controls { display: none !important; }
+#p-hero-img { pointer-events: none; -webkit-touch-callout: none; user-select: none; }
 /* a non-16:9 film presents in its own ratio (--pratio, set from JS): a
    centered picture, never cropped — it fills the hero's height when the
    viewport is wide enough and the viewport's width otherwise. The hero is
@@ -37,7 +45,7 @@
   --pfitw: min(100cqw, calc(100cqh * var(--pratio, 1.7778)));
   --pfith: calc(var(--pfitw) / var(--pratio, 1.7778));
 }
-.p-hero--fit video, .p-hero--fit #p-hero-veil {
+.p-hero--fit video, .p-hero--fit #p-hero-img, .p-hero--fit #p-hero-veil {
   inset: 50% auto auto 50%; translate: -50% -50%;
   width: var(--pfitw);
   height: auto; aspect-ratio: var(--pratio, 16 / 9);
@@ -168,8 +176,8 @@
   97.6% { transform: translateX(-5px); filter: hue-rotate(-10deg); }
   98.2% { transform: none; filter: none; }
 }
-#p-hero-video { animation: p-vhs 13s steps(2) infinite; }
-.rvl-calm #p-hero-video, .rvl-lite #p-hero-video { animation: none; }
+#p-hero-video, #p-hero-img { animation: p-vhs 13s steps(2) infinite; }
+.rvl-calm #p-hero-video, .rvl-lite #p-hero-video, .rvl-calm #p-hero-img, .rvl-lite #p-hero-img { animation: none; }
 
 /* blueprint ring — the machine's lens, half off-frame like the reference */
 .p-ring {
