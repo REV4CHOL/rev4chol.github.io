@@ -134,6 +134,7 @@ export default defineConfig({
         story: p('story.html'), // the city — the tour rides here now
         contact: p('contact.html'),
         project: p('project.html'),
+        lost: p('404.html'), // the site's own "not found": GitHub Pages serves it for any unknown address
       },
     },
   },

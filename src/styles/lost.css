@@ -1,0 +1,13 @@
+/* ==========================================================================
+   SIGNAL LOST: the site's own "not found" (404.html), in the grammar of a film
+   page's missing specimen (project.css, .p-notfound): the headline, one plain
+   line, the ways on. A fixed 1440px plate on fine pointers like every page.
+   ========================================================================== */
+.lost-main {
+  min-height: calc(100svh / var(--plate, 1));
+  display: grid; place-content: center; justify-items: start; gap: 16px;
+  padding: 120px 28px 96px;
+}
+.lost-main .statement { margin: 0; }
+.lost-main .micro { margin: 0; }
+.lost-ways { display: flex; flex-wrap: wrap; gap: 14px; margin: 8px 0 0; }

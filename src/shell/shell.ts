@@ -9,7 +9,7 @@ import { initCursor } from './cursor';
 import { mountAtmosphere } from './grain';
 import { Hud, mountHud } from './hud';
 
-export type PageKey = 'home' | 'work' | 'about' | 'contact' | 'story' | 'project';
+export type PageKey = 'home' | 'work' | 'about' | 'contact' | 'story' | 'project' | 'lost';
 export interface ShellRefs { hud: Hud }
 
 const HREF_FOR: Record<PageKey, string> = {
@@ -19,6 +19,7 @@ const HREF_FOR: Record<PageKey, string> = {
   contact: '/contact.html',
   story: '/story.html',
   project: '/works.html', // project pages highlight WORK
+  lost: '', // the site's own "not found" (404.html) is no page of the menu: nothing is lit
 };
 
 export interface ShellOptions {

@@ -143,7 +143,7 @@
    `--zw` consumer through the --zw pin (1vw at 1440 = 14.4px). Coarse
    pointers never lock: phones and tablets keep the fluid base values. */
 @media (pointer: fine) {
-  .page-home, .page-work, .page-contact, .page-project {
+  .page-home, .page-work, .page-contact, .page-project, .page-lost {
     --t-lg: 2rem;      /* clamp(1.4rem, 2.5vw, 2rem) @1440 → cap */
     --t-xl: 3.6rem;    /* clamp(2.2rem, 5vw, 3.6rem) @1440 → cap */
     --t-2xl: 6rem;     /* clamp(3rem, 8vw, 6rem) @1440 → cap */

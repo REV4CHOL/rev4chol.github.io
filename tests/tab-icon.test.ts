@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 /** The tab icon (scripts/make-icons.py): the wordmark's R. in the site's own signal on its void, with the floor's
  *  registration crosses and the legend's tick rail in a dimmer signal. */
 
-const PAGES = ['index.html', 'works.html', 'about.html', 'contact.html', 'project.html', 'story.html'];
+const PAGES = ['index.html', 'works.html', 'about.html', 'contact.html', 'project.html', 'story.html', '404.html'];
 const token = (name: string): number[] => {
   const m = readFileSync('src/styles/tokens.css', 'utf8').match(new RegExp(`--${name}:\\s*#([0-9a-fA-F]{6})`));
   return [0, 2, 4].map((i) => parseInt(m![1].slice(i, i + 2), 16));

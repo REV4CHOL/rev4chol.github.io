@@ -14,7 +14,7 @@ describe('how loud the site is', () => {
 
   it('the music plays at 0.3 (it stood at 0.55), and every page head ramps to the same number', () => {
     expect(VOLUME).toBe(0.3);
-    for (const page of ['index.html', 'works.html', 'about.html', 'contact.html', 'project.html', 'story.html']) {
+    for (const page of ['index.html', 'works.html', 'about.html', 'contact.html', 'project.html', 'story.html', '404.html']) {
       const head = readFileSync(page, 'utf8');
       expect(head, page).toContain('if(a.volume<0.3){');
       expect(head, page).toContain('a.volume=Math.min(0.3,0.03*k)');
