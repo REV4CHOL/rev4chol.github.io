@@ -36,7 +36,7 @@ describe("a tablet's poster: the homepage's statement at 60% of its size (owner)
   });
 
   it("never under a phone's own: a small tablet's headline stays 4rem, its plate 1.1rem", () => {
-    // (at 800 wide 60% of the fluid 100 px is 60: under the 64 a phone draws; the floor holds it)
+    // (at 800 wide 60% of the fluid 100 px is 60: under the 64 a phone drew that day; the floor holds it)
     expect(Math.max(64, fluid(64, 12.5, 168, 800) * 0.6)).toBe(64);
     expect(Math.max(17.6, fluid(17.6, 2.6, 32, 800) * 0.6)).toBe(17.6);
     expect(block).toMatch(/\.st-clash \{ font-size: max\(4rem,/);
@@ -46,9 +46,10 @@ describe("a tablet's poster: the homepage's statement at 60% of its size (owner)
   it("a PC's rules and the phone block stand as they were", () => {
     expect(css).toContain('font-size: clamp(4rem, calc(12.5 * var(--zw)), 10.5rem); line-height: 0.84;');
     expect(css).toContain('font-size: clamp(1.1rem, calc(2.6 * var(--zw)), 2rem); letter-spacing: 0.08em;');
-    expect(css).toContain('  .st-clash { font-size: clamp(2.8rem, 16.5vw, 4rem); }');
+    // (the phone's own factor came a day later: tests/phone-round.test.ts)
+    expect(css).toContain('  .st-clash { font-size: calc(clamp(2.8rem, 16.5vw, 4rem) * var(--ph-k)); }');
     // (the tablet block comes after the rules it adjusts and after the phone block: equal specificity, later wins)
-    expect(css.indexOf(HEAD)).toBeGreaterThan(css.indexOf('  .st-clash { font-size: clamp(2.8rem, 16.5vw, 4rem); }'));
+    expect(css.indexOf(HEAD)).toBeGreaterThan(css.indexOf('  .st-clash { font-size: calc(clamp(2.8rem, 16.5vw, 4rem) * var(--ph-k)); }'));
     expect(css.indexOf(HEAD)).toBeLessThan(css.lastIndexOf('body { visibility: visible; }'));
   });
 });

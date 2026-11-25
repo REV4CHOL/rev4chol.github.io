@@ -36,3 +36,7 @@
 }
 #rvl-stats button:hover,
 #rvl-stats button:focus-visible { background: var(--signal); color: var(--void); }
+
+/* `?fx=off` beside `?stats=1` (lib/readout.ts: fxOff): the grain and the scan lines leave the page, for a reading on a
+   real device of what they cost. This sheet loads only with the panel: without `?stats=1` the rule does not exist. */
+.rvl-nofx #grain, .rvl-nofx .scan-layer, .rvl-nofx .rl-scan { display: none; }

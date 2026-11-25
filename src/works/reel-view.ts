@@ -12,15 +12,16 @@
  *    straight back into the roll, where the clock takes it again. A tap opens the film under it; a drag opens none.
  *    Under CALM it never rolls by itself.
  *  - A pane: the film's poster, then its loop, covering it around the film's focus point; on it only the film's name
- *    and its roles, and the house's hardware without words (the accent tab, the viewfinder's corners, the scan lines,
- *    the sprockets). The words fade as they pass under the header and the foot. A vertical film on a phone held on its
+ *    and its roles, and the house's hardware without words (the accent tab, the scan lines, the sprockets; no
+ *    viewfinder: owner, 2026-11-25, "Remove the camera frame viewfinder in the WORK section scroll"). The words fade as they pass under the header and the foot. A vertical film on a phone held on its
  *    side stands whole in the middle.
  *  - Down the right, the scrub rail: a tick per film, the lime playhead travelling with the strip; a touch along it moves
  *    the strip there. At the foot, the chapters and LIST.
  *  - Every pane on the screen plays its loop. The panes within one unit of the screen rest, loaded and paused, so the
  *    next to come in starts the moment it enters (owner, 2026-11-24: three loops decode at most); further off they give
  *    their video back. A refused play() (iOS Low Power Mode) turns the loops into MP4 images (lib/autoplay.ts).
- *    Save-Data or a 2g line shows posters. The page (pages/works.ts) runs the channel change and the list. */
+ *    Save-Data or a 2g line shows posters. `?loops=` pins them for a reading on a real phone (works/reel.ts:
+ *    loopsPin). The page (pages/works.ts) runs the channel change and the list. */
 import { aspectRatio, loopSrcChain, projectAssetUrl, type Project } from '../lib/content';
 import { autoplayRefused, imageLoopsWork, isRefusal, loopsAsImages, noteImageLoops, noteRefusal, onRefusal } from '../lib/autoplay';
 import { reducedMotion } from '../lib/env';
@@ -30,8 +31,8 @@ import { fillTitle, settleLockup } from '../lib/title';
 import { reelReturn, type ReelPlace } from './back-state';
 import { CHANNELS, type ChannelKey, channelProjects } from './channels';
 import {
-  arrivalOffset, capKeyframes, coast, lanesToRetime, lapProgress, lapSeconds, lapUnits, loopsAllowed, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
-  oneLineSize, paneInView, paneKeyframes, panePlay, paneTop, paneUnits, places, railProgress, railTicks, REEL_WORDS, releaseSpeed,
+  arrivalOffset, capKeyframes, coast, lanesToRetime, lapProgress, lapSeconds, lapUnits, loopsAllowed, loopsPin, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
+  onePlays, oneLineSize, paneInView, paneKeyframes, panePlay, paneTop, paneUnits, places, railProgress, railTicks, REEL_WORDS, releaseSpeed,
   roleLine, rollPace, screenUnits, shownSize, SIDE_QUERY, stripOrder, stripPlace, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
   type PanePlay,
 } from './reel';
@@ -115,7 +116,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     pane.append(img, el('i', 'rl-scan'));
     const cap = el('span', 'rl-cap');
     cap.append(el('i', 'rl-bar'), fillTitle(el('span', 'rl-title'), p.title, softBreaks), fillCrossed(el('span', 'rl-role micro'), roleLine(p.role))); // (a long name breaks at its _; a two-language name stands as two lines, lib/title.ts)
-    a.append(pane, el('i', 'rl-marks'), cap);
+    a.append(pane, cap);
     li.append(a);
     return li;
   };
@@ -175,7 +176,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
 
   /* ------------------------------------------------------------- the fit -- */
 
-  // the header's bottom (the menu and the switches, measured): the viewfinder and the rail start under it; between it
+  // the header's bottom (the menu and the switches, measured): the rail starts under it; between it
   // and the foot's top lies the clear band a pane's words stand in (the foot by its box: its arrival rise moves it)
   let bandTop = 0, bandBottom = 0;
   const measureTop = () => {
@@ -324,7 +325,10 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   /* ------------------------------------------------------------ the loops -- */
 
   const loops = new Map<HTMLLIElement, Loop>();
-  const allowed = loopsAllowed((navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection);
+  const pin = loopsPin(location.search); // (the testers' switch: works/reel.ts)
+  const allowed = pin !== 'off' && loopsAllowed((navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection);
+  /** the loops' kind: MP4s in images after a refused play() (lib/autoplay.ts), unless the address pins it */
+  const asImages = (): boolean => (pin === 'video' ? false : pin === 'image' ? imageLoopsWork() !== false : loopsAsImages());
   const tryPlay = (vid: HTMLVideoElement) => {
     void vid.play().catch((e) => { if (isRefusal(e)) noteRefusal(); /* (else: the poster stands; a touch retries) */ });
   };
@@ -376,7 +380,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     let l = loops.get(li);
     if (l) return l;
     const chain = loopSrcChain(li.dataset.slug!);
-    l = loopsAsImages() ? imageLoop(li, chain) : videoLoop(chain);
+    l = asImages() ? imageLoop(li, chain) : videoLoop(chain);
     li.querySelector('.rl-pane')!.insertBefore(l, li.querySelector('.rl-scan'));
     loops.set(li, l);
     return l;
@@ -385,11 +389,14 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
    *  to come in starts the moment it enters); further off, let go */
   const plan = () => {
     const at = offsetNow(), still = parked || document.hidden;
-    const ahead = !still && !loopsAsImages(); // (a video waits paused; an image cannot, and nothing loads under the LIST)
-    const want: PanePlay[] = strip.panes.map((_, i) => {
-      const p = panePlay(paneTop(strip.at[i], strip.units[i], at, unit, strip.total), strip.units[i] * unit, view, unit);
+    const ahead = !still && !asImages(); // (a video waits paused; an image cannot, and nothing loads under the LIST)
+    const tops = strip.panes.map((_, i) => paneTop(strip.at[i], strip.units[i], at, unit, strip.total));
+    let want: PanePlay[] = tops.map((top, i) => {
+      const p = panePlay(top, strip.units[i] * unit, view, unit);
       return still && p === 'play' ? 'rest' : p;
     });
+    const mids = pin === 'one' ? tops.map((top, i) => top + (strip.units[i] * unit) / 2) : [];
+    if (pin === 'one') want = onePlays(want, mids, view);
     const key = want.join(',');
     if (key === planned) return;
     planned = key;
@@ -402,7 +409,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   window.setInterval(() => { if (rolling) plan(); }, 150); // (rolling, the clock moves the strip: the loops follow it)
   // a refused play(): from now on the loops stand as images (lib/autoplay.ts)
   onRefusal(() => {
-    if (imageLoopsWork() === false) return;
+    if (pin === 'video' || imageLoopsWork() === false) return;
     for (const [li, l] of [...loops]) if (l instanceof HTMLVideoElement) release(li);
     replan();
   });
@@ -626,7 +633,8 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     chapter: () => active,
     playing: () => [...loops].filter(([, l]) => (l instanceof HTMLVideoElement ? !l.paused : l.classList.contains('is-live'))).map(([li]) => li.dataset.slug),
     loops: () => loops.size,
-    mode: () => (loopsAsImages() ? 'image' : 'video'),
+    mode: () => (!allowed ? 'posters' : asImages() ? 'image' : 'video'),
+    pin: () => pin,
     refused: () => autoplayRefused(),
     /** hold the strip at `px` (a screenshot's still frame); null lets it roll again */
     hold: (px: number | null) => {

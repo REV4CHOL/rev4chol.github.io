@@ -354,10 +354,9 @@ describe('a phone gets the reel, never the floor (pins)', () => {
   it('the foot stands inside the small viewport, above the home indicator, the words above it', () => {
     expect(css).toMatch(/\n\.rl-foot \{[^}]*position: fixed;[^}]*bottom: 0;[^}]*padding: 0 10px env\(safe-area-inset-bottom\);/);
     expect(css).toMatch(/\n\.rl-cap \{[^}]*bottom: calc\(var\(--reel-foot\) \+ env\(safe-area-inset-bottom\) \+ 26px\);/);
-    // the words and the marks are placed from their pane's own edges (the link fills the pane): a pane at the screen's
-    // bottom shows its words clear of the foot; the top marks stand 14 px inside the pane; the dark covers the words
+    // the words are placed from their pane's own edges (the link fills the pane): a pane at the screen's bottom shows
+    // its words clear of the foot; the dark covers the words (the viewfinder's marks left: tests/phone-round.test.ts)
     expect(css).toContain('.rl-link { position: absolute; inset: 0; display: block;');
-    expect(css).toMatch(/\n\.rl-marks \{[^}]*top: 14px; bottom: calc\(var\(--reel-foot\) \+ env\(safe-area-inset-bottom\) \+ 10px\);/);
     expect(css).toMatch(/\n\.rl-pane::after \{[^}]*height: max\(48%, calc\(var\(--reel-foot\) \+ env\(safe-area-inset-bottom\) \+ 226px\)\);/);
   });
 
@@ -424,10 +423,9 @@ describe('a phone gets the reel, never the floor (pins)', () => {
     expect(view).toContain("aspectRatio(p.aspect) < 1 ? ' is-vertical' : ''");
     const side = css.slice(css.indexOf('/* a phone on its side'));
     expect(side).toContain('.rl-pane.is-vertical .rl-poster, .rl-pane.is-vertical .rl-loop { object-fit: contain; }');
-    // on its side every pane is the whole screen, its marks under the header and its dark as they were
+    // on its side every pane is the whole screen, its dark as it was
     expect(side).toContain('@media (max-height: 500px) {'); // (works/reel.ts's SIDE_QUERY, pinned in tests/reel.test.ts)
     expect(side).toContain('.rl-frame { height: 100%; }');
-    expect(side).toContain('.rl-marks { top: calc(var(--reel-top, 132px) + 4px); }');
     expect(side).toContain('.rl-pane::after { height: 48%; }');
   });
 
@@ -455,10 +453,10 @@ describe('a phone gets the reel, never the floor (pins)', () => {
     expect(view).not.toContain('quality.tier()'); // (a remembered LITE once left a phone on posters all visit)
     // (owner, 2026-11-24, on the design: the next pane starts as it enters) a resting pane's video is loaded, paused
     expect(view).toContain("else if (want[i] === 'rest') { const l = ahead ? ensureLoop(li) : loops.get(li); if (l instanceof HTMLVideoElement) l.pause(); }");
-    expect(view).toContain('const ahead = !still && !loopsAsImages();'); // (an image cannot wait paused; nothing loads under the LIST)
+    expect(view).toContain('const ahead = !still && !asImages();'); // (an image cannot wait paused; nothing loads under the LIST)
     expect(view).toContain('strip.units[i] * unit, view, unit);'); // (the loops' rule gets the pane's height, the screen's and the unit's)
     expect(view).toContain('replan(); // (it plays if its pane is on the screen; a resting pane\'s waits, paused)');
-    expect(view).toContain('l = loopsAsImages() ? imageLoop(li, chain) : videoLoop(chain);');
+    expect(view).toContain('l = asImages() ? imageLoop(li, chain) : videoLoop(chain);'); // (asImages: loopsAsImages() unless the address pins the kind)
     expect(view).toContain('if (isRefusal(e)) noteRefusal();');
     expect(view).toContain("window.addEventListener('touchend', kick, { passive: true });");
     expect(view).toContain('if (!reducedMotion()) {');

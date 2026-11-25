@@ -114,7 +114,8 @@ describe('the readout reads the floor and changes nothing (pins)', () => {
     const selectors = [...css.matchAll(/(^|\})\s*([^{}]+)\{/g)].map((m) => m[2]!.trim());
     expect(selectors.length).toBeGreaterThan(0);
     for (const s of selectors) {
-      for (const one of s.split(',')) expect(one.trim(), s).toMatch(/^#rvl-stats\b/);
+      // (but for `?fx=off`, which the address asks for: the root class takes the grain and the scan lines away)
+      for (const one of s.split(',')) expect(one.trim(), s).toMatch(/^(#rvl-stats\b|\.rvl-nofx )/);
     }
   });
 });

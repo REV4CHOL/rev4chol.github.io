@@ -131,3 +131,34 @@ export function readoutLines(
 
   return [level, frames, wall, own, memory, `PRESSURE   ${pressure.toUpperCase()}`, device, playbackLine(f, now)];
 }
+
+/** `?fx=off` (beside `?stats=1`, whose panel reads it): the grain and the scan lines leave the page, for a reading on a
+ *  real device of what they cost. */
+export function fxOff(search: string): boolean {
+  return new URLSearchParams(search).get('fx') === 'off';
+}
+
+/** What WORK's phone strip hands the readout (works/reel-view.ts: rvlWorkReel). Other pages have no strip. */
+export interface ReelReading {
+  mode: 'video' | 'image' | 'posters';
+  loaded: number;
+  playing: number;
+  rolling: boolean;
+  pin: string | null;
+}
+/** The strip's line: its loops' kind, how many are loaded and playing, whether the clock or a hand moves it, and the
+ *  address's pin (`?loops=`). null where there is no strip: the panel shows no line. */
+export function reelLine(r: ReelReading | null): string | null {
+  if (!r) return null;
+  const kind = r.mode === 'video' ? 'VIDEO LOOPS' : r.mode === 'image' ? 'PICTURE LOOPS' : 'POSTERS ONLY';
+  return `REEL       ${kind} · ${r.loaded} LOADED · ${r.playing} PLAYING · ${r.rolling ? 'ROLLING' : 'BY HAND'}${r.pin ? ` · LOOPS PINNED ${r.pin.toUpperCase()}` : ''}`;
+}
+
+/** The page's own hitches since the panel opened (shell/stats.ts counts them on its frames, after the page's first
+ *  three seconds): frames that came more than 50 ms after the one before, the longest such wait, and the slowest
+ *  whole second. `lowest` is null until a first second is in. */
+export interface Hitches { hitches: number; longest: number; lowest: number | null; seconds: number }
+export function hitchLine(h: Hitches): string {
+  if (h.lowest === null) return 'HITCHES    COUNTING';
+  return `HITCHES    ${h.hitches} OVER 50 MS IN ${h.seconds} S · LONGEST FRAME ${Math.round(h.longest)} MS · SLOWEST SECOND ${Math.round(h.lowest)} FPS`;
+}

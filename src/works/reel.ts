@@ -26,6 +26,16 @@ export function loopsAllowed(conn?: { saveData?: boolean; effectiveType?: string
   return !(conn && (conn.saveData || conn.effectiveType === '2g' || conn.effectiveType === 'slow-2g'));
 }
 
+/** `?loops=off|one|video|image`: the testers' switch for the strip's loops, for a reading on a real phone (which part of
+ *  the strip a phone cannot keep up with). `off`: posters only. `one`: only the pane nearest the middle of the screen
+ *  plays. `video` / `image`: the loops' kind, whatever the visit remembers of a refused play(). Anything else: null,
+ *  and the strip decides as always. */
+export type LoopsPin = 'off' | 'one' | 'video' | 'image';
+export function loopsPin(search: string): LoopsPin | null {
+  const v = new URLSearchParams(search).get('loops');
+  return v === 'off' || v === 'one' || v === 'video' || v === 'image' ? v : null;
+}
+
 /** A name's size, px, in Clash Display 700 (the display voice). It stands on one line when it can at ONE_LINE_MIN px
  *  or more, up to TITLE_MAX: one line reads quieter than two (PHILIA, FAR EAST, SODA COAST). A longer name wraps at
  *  its words from wrapStart(its length) down, never under TITLE_MIN, until its longest word fits. The view measures
@@ -261,6 +271,16 @@ export function panePlay(top: number, height: number, view: number, unit: number
   if (bottom > 0 && top < view) return 'play';
   if (top < view + unit && bottom > -unit) return 'rest';
   return 'free';
+}
+
+/** Pinned to one loop (`?loops=one`): of the panes that would play, only the one whose middle (`mids`, px down the
+ *  screen) is nearest the screen's keeps playing; the others rest, loaded and paused. */
+export function onePlays(want: readonly PanePlay[], mids: readonly number[], view: number): PanePlay[] {
+  let best = -1;
+  want.forEach((w, i) => {
+    if (w === 'play' && (best < 0 || Math.abs(mids[i] - view / 2) < Math.abs(mids[best] - view / 2))) best = i;
+  });
+  return want.map((w, i) => (w === 'play' && i !== best ? 'rest' : w));
 }
 
 /** By hand (a finger, a coast, a hold), the panes whose timelines are set from the strip's offset: those near the screen
