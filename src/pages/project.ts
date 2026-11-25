@@ -20,6 +20,8 @@ import { stillParts } from '../project/pillars';
 import { inView, Size, turned, turnScroll } from '../project/turn';
 import { meets, playerRatio, watchKind } from '../project/watch';
 import { armStamps } from '../lib/stamps';
+import { armScrollCue } from '../lib/swipe-nav';
+import { cueBottom } from '../project/cue-place';
 import { keepPlace } from '../lib/keep-place';
 import { startPage } from '../shell/page';
 import '../styles/project.css';
@@ -86,11 +88,39 @@ function render(p: Project, all: Project[], idx: number): void {
   mountTicker(p, stamp);
   void mountWall(p);
   mountEndNav(all, idx);
+  // THE FIRST SCREEN SAYS THERE IS MORE BELOW (owner, 2026-11-25: "SCROLL DOWN cue: show the same small SCROLL DOWN cue
+  // that ABOUT already has at the foot of the screen. No new words."): first-time visitors waited on the picture and the
+  // title for the film to play (the review's walkthroughs). ABOUT's cue in its hint state; never NEXT PAGE
+  placeCue(armScrollCue());
 
   document.getElementById('p-eof')!.innerHTML =
     `<span>EOF ▪ ${stamp} ▪ REVACHOL — ${p.year}</span>`;
 
   armStamps();
+}
+
+/** The cue stands where ABOUT's does, at the screen's foot, except where the intake sheet's first row would stand there
+ *  too: a tall touch screen (a portrait Android tablet, 800 x 1152) caps the hero at 980 px and the sheet starts in view
+ *  (its first row under the mark, measured; it fades in as the page moves, and stands at once in CALM). There the cue
+ *  stands midway between the hero's foot and the sheet (project/cue-place.ts). Read as the page stands at its top, at
+ *  arming, on a resize and once the display face is in. */
+function placeCue(cue: HTMLElement): void {
+  const place = () => {
+    cue.style.removeProperty('bottom');
+    const spec = document.getElementById('p-spec'), hero = document.getElementById('p-hero');
+    if (!spec || !hero) return;
+    const y = window.scrollY, c = cue.getBoundingClientRect(), s = spec.getBoundingClientRect();
+    const bottom = cueBottom(
+      { top: c.top, bottom: c.bottom, left: c.left, right: c.right },
+      { top: s.top + y, left: s.left, right: s.right },
+      hero.getBoundingClientRect().bottom + y,
+      window.innerHeight,
+    );
+    if (bottom !== null) cue.style.bottom = `${Math.round(bottom / posterZoom())}px`;
+  };
+  place();
+  window.addEventListener('resize', place);
+  void document.fonts?.ready?.then(place);
 }
 
 /* ---------------------------------------------------------------- hero -- */

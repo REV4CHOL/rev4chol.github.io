@@ -74,6 +74,44 @@ export function cueKicker(fine: boolean): string {
   return fine ? 'SCROLL DOWN ▾' : 'NEXT PAGE';
 }
 
+/** The words of the cue on a page that leads to no next page (a film's page): what ABOUT's cue says at its top. A mouse
+ *  is told the gesture; a touch screen is shown the dipping mark alone (ABOUT's kicker is hidden there in its hint
+ *  state). Never NEXT PAGE: scrolling on leaves for nothing. */
+export function pageCueWords(fine: boolean): string | null {
+  return fine ? cueKicker(true) : null;
+}
+
+/** THE CUE ON A PAGE THAT LEADS NOWHERE (owner, 2026-11-25, for a film's page: "SCROLL DOWN cue: show the same small
+ *  SCROLL DOWN cue that ABOUT already has at the foot of the screen. No new words."). ABOUT's own cue in its hint state:
+ *  the same element and class, so the same place, size and halo; shown while the page stands at its top, gone once
+ *  the visitor has scrolled; a press scrolls one screen on. It names no page and links to none. */
+export function armScrollCue(): HTMLElement {
+  const cue = document.createElement('a');
+  cue.className = 'swipe-cue';
+  cue.setAttribute('aria-hidden', 'true'); // (a picture of a gesture; the page itself scrolls for every visitor)
+  const words = pageCueWords(finePointer());
+  if (words) {
+    const kicker = document.createElement('span');
+    kicker.className = 'swc-kicker';
+    kicker.textContent = words;
+    cue.append(kicker);
+  }
+  const chevron = document.createElement('span');
+  chevron.className = 'swc-chevron';
+  chevron.textContent = '⌄';
+  cue.append(chevron);
+  document.body.append(cue);
+  const sync = () => { cue.dataset.state = cueState(false, (document.scrollingElement ?? document.documentElement).scrollTop); };
+  sync();
+  window.addEventListener('scroll', sync, { passive: true });
+  window.addEventListener('resize', sync);
+  cue.addEventListener('click', (e) => {
+    e.preventDefault();
+    window.scrollBy({ top: window.innerHeight * 0.85, behavior: reducedMotion() ? 'auto' : 'smooth' });
+  });
+  return cue;
+}
+
 export interface GlideOptions {
   next: NavStop | null;
   prev: NavStop | null;
