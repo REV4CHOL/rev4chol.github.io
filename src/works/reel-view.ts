@@ -31,7 +31,7 @@ import { fillTitle, settleLockup } from '../lib/title';
 import { reelReturn, type ReelPlace } from './back-state';
 import { CHANNELS, type ChannelKey, channelProjects } from './channels';
 import {
-  arrivalOffset, capKeyframes, coast, lanesToRetime, lapProgress, lapSeconds, lapUnits, loopKind, loopsAllowed, loopsPin, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
+  arrivalOffset, capKeyframes, coast, focusCentres, lanesToRetime, lapProgress, lapSeconds, lapUnits, loopKind, loopsAllowed, loopsPin, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
   onePlays, oneLineSize, paneInView, paneKeyframes, panePlay, paneTop, paneUnits, places, railProgress, railTicks, REEL_WORDS, releaseSpeed,
   roleLine, rollPace, screenUnits, shownSize, SIDE_QUERY, stripFilms, stripOrder, stripPlace, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
   type LoopKind, type PanePlay,
@@ -229,6 +229,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   // two heights (works/reel.ts): the screen's, and a unit's — the height of a pane of one unit
   let offset = 0, v = 0, view = 1, unit = 1, side = false, raf = 0, last = 0;
   let parked = false, pinned = false, touching = false, pointer: number | null = null, startY = 0, startOffset = 0, moved = false, dragged = false;
+  let fingerAt = -Infinity; // (when a finger last landed on the strip or left it: a focus just after it is the finger's own)
   const moves: [number, number][] = [];
   const rollSpeed = () => (reducedMotion() ? 0 : rollPace(view)); // (CALM: it never rolls by itself)
   /** the two heights, and every pane's units and place as the screen stands */
@@ -570,6 +571,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
 
   for (const s of strips.values()) {
     s.ol.addEventListener('pointerdown', (e) => {
+      fingerAt = performance.now();
       if (pointer !== null || !e.isPrimary) return;
       hold();
       sleep();
@@ -592,6 +594,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
       if (moves.length > 16) moves.shift();
     });
     const up = (e: PointerEvent) => {
+      fingerAt = performance.now();
       if (e.pointerId !== pointer) return;
       pointer = null;
       touching = false;
@@ -616,11 +619,17 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     e.preventDefault();
     e.stopPropagation();
   }, true);
-  // a keyboard's focus brings its pane to the middle of the screen and holds the strip there until it leaves
+  // a keyboard's focus brings its pane to the middle of the screen and holds the strip there until it leaves. A
+  // finger's does not (works/reel.ts focusCentres): a tap focuses the link it presses, and a pane moved from under
+  // the finger ended the press on the next pane, so no film opened
+  const focusShown = (t: EventTarget | null): boolean => {
+    try { return !(t instanceof Element) || t.matches(':focus-visible'); } catch { return true; } // (a browser that cannot say: a keyboard's)
+  };
   root.addEventListener('focusin', (e) => {
     const li = (e.target as Element).closest<HTMLLIElement>('.rl-frame');
     const i = li ? strip.panes.indexOf(li) : -1;
     if (i < 0) return;
+    if (!focusCentres(focusShown(e.target), performance.now() - fingerAt)) return;
     hold();
     sleep();
     pinned = true;

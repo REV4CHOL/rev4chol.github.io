@@ -137,6 +137,17 @@ export function offsetForPlace(pane: number, part: number, unit: number, view: n
   if (pane < 0 || pane >= units.length) return 0;
   return (places(units)[pane] + part * units[pane]) * unit - view / 2;
 }
+/** A focus that lands on a pane within this long of a finger's landing or lift is the finger's own, ms. */
+export const FOCUS_AFTER_FINGER_MS = 700;
+/** Whether a focus that lands on a pane brings that pane to the middle of the screen (and holds the strip there): a
+ *  keyboard's does. A finger's never: in Chrome a tap gives the film's link the focus before its click, and a pane
+ *  moved from under the finger then ended the press on the next pane, so the click belonged to neither link and no
+ *  film opened (every tap in the lower or the upper quarter of the screen; found 2026-11-25). `shown`: the browser
+ *  shows the focus (`:focus-visible`, a keyboard's); `sinceFinger`: ms since a finger last landed on the strip or
+ *  left it. */
+export function focusCentres(shown: boolean, sinceFinger: number): boolean {
+  return shown && sinceFinger > FOCUS_AFTER_FINGER_MS;
+}
 /** The offset that brings a pane (at `place`, `u` units tall) to the middle of the screen, on the lap nearest `current`:
  *  a pane as tall as the screen stands square in it. */
 export function offsetForPane(place: number, u: number, unit: number, view: number, total: number, current: number): number {
