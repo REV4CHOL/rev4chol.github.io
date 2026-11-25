@@ -341,7 +341,7 @@
    and bio opening and CONTACT's line follow). Same face, size and weight; only the slant is gone. */
 .p-synopsis {
   position: relative; z-index: 2; margin: 0;
-  font-family: var(--f-serif); font-size: var(--t-lg);
+  font-family: var(--f-text); font-weight: 400; font-variation-settings: 'opsz' 20; font-size: var(--t-lg); /* (Source Serif 4: owner, 2026-11-25; tokens.css) */
   line-height: 1.5; max-width: 58ch; color: var(--bone);
 }
 

@@ -50,8 +50,9 @@
 }
 .c-copy:hover { background: var(--alert); color: var(--void); }
 .c-copy.is-done { background: var(--signal); border-color: var(--signal); color: var(--void); }
-.c-vow { /* (upright, as every running line in the serif voice: owner, 2026-11-24; see .p-synopsis) */
-  margin: 0; font-family: var(--f-serif);
+.c-vow { /* (a running line: the text voice, upright: owner, 2026-11-25; see .p-synopsis). Optical size 16, its own
+     size, not the 20 of the larger lines: at 16 px the text cut stands a little wider and sturdier, judged side by side */
+  margin: 0; font-family: var(--f-text); font-weight: 400; font-variation-settings: 'opsz' 16;
   font-size: var(--t-md); color: rgba(237, 237, 230, 0.8);
 }
 

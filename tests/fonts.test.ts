@@ -92,9 +92,9 @@ describe('the site draws every letter in its own type', () => {
     for (const p of films) expect(missing(p.title, display), p.slug).toEqual([]);
   });
 
-  it('every synopsis, in the serif voice', () => {
-    const serif = drawable('f-serif');
-    for (const p of films) expect(missing(p.synopsis, serif), p.slug).toEqual([]);
+  it('every synopsis, in the text voice (Source Serif 4 since the owner chose it, 2026-11-25)', () => {
+    const text = drawable('f-text');
+    for (const p of films) expect(missing(p.synopsis, text), p.slug).toEqual([]);
   });
 
   it('sets every film\'s name in the display voice (owner 2026-10-13: "the font for project titles are very hard to read")', () => {
@@ -152,7 +152,9 @@ describe('the site draws every letter in its own type', () => {
 
 // (owner, 2026-11-24, of a film's synopsis: "I dont like this font too hard to read."; shown the line in four faces
 //  they chose "Bodoni upright", and "Everywhere" for the four other lines that stood in the same slanted Bodoni. The
-//  face, its size and its weight stay; only the slant goes.)
+//  face, its size and its weight stay; only the slant goes.) Then, owner 2026-11-25: "Every running line: the synopsis
+//  on every film page, ABOUT's statement and OP: paragraph, and CONTACT's line" moved to the text voice, Source Serif 4
+//  (tests/text-face.test.ts); the homepage's line was not named and keeps the serif voice.
 describe('the running lines stand upright', () => {
   const sheet = (f: string) => readFileSync(fileURLToPath(new URL(`../src/styles/${f}`, import.meta.url)), 'utf8');
   /** Every rule body a stylesheet gives a selector standing alone (".x {", at any indent). */
@@ -166,16 +168,16 @@ describe('the running lines stand upright', () => {
     return out;
   };
   // a film's synopsis, the homepage's line, ABOUT's statement and the opening of its bio, CONTACT's line
-  const LINES: [string, string][] = [
-    ['project.css', '.p-synopsis'], ['components.css', '.home-cta'], ['about.css', '.a-statement'],
-    ['about.css', '.a-bio-lead'], ['contact.css', '.c-vow'],
+  const LINES: [string, string, string][] = [
+    ['project.css', '.p-synopsis', 'f-text'], ['components.css', '.home-cta', 'f-serif'], ['about.css', '.a-statement', 'f-text'],
+    ['about.css', '.a-bio-lead', 'f-text'], ['contact.css', '.c-vow', 'f-text'],
   ];
 
-  it('the five lines keep the serif voice, and none of them is slanted', () => {
-    for (const [file, sel] of LINES) {
+  it('the five lines keep their voice (four in the text voice, the homepage\'s line in the serif), and none of them is slanted', () => {
+    for (const [file, sel, voice] of LINES) {
       const found = rules(sheet(file), sel);
       expect(found.length, sel).toBeGreaterThan(0);
-      expect(found.filter((r) => r.includes('font-family: var(--f-serif)')).length, sel).toBe(1);
+      expect(found.filter((r) => r.includes(`font-family: var(--${voice})`)).length, sel).toBe(1);
       for (const r of found) expect(r, sel).not.toContain('italic');
     }
   });
@@ -193,7 +195,7 @@ describe('the running lines stand upright', () => {
 
   it('the upright faces draw every letter of those lines themselves: no slanted or system face steps in', () => {
     const upright = new Set<number>();
-    for (const fam of stack('f-serif'))
+    for (const fam of stack('f-text'))
       for (const f of faces.filter((x) => x.family === fam && !x.body.includes('font-style: italic')))
         for (const c of codepoints(pub + f.url.slice(1))) upright.add(c);
     const films = parseProjects(parseJson(readFileSync(pub + 'content/projects.json', 'utf8'), 'projects.json'));

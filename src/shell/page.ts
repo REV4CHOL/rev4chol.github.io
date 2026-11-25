@@ -9,6 +9,11 @@ import { mountShell, PageKey, ShellOptions } from './shell';
 
 export interface PageCtx { site: SiteContent; hud: Hud }
 
+// The running text's face (Source Serif 4, owner 2026-11-25) stands on these pages' first screen or close under it,
+// so their boot waits for its Latin file as it waits for the others: the text is never drawn in a stand-in face first
+// and never reflows when the face arrives. Other pages never fetch it.
+const TEXT_FACE_PAGES: PageKey[] = ['project', 'about', 'contact'];
+
 // STALE-DEPLOY SELF-HEAL. Every deploy renames the hashed chunks; a device
 // holding cached HTML (Pages caches everything ~10 min) then 404s its
 // modules and the page dies half-mounted — the visitor sees black + chrome
@@ -48,6 +53,7 @@ export function startPage(
           document.fonts.load('400 1rem "Bodoni Moda"'),
           document.fonts.load('400 1rem "Geist Mono"'),
           document.fonts.load('400 1rem "Martian Mono"'),
+          ...(TEXT_FACE_PAGES.includes(active) ? [document.fonts.load('400 1rem "Source Serif 4"')] : []),
         ]),
     },
     ...extraTasks,
