@@ -639,20 +639,8 @@
 .p-still.revealed canvas { opacity: 0; }
 .rvl-calm .p-still canvas { transition: none; }
 
-/* corner ticks inset on every frame — same grammar as the floor tiles */
-.p-still::after {
-  content: ''; position: absolute; inset: 12px; z-index: 2; pointer-events: none;
-  background:
-    linear-gradient(var(--signal), var(--signal)) 0 0 / 16px 1.5px,
-    linear-gradient(var(--signal), var(--signal)) 0 0 / 1.5px 16px,
-    linear-gradient(var(--signal), var(--signal)) 100% 0 / 16px 1.5px,
-    linear-gradient(var(--signal), var(--signal)) 100% 0 / 1.5px 16px,
-    linear-gradient(var(--signal), var(--signal)) 0 100% / 16px 1.5px,
-    linear-gradient(var(--signal), var(--signal)) 0 100% / 1.5px 16px,
-    linear-gradient(var(--signal), var(--signal)) 100% 100% / 16px 1.5px,
-    linear-gradient(var(--signal), var(--signal)) 100% 100% / 1.5px 16px;
-  background-repeat: no-repeat; opacity: 0.55;
-}
+/* (no viewfinder on a still: its corner ticks are gone, on every wall and screen. Owner,
+   2026-11-25: "Website-wide: Remove all camera frame viewfinders from the stills in film's pages in all platforms.") */
 
 /* hover: a gentle push-in — the machine leans closer. The footage itself
    stays clean: no scanlines, no grain anywhere on the wall (the global
