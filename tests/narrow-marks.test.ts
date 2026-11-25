@@ -47,6 +47,7 @@ const LAYOUT = [
   'project.css layout @media (max-width: 760px) and (pointer: coarse)',
   'project.css layout @media (max-width: 760px) and (pointer: coarse)',
   'project.css layout @media (min-width: 1100px), (pointer: fine)',
+  'project.css layout @media (max-width: 760px) and (pointer: coarse)', // the private film's notice on a phone
 ];
 
 describe('every pointer-gated block says what a narrow PC window does with it', () => {
@@ -59,7 +60,7 @@ describe('every pointer-gated block says what a narrow PC window does with it', 
     }
   });
 
-  it('the layout blocks are these, in this order (27: 18 at 641 px and up, 9 for a window under 641)', () => {
+  it('the layout blocks are these, in this order (28)', () => {
     expect(marks.filter((m) => m.includes(' layout '))).toEqual(LAYOUT);
   });
 

@@ -851,6 +851,7 @@
   .p-private, .p-pending { grid-column: 1; grid-row: 2; justify-self: start; }
 }
 /* a phone: the notice a step smaller, so its words break in two lines, not four */
+/* narrow: layout */
 @media (max-width: 760px) and (pointer: coarse) {
   .p-private { font-size: var(--t-xs); padding: 13px 16px 13px 28px; letter-spacing: 0.16em; }
 }
