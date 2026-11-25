@@ -301,6 +301,10 @@
 .a-bar-cap { flex: none; letter-spacing: 0.2em; }
 .a-bar[data-kind='c'] .a-bar-cap { color: var(--alert); }
 .a-bar[data-kind='t'] .a-bar-cap { color: color-mix(in srgb, var(--field) 60%, var(--bone) 40%); }
+/* a counter is never shown cut (the review's walkthroughs, 2026-11-25: "CRE ▪ 01/" at every desktop size): where any
+   counter of the rack would pass its bar's edge, the page marks the rack bare and it drops them all (pages/about.ts,
+   about/rack.ts), so the rack stays uniform hardware and the names keep their size */
+.a-rack.is-bare .a-bar-cap { display: none; }
 /* (a skill row no longer fills under the pointer: it is not a link, and the fill is what the site's real links do;
    the review's walkthroughs, 2026-09-30, both pressed the rows) */
 

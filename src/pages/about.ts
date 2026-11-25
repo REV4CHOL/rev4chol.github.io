@@ -4,6 +4,7 @@ import { escapeHtml } from '../lib/escape';
 import { scrambleEl } from '../lib/scramble';
 import { armStamps } from '../lib/stamps';
 import { capabilitiesFromTagline, portraitCandidates } from '../about/operator';
+import { rackKeepsCaps } from '../about/rack';
 import { armPosterLock, posterZoom } from '../lib/poster-lock';
 import { armGlideNav, navNeighbors } from '../lib/swipe-nav';
 import { holePad, holeProps, holeRect } from '../project/holes';
@@ -142,6 +143,7 @@ function render(site: SiteContent, about: AboutContent): void {
       ${bank('c', 'CREATIVE', about.skills.creative)}
       ${bank('t', 'TECHNICAL', about.skills.technical)}
     </div>`;
+    armRackCaps(capsEl.querySelector<HTMLElement>('.a-rack')!);
   } else {
     capsEl.innerHTML = caps
       .map((c, i) => `<span class="a-chip" data-stamp><em>${pad2(i + 1)}</em> ▸ ${escapeHtml(c)}</span>`)
@@ -164,6 +166,34 @@ function render(site: SiteContent, about: AboutContent): void {
     `<span>EOF ▪ P·OP/01 ▪ ${escapeHtml(site.name.toUpperCase())}</span>`;
 
   armStamps();
+}
+
+/** The rack's counters show only where every one stands whole (about/rack.ts): judged when the rack is built, when the
+ *  fonts arrive (the names' widths change) and when the window changes. Each judgement shows the counters first, so
+ *  they are measured where they would stand; the bars' padding and border are plate px under the poster lock, their
+ *  boxes viewport px, hence the zoom. */
+function armRackCaps(rack: HTMLElement): void {
+  const judge = () => {
+    rack.classList.remove('is-bare');
+    rack.style.width = '';
+    const z = posterZoom();
+    // (the rack is sized by its contents, counters included: a bare rack keeps the width it had with them, so only the
+    // counters leave and nothing else moves)
+    const width = rack.getBoundingClientRect().width / z;
+    const rows = [...rack.querySelectorAll<HTMLElement>('.a-bar')].flatMap((bar) => {
+      const c = bar.querySelector<HTMLElement>('.a-bar-cap')?.getBoundingClientRect();
+      if (!c || c.width === 0) return []; // (dropped by the styles: a phone, a wide tablet)
+      const cs = getComputedStyle(bar);
+      const inset = (parseFloat(cs.paddingRight) + parseFloat(cs.borderRightWidth)) * z;
+      return [{ capRight: c.right, edge: bar.getBoundingClientRect().right - inset }];
+    });
+    const bare = !rackKeepsCaps(rows);
+    rack.classList.toggle('is-bare', bare);
+    if (bare) rack.style.width = `${width}px`;
+  };
+  judge();
+  void document.fonts?.ready?.then(judge);
+  window.addEventListener('resize', judge);
 }
 
 /** THE PORTRAIT AS IT IS (owner, 2026-11-25: "remove the effect on the picture in about section"). The photograph is
