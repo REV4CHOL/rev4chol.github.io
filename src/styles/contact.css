@@ -113,3 +113,9 @@
   .c-callout { flex-direction: row; }
   .cc-line::before { right: auto; left: -2px; }
 }
+
+/* THE CUE ON THIS PAGE (the review's walkthroughs, 2026-11-25): the console is a little taller than a phone's or a
+   short laptop's screen, so the cue's plain scroll hint at the top stood on its own lines (the chevron on RESPONSE,
+   on the vow; SCROLL DOWN on the EOF line). Here the cue shows only where a swipe or a scroll leaves for STORY: at the
+   console's end, where the EOF line's 96 px foot gives it room (and on a screen the console fits). */
+.page-contact .swipe-cue[data-state="scroll"] { opacity: 0; pointer-events: none; }

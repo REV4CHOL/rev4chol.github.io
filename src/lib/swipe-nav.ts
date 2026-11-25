@@ -47,6 +47,14 @@ export function navNeighbors(
   return { prev: nav[i - 1] ?? null, next: nav[i + 1] ?? null };
 }
 
+/** May a swipe in `dir` leave a page that scrolls? Only at that end of its own length (6 px of slack): onward once
+ *  it is scrolled to its foot, back from its top. A page that fits its screen is at both ends at once. (The review's
+ *  walkthroughs, 2026-11-25: CONTACT armed the glide with no such check, so on a phone every swipe up dragged it
+ *  toward STORY and its lower part could never be scrolled to.) */
+export function scrollEdge(dir: 1 | -1, scrollTop: number, viewH: number, scrollH: number): boolean {
+  return dir > 0 ? scrollTop + viewH >= scrollH - 6 : scrollTop <= 6;
+}
+
 /** What the cue at the screen's foot says (the review's walkthroughs, 2026-09-30: "SCROLL DOWN ▾ CONTACT" stood over the ABOUT
  *  page from its first screen to its last, printed across the text being read, and at the top it named a page a
  *  scroll would not yet reach):

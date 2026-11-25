@@ -5,7 +5,7 @@ import { scrambleEl } from '../lib/scramble';
 import { sound } from '../lib/sound';
 import { armPosterLock } from '../lib/poster-lock';
 import { armStamps } from '../lib/stamps';
-import { armGlideNav, navNeighbors } from '../lib/swipe-nav';
+import { armGlideNav, navNeighbors, scrollEdge } from '../lib/swipe-nav';
 import { hashSlug } from '../project/dossier';
 import { startPage } from '../shell/page';
 import '../styles/contact.css';
@@ -16,8 +16,13 @@ startPage('contact', ({ site }) => {
   // the console is a fixed 1440px plate — zoom and window width scale it as
   // one poster, they never reflow it (owner decree: benchmark 100% only)
   armPosterLock();
-  // end of the chain: thumb-glide down returns to the page before CONTACT
-  armGlideNav(navNeighbors(site.nav, location.pathname));
+  // the console is taller than a phone's screen (and a short laptop's), so the glide arms only at the respective end
+  // of its scroll, as on ABOUT: a thumb scrolls the page first, and only at its foot does a swipe go on to STORY
+  const se = document.scrollingElement ?? document.documentElement;
+  armGlideNav({
+    ...navNeighbors(site.nav, location.pathname),
+    allow: (dir) => scrollEdge(dir, se.scrollTop, window.innerHeight, se.scrollHeight),
+  });
 
   void scrambleEl(document.getElementById('c-status-line')!, 'UPLINK :: CHANNEL OPEN // AWAITING SIGNAL', 900);
 

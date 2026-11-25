@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { classifySwipe, glideCommit, navNeighbors } from '../src/lib/swipe-nav';
+import { readFileSync } from 'node:fs';
+import { classifySwipe, glideCommit, navNeighbors, scrollEdge } from '../src/lib/swipe-nav';
 
 // dx/dy are net pointer travel in px (screen coords: up is negative dy), dtMs gesture duration.
 describe('classifySwipe — the calm-mode swipe gesture', () => {
@@ -86,5 +87,32 @@ describe('navNeighbors — the page chain comes from nav order', () => {
     const n = navNeighbors(nav, '/project.html');
     expect(n.prev).toBeNull();
     expect(n.next).toBeNull();
+  });
+});
+
+// The review's walkthroughs (2026-11-25): on a phone CONTACT's lower part (FREQ, the AUX CHANNELS row) could never be
+// scrolled to: the page armed the glide with no boundary check, so every swipe up dragged the page toward STORY. A page
+// that scrolls hands a direction to the glide only at that end of its own length, as ABOUT does.
+describe('scrollEdge: a page that scrolls passes a swipe on only at its end', () => {
+  it('a page taller than the screen, at its top: onward is not yet allowed, back is', () => {
+    expect(scrollEdge(1, 0, 668, 870)).toBe(false);
+    expect(scrollEdge(-1, 0, 668, 870)).toBe(true);
+  });
+
+  it('scrolled to its end (within 6 px): onward is allowed, back is not', () => {
+    expect(scrollEdge(1, 202, 668, 870)).toBe(true);
+    expect(scrollEdge(1, 196, 668, 870)).toBe(true);
+    expect(scrollEdge(1, 195, 668, 870)).toBe(false);
+    expect(scrollEdge(-1, 202, 668, 870)).toBe(false);
+  });
+
+  it('a page that fits its screen allows both ways at once', () => {
+    expect(scrollEdge(1, 0, 900, 900)).toBe(true);
+    expect(scrollEdge(-1, 0, 900, 900)).toBe(true);
+  });
+
+  it('CONTACT arms the glide with that check (it was armed with none)', () => {
+    const src = readFileSync('src/pages/contact.ts', 'utf8');
+    expect(src).toMatch(/armGlideNav\(\{[\s\S]*?allow: \(dir\) => scrollEdge\(dir, /);
   });
 });
