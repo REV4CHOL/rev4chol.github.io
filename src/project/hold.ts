@@ -14,6 +14,7 @@
  *  This is the one time the page paints over the player (the owner's choice, 2026-11-25). */
 
 import type { PartInfo } from './parts';
+import { isAndroid } from './frame-size';
 
 /** the longest wait for the level to rise */
 export const HOLD_MS = 10000;
@@ -36,11 +37,14 @@ export function levelRank(q: string | null | undefined): number {
 }
 const named = (q: string | null): string | null => (levelRank(q) >= 0 ? q : null);
 
-/** Where the hold runs: Chrome's engine, where it was measured. Safari and Firefox start as before (not proven there:
- *  whether a film loaded again plays, and with its sound, without a new press); `?hold=1` turns it on anywhere, to
- *  try it on a screen that could not be measured. (Android and the iPhone keep YouTube's own player: frame-size.ts.) */
+/** Where the hold runs: Chrome's engine ON A PC, where it was measured. Safari and Firefox start as before (not proven
+ *  there: whether a film loaded again plays, and with its sound, without a new press). Android names its browser
+ *  Chrome too, and has had the site's player since 2026-11-25 (frame-size.ts, frameTarget), but the hold was never run
+ *  there and its frame stands at the box's own size: an Android phone or tablet never holds. `?hold=1` turns it on
+ *  anywhere, to try it on a screen that could not be measured. (The iPhone keeps YouTube's own player.) */
 export function holdWanted(userAgent: string, search = ''): boolean {
   if (/[?&]hold=1(&|$)/.test(search)) return true;
+  if (isAndroid(userAgent)) return false;
   return /\bChrome\/\d/.test(userAgent);
 }
 

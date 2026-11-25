@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { bigFrame, bigFrameWanted, fullscreenApi, isAndroid, plainReason, TARGET_PX } from '../src/project/frame-size';
+import { bigFrame, bigFrameWanted, frameTarget, fullscreenApi, isAndroid, plainReason, TARGET_PX } from '../src/project/frame-size';
 
 // The owner, 2026-11-24: "force all video players on the website to start at 2160p when watch". No address parameter or
 // player command does it (measured headless: vq=, hd=1, setPlaybackQuality, setPlaybackQualityRange, loadVideoById's
@@ -152,9 +152,10 @@ describe('when the big frame is used', () => {
   const PC = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36';
   const IPAD = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15';
   const ANDROID = 'Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+  const ANDROID_PHONE = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36';
   const ok = { youtube: true, fullscreen: true, userAgent: PC };
 
-  it('a YouTube film, on a screen that can take an element fullscreen, not Android', () => {
+  it('a YouTube film, on a screen that can take an element fullscreen', () => {
     expect(bigFrameWanted(ok)).toBe(true);
     expect(bigFrameWanted({ ...ok, userAgent: IPAD })).toBe(true);
   });
@@ -167,10 +168,26 @@ describe('when the big frame is used', () => {
     expect(bigFrameWanted({ ...ok, fullscreen: false })).toBe(false);
   });
 
-  it('Android gains nothing (its player stayed at 480p whatever the size, measured)', () => {
+  // (owner, 2026-11-25: "also why can't our custom Player go to Phone? Like the other platforms?"; told the reasons,
+  //  they chose "Android only". An iPhone has no element fullscreen and keeps YouTube's own player, above.)
+  it("Android gets the site's player too, a phone and a tablet alike", () => {
     expect(isAndroid(ANDROID)).toBe(true);
+    expect(isAndroid(ANDROID_PHONE)).toBe(true);
     expect(isAndroid(PC)).toBe(false);
-    expect(bigFrameWanted({ ...ok, userAgent: ANDROID })).toBe(false);
+    expect(isAndroid(IPAD)).toBe(false);
+    expect(bigFrameWanted({ ...ok, userAgent: ANDROID })).toBe(true);
+    expect(bigFrameWanted({ ...ok, userAgent: ANDROID_PHONE })).toBe(true);
+    // (an Android browser without element fullscreen keeps YouTube's own, like an iPhone)
+    expect(plainReason({ ...ok, userAgent: ANDROID_PHONE, fullscreen: false })).toBe('NO ELEMENT FULLSCREEN HERE');
+  });
+
+  // Android's player stayed at 480p whatever the big frame's size (measured on the tablet profile, 2160 laid out): a
+  // frame of 3840 px there costs a phone memory and data for nothing, so its frame stands at the box's own size
+  it("Android's frame stands at the box's own size; every other screen keeps the big frame", () => {
+    expect(frameTarget(ANDROID)).toBe('box');
+    expect(frameTarget(ANDROID_PHONE)).toBe('box');
+    expect(frameTarget(PC)).toBe('big');
+    expect(frameTarget(IPAD)).toBe('big');
   });
 
   // (owner, 2026-11-24: "I saw the player on PC for a time, and now it dissapeared, and YouTube player is appearing
@@ -186,7 +203,7 @@ describe('when the big frame is used', () => {
     expect(plainReason(ok)).toBeNull();
     expect(plainReason({ ...ok, youtube: false })).toBe('NOT A YOUTUBE FILM');
     expect(plainReason({ ...ok, fullscreen: false })).toBe('NO ELEMENT FULLSCREEN HERE');
-    expect(plainReason({ ...ok, userAgent: ANDROID })).toBe('ANDROID');
+    expect(plainReason({ ...ok, userAgent: ANDROID })).toBeNull();
     for (const g of [ok, { ...ok, youtube: false }, { ...ok, fullscreen: false }, { ...ok, userAgent: ANDROID }]) {
       expect(bigFrameWanted(g)).toBe(plainReason(g) === null);
     }

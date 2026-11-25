@@ -17,10 +17,13 @@
  *  - The bar is trusted only once the player has answered the page; a player silent HANDSHAKE_MS after its load,
  *    counted only while the page is seen, is swapped for the plain frame with YouTube's own controls (Safari and
  *    every browser that could not be tested). That swap is the ONLY way a film that got this player loses it, and it
- *    writes its reason into the player's record (lib/player-record.ts: the readout's PLAYER line). */
+ *    writes its reason into the player's record (lib/player-record.ts: the readout's PLAYER line).
+ *  - ANDROID (owner, 2026-11-25: "also why can't our custom Player go to Phone? Like the other platforms?"; told the
+ *    reasons, they chose "Android only"): the same bar, over a frame at the box's own size (`controls=0`, scale 1: the
+ *    big frame bought no higher level there; frame-size.ts, frameTarget), and no hold. */
 
 import type { PartInfo, Programme } from './parts';
-import { bigFrame } from './frame-size';
+import { bigFrame, FrameFit, FrameTarget, isAndroid } from './frame-size';
 import { Hold, holdAsked, holdCommands, holdNext, holdSaid, holdSee, holdStart, holdWanted, silenceLeft, silenceNote } from './hold';
 import type { PlayerRecord } from '../lib/player-record';
 import { posterZoom } from '../lib/poster-lock';
@@ -212,6 +215,13 @@ export function fullWords(on: boolean): { aria: string; icon: string; word: stri
   return on ? { aria: 'Exit fullscreen', icon: 'exit', word: 'EXIT' } : { aria: 'Fullscreen', icon: 'full', word: 'FULLSCREEN' };
 }
 
+/** The orientation a film in fullscreen asks of a touch screen (a design call, 2026-11-25): its own shape, a vertical
+ *  film upright, every other on its side; null with a mouse (a desktop has no turn to ask for). */
+export function lockFor(ratio: number, coarse: boolean): 'landscape' | 'portrait' | null {
+  if (!coarse) return null;
+  return ratio < 1 ? 'portrait' : 'landscape';
+}
+
 /** The seek track's keys: the arrows step SEEK_STEP s, Home and End go to the ends; null for any other key. */
 export const SEEK_STEP = 5;
 export function seekTo(key: string, time: number, duration: number): number | null {
@@ -293,6 +303,8 @@ export interface BigFilm {
   ratio: number;
   /** the player's record (lib/player-record.ts): its state and its frame, for the readout */
   record: PlayerRecord | null;
+  /** what the frame is fitted to: the big frame, or the box's own size (Android: frame-size.ts, frameTarget) */
+  target: FrameTarget;
 }
 
 type FsDoc = Document & { webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => void };
@@ -305,15 +317,22 @@ const fsElement = (): Element | null => document.fullscreenElement ?? (document 
  *  fullscreen on a 4K screen). A box
  *  without a size is left alone (a tab not laid out yet, a hidden section): the box is watched, and the frame is
  *  fitted the moment it has one. Returns the layout in the readout's words, null for a box without a size. */
-function fitFrame(pic: HTMLElement, frame: HTMLIFrameElement, ratio: number): string | null {
+function fitFrame(pic: HTMLElement, frame: HTMLIFrameElement, ratio: number, target: FrameTarget): string | null {
   // plate px (clientWidth): under the poster lock a box's own px hold still while the window zooms the plate
   const w = pic.clientWidth, h = pic.clientHeight;
   if (!w || !h) return null;
-  const f = bigFrame({ width: w, height: h }, window.devicePixelRatio || 1, posterZoom(), ratio);
+  // (Android: never the big frame; the frame stands at the box's own size, scale 1)
+  const f = target === 'box' ? null : bigFrame({ width: w, height: h }, window.devicePixelRatio || 1, posterZoom(), ratio);
   frame.style.width = `${f ? f.width : w}px`;
   frame.style.height = `${f ? f.height : h}px`;
   frame.style.transform = f ? `scale(${f.scale})` : '';
-  return f ? `FRAME ${Math.round(f.width)} × ${Math.round(f.height)} AT ${f.scale.toFixed(2)}` : `FRAME ${w} × ${h} AT ITS OWN SIZE`;
+  return fitSaid(f, w, h, target);
+}
+/** The frame's layout in the record's words: the big frame and its scale; its own size (a box grown past the big
+ *  frame's rule); or, on Android, the box's own size. */
+export function fitSaid(f: FrameFit | null, w: number, h: number, target: FrameTarget): string {
+  if (f) return `FRAME ${Math.round(f.width)} × ${Math.round(f.height)} AT ${f.scale.toFixed(2)}`;
+  return target === 'box' ? `FRAME ${w} × ${h} AT THE BOX'S OWN SIZE (ANDROID: NO BIG FRAME)` : `FRAME ${w} × ${h} AT ITS OWN SIZE`;
 }
 const NO_SIZE = 'ITS BOX HAS NO SIZE YET';
 
@@ -321,9 +340,12 @@ const NO_SIZE = 'ITS BOX HAS NO SIZE YET';
  *  stands: a box without a size yet, or one that needs no larger frame, keeps the site's player all the same (until
  *  2026-11-24 it gave the film YouTube's own player for the whole visit: measured, a page loaded in a tab that was
  *  not laid out yet). */
-export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { plainSrc: string; accent: string; ratio: number; record?: PlayerRecord | null; poster?: string }): BigFilm {
+export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { plainSrc: string; accent: string; ratio: number; record?: PlayerRecord | null; poster?: string; target?: FrameTarget }): BigFilm {
+  const target = opts.target ?? 'big';
   const root = document.createElement('div');
   root.className = 'p-film';
+  // (Android: the frame at the box's own size, and the narrow bar's own rules in project.css)
+  if (target === 'box') root.classList.add('p-film--box');
   root.dataset.phase = 'waiting';
   root.style.setProperty('--film-acc', opts.accent);
   const pic = document.createElement('div');
@@ -367,9 +389,9 @@ export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { pl
   root.append(pic, bar);
   host.append(root);
   const record = opts.record ?? null;
-  const said = fitFrame(pic, frame, opts.ratio);
+  const said = fitFrame(pic, frame, opts.ratio, target);
   if (record) record.frame = said ?? NO_SIZE;
-  return { root, pic, frame, mark, catcher, hold, bar, plainSrc: opts.plainSrc, ratio: opts.ratio, record };
+  return { root, pic, frame, mark, catcher, hold, bar, plainSrc: opts.plainSrc, ratio: opts.ratio, record, target };
 }
 
 /** Wire a big film's bar to the programme: the frame's fit, the handshake, the presses, the keys, fullscreen. */
@@ -383,7 +405,7 @@ export function armBar(film: BigFilm, programme: Programme): void {
   // THE FIT: the box is watched (the page's reflows, fullscreen) and so is the window (the poster lock's zoom, a move
   // to a screen of another pixel ratio, which leave the box's own px as they were)
   const fit = () => {
-    const said = fitFrame(pic, frame, film.ratio);
+    const said = fitFrame(pic, frame, film.ratio, film.target);
     if (record && record.kind === 'site') record.frame = said ?? NO_SIZE;
   };
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null;
@@ -420,7 +442,9 @@ export function armBar(film: BigFilm, programme: Programme): void {
   try { notes = window.localStorage; } catch { /* no note */ }
   // a hold of an earlier visit that ended without giving the sound back: given back as this player answers
   let soundOwed = holds && silenceLeft(notes);
-  if (record && record.kind === 'site') record.hold = holds ? 'HOLDS ITS FIRST START' : 'NO HOLD IN THIS BROWSER';
+  if (record && record.kind === 'site') {
+    record.hold = holds ? 'HOLDS ITS FIRST START' : isAndroid(navigator.userAgent) ? 'NO HOLD ON ANDROID' : 'NO HOLD IN THIS BROWSER';
+  }
 
   // a button is written only when what it says changes: rewritten under a press (the time runs four times a second),
   // the press's target left the page between its down and its up, and the click was lost (measured)
@@ -639,8 +663,27 @@ export function armBar(film: BigFilm, programme: Programme): void {
       if (fs() && view.phase === 'playing' && !bar.querySelector(':focus-visible')) root.classList.add('p-film--idle');
     }, IDLE_MS);
   };
+  // THE DEVICE TURNS WITH THE FILM: on a touch screen, a film gone fullscreen asks for its own orientation (lockFor),
+  // and gives it back on the way out; a browser that refuses (an iPad, most desktops) is never asked twice for an answer
+  let locked = false;
+  const turnFor = (on: boolean) => {
+    type Orient = { lock?: (o: string) => Promise<void>; unlock?: () => void };
+    const o = (typeof screen !== 'undefined' ? screen.orientation : undefined) as Orient | undefined;
+    try {
+      if (on) {
+        const want = lockFor(film.ratio, typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
+        if (!want || !o?.lock) return;
+        locked = true;
+        void Promise.resolve(o.lock(want)).catch(() => {});
+      } else if (locked) {
+        locked = false;
+        o?.unlock?.();
+      }
+    } catch { /* refused: the device stays as the visitor holds it */ }
+  };
   const onFs = () => {
     root.classList.toggle('p-film--fs', fs());
+    turnFor(fs());
     fit();
     paint();
     wake();
@@ -785,6 +828,7 @@ export function armBar(film: BigFilm, programme: Programme): void {
     clearInterval(ticker);
     clearTimeout(idleTimer);
     if (fs()) toggleFull();
+    turnFor(false);
     frame.classList.remove('p-frame--big');
     frame.removeAttribute('style');
     frame.removeAttribute('data-covered');

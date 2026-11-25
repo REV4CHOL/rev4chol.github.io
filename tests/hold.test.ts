@@ -24,6 +24,8 @@ const PC = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const EDGE = `${PC} Edg/142.0.0.0`;
 const IPAD = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15';
 const FIREFOX = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0';
+const ANDROID_PHONE = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36';
+const ANDROID_TAB = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36';
 
 const info = (over: Partial<PartInfo> = {}): PartInfo => ({ ...NO_INFO, started: true, state: 1, ...over });
 
@@ -39,11 +41,20 @@ describe('where the hold runs', () => {
     expect(holdWanted(FIREFOX)).toBe(false);
   });
 
+  // (Android Chrome names itself Chrome too; the site's player came to Android on 2026-11-25, owner: "Android only".
+  //  The hold was only ever run in Chrome on a PC: an Android phone or tablet never holds)
+  it('not Android, though its browser is Chrome', () => {
+    expect(holdWanted(ANDROID_PHONE)).toBe(false);
+    expect(holdWanted(ANDROID_TAB)).toBe(false);
+    expect(holdWanted(ANDROID_PHONE, '?p=katara')).toBe(false);
+  });
+
   it('`?hold=1` turns it on anywhere, to try it on a screen that could not be measured', () => {
     expect(holdWanted(IPAD, '?p=katara&hold=1')).toBe(true);
     expect(holdWanted(IPAD, '?hold=1')).toBe(true);
     expect(holdWanted(IPAD, '?p=katara&hold=10')).toBe(false);
     expect(holdWanted(IPAD, '?p=hold=1x')).toBe(false);
+    expect(holdWanted(ANDROID_PHONE, '?p=katara&hold=1')).toBe(true);
   });
 });
 

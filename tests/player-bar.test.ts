@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { barView, captionCommand, fullWords, handshake, HANDSHAKE_MS, knownTrack, levelLabel, loadedBand, phaseOf, seekTo, STALE_MS, staleAfterSeek, stillStale, timeText, volumeCommands, volumeKey } from '../src/project/player-bar';
+import { barView, captionCommand, fitSaid, fullWords, handshake, HANDSHAKE_MS, knownTrack, levelLabel, loadedBand, lockFor, phaseOf, seekTo, STALE_MS, staleAfterSeek, stillStale, timeText, volumeCommands, volumeKey } from '../src/project/player-bar';
 import { GREETING_MS, GREETINGS, mergeInfo, NO_INFO, ytInfo } from '../src/project/parts';
 import { embedSrc } from '../src/lib/embeds';
 
@@ -476,5 +476,49 @@ describe("the keyboard's way to PLAY", () => {
   it('a plain frame (a phone, a film that is not YouTube, a fallback) is never taken out of the Tab order', () => {
     const page = readFileSync('src/pages/project.ts', 'utf8');
     expect(page).not.toMatch(/tabIndex\s*=\s*-1|tabindex/);
+  });
+});
+
+// ANDROID (owner, 2026-11-25: "also why can't our custom Player go to Phone? Like the other platforms?"; told the reasons,
+// they chose "Android only"). The site's bar over a frame at the box's own size (frame-size.ts, frameTarget).
+describe("Android's player", () => {
+  it("the record says what frame stands: the big one, its own size, or the box's own size on Android", () => {
+    expect(fitSaid({ width: 3840, height: 2159.9, scale: 0.3, rows: 2160, shown: 648 }, 1184, 666, 'big')).toBe('FRAME 3840 × 2160 AT 0.30');
+    expect(fitSaid(null, 3840, 2160, 'big')).toBe('FRAME 3840 × 2160 AT ITS OWN SIZE');
+    expect(fitSaid(null, 380, 214, 'box')).toBe("FRAME 380 × 214 AT THE BOX'S OWN SIZE (ANDROID: NO BIG FRAME)");
+  });
+
+  it('the frame is fitted by its target: on Android never the big frame', () => {
+    const bar = readFileSync('src/project/player-bar.ts', 'utf8');
+    expect(bar).toMatch(/const f = target === 'box' \? null : bigFrame\(/);
+  });
+
+  it('the page gives each big film its target, decided once at mount from the browser', () => {
+    const page = readFileSync('src/pages/project.ts', 'utf8');
+    expect(page).toContain('target: frameTarget(navigator.userAgent)');
+  });
+
+  // a design call (the coordinating session's, 2026-11-25): in fullscreen on a touch screen the device is asked to turn
+  // to the film's own shape; a refusal (an iPad, a desktop, a browser without it) is swallowed
+  it("fullscreen on a touch screen asks for the film's own orientation; never on a mouse", () => {
+    expect(lockFor(16 / 9, true)).toBe('landscape');
+    expect(lockFor(3 / 2, true)).toBe('landscape');
+    expect(lockFor(2.39, true)).toBe('landscape');
+    expect(lockFor(9 / 16, true)).toBe('portrait');
+    expect(lockFor(1, true)).toBe('landscape');
+    expect(lockFor(16 / 9, false)).toBeNull();
+    expect(lockFor(9 / 16, false)).toBeNull();
+  });
+
+  it("the narrow bar's own rules stand only under the Android frame's class: a PC's and an iPad's bar are untouched", () => {
+    const bar = readFileSync('src/project/player-bar.ts', 'utf8');
+    expect(bar).toContain("if (target === 'box') root.classList.add('p-film--box');");
+    const css = readFileSync('src/styles/project.css', 'utf8');
+    const block = css.slice(css.indexOf('/* ANDROID'), css.indexOf('/* FULLSCREEN'));
+    expect(block.length).toBeGreaterThan(0);
+    const selectors = block.replace(/\/\*[\s\S]*?\*\//g, '').match(/[^{}]+(?=\{)/g) ?? [];
+    for (const sel of selectors.map((x) => x.trim()).filter((x) => !x.startsWith('@'))) {
+      for (const one of sel.split(',')) expect(one.trim().startsWith('.p-film--box')).toBe(true);
+    }
   });
 });

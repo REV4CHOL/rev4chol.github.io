@@ -61,7 +61,8 @@ export function bigFrame(box: { width: number; height: number }, dpr = 1, zoom =
 export interface BigGates {
   /** the film plays from YouTube (another platform, or the owner's own file, keeps its own player) */
   youtube: boolean;
-  /** an element can go fullscreen (an iPhone has no such thing: it keeps YouTube's own player and its fullscreen) */
+  /** an element can go fullscreen (an iPhone has no such thing: it keeps YouTube's own player and its fullscreen; an
+   *  Android phone has it, and gets the site's player: frameTarget) */
   fullscreen: boolean;
   userAgent: string;
 }
@@ -77,7 +78,6 @@ export interface BigGates {
 export function plainReason(g: BigGates): string | null {
   if (!g.youtube) return 'NOT A YOUTUBE FILM';
   if (!g.fullscreen) return 'NO ELEMENT FULLSCREEN HERE';
-  if (isAndroid(g.userAgent)) return 'ANDROID';
   return null;
 }
 
@@ -85,7 +85,18 @@ export function bigFrameWanted(g: BigGates): boolean {
   return plainReason(g) === null;
 }
 
-/** Android: its YouTube player stayed at 480p whatever the frame's size (measured on the tablet profile, 2160 laid out). */
+/** What the site's player's frame is fitted to: `big`, the big frame above (laid out 2160 device px on its short side
+ *  and scaled down into the box), or `box`, the box's own size at scale 1. ANDROID gets the site's player at the box's
+ *  own size (owner, 2026-11-25: "also why can't our custom Player go to Phone? Like the other platforms?"; told the
+ *  reasons, they chose "Android only"): its YouTube player stayed at 480p whatever the big frame's size (measured on the
+ *  tablet profile, 2160 laid out), so a frame of 3840 px would cost a phone memory and data for nothing. Decided once
+ *  as the player mounts, from the browser alone. Every other screen keeps the big frame exactly as it was. */
+export type FrameTarget = 'big' | 'box';
+export function frameTarget(ua: string): FrameTarget {
+  return isAndroid(ua) ? 'box' : 'big';
+}
+
+/** Android, a phone or a tablet, in any of its browsers. */
 export function isAndroid(ua: string): boolean {
   return /Android/i.test(ua);
 }
