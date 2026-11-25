@@ -39,6 +39,16 @@ describe("the header's veil, on every page", () => {
     expect(z('.hud-tr')).toBeGreaterThan(z('.nav'));
   });
 
+  it("the switch row's own veil stands on touch screens only: a PC keeps its row as it was", () => {
+    // (the review's walkthroughs, 2026-11-25: on a phone and a tablet MUSIC OFF vanished over a bright picture. The
+    // owner's word for STORY's hint, 2026-11-24, was a veil for touch and none on a PC; the row follows it.)
+    expect(c).not.toMatch(/\n\.hud-tr::before \{/);
+    const at = c.indexOf('  .hud-tr::before {');
+    expect(at).toBeGreaterThan(0);
+    expect(c.slice(c.lastIndexOf('\n@media', at), at)).toMatch(/^\n@media \(pointer: coarse\) \{\r?\n$/);
+    expect(c.slice(at, c.indexOf('}', at))).toContain('box-shadow: 0 0 12px 10px rgba(6, 6, 6, 0.85)');
+  });
+
   it("ABOUT's rail tag that travels with its section stops under the veil, not inside it", () => {
     expect(rule(css('about'), '.a-rail-tag')).toContain('top: 136px');
   });

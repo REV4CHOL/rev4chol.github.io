@@ -96,10 +96,13 @@
    never a plate). It is the shadow of a line with no area of its own (the row's middle line): a spread under a blur, so
    it is darkest behind the words, has no step anywhere to read as an edge, and has faded out about 10 px over and
    under the row (the menu stands 10 px over it on a wide tablet). The words keep their size, colour, dimming and place;
-   over the void it is nothing. */
-.hud-tr::before {
-  content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 0; z-index: -1; pointer-events: none;
-  box-shadow: 0 0 12px 10px rgba(6, 6, 6, 0.85);
+   over the void it is nothing. ON TOUCH SCREENS ONLY, where the walkthroughs met it: a PC keeps its row as it was (the
+   owner's word for STORY's hint, 2026-11-24: a veil on touch, none on a PC). */
+@media (pointer: coarse) {
+  .hud-tr::before {
+    content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 0; z-index: -1; pointer-events: none;
+    box-shadow: 0 0 12px 10px rgba(6, 6, 6, 0.85);
+  }
 }
 
 @media (max-width: 640px) and (pointer: coarse) {
