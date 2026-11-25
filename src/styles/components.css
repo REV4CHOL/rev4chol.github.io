@@ -120,7 +120,7 @@
 /* (the b1c91b9-era .home-main counter-scale is DELETED — the poster lock
    owns zoom now, and a stray transform on the poster root was the last
    zoom-machinery relic on the homepage) */
-.hk-spine { font-size: calc(10px * var(--uiz)); right: calc(14px * var(--uiz)); }
+.hk-spine { font-size: calc(10px * var(--uiz)); right: calc(8px * var(--uiz)); } /* (8 px: see .hk-spine below) */
 .hk-ticks {
   right: calc(92px * var(--uiz)); top: calc(96px * var(--uiz));
   width: calc(150px * var(--uiz)); height: calc(10px * var(--uiz));
@@ -315,7 +315,9 @@
 
 /* ---- home corner furniture: the frame is part of the poster ---- */
 .hk-spine {
-  position: fixed; right: 14px; top: 50%; transform: translateY(-50%); z-index: 3;
+  /* 8 px from the edge, not 14 (the review's walkthroughs, 2026-11-25: on an Android tablet the spine's line reached 3 px
+     into MOTION ON): with its own drift (3 px left) its box ends where the switch row's (28 px in) begins, at any size */
+  position: fixed; right: 8px; top: 50%; transform: translateY(-50%); z-index: 3;
   writing-mode: vertical-rl; white-space: nowrap; pointer-events: none;
   font-family: var(--f-micro); font-size: 10px; letter-spacing: 0.32em;
   text-transform: uppercase; color: var(--accent); opacity: 0.6;
@@ -413,7 +415,9 @@
    small-screen clamps (that re-miniaturizes the type the zoom fix restores) */
 @media (max-width: 640px) and (pointer: coarse) {
   .hk-ticks { display: none; }
-  .hk-spine { opacity: 0.35; }
+  /* a phone's switch row reaches 18 px from the edge, so the spine cannot pass beside it: it starts under the row (its
+     foot at 141 px), centred lower on a screen too short for both (the review's walkthroughs, 2026-11-25) */
+  .hk-spine { opacity: 0.35; top: max(50%, 440px); }
   /* the phone poster drops the bottom telemetry (owner decree): no X:Y, no
      timecode, no session id — SFX/MTN top-right stay, they're controls */
   .page-home .hud-bl, .page-home .hud-br { display: none; }
