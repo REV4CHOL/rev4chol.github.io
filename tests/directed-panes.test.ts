@@ -92,12 +92,17 @@ describe('the films as they stand', () => {
   const films = parseProjects(parseJson(src('public/content/projects.json'), 'projects.json'));
   const by = (slug: string) => films.find((f) => f.slug === slug)!;
 
-  it('SODA COAST by REVACHOL, REMNANTS by BERRY, PHILIA with no line', () => {
+  // (PHILIA had nobody on record until the owner named its director, 2026-11-25: "PHILIA: Bá Hương"; a film with
+  //  nobody on record is now a made one: no real film is without a name)
+  it('SODA COAST by REVACHOL, REMNANTS by BERRY, PHILIA by BÁ HƯƠNG, THE FATHER by two names; a film with nobody on record has no line', () => {
     const rows = listGroups(films).flatMap((g) => g.rows);
     const row = (slug: string) => rows.find((r) => r.slug === slug)!;
     expect(row('soda-coast').directed).toBe('DIRECTED BY REVACHOL');
     expect(row('remnants-of-a-dream').directed).toBe('DIRECTED BY BERRY');
-    expect(row('philia').directed).toBe('');
+    expect(row('philia').directed).toBe('DIRECTED BY BÁ HƯƠNG');
+    expect(row('the-father').directed).toBe('DIRECTED BY MINH QUỐC / MYKE');
+    const nobody = { ...by('philia'), slug: 'nobody', director: '' };
+    expect(listGroups([nobody]).flatMap((g) => g.rows)[0].directed).toBe('');
     for (const f of films) {
       expect(roleLine(f), f.slug).not.toMatch(/DIRECTOR(\s|$)/);
       expect(captionMeta(f, true), f.slug).not.toMatch(/DIRECTOR(\s|$)/);

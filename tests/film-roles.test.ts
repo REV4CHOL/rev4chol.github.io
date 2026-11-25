@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { CROSS, crossedHtml } from '../src/lib/cross';
 import { DIRECTED_BY, directedLine, directorOf, rolesShown } from '../src/lib/roles';
 
 // THE ROLES AS THE SITE SHOWS THEM (owner, 2026-11-25: "In many panes and films' page, EDITOR are going before
@@ -55,6 +56,23 @@ describe('who directed a film', () => {
     expect(directorOf(film('Director / Editor', 'BERRY'))).toBe('Revachol / BERRY');
   });
 
+  // (owner, 2026-11-25, of who directed THE FATHER: "Minh Quốc / Myke (the / should always be the icon we already
+  //  designed)": the slash between two names is drawn as the site's red cross, as between two roles: lib/cross.ts)
+  it('two names in the field are parted by the cross wherever the line is drawn, never by a plain slash', () => {
+    const line = directedLine(film('Colorist', 'Minh Quốc / Myke'));
+    expect(line).toBe('DIRECTED BY MINH QUỐC / MYKE');
+    expect(crossedHtml(line)).toBe(`DIRECTED BY MINH <span class="rvl-xp">QUỐC${CROSS}</span><wbr>MYKE`); // (the cross keeps to the word before it)
+    expect(crossedHtml(directorOf(film('Colorist', 'Minh Quốc / Myke')).toUpperCase()).split(CROSS).length - 1).toBe(1);
+  });
+
+  it('a Vietnamese name is shouted whole: every accented letter keeps its accent as one letter', () => {
+    expect(directedLine(film('Colorist', 'Hồ Mai Phương'))).toBe('DIRECTED BY HỒ MAI PHƯƠNG');
+    expect(directedLine(film('Colorist', 'Võ Thành Công'))).toBe('DIRECTED BY VÕ THÀNH CÔNG');
+    const shouted = directedLine(film('Colorist', 'Nguyễn Lion'));
+    expect(shouted).toBe('DIRECTED BY NGUYỄN LION');
+    expect(shouted).toBe(shouted.normalize('NFC'));
+  });
+
   it('nobody on record: no line, never a guess', () => {
     expect(directorOf(film('Colorist'))).toBe('');
     expect(directedLine(film('Colorist'))).toBe('');
@@ -86,13 +104,29 @@ describe('every place that shows a film goes through the rule', () => {
     expect(readers).toEqual(['src/lib/content.ts', 'src/lib/roles.ts']);
   });
 
-  it('the films as they stand today: eleven directed by REVACHOL, two by someone else, every role line A to Z', () => {
+  // (the names are the owner's own words, letter for letter: REMNANTS and TEMPTATION on 2026-11-24 and 25, the other
+  //  seven on 2026-11-25, answering "Who directed the seven films that show no DIRECTED BY line yet?". A credit is
+  //  never guessed: a new film without a name shows no line until the owner gives one.)
+  it('the films as they stand today: eleven directed by REVACHOL, nine by the names the owner gave, none without a name, every role line A to Z', () => {
     const films = JSON.parse(readFileSync('public/content/projects.json', 'utf8')) as { slug: string; role?: string; director?: string }[];
     const by = (name: (d: string) => boolean) => films.filter((f) => name(directorOf({ role: f.role ?? '', director: f.director ?? '' }))).map((f) => f.slug);
     expect(by((d) => d === 'Revachol')).toEqual([
       'katara', 'mistchild', 'an-hoi', 'jaecoo-j5', 'soda-coast', 'electric-fish', 'soft-hours-lonely-lands', 'halide', 'far-east', 'the-lovers', 'deathman',
     ]);
-    expect(by((d) => d !== '' && d !== 'Revachol')).toEqual(['remnants-of-a-dream', 'xieu-long']);
+    const named: Record<string, string> = {
+      'remnants-of-a-dream': 'BERRY',
+      'mien-vien': 'Hồ Mai Phương',
+      'the-father': 'Minh Quốc / Myke',
+      'forest-onsen': 'Tony Phạm',
+      'lien-quan': 'Nguyễn Lion',
+      'galaxy-z-fold-8-ultra': 'Võ Thành Công',
+      philia: 'Bá Hương',
+      'mission-impassible': 'Khang Nguyễn',
+      'xieu-long': 'Khadarec [XPOKIT]',
+    };
+    expect(Object.fromEntries(films.filter((f) => f.director).map((f) => [f.slug, f.director]))).toEqual(named);
+    for (const name of Object.values(named)) expect(name, name).toBe(name.normalize('NFC')); // (each accented letter one letter)
+    expect(by((d) => d === '')).toEqual([]);
     const order = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
     for (const f of films) {
       const shown = rolesShown({ role: f.role ?? '' }).split(' / ');
