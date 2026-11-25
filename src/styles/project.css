@@ -784,6 +784,22 @@
   .p-ring { width: 92vw; height: 92vw; right: -46vw; }
   .p-title-stack { left: 16px; bottom: 12px; }
   .p-up { left: 16px; top: 164px; } /* on the index's row, under the status line */
+  /* THE TOP WORDS OVER THE MOVING PICTURE (the review's walkthroughs, 2026-11-25: on a phone ALL FILMS, the PROCEDURE line
+     and the index stand straight on the hero's loop, and the halo alone lost them: EVER FARAWAY's film-strip band ran
+     through ALL FILMS, GALAXY's burned-in captions crossed the PROCEDURE line, KATARA's magenta swallowed the red). Each
+     carries a soft pool of the page's own black under its words, the grammar of the words over a moving picture
+     elsewhere (the chapter ident's pool, the header's veil): no plate, no edge, nothing moved or resized. */
+  .p-up::before, .p-status::before, .p-index::before {
+    content: ''; position: absolute; inset: -14px -26px; z-index: -1; pointer-events: none;
+    background: rgba(6, 6, 6, 0.74);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 26px, #000 calc(100% - 26px), transparent),
+      linear-gradient(180deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+    -webkit-mask-composite: source-in;
+    mask-image: linear-gradient(90deg, transparent, #000 26px, #000 calc(100% - 26px), transparent),
+      linear-gradient(180deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+    mask-composite: intersect;
+  }
+  .p-up::before { inset: -2px -26px; } /* (its box is a finger's 44 px: the words sit in its middle) */
 
   .p-sec {
     --p-pad-l: 18px; --p-pad-r: 18px; --p-rail: 0px; --p-gap: 0px;
