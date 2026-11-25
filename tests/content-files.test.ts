@@ -6,6 +6,7 @@ import { loopCandidates } from '../src/home/loops';
 import { pickLoopFiles } from '../src/lib/loop-files';
 import { layoutProjects } from '../src/works/layout';
 import { stripName } from '../src/works/legend';
+import { splitTitle } from '../src/lib/title';
 import { wallRows } from '../src/project/dossier';
 
 const root = fileURLToPath(new URL('../public/content/', import.meta.url));
@@ -200,8 +201,9 @@ describe('shipped content files', () => {
   // two letterbox sizes): its wall shows each once, 19 of the 24. (2026-11-08, the owner: "Switch the places between
   // PHILIA and REMMANTS OF A DREAM in the work section": REMNANTS now stands at json 0, PHILIA at 13.)
   const BATCH4 = [
+    // (2026-11-25, the owner: its Vietnamese name joins the title; see the test under this batch)
     { slug: 'remnants-of-a-dream', slot: 0, where: 'stands in PHILIA\'s old place, featured',
-      title: 'Remnants of a Dream', year: 2026, role: 'Colorist', runtime: '24:16',
+      title: 'Remnants of a Dream / Tàn Tích Của Một Giấc Mơ', year: 2026, role: 'Colorist', runtime: '24:16',
       tags: ['drama', 'indie short film'], synopsis: 'Avalon promises a bright future, but at what cost?',
       category: 'human', tileSize: 'large', aspect: '16:9', youtube: 'tKWevMRBOzY', stills: 40, accent: '#ED6B85' },
     { slug: 'mission-impassible', slot: 14, where: 'takes COPPER LULLABY\'s pane',
@@ -213,6 +215,21 @@ describe('shipped content files', () => {
   for (const f of BATCH4) it(`${f.title.toUpperCase()} ${f.where}, linked, with its media (owner 2026-09-27)`, () => {
     checkFilm(f);
     expect(parseProjects(rawProjects()).find((p) => p.slug === f.slug)!.accent).toBe(f.accent);
+  });
+
+  // 2026-11-25, the owner: "Remnants of a dream need to add: 1. Director: BERRY 2. Vietnamese name: Tàn Tích Của Một Giấc Mơ".
+  // The second name joins the title after the slash, as EVER FARAWAY's and TEMPTATION's do (lib/title.ts): the lockup,
+  // the ticker's dot and the tab title follow from it. The director stands in the intake sheet's DIRECTOR row. Its
+  // slug, its address and its pane's strip stay.
+  it('REMNANTS OF A DREAM carries its Vietnamese name and its director (owner 2026-11-25)', () => {
+    const p = parseProjects(rawProjects()).find((q) => q.slug === 'remnants-of-a-dream')!;
+    expect(p.title).toBe('Remnants of a Dream / Tàn Tích Của Một Giấc Mơ');
+    expect(p.title).toBe(p.title.normalize('NFC')); // (each marked letter as one letter, the way the display faces carry them)
+    expect(splitTitle(p.title)).toEqual({ main: 'Remnants of a Dream', alt: 'Tàn Tích Của Một Giấc Mơ' });
+    expect(p.director).toBe('BERRY');
+    expect([p.client, p.artist, p.productionHouse]).toEqual(['', '', '']);
+    expect(stripName(p)).toBe('2026 · REMNANTS OF A DREAM');
+    expect([p.role, p.year, p.slug]).toEqual(['Colorist', 2026, 'remnants-of-a-dream']);
   });
 
   // (owner 2026-09-27: "Change JAECOO J5 to JAECOO J5: Every Road Leads Home, and also change its embed code for

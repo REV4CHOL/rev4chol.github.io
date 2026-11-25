@@ -24,13 +24,13 @@ const sorted = (list: string[]) => [...list].sort(titleOrder);
 describe('THE LIST stands A to Z inside each chapter', () => {
   // the file's order is the order the films were added in: nothing like the alphabet
   const FILE = [
-    'Remnants of a Dream', 'Ever Faraway / Miên Viễn', 'MISTCHILD', 'The Betrothal', 'APL 2026 TEASER: Valor Rises, Battles Collide',
+    'Remnants of a Dream / Tàn Tích Của Một Giấc Mơ', 'Ever Faraway / Miên Viễn', 'MISTCHILD', 'The Betrothal', 'APL 2026 TEASER: Valor Rises, Battles Collide',
     'Soda Coast', 'mr_PURPLE_dreams_in_electric_fish', 'Soft Hours & Lonely Lands', 'PHILIA', 'Mission: Impassible', 'HALIDE',
     'FAR EAST', 'THE LOVERS', 'Temptation / Xiêu Lòng',
   ];
   const AZ = [
     'APL 2026 TEASER: Valor Rises, Battles Collide', 'Ever Faraway / Miên Viễn', 'FAR EAST', 'HALIDE', 'Mission: Impassible',
-    'MISTCHILD', 'mr_PURPLE_dreams_in_electric_fish', 'PHILIA', 'Remnants of a Dream', 'Soda Coast', 'Soft Hours & Lonely Lands',
+    'MISTCHILD', 'mr_PURPLE_dreams_in_electric_fish', 'PHILIA', 'Remnants of a Dream / Tàn Tích Của Một Giấc Mơ', 'Soda Coast', 'Soft Hours & Lonely Lands',
     'Temptation / Xiêu Lòng', 'The Betrothal', 'THE LOVERS',
   ];
 

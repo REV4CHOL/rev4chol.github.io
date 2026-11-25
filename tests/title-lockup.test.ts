@@ -17,7 +17,7 @@ describe('a two-language title is split at its " / " (and nothing else)', () => 
   });
 
   it('one part: the title whole, no second line', () => {
-    expect(splitTitle('Remnants of a Dream')).toEqual({ main: 'Remnants of a Dream', alt: null });
+    expect(splitTitle('Soda Coast')).toEqual({ main: 'Soda Coast', alt: null });
     expect(splitTitle('The Betrothal')).toEqual({ main: 'The Betrothal', alt: null });
   });
 
@@ -40,10 +40,11 @@ describe('a two-language title is split at its " / " (and nothing else)', () => 
     expect([...splitTitle(t).alt!].length).toBe(9);
   });
 
-  it('the two films that carry two languages today split; every other film stands as one name', () => {
+  // (2026-11-25: REMNANTS OF A DREAM is the third, by the owner's word; see content-files.test.ts)
+  it('the three films that carry two languages today split; every other film stands as one name', () => {
     const films = JSON.parse(src('public/content/projects.json')) as { slug: string; title: string }[];
     const two = films.filter((f) => splitTitle(f.title).alt !== null).map((f) => f.slug).sort();
-    expect(two).toEqual(['mien-vien', 'xieu-long']);
+    expect(two).toEqual(['mien-vien', 'remnants-of-a-dream', 'xieu-long']);
   });
 });
 
@@ -153,7 +154,8 @@ describe("the film page's ticker sets a dot between a two-language title's names
   it('a two-part title runs as English · Vietnamese; a one-part title as it is', () => {
     expect(runningTitle('Temptation / Xiêu Lòng')).toBe('Temptation · Xiêu Lòng');
     expect(runningTitle('Ever Faraway / Miên Viễn')).toBe('Ever Faraway · Miên Viễn');
-    expect(runningTitle('Remnants of a Dream')).toBe('Remnants of a Dream');
+    expect(runningTitle('Remnants of a Dream / Tàn Tích Của Một Giấc Mơ')).toBe('Remnants of a Dream · Tàn Tích Của Một Giấc Mơ');
+    expect(runningTitle('Soda Coast')).toBe('Soda Coast');
     expect(runningTitle('Galaxy Z Fold 8 Ultra | Digital Ad')).toBe('Galaxy Z Fold 8 Ultra | Digital Ad');
   });
   it('the ticker is built from it', () => {
