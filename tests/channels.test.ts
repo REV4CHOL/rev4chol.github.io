@@ -25,7 +25,7 @@ const proj = (slug: string, category: 'human' | 'machine'): Project => ({
   credits: [],
   film: null,
   films: [],
-  stills: [], bigStills: [],
+  stills: [], bigStills: [], phoneOrder: null,
   position: null,
   focus: '50% 50%',
 });

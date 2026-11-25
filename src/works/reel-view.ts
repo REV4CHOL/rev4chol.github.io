@@ -33,7 +33,7 @@ import { CHANNELS, type ChannelKey, channelProjects } from './channels';
 import {
   arrivalOffset, capKeyframes, coast, lanesToRetime, lapProgress, lapSeconds, lapUnits, loopKind, loopsAllowed, loopsPin, offsetForPane, offsetForPlace, offsetForRail, offsetFromLap,
   onePlays, oneLineSize, paneInView, paneKeyframes, panePlay, paneTop, paneUnits, places, railProgress, railTicks, REEL_WORDS, releaseSpeed,
-  roleLine, rollPace, screenUnits, shownSize, SIDE_QUERY, stripOrder, stripPlace, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
+  roleLine, rollPace, screenUnits, shownSize, SIDE_QUERY, stripFilms, stripOrder, stripPlace, TAP_SLOP, TITLE_MAX, TITLE_MIN, wrapStart,
   type LoopKind, type PanePlay,
 } from './reel';
 
@@ -121,9 +121,12 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
     return li;
   };
 
+  // a chapter's films as the strip shows them: the owner's own first films, then the rest (works/reel.ts stripFilms).
+  // The panes and the rail's ticks read this one list; the foot's count, the floor and THE LIST keep the file's order
+  const filmsOf = (key: ChannelKey) => stripFilms(channelProjects(projects, key));
   const strips = new Map<ChannelKey, Strip>();
   for (const ch of CHANNELS) {
-    const films = channelProjects(projects, ch.key);
+    const films = filmsOf(ch.key);
     const ol = el('ol', 'rl-strip');
     ol.dataset.ch = ch.key;
     ol.hidden = true;
@@ -637,7 +640,7 @@ export function mountReel(main: HTMLElement, projects: Project[], o: ReelOptions
   // (after measure: a film's tick stands at its middle along the lap, and a tall pane's stretch is twice as long)
   const paintRail = () => {
     rail.replaceChildren();
-    const films = channelProjects(projects, active), ticks = railTicks(strip.units.slice(0, strip.films));
+    const films = filmsOf(active), ticks = railTicks(strip.units.slice(0, strip.films));
     films.forEach((p, i) => {
       const t = el('i', 'rl-tick');
       t.style.top = `${ticks[i] * 100}%`;

@@ -153,6 +153,15 @@ export function arrivalOffset(units: readonly number[], unit: number, view: numb
   return units.length ? Math.min(0, units[0] * unit - view) : 0;
 }
 
+/** A chapter's films in the strip's own order (owner, 2026-11-25, on their phone: "When first open work section and
+ *  scroll down, I want the first films for the viewers that they will see are: 1. Temptation 2. Philia ... then the
+ *  rest"): the films with a `phoneOrder` first, lowest first, then the others as they stand in the list given
+ *  (projects.json's order). Only the strip reads it: the floor, THE LIST and the counts keep the file's order. */
+export function stripFilms<T extends { phoneOrder: number | null }>(films: readonly T[]): T[] {
+  const placed = films.filter((p) => p.phoneOrder !== null).sort((a, b) => a.phoneOrder! - b.phoneOrder!);
+  return [...placed, ...films.filter((p) => p.phoneOrder === null)];
+}
+
 /** The film behind each pane of the strip: the chapter in order, laid again while it is too short for an endless
  *  strip. A pane leaves the top whole before it comes in again below the screen, so a lap must hold the screen and the
  *  tallest pane; and a strip is never fewer than three panes. `units` are the chapter's films', in order; `screen` is

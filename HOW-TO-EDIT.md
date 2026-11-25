@@ -59,6 +59,7 @@ You never need to rebuild the site for content changes — edit, save, refresh.
 | stills | gallery file names, in order | `["01.jpg","02.jpg"]` |
 | bigStills | the stills that each take a full-width row on the film's wall, by their number in it (1 is `01.jpg`); the others pair up between them. Leave it out for the usual two, two, one rhythm | `[1, 6, 12]` |
 | position | leave out (auto layout) or pin a pane slot on the band: `{ "col": 4, "row": 0 }` = the 5th pane of the top row | |
+| phoneOrder | the film's place on a **phone's** rolling strip in WORK, counted from 1 inside its chapter: the films with a number come first, lowest first, and the films without one follow in this file's order. Use each number once per chapter. Leave it out for none. It changes nothing on a tablet or a computer, in THE LIST or in the next-film links | `1` |
 
 **film** is the player that stands under the film's synopsis, ready to play
 (the platform's own thumbnail and play button; a press on it, or on the
@@ -227,7 +228,8 @@ build step, no terminal.
   `"large"` films so both floors get a featured centre cluster. Deep links:
   `works.html?ch=machine`.
 - **On a phone, WORK is a rolling strip** instead of the floor: two films to a
-  screen, in `projects.json` order, rolling up on its own from the moment the
+  screen, the films with a `phoneOrder` first (1, then 2, then 3 …) and the rest
+  after them in `projects.json` order, rolling up on its own from the moment the
   page opens (one screen's height every 18 seconds, so a film passes in 9) and
   round again, endlessly. The page opens with the chapter's first film in the
   lower half of the screen and its last film above it. A finger drags it up

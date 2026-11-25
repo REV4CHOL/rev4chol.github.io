@@ -61,6 +61,11 @@ export interface Project {
   /** the stills that take a full row each on the film's wall, by their number in it, from 1 (owner, 2026-11-24, on
    *  DEATHMAN's main pictures: "they are meant to be place in big pictures"); none: the 2-2-1 rhythm */
   bigStills: number[];
+  /** the film's place on a phone's rolling strip, from 1, among its chapter's films; the films without one follow in
+   *  the file's order (owner, 2026-11-25, on their phone: "the first films for the viewers that they will see are:
+   *  1. Temptation 2. Philia ... then the rest"). Only the strip reads it (works/reel.ts: stripFilms): the floor,
+   *  THE LIST and the next-film chain keep the file's order. null: none */
+  phoneOrder: number | null;
   position: GridPos | null;
   /** where the picture's subject sits, "X% Y%" across then down (default "50% 50%", the middle): a phone's
    *  whole-screen pane crops the film around it (owner, 2026-10-20, on a focus point per film: "yes please") */
@@ -208,6 +213,10 @@ export function parseProject(raw: unknown, i: number): Project {
   if (!Array.isArray(bigStills) || bigStills.some((b) => typeof b !== 'number' || !Number.isInteger(b) || b < 1))
     fail(file, `${where} bigStills must be an array of still numbers (1 is the first still)`);
 
+  const phoneOrder = r.phoneOrder ?? null;
+  if (phoneOrder !== null && (typeof phoneOrder !== 'number' || !Number.isInteger(phoneOrder) || phoneOrder < 1))
+    fail(file, `${where} phoneOrder must be a whole number from 1: the film's place on a phone's strip (leave it out for none)`);
+
   const creditsRaw = r.credits ?? [];
   if (!Array.isArray(creditsRaw)) fail(file, `${where} credits must be an array`);
   const credits = creditsRaw.map((c, ci) => {
@@ -268,6 +277,7 @@ export function parseProject(raw: unknown, i: number): Project {
     filmPrivate,
     stills: stills as string[],
     bigStills: bigStills as number[],
+    phoneOrder: phoneOrder as number | null,
     position,
     focus,
   };
@@ -341,6 +351,15 @@ export function parseFloor(raw: unknown): FloorItem[] {
       fail(file, `slug "${it.slug}" is reserved for the floor's held places and gaps — pick another`);
     if (seen.has(it.slug)) fail(file, `duplicate slug "${it.slug}" — slugs must be unique`);
     seen.add(it.slug);
+  }
+  // a place on a phone's strip is one film's, chapter by chapter (each chapter has its own strip)
+  const placed = new Map<string, string>();
+  for (const it of out) {
+    if (isBlank(it) || it.phoneOrder === null) continue;
+    const key = `${it.category} ${it.phoneOrder}`, first = placed.get(key);
+    if (first !== undefined)
+      fail(file, `phoneOrder ${it.phoneOrder} is given to both "${first}" and "${it.slug}" — in one chapter each place on the phone's strip is one film's`);
+    placed.set(key, it.slug);
   }
   return out;
 }

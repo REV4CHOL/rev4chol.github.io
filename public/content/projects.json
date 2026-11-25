@@ -46,6 +46,7 @@
     ],
     "film": null,
     "filmPrivate": true,
+    "phoneOrder": 3,
     "category": "human"
   },
   {
@@ -170,6 +171,7 @@
       "type": "youtube",
       "src": "https://www.youtube.com/embed/XKkHkLVUC40"
     },
+    "phoneOrder": 6,
     "category": "human",
     "tileSize": "large"
   },
@@ -272,6 +274,7 @@
       "type": "youtube",
       "src": "https://www.youtube.com/embed/pkp3QJ6o95A"
     },
+    "phoneOrder": 4,
     "category": "human",
     "tileSize": "large"
   },
@@ -346,6 +349,7 @@
     "accent": "#8FCC6B",
     "focus": "45% 50%",
     "tileSize": "large",
+    "phoneOrder": 2,
     "category": "human",
     "synopsis": "A ghost of the past, the present and the future.",
     "credits": [
@@ -408,6 +412,7 @@
       "type": "youtube",
       "src": "https://www.youtube.com/embed/dMbsrk9Eeiw"
     },
+    "phoneOrder": 7,
     "category": "human",
     "tileSize": "normal"
   },
@@ -433,6 +438,7 @@
       "type": "youtube",
       "src": "https://www.youtube.com/embed/DrezQ5zlHqI"
     },
+    "phoneOrder": 8,
     "category": "human",
     "tileSize": "normal"
   },
@@ -459,6 +465,7 @@
       "type": "youtube",
       "src": "https://www.youtube.com/embed/4nkgqyVtfsg"
     },
+    "phoneOrder": 5,
     "category": "human",
     "tileSize": "normal"
   },
@@ -487,6 +494,7 @@
       "type": "youtube",
       "src": "https://www.youtube.com/embed/wZNPHtoPZzk"
     },
+    "phoneOrder": 1,
     "category": "human",
     "tileSize": "normal"
   },
