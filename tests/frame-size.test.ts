@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { bigFrame, bigFrameWanted, frameTarget, fullscreenApi, isAndroid, plainReason, TARGET_PX } from '../src/project/frame-size';
+import { ANDROID_PX, bigFrame, bigFrameWanted, frameTarget, fullscreenApi, isAndroid, plainReason, TARGET_PX, targetPx } from '../src/project/frame-size';
 
 // The owner, 2026-11-24: "force all video players on the website to start at 2160p when watch". No address parameter or
 // player command does it (measured headless: vq=, hd=1, setPlaybackQuality, setPlaybackQualityRange, loadVideoById's
@@ -139,6 +139,49 @@ describe("the frame's rows are even, its own and the screen's (the thin line at 
     expect(seen).toBeGreaterThan(3000);
   });
 
+  // ANDROID (owner, 2026-11-25: "also why can't our custom Player go to Phone? Like the other platforms?"): its frame is
+  // laid out by the same rule to a smaller target (ANDROID_PX on the picture's short side) and scaled down, so YouTube's
+  // own marks shrink as they do on a PC and an iPad
+  it("the same rule at Android's target: a 412 px phone's box at 2.625", () => {
+    expect(ANDROID_PX).toBe(1080);
+    const f = bigFrame({ width: 376, height: 211.5 }, 2.625, 1, 16 / 9, ANDROID_PX)!;
+    expect(f.rows % 2).toBe(0);
+    expect(f.shown % 2).toBe(0);
+    expect(f.rows).toBe(1080);
+    expect(Math.round(f.width)).toBe(731);
+    expect(Math.round(f.height)).toBe(411);
+    expect(f.shown).toBe(556); // (211.5 x 2.625 = 555.2 rows of the screen: the even count nearest)
+    expect(f.scale).toBe(556 / 1080);
+    expect((f.rows / 2) * f.scale % 1).toBeCloseTo(0, 9);
+    // (the default target is the PC's: the same call without it is the big frame)
+    expect(bigFrame({ width: 376, height: 211.5 }, 2.625, 1, 16 / 9)).toEqual(bigFrame({ width: 376, height: 211.5 }, 2.625, 1, 16 / 9, TARGET_PX));
+    expect(bigFrame({ width: 376, height: 211.5 }, 2.625, 1, 16 / 9)!.rows).toBeGreaterThanOrEqual(2160);
+  });
+
+  it("at Android's target too: even rows, the foot on a whole row, a quarter row under, across the whole box", () => {
+    let seen = 0;
+    for (const width of [136, 153, 179, 262, 324, 339, 354, 376, 447, 564, 884]) {
+      for (const shape of [16 / 9, 9 / 16]) {
+        for (const dpr of [1.5, 2, 2.625, 2.75, 3, 3.5]) {
+          for (const picture of [undefined, 16 / 9, 3 / 2, 9 / 16]) {
+            const height = Math.round((width / shape) * 4) / 4;
+            const f = bigFrame({ width, height }, dpr, 1, picture, ANDROID_PX);
+            if (!f) continue;
+            seen++;
+            expect(f.rows % 2).toBe(0);
+            expect(f.shown % 2).toBe(0);
+            const foot = (f.rows / 2) * f.scale;
+            expect(Math.abs(foot - Math.round(foot))).toBeLessThan(1e-9);
+            expect(Math.round(f.height * dpr)).toBe(f.rows);
+            expect(f.width * f.scale).toBeGreaterThanOrEqual(width - 1e-9);
+            expect(f.scale).toBeLessThanOrEqual(1);
+          }
+        }
+      }
+    }
+    expect(seen).toBeGreaterThan(200);
+  });
+
   it('the bar fits the frame with what the rule gives: its height and its scale, unrounded', () => {
     const src = readFileSync('src/project/player-bar.ts', 'utf8');
     expect(src).toMatch(/frame\.style\.height = `\$\{f \? f\.height : h\}px`/);
@@ -181,13 +224,14 @@ describe('when the big frame is used', () => {
     expect(plainReason({ ...ok, userAgent: ANDROID_PHONE, fullscreen: false })).toBe('NO ELEMENT FULLSCREEN HERE');
   });
 
-  // Android's player stayed at 480p whatever the big frame's size (measured on the tablet profile, 2160 laid out): a
-  // frame of 3840 px there costs a phone memory and data for nothing, so its frame stands at the box's own size
-  it("Android's frame stands at the box's own size; every other screen keeps the big frame", () => {
-    expect(frameTarget(ANDROID)).toBe('box');
-    expect(frameTarget(ANDROID_PHONE)).toBe('box');
+  // Android's frame is laid out to ANDROID_PX and scaled down (YouTube's own marks shrink as on a PC), not the PC's 2160
+  it("Android's frame is fitted to its own target; every other screen keeps the big frame", () => {
+    expect(frameTarget(ANDROID)).toBe('android');
+    expect(frameTarget(ANDROID_PHONE)).toBe('android');
     expect(frameTarget(PC)).toBe('big');
     expect(frameTarget(IPAD)).toBe('big');
+    expect(targetPx('big')).toBe(TARGET_PX);
+    expect(targetPx('android')).toBe(ANDROID_PX);
   });
 
   // (owner, 2026-11-24: "I saw the player on PC for a time, and now it dissapeared, and YouTube player is appearing

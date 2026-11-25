@@ -19,11 +19,11 @@
  *    every browser that could not be tested). That swap is the ONLY way a film that got this player loses it, and it
  *    writes its reason into the player's record (lib/player-record.ts: the readout's PLAYER line).
  *  - ANDROID (owner, 2026-11-25: "also why can't our custom Player go to Phone? Like the other platforms?"; told the
- *    reasons, they chose "Android only"): the same bar, over a frame at the box's own size (`controls=0`, scale 1: the
- *    big frame bought no higher level there; frame-size.ts, frameTarget), and no hold. */
+ *    reasons, they chose "Android only"): the same bar, over a frame laid out by the same rule to Android's smaller
+ *    target and scaled down (frame-size.ts, frameTarget, ANDROID_PX), and no hold. */
 
 import type { PartInfo, Programme } from './parts';
-import { bigFrame, FrameFit, FrameTarget, isAndroid } from './frame-size';
+import { bigFrame, FrameFit, FrameTarget, isAndroid, targetPx } from './frame-size';
 import { Hold, holdAsked, holdCommands, holdNext, holdSaid, holdSee, holdStart, holdWanted, silenceLeft, silenceNote } from './hold';
 import type { PlayerRecord } from '../lib/player-record';
 import { posterZoom } from '../lib/poster-lock';
@@ -303,7 +303,7 @@ export interface BigFilm {
   ratio: number;
   /** the player's record (lib/player-record.ts): its state and its frame, for the readout */
   record: PlayerRecord | null;
-  /** what the frame is fitted to: the big frame, or the box's own size (Android: frame-size.ts, frameTarget) */
+  /** the target the frame is fitted to: the big frame's, or Android's smaller one (frame-size.ts, frameTarget) */
   target: FrameTarget;
 }
 
@@ -321,18 +321,18 @@ function fitFrame(pic: HTMLElement, frame: HTMLIFrameElement, ratio: number, tar
   // plate px (clientWidth): under the poster lock a box's own px hold still while the window zooms the plate
   const w = pic.clientWidth, h = pic.clientHeight;
   if (!w || !h) return null;
-  // (Android: never the big frame; the frame stands at the box's own size, scale 1)
-  const f = target === 'box' ? null : bigFrame({ width: w, height: h }, window.devicePixelRatio || 1, posterZoom(), ratio);
+  // (Android: the same rule to its own, smaller target: frame-size.ts, ANDROID_PX)
+  const f = bigFrame({ width: w, height: h }, window.devicePixelRatio || 1, posterZoom(), ratio, targetPx(target));
   frame.style.width = `${f ? f.width : w}px`;
   frame.style.height = `${f ? f.height : h}px`;
   frame.style.transform = f ? `scale(${f.scale})` : '';
-  return fitSaid(f, w, h, target);
+  return fitSaid(f, w, h);
 }
-/** The frame's layout in the record's words: the big frame and its scale; its own size (a box grown past the big
- *  frame's rule); or, on Android, the box's own size. */
-export function fitSaid(f: FrameFit | null, w: number, h: number, target: FrameTarget): string {
+/** The frame's layout in the record's words, the same on every platform: the frame and its scale, or its own size (a
+ *  box grown past its target's rule). */
+export function fitSaid(f: FrameFit | null, w: number, h: number): string {
   if (f) return `FRAME ${Math.round(f.width)} × ${Math.round(f.height)} AT ${f.scale.toFixed(2)}`;
-  return target === 'box' ? `FRAME ${w} × ${h} AT THE BOX'S OWN SIZE (ANDROID: NO BIG FRAME)` : `FRAME ${w} × ${h} AT ITS OWN SIZE`;
+  return `FRAME ${w} × ${h} AT ITS OWN SIZE`;
 }
 const NO_SIZE = 'ITS BOX HAS NO SIZE YET';
 
@@ -344,8 +344,8 @@ export function mountBig(host: HTMLElement, frame: HTMLIFrameElement, opts: { pl
   const target = opts.target ?? 'big';
   const root = document.createElement('div');
   root.className = 'p-film';
-  // (Android: the frame at the box's own size, and the narrow bar's own rules in project.css)
-  if (target === 'box') root.classList.add('p-film--box');
+  // (Android: its frame's own target, and the narrow bar's own rules in project.css)
+  if (target === 'android') root.classList.add('p-film--android');
   root.dataset.phase = 'waiting';
   root.style.setProperty('--film-acc', opts.accent);
   const pic = document.createElement('div');

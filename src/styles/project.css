@@ -587,43 +587,43 @@
   .p-bar-seek { min-width: 64px; }
 }
 /* ANDROID (owner, 2026-11-25: "also why can't our custom Player go to Phone? Like the other platforms?"; told the
-   reasons, they chose "Android only"; project/player-bar.ts, frame-size.ts frameTarget): the same bar under a frame at
-   the box's own size, and its own rules, under .p-film--box alone, so a PC's and an iPad's bar are untouched. A phone's
-   box is narrow, so the time always shows (a PC's narrow bar drops it) and the rest gives way, by the box's width:
+   reasons, they chose "Android only"; project/player-bar.ts, frame-size.ts frameTarget): the same bar under a frame
+   fitted to Android's own target, and its own rules, under .p-film--android alone, so a PC's and an iPad's bar are
+   untouched. A phone's box is narrow, so the time always shows (a PC's narrow bar drops it) and the rest gives way, by the box's width:
    under 640 px the buttons' words go; under 520 the level gives way to CC where CC shows; under 420 the time is drawn
    closer; under 370 it says where the film stands without its length; under 300 (a part of a film in parts on a
    phone) the bar takes two rows: the time, the seek track and CC above, play, sound and fullscreen below, no level.
    Every control keeps at least 44 x 44 px. */
-.p-film--box { container: p-film / inline-size; }
-.p-film--box .p-bar-time:not([hidden]), .p-film--box .p-bar-level:not([hidden]) { display: block; }
+.p-film--android { container: p-film / inline-size; }
+.p-film--android .p-bar-time:not([hidden]), .p-film--android .p-bar-level:not([hidden]) { display: block; }
 @container p-film (max-width: 640px) {
-  .p-film--box .p-bar-word { display: none; }
+  .p-film--android .p-bar-word { display: none; }
 }
 @container p-film (max-width: 520px) {
-  .p-film--box .p-bar:has(.p-bar-cc:not([hidden])) .p-bar-level { display: none; }
+  .p-film--android .p-bar:has(.p-bar-cc:not([hidden])) .p-bar-level { display: none; }
 }
 @container p-film (max-width: 420px) {
-  .p-film--box .p-bar { padding: 0 2px; }
-  .p-film--box .p-bar-time:not([hidden]) { padding: 0 2px; letter-spacing: 0.04em; }
-  .p-film--box .p-bar-sep { letter-spacing: -0.1em; }
-  .p-film--box .p-bar-seek { padding: 0 8px; }
+  .p-film--android .p-bar { padding: 0 2px; }
+  .p-film--android .p-bar-time:not([hidden]) { padding: 0 2px; letter-spacing: 0.04em; }
+  .p-film--android .p-bar-sep { letter-spacing: -0.1em; }
+  .p-film--android .p-bar-seek { padding: 0 8px; }
 }
 @container p-film (max-width: 370px) {
-  .p-film--box .p-bar-sep, .p-film--box .p-bar-tot { display: none; }
+  .p-film--android .p-bar-sep, .p-film--android .p-bar-tot { display: none; }
 }
 @container p-film (max-width: 300px) {
-  .p-film--box .p-bar { display: grid; grid-template-columns: 44px 1fr 44px 44px; grid-template-rows: 44px 44px; height: auto; padding: 0; }
-  .p-film--box .p-bar-time:not([hidden]) { grid-area: 1 / 1; padding: 0; align-self: center; text-align: center; overflow: hidden; }
-  .p-film--box .p-bar-sep, .p-film--box .p-bar-tot { display: none; }
-  .p-film--box .p-bar-seek { grid-area: 1 / 2 / 2 / 4; min-width: 0; padding: 0 8px; }
-  .p-film--box .p-bar:has(.p-bar-cc[hidden]) .p-bar-seek { grid-column-end: 5; }
-  .p-film--box .p-bar:has(.p-bar-time[hidden]) .p-bar-seek { grid-column-start: 1; padding-left: 12px; }
-  .p-film--box .p-bar-cc { grid-area: 1 / 4; }
-  .p-film--box .p-bar-play { grid-area: 2 / 1; }
-  .p-film--box .p-bar-sound { grid-area: 2 / 3; }
-  .p-film--box .p-bar-full { grid-area: 2 / 4; }
-  .p-film--box .p-bar-btn { min-width: 0; padding: 0; }
-  .p-film--box .p-bar-level:not([hidden]) { display: none; }
+  .p-film--android .p-bar { display: grid; grid-template-columns: 44px 1fr 44px 44px; grid-template-rows: 44px 44px; height: auto; padding: 0; }
+  .p-film--android .p-bar-time:not([hidden]) { grid-area: 1 / 1; padding: 0; align-self: center; text-align: center; overflow: hidden; }
+  .p-film--android .p-bar-sep, .p-film--android .p-bar-tot { display: none; }
+  .p-film--android .p-bar-seek { grid-area: 1 / 2 / 2 / 4; min-width: 0; padding: 0 8px; }
+  .p-film--android .p-bar:has(.p-bar-cc[hidden]) .p-bar-seek { grid-column-end: 5; }
+  .p-film--android .p-bar:has(.p-bar-time[hidden]) .p-bar-seek { grid-column-start: 1; padding-left: 12px; }
+  .p-film--android .p-bar-cc { grid-area: 1 / 4; }
+  .p-film--android .p-bar-play { grid-area: 2 / 1; }
+  .p-film--android .p-bar-sound { grid-area: 2 / 3; }
+  .p-film--android .p-bar-full { grid-area: 2 / 4; }
+  .p-film--android .p-bar-btn { min-width: 0; padding: 0; }
+  .p-film--android .p-bar-level:not([hidden]) { display: none; }
 }
 /* FULLSCREEN: the box, the picture and the bar together. The bar lies over the picture's foot and goes after 2.5 s
    without movement while the film plays */

@@ -482,15 +482,15 @@ describe("the keyboard's way to PLAY", () => {
 // ANDROID (owner, 2026-11-25: "also why can't our custom Player go to Phone? Like the other platforms?"; told the reasons,
 // they chose "Android only"). The site's bar over a frame at the box's own size (frame-size.ts, frameTarget).
 describe("Android's player", () => {
-  it("the record says what frame stands: the big one, its own size, or the box's own size on Android", () => {
-    expect(fitSaid({ width: 3840, height: 2159.9, scale: 0.3, rows: 2160, shown: 648 }, 1184, 666, 'big')).toBe('FRAME 3840 × 2160 AT 0.30');
-    expect(fitSaid(null, 3840, 2160, 'big')).toBe('FRAME 3840 × 2160 AT ITS OWN SIZE');
-    expect(fitSaid(null, 380, 214, 'box')).toBe("FRAME 380 × 214 AT THE BOX'S OWN SIZE (ANDROID: NO BIG FRAME)");
+  it('the record says what frame stands, in the same words on every platform', () => {
+    expect(fitSaid({ width: 3840, height: 2159.9, scale: 0.3, rows: 2160, shown: 648 }, 1184, 666)).toBe('FRAME 3840 × 2160 AT 0.30');
+    expect(fitSaid({ width: 731.2, height: 411.33, scale: 0.514, rows: 1080, shown: 555 }, 376, 212)).toBe('FRAME 731 × 411 AT 0.51');
+    expect(fitSaid(null, 3840, 2160)).toBe('FRAME 3840 × 2160 AT ITS OWN SIZE');
   });
 
-  it('the frame is fitted by its target: on Android never the big frame', () => {
+  it("the frame is fitted by the big frame's one rule, to its target's short side", () => {
     const bar = readFileSync('src/project/player-bar.ts', 'utf8');
-    expect(bar).toMatch(/const f = target === 'box' \? null : bigFrame\(/);
+    expect(bar).toMatch(/const f = bigFrame\(\{ width: w, height: h \}, window\.devicePixelRatio \|\| 1, posterZoom\(\), ratio, targetPx\(target\)\);/);
   });
 
   it('the page gives each big film its target, decided once at mount from the browser', () => {
@@ -512,13 +512,13 @@ describe("Android's player", () => {
 
   it("the narrow bar's own rules stand only under the Android frame's class: a PC's and an iPad's bar are untouched", () => {
     const bar = readFileSync('src/project/player-bar.ts', 'utf8');
-    expect(bar).toContain("if (target === 'box') root.classList.add('p-film--box');");
+    expect(bar).toContain("if (target === 'android') root.classList.add('p-film--android');");
     const css = readFileSync('src/styles/project.css', 'utf8');
     const block = css.slice(css.indexOf('/* ANDROID'), css.indexOf('/* FULLSCREEN'));
     expect(block.length).toBeGreaterThan(0);
     const selectors = block.replace(/\/\*[\s\S]*?\*\//g, '').match(/[^{}]+(?=\{)/g) ?? [];
     for (const sel of selectors.map((x) => x.trim()).filter((x) => !x.startsWith('@'))) {
-      for (const one of sel.split(',')) expect(one.trim().startsWith('.p-film--box')).toBe(true);
+      for (const one of sel.split(',')) expect(one.trim().startsWith('.p-film--android')).toBe(true);
     }
   });
 });

@@ -9,6 +9,10 @@
 
 export const TARGET_PX = 2160;
 export const TARGET_LONG_PX = 3840;
+/** ANDROID's target on the picture's short side (owner, 2026-11-25: "also why can't our custom Player go to Phone? Like
+ *  the other platforms?"): its frame is laid out by the same rule, half the PC's size, and scaled down into the box, so
+ *  YouTube's own marks (its title, its glyphs, its logo) stand small there as they do on a PC and an iPad. */
+export const ANDROID_PX = 1080;
 
 export interface FrameFit {
   /** the frame's own layout, in the box's CSS px (the height a quarter row under `rows`: see THE THIN LINE) */
@@ -39,15 +43,16 @@ const evenUp = (x: number) => 2 * Math.ceil(x / 2 - 1e-9);
 /** The frame for a box (its CSS px: under the poster lock, plate px) showing a picture of ratio `picture` (width over
  *  height; the box's own when not given), or null when the box needs none: it has no size yet, or the picture already
  *  stands that large in it. `zoom` is the poster lock's: measured, a frame inside the locked body at zoom 0.75 reports
- *  devicePixelRatio 0.75 within, so it counts like the screen's own ratio. */
-export function bigFrame(box: { width: number; height: number }, dpr = 1, zoom = 1, picture?: number): FrameFit | null {
+ *  devicePixelRatio 0.75 within, so it counts like the screen's own ratio. `target` is the picture's short side in
+ *  device px (TARGET_PX, the PC's and the iPad's; ANDROID_PX on Android), its long side in the same proportion. */
+export function bigFrame(box: { width: number; height: number }, dpr = 1, zoom = 1, picture?: number, target = TARGET_PX): FrameFit | null {
   const { width, height } = box;
   if (!(width > 0 && height > 0)) return null;
   const r = picture && picture > 0 ? picture : width / height;
   // the picture as the player fits it in the box (letterboxed or pillarboxed)
   const pw = Math.min(width, height * r), ph = Math.min(height, width / r);
   const px = (dpr || 1) * (zoom || 1);
-  const k = Math.min(TARGET_PX / px / Math.min(pw, ph), TARGET_LONG_PX / px / Math.max(pw, ph));
+  const k = Math.min(target / px / Math.min(pw, ph), (target * TARGET_LONG_PX) / TARGET_PX / px / Math.max(pw, ph));
   if (!(k > 1)) return null;
   // the frame's own rows: even, and never fewer than the picture's rule gives
   const rows = evenUp(Math.round(height * k) * px);
@@ -85,15 +90,18 @@ export function bigFrameWanted(g: BigGates): boolean {
   return plainReason(g) === null;
 }
 
-/** What the site's player's frame is fitted to: `big`, the big frame above (laid out 2160 device px on its short side
- *  and scaled down into the box), or `box`, the box's own size at scale 1. ANDROID gets the site's player at the box's
- *  own size (owner, 2026-11-25: "also why can't our custom Player go to Phone? Like the other platforms?"; told the
- *  reasons, they chose "Android only"): its YouTube player stayed at 480p whatever the big frame's size (measured on the
- *  tablet profile, 2160 laid out), so a frame of 3840 px would cost a phone memory and data for nothing. Decided once
- *  as the player mounts, from the browser alone. Every other screen keeps the big frame exactly as it was. */
-export type FrameTarget = 'big' | 'box';
+/** Which target the site's player's frame is fitted to, by the one rule above: `big`, TARGET_PX (every screen but
+ *  Android, exactly as it was), or `android`, ANDROID_PX (owner, 2026-11-25: "also why can't our custom Player go to
+ *  Phone? Like the other platforms?"; told the reasons, they chose "Android only"). Android's player stayed at 480p
+ *  whatever the big frame's size (measured on the tablet profile, 2160 laid out), so it is not given the PC's 3840 px
+ *  frame; its frame is still laid out large and scaled down, so YouTube's own marks stand small as on a PC.
+ *  Decided once as the player mounts, from the browser alone. */
+export type FrameTarget = 'big' | 'android';
 export function frameTarget(ua: string): FrameTarget {
-  return isAndroid(ua) ? 'box' : 'big';
+  return isAndroid(ua) ? 'android' : 'big';
+}
+export function targetPx(t: FrameTarget): number {
+  return t === 'android' ? ANDROID_PX : TARGET_PX;
 }
 
 /** Android, a phone or a tablet, in any of its browsers. */

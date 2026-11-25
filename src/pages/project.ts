@@ -519,9 +519,9 @@ interface Mounted {
 /** THE BIG FRAME (owner, 2026-11-24: "force all video players on the website to start at 2160p when watch"; of the
  *  ways shown, "2160p + site's own controls"): a YouTube film, on a screen that can take an element fullscreen (an
  *  iPhone keeps YouTube's own player and its own fullscreen). Android has the site's player too since 2026-11-25
- *  (owner: "Android only"), its frame at the box's own size (frame-size.ts, frameTarget). Nothing else decides it: not
- *  the site's quality tier, not the box's size (frame-size.ts, plainReason). Returns why a film keeps its platform's
- *  own player, with what the browser said of fullscreen; null when it gets the site's. */
+ *  (owner: "Android only"), its frame fitted by the same rule to a smaller target (frame-size.ts, frameTarget).
+ *  Nothing else decides it: not the site's quality tier, not the box's size (frame-size.ts, plainReason). Returns why
+ *  a film keeps its platform's own player, with what the browser said of fullscreen; null when it gets the site's. */
 function plainWhy(film: FilmRef): string | null {
   const d = document as Document & { webkitFullscreenEnabled?: boolean };
   const why = plainReason({
@@ -543,7 +543,7 @@ function youTubeIn(host: HTMLElement, film: FilmRef, title: string, p: Project, 
     const record = recordPlayer(name, 'site', 'WAITING FOR ITS FRAME');
     const big = mountBig(host, frameFor(embedSrc(film, { autoplay: false, origin: location.origin, controls: false })!, title), {
       plainSrc, accent: p.accent, ratio: aspectRatio(p.aspect), record,
-      // the big frame, or on Android the box's own size (frame-size.ts, frameTarget)
+      // the big frame's target, or Android's smaller one (frame-size.ts, frameTarget)
       target: frameTarget(navigator.userAgent),
       // the hold's cover (project/hold.ts): the film's own poster; a film in parts has one poster for all, so none
       poster: name === 'FILM' ? projectAssetUrl(p.slug, 'poster.jpg') : undefined,
