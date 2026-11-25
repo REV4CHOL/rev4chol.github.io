@@ -204,6 +204,9 @@ build step, no terminal.
   others keep their place in the combined video, and `npm test` names the
   film that is waiting for a rebuild.
 - **Reorder the floor:** reorder the entries in `projects.json`.
+- **THE LIST orders itself, A to Z:** WORK's plain list of every film (LIST ALL FILMS) stands in alphabetical order
+  of the titles inside each chapter, on a phone, a tablet and a computer alike, whatever order `projects.json` has
+  them in. A new film takes its place by its name. Capitals do not matter, and "The …" stands under T.
 - **Feature a film:** set its `tileSize` to `"large"`. Featured films gather
   as one cluster at the centre of the floor (where the page opens) and wear
   the featured dress (double frame, FEATURED tag, resting glow, photographic

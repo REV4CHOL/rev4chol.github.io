@@ -63,8 +63,8 @@ export interface Project {
   bigStills: number[];
   /** the film's place on a phone's rolling strip, from 1, among its chapter's films; the films without one follow in
    *  the file's order (owner, 2026-11-25, on their phone: "the first films for the viewers that they will see are:
-   *  1. Temptation 2. Philia ... then the rest"). Only the strip reads it (works/reel.ts: stripFilms): the floor,
-   *  THE LIST and the next-film chain keep the file's order. null: none */
+   *  1. Temptation 2. Philia ... then the rest"). Only the strip reads it (works/reel.ts: stripFilms): the floor
+   *  and the next-film chain keep the file's order, and THE LIST stands A to Z (works/index-list.ts). null: none */
   phoneOrder: number | null;
   position: GridPos | null;
   /** where the picture's subject sits, "X% Y%" across then down (default "50% 50%", the middle): a phone's

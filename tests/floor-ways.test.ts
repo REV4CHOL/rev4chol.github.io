@@ -34,16 +34,17 @@ describe('a plain list of every film', () => {
     project({ slug: 'galaxy', title: 'GALAXY', category: 'machine', aspect: '9:16' }),
   ];
 
-  it('both chapters, in the chapters\' order, each under its name and its count', () => {
+  it('both chapters, in the chapters\' order, each under its name and its count, its films A to Z', () => {
     const groups = listGroups(all);
     expect(groups.map((g) => g.heading)).toEqual(['CH·01 ▪ COLORIST ▪ 2 FILMS', 'CH·02 ▪ AI ▪ 2 FILMS']);
-    expect(groups[0].rows.map((r) => r.slug)).toEqual(['philia', 'mien-vien']);
-    expect(groups[1].rows.map((r) => r.slug)).toEqual(['katara', 'galaxy']);
+    // (owner, 2026-11-25: "The film list must follow the alphabetic order"; tests/list-order.test.ts has the rule)
+    expect(groups[0].rows.map((r) => r.slug)).toEqual(['mien-vien', 'philia']);
+    expect(groups[1].rows.map((r) => r.slug)).toEqual(['galaxy', 'katara']);
   });
 
   it('a row carries its title, its facts and its link; no number (the films\' own numbers skip inside a chapter)', () => {
     const [human] = listGroups(all);
-    expect(human.rows[0]).toEqual({
+    expect(human.rows.find((r) => r.slug === 'philia')).toEqual({
       slug: 'philia', title: 'PHILIA', href: '/project.html?p=philia', meta: '2026 · COLORIST', accent: '#c8ff00', thumb: { w: 128, h: 72 },
     });
   });

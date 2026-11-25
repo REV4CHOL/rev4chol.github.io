@@ -1,5 +1,6 @@
 import type { Project } from '../lib/content';
 import { aspectRatio } from '../lib/content';
+import { splitTitle } from '../lib/title';
 import { CHANNELS, channelProjects, type ChannelKey } from './channels';
 import { REEL_WORDS } from './reel';
 
@@ -68,10 +69,24 @@ export interface ListRow {
 
 export interface ListGroup { key: ChannelKey; heading: string; rows: ListRow[] }
 
-/** Every film, chapter by chapter in the chapters' order, each chapter in json order. */
+/** THE LIST'S ORDER (owner, 2026-11-25, from a phone, of THE LIST standing in the file's order: "all platform: The film
+ *  list must follow the alphabetic order"). Inside each chapter the rows stand A to Z by the name the row shows large:
+ *  capitals and small letters are one alphabet (the rows are drawn in capitals), an accent does not move a letter, a
+ *  number inside a name counts as a number, and THE is a word like any other ("The Betrothal" stands under T, where
+ *  a reader of the row looks for it). A two-language name stands by its first line; its second only breaks a tie. */
+const AZ = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
+
+export function titleOrder(a: string, b: string): number {
+  const x = splitTitle(a), y = splitTitle(b);
+  return AZ.compare(x.main, y.main) || AZ.compare(x.alt ?? '', y.alt ?? '');
+}
+
+/** Every film, chapter by chapter in the chapters' order, each chapter A to Z by name (titleOrder), on every screen.
+ *  The list handed in is left as it was: the floor places its panes by the file's order, and the phone's strip reads
+ *  the same list. */
 export function listGroups(projects: Project[]): ListGroup[] {
   return CHANNELS.map((ch) => {
-    const list = channelProjects(projects, ch.key);
+    const list = [...channelProjects(projects, ch.key)].sort((a, b) => titleOrder(a.title, b.title));
     return {
       key: ch.key,
       heading: `${ch.index} ▪ ${ch.name} ▪ ${films(list.length)}`,

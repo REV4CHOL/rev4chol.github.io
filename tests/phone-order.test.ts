@@ -8,8 +8,8 @@ import { stripFilms } from '../src/works/reel';
 // THE PHONE STRIP'S OWN ORDER (owner, 2026-11-25, on their phone: "When first open work section and scroll down, I want
 // the first films for the viewers that they will see are: 1. Temptation 2. Philia 3. Mien Vien 4. Mr. Purple 5. The
 // Lovers 6. The Betrothal 7. HALIDE 8. Far East then the rest"). A film's `phoneOrder` in projects.json is its place on
-// the phone's strip; the films without one follow in the file's order. The floor, THE LIST, the counts and the film
-// pages' next-film chain keep the file's order.
+// the phone's strip; the films without one follow in the file's order. The floor, the counts and the film pages'
+// next-film chain keep the file's order. (THE LIST has its own since the same day: A to Z, tests/list-order.test.ts.)
 
 const file = (f: string) => readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), 'utf8');
 const real = () => parseProjects(parseJson(file('public/content/projects.json'), 'projects.json'));
@@ -80,7 +80,7 @@ describe('the site\'s own films', () => {
     const named = [/temptation/i, /philia/i, /miên viễn/i, /mr_purple/i, /the lovers/i, /the betrothal/i, /halide/i, /far east/i];
     FIRST.forEach((slug, i) => expect(title(slug), slug).toMatch(named[i]));
   });
-  it('the floor, THE LIST and the counts keep the file\'s order: the chapter\'s own list is untouched', () => {
+  it('the floor and the counts keep the file\'s order: the chapter\'s own list is untouched', () => {
     expect(slugs(channelProjects(real(), 'human'))).toEqual(FLOOR);
   });
   it('chapter two has no order of its own: its strip is the file\'s order', () => {
