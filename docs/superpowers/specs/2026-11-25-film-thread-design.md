@@ -39,6 +39,10 @@ tall on every screen, reserved in CSS so the player never moves when the script 
 | No room beside the player, a band 520 px wide or more: tablets, a narrow PC window, the 2.39:1 films, the private film (no player at all). | Five frames (four under 1000 px), the gate, then onto a small reel inside the band's right end. |
 | A band under 520 px (a phone; the rail is 0 px wide there). | No spool: the film enters at the band's left edge, dips under a roller, carries three frames, passes the gate and leaves at the right edge. The name stands at the band's top left, the place at its top right. |
 
+The feed spool needs the rail: where the rail is narrower than 150 px (a touch screen up to 760 px wide has none) the
+film enters at the band's left edge, as on a phone, and the name stands at the band's top left; the ending still
+follows the table.
+
 Which ending is drawn is decided from the measured boxes (the band, the player or a film in parts' stage), never from
 the film's data or the device, and decided again whenever those boxes change (the player's width follows the
 window's height).
